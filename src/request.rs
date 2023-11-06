@@ -68,6 +68,8 @@ pub struct ChatRequest {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub chat_id: String,
+    #[serde(default)]
+    pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<Content>,
     #[serde(skip_serializing_if = "Option::is_none")]

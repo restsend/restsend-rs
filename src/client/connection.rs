@@ -741,12 +741,6 @@ impl Client {
         }
     }
 
-    fn on_topic_message(&self, topic_id: &String, chat_log: ChatLog) {
-        if let Some(cb) = self.callback.read().unwrap().as_ref() {
-            cb.on_topic_message(topic_id.clone(), chat_log);
-        }
-    }
-
     // 通知 Topic 收到消息，并且更新本地的会话状态
     fn on_topic_updated_with_request(&self, topic: &Topic, req: &ChatRequest) -> Result<()> {
         let mut conversation = self

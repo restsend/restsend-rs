@@ -14,7 +14,7 @@ class Config:
     log_level = 'DEBUG'
     endpoint = 'http://chat.rddoc.cn'
     user = 'guido'
-    attendee = 'vitalk'
+    attendee = 'vitalik'
 
     @property
     def dbname(self):
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     FORMAT = '\033[1;32m%(asctime)s\033[1;0m %(filename)s:%(lineno)d %(message)s'
     logging.basicConfig(format=FORMAT, level=logging.DEBUG)
 
-    for u in ['guido', 'vitalik']:
+    for u in [config.user, config.attendee]:
         info = client.login(config.endpoint, u, f'{u}:demo')
         c = client.Client(f'u{u}.db', config.endpoint)
         c.prepare()

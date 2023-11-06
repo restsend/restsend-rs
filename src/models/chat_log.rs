@@ -133,8 +133,7 @@ pub struct Content {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub reply: String,         // 回复的chat_log
-    #[serde(skip_serializing_if = "String::is_empty")]
-    #[serde(default)]
+    #[serde(skip)]
     pub created_at: String,    // 消息的创建时间
 }
 
@@ -216,7 +215,7 @@ impl From<&ChatRequest> for ChatLog {
             topic_id: req.topic_id.clone(),
             id: req.chat_id.clone(),
             seq: req.seq,
-            created_at: content.created_at.clone(),
+            created_at: req.created_at.clone(),
             sender_id: req.attendee.clone(),
             content,
             read: false,
