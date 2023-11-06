@@ -452,6 +452,7 @@ public protocol ClientProtocol {
     func `doSendFile`(`topicId`: String, `urlOrData`: String, `filename`: String, `size`: UInt64, `mentions`: [String]?, `replyId`: String?)  throws -> String
     func `doSendLocation`(`topicId`: String, `latitude`: String, `longitude`: String, `address`: String, `mentions`: [String]?, `replyId`: String?)  throws -> String
     func `doSendLink`(`topicId`: String, `url`: String, `mentions`: [String]?, `replyId`: String?)  throws -> String
+    func `doSendInvite`(`topicId`: String, `mentions`: [String], `message`: String?)  throws -> String
     func `doSend`(`topicId`: String, `content`: Content)  throws -> String
     func `upload`(`uploaderUrl`: String?, `localFilePath`: String, `key`: String, `isPrivate`: Bool)  throws
     func `download`(`fileUrl`: String, `saveTo`: String, `key`: String)  throws
@@ -1122,6 +1123,19 @@ public class Client: ClientProtocol {
         FfiConverterString.lower(`url`),
         FfiConverterOptionSequenceString.lower(`mentions`),
         FfiConverterOptionString.lower(`replyId`),$0
+    )
+}
+        )
+    }
+
+    public func `doSendInvite`(`topicId`: String, `mentions`: [String], `message`: String?) throws -> String {
+        return try  FfiConverterString.lift(
+            try 
+    rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_client_fn_method_client_do_send_invite(self.pointer, 
+        FfiConverterString.lower(`topicId`),
+        FfiConverterSequenceString.lower(`mentions`),
+        FfiConverterOptionString.lower(`message`),$0
     )
 }
         )
@@ -4335,6 +4349,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_client_checksum_method_client_do_send_link() != 4676) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_client_checksum_method_client_do_send_invite() != 1178) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_client_checksum_method_client_do_send() != 12153) {

@@ -359,6 +359,8 @@ interface Client {
   string do_send_location(string topic_id, string latitude, string longitude, string address, sequence<string>? mentions, string? reply_id);
   [Throws=ClientError] 
   string do_send_link(string topic_id,  string url, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_invite(string topic_id, sequence<string> mentions, string? message);
   // 高级接口, 可以发送任意的Content
   [Throws=ClientError] 
   string do_send(string topic_id, Content content);

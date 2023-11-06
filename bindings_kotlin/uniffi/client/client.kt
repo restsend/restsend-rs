@@ -492,6 +492,8 @@ internal interface _UniFFILib : Library {
     ): RustBuffer.ByValue
     fun uniffi_client_fn_method_client_do_send_link(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`mentions`: RustBuffer.ByValue,`replyId`: RustBuffer.ByValue,_uniffi_out_err: RustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_client_fn_method_client_do_send_invite(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`mentions`: RustBuffer.ByValue,`message`: RustBuffer.ByValue,_uniffi_out_err: RustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_client_fn_method_client_do_send(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`content`: RustBuffer.ByValue,_uniffi_out_err: RustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_client_fn_method_client_upload(`ptr`: Pointer,`uploaderUrl`: RustBuffer.ByValue,`localFilePath`: RustBuffer.ByValue,`key`: RustBuffer.ByValue,`isPrivate`: Byte,_uniffi_out_err: RustCallStatus, 
@@ -647,6 +649,8 @@ internal interface _UniFFILib : Library {
     fun uniffi_client_checksum_method_client_do_send_location(
     ): Short
     fun uniffi_client_checksum_method_client_do_send_link(
+    ): Short
+    fun uniffi_client_checksum_method_client_do_send_invite(
     ): Short
     fun uniffi_client_checksum_method_client_do_send(
     ): Short
@@ -864,6 +868,9 @@ private fun uniffiCheckApiChecksums(lib: _UniFFILib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_client_checksum_method_client_do_send_link() != 4676.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_client_checksum_method_client_do_send_invite() != 1178.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_client_checksum_method_client_do_send() != 12153.toShort()) {
@@ -1239,6 +1246,7 @@ public interface ClientInterface {
     fun `doSendFile`(`topicId`: String, `urlOrData`: String, `filename`: String, `size`: ULong, `mentions`: List<String>?, `replyId`: String?): String@Throws(ClientException::class)
     fun `doSendLocation`(`topicId`: String, `latitude`: String, `longitude`: String, `address`: String, `mentions`: List<String>?, `replyId`: String?): String@Throws(ClientException::class)
     fun `doSendLink`(`topicId`: String, `url`: String, `mentions`: List<String>?, `replyId`: String?): String@Throws(ClientException::class)
+    fun `doSendInvite`(`topicId`: String, `mentions`: List<String>, `message`: String?): String@Throws(ClientException::class)
     fun `doSend`(`topicId`: String, `content`: Content): String@Throws(ClientException::class)
     fun `upload`(`uploaderUrl`: String?, `localFilePath`: String, `key`: String, `isPrivate`: Boolean)@Throws(ClientException::class)
     fun `download`(`fileUrl`: String, `saveTo`: String, `key`: String)@Throws(ClientException::class)
@@ -1932,6 +1940,18 @@ class Client(
     rustCallWithError(ClientException) { _status ->
     _UniFFILib.INSTANCE.uniffi_client_fn_method_client_do_send_link(it,
         FfiConverterString.lower(`topicId`),FfiConverterString.lower(`url`),FfiConverterOptionalSequenceString.lower(`mentions`),FfiConverterOptionalString.lower(`replyId`),
+        _status)
+}
+        }.let {
+            FfiConverterString.lift(it)
+        }
+    
+    
+    @Throws(ClientException::class)override fun `doSendInvite`(`topicId`: String, `mentions`: List<String>, `message`: String?): String =
+        callWithPointer {
+    rustCallWithError(ClientException) { _status ->
+    _UniFFILib.INSTANCE.uniffi_client_fn_method_client_do_send_invite(it,
+        FfiConverterString.lower(`topicId`),FfiConverterSequenceString.lower(`mentions`),FfiConverterOptionalString.lower(`message`),
         _status)
 }
         }.let {

@@ -648,6 +648,8 @@ def uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_do_send_link() != 4676:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_client_checksum_method_client_do_send_invite() != 1178:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_do_send() != 12153:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_upload() != 19554:
@@ -1085,6 +1087,14 @@ _UniFFILib.uniffi_client_fn_method_client_do_send_link.argtypes = (
     ctypes.POINTER(RustCallStatus),
 )
 _UniFFILib.uniffi_client_fn_method_client_do_send_link.restype = RustBuffer
+_UniFFILib.uniffi_client_fn_method_client_do_send_invite.argtypes = (
+    ctypes.c_void_p,
+    RustBuffer,
+    RustBuffer,
+    RustBuffer,
+    ctypes.POINTER(RustCallStatus),
+)
+_UniFFILib.uniffi_client_fn_method_client_do_send_invite.restype = RustBuffer
 _UniFFILib.uniffi_client_fn_method_client_do_send.argtypes = (
     ctypes.c_void_p,
     RustBuffer,
@@ -1367,6 +1377,9 @@ _UniFFILib.uniffi_client_checksum_method_client_do_send_location.restype = ctype
 _UniFFILib.uniffi_client_checksum_method_client_do_send_link.argtypes = (
 )
 _UniFFILib.uniffi_client_checksum_method_client_do_send_link.restype = ctypes.c_uint16
+_UniFFILib.uniffi_client_checksum_method_client_do_send_invite.argtypes = (
+)
+_UniFFILib.uniffi_client_checksum_method_client_do_send_invite.restype = ctypes.c_uint16
 _UniFFILib.uniffi_client_checksum_method_client_do_send.argtypes = (
 )
 _UniFFILib.uniffi_client_checksum_method_client_do_send.restype = ctypes.c_uint16
@@ -2338,6 +2351,23 @@ class Client:
         FfiConverterString.lower(url),
         FfiConverterOptionalSequenceString.lower(mentions),
         FfiConverterOptionalString.lower(reply_id))
+        )
+
+
+
+
+
+
+    def do_send_invite(self, topic_id: "str",mentions: "typing.List[str]",message: "typing.Optional[str]") -> "str":
+        
+        
+        
+        return FfiConverterString.lift(
+            rust_call_with_error(
+    FfiConverterTypeClientError,_UniFFILib.uniffi_client_fn_method_client_do_send_invite,self._pointer,
+        FfiConverterString.lower(topic_id),
+        FfiConverterSequenceString.lower(mentions),
+        FfiConverterOptionalString.lower(message))
         )
 
 

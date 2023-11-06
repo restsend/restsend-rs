@@ -101,6 +101,17 @@ impl super::Client {
         self.send_chat_request(&topic_id, &req).map(|_| req.chat_id)
     }
 
+    pub fn do_send_invite(
+        &self,
+        topic_id: String,
+        mentions: Vec<String>,
+        message: Option<String>,
+    ) -> Result<String> {
+        let req = ChatRequest::new_invite(&topic_id, &message.unwrap_or_default())
+            .mentions(Some(mentions));
+        self.send_chat_request(&topic_id, &req).map(|_| req.chat_id)
+    }
+
     pub fn do_typing(&self, topic_id: String) -> Result<String> {
         let req = ChatRequest::new_typing(&topic_id);
         //TODO: 控制频率

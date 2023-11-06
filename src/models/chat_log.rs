@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 // define content type enum for content
 #[derive(Deserialize, Debug)]
 pub enum ContentType {
+    None,
     Recall,
     Text,
     Image,
@@ -17,6 +18,7 @@ pub enum ContentType {
     Location,
     Sticker,
     Contact,
+    Invite,
     Link,
     TopicCreate,
     TopicDismiss,
@@ -29,6 +31,7 @@ pub enum ContentType {
     TopicKnockReject,
     TopicSilent,
     TopicSilentMember,
+    TopicChangeOwner,
     Unknown(String),
 }
 
@@ -36,6 +39,7 @@ pub enum ContentType {
 impl From<ContentType> for String {
     fn from(value: ContentType) -> Self {
         match value {
+            ContentType::None => "",
             ContentType::Recall => "recall",
             ContentType::Text => "text",
             ContentType::Image => "image",
@@ -46,6 +50,7 @@ impl From<ContentType> for String {
             ContentType::Sticker => "sticker",
             ContentType::Contact => "contact",
             ContentType::Link => "link",
+            ContentType::Invite => "invite",
             ContentType::TopicCreate => "topic.create",
             ContentType::TopicDismiss => "topic.dismiss",
             ContentType::TopicQuit => "topic.quit",
@@ -57,6 +62,7 @@ impl From<ContentType> for String {
             ContentType::TopicKnockReject => "topic.knock.reject",
             ContentType::TopicSilent => "topic.silent",
             ContentType::TopicSilentMember => "topic.silent.member",
+            ContentType::TopicChangeOwner => "topic.changeowner",
             ContentType::Unknown(v) => return v.clone(),
         }
         .to_string()
@@ -66,6 +72,7 @@ impl From<ContentType> for String {
 impl From<String> for ContentType {
     fn from(value: String) -> Self {
         match value.as_str() {
+            "" => ContentType::None,
             "recall" => ContentType::Recall,
             "text" => ContentType::Text,
             "image" => ContentType::Image,
@@ -76,6 +83,7 @@ impl From<String> for ContentType {
             "sticker" => ContentType::Sticker,
             "contact" => ContentType::Contact,
             "link" => ContentType::Link,
+            "invite" => ContentType::Invite,
             "topic.create" => ContentType::TopicCreate,
             "topic.dismiss" => ContentType::TopicDismiss,
             "topic.quit" => ContentType::TopicQuit,
@@ -87,6 +95,7 @@ impl From<String> for ContentType {
             "topic.knock.reject" => ContentType::TopicKnockReject,
             "topic.silent" => ContentType::TopicSilent,
             "topic.silent.member" => ContentType::TopicSilentMember,
+            "topic.changeowner" => ContentType::TopicChangeOwner,
             _ => ContentType::Unknown(value),
         }
     }

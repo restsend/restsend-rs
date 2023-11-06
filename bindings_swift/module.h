@@ -188,6 +188,8 @@ RustBuffer uniffi_client_fn_method_client_do_send_location(void*_Nonnull ptr, Ru
 );
 RustBuffer uniffi_client_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer mentions, RustBuffer reply_id, RustCallStatus *_Nonnull out_status
 );
+RustBuffer uniffi_client_fn_method_client_do_send_invite(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer mentions, RustBuffer message, RustCallStatus *_Nonnull out_status
+);
 RustBuffer uniffi_client_fn_method_client_do_send(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer content, RustCallStatus *_Nonnull out_status
 );
 void uniffi_client_fn_method_client_upload(void*_Nonnull ptr, RustBuffer uploader_url, RustBuffer local_file_path, RustBuffer key, int8_t is_private, RustCallStatus *_Nonnull out_status
@@ -405,6 +407,9 @@ uint16_t uniffi_client_checksum_method_client_do_send_location(void
     
 );
 uint16_t uniffi_client_checksum_method_client_do_send_link(void
+    
+);
+uint16_t uniffi_client_checksum_method_client_do_send_invite(void
     
 );
 uint16_t uniffi_client_checksum_method_client_do_send(void

@@ -10,6 +10,7 @@ pub enum ChatRequestType {
     Read,
     Response,
     Kickout,
+    System,
     Nop, // KeepAlive
     Unknown(String),
 }
@@ -22,6 +23,7 @@ impl From<String> for ChatRequestType {
             "read" => ChatRequestType::Read,
             "resp" => ChatRequestType::Response,
             "kickout" => ChatRequestType::Kickout,
+            "system" => ChatRequestType::System,
             "nop" => ChatRequestType::Nop,
             _ => ChatRequestType::Unknown(value),
         }
@@ -36,6 +38,7 @@ impl From<ChatRequestType> for String {
             ChatRequestType::Read => "read",
             ChatRequestType::Response => "resp",
             ChatRequestType::Kickout => "kickout",
+            ChatRequestType::System => "system",
             ChatRequestType::Nop => "nop",
             ChatRequestType::Unknown(v) => return v.clone(),
         }
@@ -145,6 +148,10 @@ impl ChatRequest {
 
     pub fn new_link(topic_id: &str, url: &str) -> Self {
         Self::new_chat(topic_id, ContentType::Link).text(url)
+    }
+
+    pub fn new_invite(topic_id: &str, message: &str) -> Self {
+        Self::new_chat(topic_id, ContentType::Invite).text(&message)
     }
 
     pub fn new_recall(topic_id: &str, chat_id: &str) -> Self {
