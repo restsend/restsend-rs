@@ -1,0 +1,6 @@
+[bindings.kotlin]
+cdylib_name = "restsend_sdk"
+
+[bindings.swift]
+module_name = "restsend"
+ffi_module_filename = "module"

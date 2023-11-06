@@ -1,0 +1,376 @@
+namespace client {
+    void init_log(string level, boolean is_test);
+    // 返回当前是否有登录账户
+    AuthInfo? get_current_user(string root);
+
+    // 修改当前登录的账号
+    [Throws=ClientError]
+    void set_current_user(string root, string user_id);
+
+    // 登录之后返回一个AuthInfo, 然后调用Client.new().attach() 完成账户的切换
+    [Throws=ClientError]
+    AuthInfo login(string endpoint, string email, string password);
+};
+
+dictionary AuthInfo {
+    string endpoint;    
+    string user_id;    
+    string avatar;
+    string name;
+    string token;
+};
+
+[Error]
+enum ClientError {
+  "InvalidPassword",
+  "TokenExpired",
+  "NetworkBroken",
+  "TopicNotFound",
+  "TopicKnockNotFound",
+  "ChatLogNotFound",
+  "InvalidContent",
+  "ConversationNotFound",
+  "UserNotFound",
+  "KickOffByOtherClient",
+  "DbMigrateError",
+  "DbPoolError",
+  "DbError",
+  "StdError",
+  "WebsocketError",
+  "HTTPError",
+  "JSONError",
+  "SendCtrlMessageError",
+  "UnknownError",
+};
+
+enum NetworkState {
+    "Connecting",
+    "Connected",
+    "Disconnected",
+};
+
+dictionary User {
+    string user_id;
+    string name;
+    string avatar;
+    string public_key;         //e2e的公钥
+    string remark;             // 本地或者联系人备注
+    boolean is_contact;        //是否好友
+    boolean is_star;           //是否星标
+    boolean is_blocked;        //是否黑名单
+    string locale;             //语言
+    string city;               //城市
+    string country;            //国家
+    string source;             //来源
+    string gender;             //性别
+    string created_at;
+    string cached_at;
+};
+
+dictionary TopicKnock {
+    string created_at;
+    string updated_at;
+    string topic_id;
+    string user_id;
+    string message;
+    string source;
+    string status;
+    string admin_id;
+};
+
+dictionary TopicNotice {
+    string text;
+    string publisher;
+    string updated_at;
+};
+
+
+dictionary Topic {
+    string id;               // 群id
+    string name;             // 群名称
+    string icon;             // 群头像
+    string remark;           // 备注
+    string owner_id;         // 群主
+    string attendee_id;      // 如果是单聊, 则是对方的id
+    sequence<string> admins; // 群聊的管理员
+    u32 members;             // 成员数量
+    u64 last_seq;            // 最后一条消息的seq
+    boolean multiple;        // 是否群聊
+    boolean private;         // 是否私聊
+    string created_at;       // 创建时间
+    string updated_at;       // 更新时间
+    TopicNotice? notice;     // 群公告
+    boolean silent;          // 是否禁言
+    u32 unread;              // 未读消息数量
+    string cached_at;        // 缓存时间
+};
+
+dictionary TopicMember {
+    string topic_id;
+    string user_id;
+    boolean is_owner;
+    boolean is_admin;
+    string remark;           // 在群里面的备注
+    boolean silent;          // 禁言
+    string joined_at;
+    string cached_at;
+};
+
+dictionary Content {
+    string type;
+    boolean encrypted;           // 是否加密
+    u32 checksum;                // 内容的checksum,用来做Text解密的校验
+    string text;                 // 文本内容,是markdown格式
+    string placeholder;          // 用于显示的占位符, 例如: [图片], 文件名, 地址等
+    string thumbnail;            // 缩略图
+    string duration;             // 声音时长 格式是 00:00
+    u64 size;                    // 内容大小
+    float width;                   // 图片宽
+    float height;                  // 图片高
+    sequence<string> mentions;   // 提到的人或者指定的人
+    string reply_id;             // 引用的消息
+    string created_at;           // 消息的创建时间
+};
+
+dictionary ChatLog {
+    string topic_id;
+    string id; // 等同于chat_id
+    u64 seq;
+    string created_at;
+    string sender_id;
+    Content content;
+    boolean read;
+    boolean recall;
+    u32 status;
+    string cached_at;
+};
+
+dictionary Conversation {
+    string owner_id;
+    string topic_id;
+    u64 last_seq;
+    boolean multiple;
+    string attendee;
+    string name;
+    string icon;
+    boolean sticky;              //是否置顶
+    boolean mute;
+    u32 unread;
+    string last_sender_id;       // 最后一条消息的发送者
+    Content? last_message;       // 最后一条消息
+    string last_message_at;
+    string cached_at;
+};
+
+dictionary ListUserResult {
+    boolean has_more;
+    string updated_at;
+    sequence<User> items;
+    sequence<string> removed;
+};
+
+dictionary ListConversationResult {
+    boolean has_more;
+    string updated_at;
+    sequence<Conversation> items;
+};
+
+dictionary ListChatLogResult {
+    boolean has_more;
+    string updated_at;
+    u64 last_seq;
+    sequence<ChatLog> items;
+};
+
+callback interface Callback {
+  void on_connected();
+  void on_connecting();
+  void on_net_broken(string reason);
+  void on_kickoff_by_other_client(string reason);
+  void on_send_message_fail(string topic_id, string chat_id, u32 code); // 发送消息失败
+  void on_topic_knock(string topic_id, string message, string source); // 收到群申请
+  void on_topic_knock_reject(string user_id, string message); // 收到群申请拒绝
+  void on_topic_join(string topic_id); // 加入一个群聊
+  void on_read(string topic_id); //消息已读
+  void on_recall(string topic_id, string chat_id); // 撤回一条
+  void on_typing(string topic_id, string user_id); // 收到一条typing
+  void on_topic_message(string topic_id, ChatLog message); // 收到一条消息， 这个用来替代所有的消息发送成功
+  void on_topic_notice_updated(string topic_id, TopicNotice notice); // 群公告更新
+  void on_topic_member_updated(string topic_id, User member, boolean is_add); // 群成员更新
+  void on_conversation_updated(sequence<Conversation> conversations); // 会话更新
+  void on_conversation_removed(string topic_id); // 会话被删除
+  void on_topic_kickoff(string topic_id, string admin_id, string user_id); // 被踢出群, 每个人都会收到, 去掉本地的缓存
+  void on_topic_dismissed(string topic_id, string user_id); // 群被解散
+  void on_topic_silent(string topic_id, string duration); // 群被禁言
+  void on_topic_silent_member(string topic_id, string user_id, string duration); // 群成员被禁言
+  
+  void on_download_progress(string file_url, u32 received, u32 total, string key); // 下载的进度
+  void on_download_done(string file_url, string local_file_name, u32 size, string key);
+  void on_download_cancel(string file_url, string local_file_name, string reason, string key); // 下载取消
+
+  void on_upload_progress(string local_file_path, u32 received, u32 total, string key); // 上传的进度
+  void on_upload_done(string url, string local_file_path, u32 size, string key);
+  void on_upload_cancel(string url, string local_file_path, string reason, string key); // 上传取消 
+};
+
+callback interface Uploader {
+  void upload(string local_file_path, string key);
+  void download(string file_url, string save_to_local, string key);  
+  void cancel_download(string file_url, string key);
+  void cancel_upload(string local_file_path, string key);  
+};
+
+interface Client {
+  constructor(string db_name, string endpoint);
+
+  void set_callback(Callback? callback);
+  void set_uploader(Uploader? uploader);
+  [Throws=ClientError]
+  void prepare();
+
+  [Throws=ClientError]
+  void attach(AuthInfo info);
+  
+  /*
+    app切换到前台后会立即触发重连，保证链接的效果
+  */
+  void app_active();
+  void app_deactivate();
+  
+  [Throws=ClientError]
+  void logout();
+  [Throws=ClientError]
+  void run_loop();
+  // shutdown是退出当前的loop, shutdown之后就没办法再次调用run_loop了
+  [Throws=ClientError]
+  void shutdown();
+
+  //获取数据和状态的接口
+  NetworkState get_network_state();
+  [Throws=ClientError]
+  u32 get_topics_knock_count();
+  [Throws=ClientError]
+  u32 get_conversations_count();
+
+  // Conversation是会话的抽象, 会话可以是单聊, 群聊
+  [Throws=ClientError]
+  Conversation get_conversation(string topic_id);
+  [Throws=ClientError]// 删除会话并不会删除聊天记录
+  void remove_conversation(string topic_id); 
+  [Throws=ClientError] //置顶会话
+  void set_conversation_sticky(string topic_id, boolean sticky);
+  [Throws=ClientError] // 设置聊天免打扰
+  void set_conversation_mute(string topic_id, boolean mute); 
+  [Throws=ClientError]//已读一个会话
+  void set_conversation_read(string topic_id);
+  [Throws=ClientError]
+  ListConversationResult get_conversations(string updated_at, u32 limit); // 获取会话列表, updated_at是上次更新的时间, 如果为空, 则返回所有的会话
+  // 同步会话列表, 会话列表是本地的缓存, 通过这个接口可以强制刷新缓存
+  [Throws=ClientError]
+  void sync_conversations(boolean without_cache); 
+
+  // Topic相关的接口
+  [Throws=ClientError]
+  Topic get_topic(string topic_id);
+  [Throws=ClientError]
+  sequence<User> get_topic_admins(string topic_id);
+  [Throws=ClientError]
+  User get_topic_owner(string topic_id);
+  [Throws=ClientError]
+  ListUserResult get_topic_members(string topic_id, string updated_at, u32 limit); // 获取群成员列表
+  [Throws=ClientError]
+  ListChatLogResult get_chat_logs_desc(string topic_id, u64 start_seq, u64 end_seq); // 倒序的获取聊天记录
+  [Throws=ClientError]
+  ChatLog get_chat_log(string topic_id, string id); // 获取一条本地聊天记录
+  [Throws=ClientError]
+  sequence<ChatLog> search_chat_log(string topic_id, string sender_id, string keyword); // 搜索本地聊天记录
+  [Throws=ClientError]
+  sequence<TopicKnock> get_topic_knocks(string topic_id); // 列出入群申请
+
+
+  [Throws=ClientError]
+  Topic create_topic(string name, string icon, sequence<string> members);
+  [Throws=ClientError]
+  Topic create_chat(string user_id);
+  [Throws=ClientError]
+  void update_topic(string topic_id, string name, string icon); 
+  [Throws=ClientError]
+  void update_topic_notice(string topic_id, string text);
+  [Throws=ClientError] // 禁言整个群, 如果duration为空, 则解除禁言
+  void silent_topic(string topic_id, string duration);
+  [Throws=ClientError] // 禁言某个成员, 如果duration为空, 则解除禁言
+  void silent_topic_member(string topic_id, string user_id, string duration); 
+  [Throws=ClientError] // 添加管理员
+  void add_topic_admin(string topic_id, string user_id);
+  [Throws=ClientError]  // 删除管理员
+  void remove_topic_admin(string topic_id, string user_id);
+  [Throws=ClientError]  // 转让群主
+  void transfer_topic(string topic_id, string user_id);
+  [Throws=ClientError] // 退出群聊
+  void quit_topic(string topic_id); 
+  [Throws=ClientError] // 解散群聊
+  void dismiss_topic(string topic_id); 
+  [Throws=ClientError]// 加入群聊申请
+  void join_topic(string topic_id, string source, string message); 
+  [Throws=ClientError]// 同意加入群聊
+  void accept_topic_join(string topic_id, string user_id, string memo); 
+  [Throws=ClientError] // 拒绝加入群聊
+  void decline_topic_join(string topic_id, string user_id, string message);
+  [Throws=ClientError]// 邀请成员加入群聊
+  void invite_topic_member(string topic_id, string user_id); 
+  [Throws=ClientError]// 删除成员
+  void remove_topic_member(string topic_id, string user_id); 
+  [Throws=ClientError] // 清空聊天记录,是否同步到服务端
+  void clean_topic_history(string topic_id, boolean sync); 
+  [Throws=ClientError] // 删除消息, 是否同步到服务端
+  void remove_messages(string topic_id, sequence<string> chat_ids, boolean sync);
+  
+  // Users 相关的接口
+  [Throws=ClientError]
+  User get_user(string user_id);
+
+  [Throws=ClientError] // 设置备注
+  void set_user_remark(string user_id, string remark);
+  [Throws=ClientError] // 设置星标
+  void set_user_star(string user_id, boolean star); 
+  [Throws=ClientError] // 设置屏蔽
+  void set_user_block(string user_id, boolean block); 
+  [Throws=ClientError]
+  void set_allow_guest_chat(boolean allow); 
+
+  // 发送消息的接口
+  // 所有的发送消息都会返回chat_id
+  [Throws=ClientError] 
+  string do_typing(string topic_id); // 正在输入
+  [Throws=ClientError]  // 撤回消息
+  string do_recall(string topic_id, string chat_id);
+  [Throws=ClientError] 
+  string do_send_text(string topic_id, string text, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_image(string topic_id, string url_or_data, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_voice(string topic_id, string url_or_data, string duration, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  //duration 格式是 00:00
+  string do_send_video(string topic_id, string url, string thumbnail, string duration, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_file(string topic_id, string url_or_data, string filename, u64 size, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_location(string topic_id, string latitude, string longitude, string address, sequence<string>? mentions, string? reply_id);
+  [Throws=ClientError] 
+  string do_send_link(string topic_id,  string url, sequence<string>? mentions, string? reply_id);
+  // 高级接口, 可以发送任意的Content
+  [Throws=ClientError] 
+  string do_send(string topic_id, Content content);
+  
+  // 多媒体接口
+  // 如果指定 uploader_url 那么就不会用sdk内置的上传接口
+  [Throws=ClientError] 
+  void upload(string? uploader_url, string local_file_path, string key, boolean is_private);
+  [Throws=ClientError]
+  void download(string file_url, string save_to, string key);
+  [Throws=ClientError]
+  void cancel_download(string file_url, string key);
+  [Throws=ClientError]
+  void cancel_upload(string local_file_path, string key);  
+};
