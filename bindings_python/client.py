@@ -2562,7 +2562,7 @@ class FfiConverterTypeChatLog(FfiConverterRustBuffer):
 
 class Content:
 
-    def __init__(self, type, encrypted, checksum, text, placeholder, thumbnail, duration, size, width, height, mentions, reply_id, created_at):
+    def __init__(self, type, encrypted, checksum, text, placeholder, thumbnail, duration, size, width, height, mentions, reply, created_at):
         self.type = type
         self.encrypted = encrypted
         self.checksum = checksum
@@ -2574,11 +2574,11 @@ class Content:
         self.width = width
         self.height = height
         self.mentions = mentions
-        self.reply_id = reply_id
+        self.reply = reply
         self.created_at = created_at
 
     def __str__(self):
-        return "Content(type={}, encrypted={}, checksum={}, text={}, placeholder={}, thumbnail={}, duration={}, size={}, width={}, height={}, mentions={}, reply_id={}, created_at={})".format(self.type, self.encrypted, self.checksum, self.text, self.placeholder, self.thumbnail, self.duration, self.size, self.width, self.height, self.mentions, self.reply_id, self.created_at)
+        return "Content(type={}, encrypted={}, checksum={}, text={}, placeholder={}, thumbnail={}, duration={}, size={}, width={}, height={}, mentions={}, reply={}, created_at={})".format(self.type, self.encrypted, self.checksum, self.text, self.placeholder, self.thumbnail, self.duration, self.size, self.width, self.height, self.mentions, self.reply, self.created_at)
 
     def __eq__(self, other):
         if self.type != other.type:
@@ -2603,7 +2603,7 @@ class Content:
             return False
         if self.mentions != other.mentions:
             return False
-        if self.reply_id != other.reply_id:
+        if self.reply != other.reply:
             return False
         if self.created_at != other.created_at:
             return False
@@ -2624,7 +2624,7 @@ class FfiConverterTypeContent(FfiConverterRustBuffer):
             width=FfiConverterFloat.read(buf),
             height=FfiConverterFloat.read(buf),
             mentions=FfiConverterSequenceString.read(buf),
-            reply_id=FfiConverterString.read(buf),
+            reply=FfiConverterString.read(buf),
             created_at=FfiConverterString.read(buf),
         )
 
@@ -2641,7 +2641,7 @@ class FfiConverterTypeContent(FfiConverterRustBuffer):
         FfiConverterFloat.write(value.width, buf)
         FfiConverterFloat.write(value.height, buf)
         FfiConverterSequenceString.write(value.mentions, buf)
-        FfiConverterString.write(value.reply_id, buf)
+        FfiConverterString.write(value.reply, buf)
         FfiConverterString.write(value.created_at, buf)
 
 

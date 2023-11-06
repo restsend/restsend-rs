@@ -123,7 +123,7 @@ pub struct Content {
     pub mentions: Vec<String>, // 提到的人或者指定的人
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
-    pub reply_id: String,      // 回复的chat_log
+    pub reply: String,         // 回复的chat_log
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub created_at: String,    // 消息的创建时间

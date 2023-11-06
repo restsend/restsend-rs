@@ -2138,7 +2138,7 @@ data class Content (
     var `width`: Float, 
     var `height`: Float, 
     var `mentions`: List<String>, 
-    var `replyId`: String, 
+    var `reply`: String, 
     var `createdAt`: String
 ) {
     
@@ -2175,7 +2175,7 @@ public object FfiConverterTypeContent: FfiConverterRustBuffer<Content> {
             FfiConverterFloat.allocationSize(value.`width`) +
             FfiConverterFloat.allocationSize(value.`height`) +
             FfiConverterSequenceString.allocationSize(value.`mentions`) +
-            FfiConverterString.allocationSize(value.`replyId`) +
+            FfiConverterString.allocationSize(value.`reply`) +
             FfiConverterString.allocationSize(value.`createdAt`)
     )
 
@@ -2191,7 +2191,7 @@ public object FfiConverterTypeContent: FfiConverterRustBuffer<Content> {
             FfiConverterFloat.write(value.`width`, buf)
             FfiConverterFloat.write(value.`height`, buf)
             FfiConverterSequenceString.write(value.`mentions`, buf)
-            FfiConverterString.write(value.`replyId`, buf)
+            FfiConverterString.write(value.`reply`, buf)
             FfiConverterString.write(value.`createdAt`, buf)
     }
 }

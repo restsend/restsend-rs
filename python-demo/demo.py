@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 class Config:
     log_level = 'DEBUG'
-    endpoint = 'https://chat.restsend.com'
+    endpoint = 'http://chat.rddoc.cn'
     user = 'guido'
 
     @property
@@ -43,7 +43,7 @@ class MainView(client.Callback):
     def on_net_broken(self, reason):
         logger.info('on_net_broken: %s', reason)
 
-    def on_send_message_fail(topic_id: str, chat_id: str,  code: int):
+    def on_send_message_fail(self, topic_id: str, chat_id: str,  code: int):
         logger.info('on_send_message_fail: %s, %s, %d',
                     topic_id, chat_id, code)
 

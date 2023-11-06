@@ -125,10 +125,10 @@ dictionary Content {
     string thumbnail;            // 缩略图
     string duration;             // 声音时长 格式是 00:00
     u64 size;                    // 内容大小
-    float width;                   // 图片宽
-    float height;                  // 图片高
+    float width;                 // 图片宽
+    float height;                // 图片高
     sequence<string> mentions;   // 提到的人或者指定的人
-    string reply_id;             // 引用的消息
+    string reply;                // 引用的消息
     string created_at;           // 消息的创建时间
 };
 

@@ -1433,12 +1433,12 @@ public struct Content {
     public var `width`: Float
     public var `height`: Float
     public var `mentions`: [String]
-    public var `replyId`: String
+    public var `reply`: String
     public var `createdAt`: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(`type`: String, `encrypted`: Bool, `checksum`: UInt32, `text`: String, `placeholder`: String, `thumbnail`: String, `duration`: String, `size`: UInt64, `width`: Float, `height`: Float, `mentions`: [String], `replyId`: String, `createdAt`: String) {
+    public init(`type`: String, `encrypted`: Bool, `checksum`: UInt32, `text`: String, `placeholder`: String, `thumbnail`: String, `duration`: String, `size`: UInt64, `width`: Float, `height`: Float, `mentions`: [String], `reply`: String, `createdAt`: String) {
         self.`type` = `type`
         self.`encrypted` = `encrypted`
         self.`checksum` = `checksum`
@@ -1450,7 +1450,7 @@ public struct Content {
         self.`width` = `width`
         self.`height` = `height`
         self.`mentions` = `mentions`
-        self.`replyId` = `replyId`
+        self.`reply` = `reply`
         self.`createdAt` = `createdAt`
     }
 }
@@ -1491,7 +1491,7 @@ extension Content: Equatable, Hashable {
         if lhs.`mentions` != rhs.`mentions` {
             return false
         }
-        if lhs.`replyId` != rhs.`replyId` {
+        if lhs.`reply` != rhs.`reply` {
             return false
         }
         if lhs.`createdAt` != rhs.`createdAt` {
@@ -1512,7 +1512,7 @@ extension Content: Equatable, Hashable {
         hasher.combine(`width`)
         hasher.combine(`height`)
         hasher.combine(`mentions`)
-        hasher.combine(`replyId`)
+        hasher.combine(`reply`)
         hasher.combine(`createdAt`)
     }
 }
@@ -1532,7 +1532,7 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
             `width`: FfiConverterFloat.read(from: &buf), 
             `height`: FfiConverterFloat.read(from: &buf), 
             `mentions`: FfiConverterSequenceString.read(from: &buf), 
-            `replyId`: FfiConverterString.read(from: &buf), 
+            `reply`: FfiConverterString.read(from: &buf), 
             `createdAt`: FfiConverterString.read(from: &buf)
         )
     }
@@ -1549,7 +1549,7 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
         FfiConverterFloat.write(value.`width`, into: &buf)
         FfiConverterFloat.write(value.`height`, into: &buf)
         FfiConverterSequenceString.write(value.`mentions`, into: &buf)
-        FfiConverterString.write(value.`replyId`, into: &buf)
+        FfiConverterString.write(value.`reply`, into: &buf)
         FfiConverterString.write(value.`createdAt`, into: &buf)
     }
 }

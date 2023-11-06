@@ -213,7 +213,7 @@ impl ChatRequest {
     pub fn reply_id(&self, reply_id: Option<String>) -> Self {
         ChatRequest {
             content: Some(Content {
-                reply_id: reply_id.unwrap_or_default(),
+                reply: reply_id.unwrap_or_default(),
                 ..self.content.clone().unwrap_or(Default::default())
             }),
             ..self.clone()
