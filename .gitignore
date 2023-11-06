@@ -14,6 +14,7 @@ xcuserdata
 *.dylib
 bindings_kotlin
 bindings_python
+bindings_python/libuniffi_client.dylib
 bindings_swift/module*
 bindings_swift/rssdk.swift
 *.xcframework

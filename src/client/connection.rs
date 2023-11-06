@@ -230,17 +230,17 @@ impl Client {
             topic.last_seq = std::cmp::max(topic.last_seq, resp.seq);
             self.db.save_topic(&topic).ok();
 
-            if !topic.multiple {
-                // 1.如果是单聊, 需要调用 on_topic_message
-                if let Ok(chat_log) = self.db.get_chat_log(&resp.topic_id, &resp.chat_id) {
-                    self.on_topic_message(&topic.id, chat_log);
-                } else {
-                    warn!(
-                        "on_request_ack failed to find resp.chat_id in db, req: {:?} resp: {:?}",
-                        req, resp
-                    );
-                }
-            }
+            // if !topic.multiple {
+            //     // 1.如果是单聊, 需要调用 on_topic_message
+            //     if let Ok(chat_log) = self.db.get_chat_log(&resp.topic_id, &resp.chat_id) {
+            //         self.on_topic_message(&topic.id, chat_log);
+            //     } else {
+            //         warn!(
+            //             "on_request_ack failed to find resp.chat_id in db, req: {:?} resp: {:?}",
+            //             req, resp
+            //         );
+            //     }
+            // }
             self.on_topic_updated_with_request(&topic, &req).ok();
         }
     }

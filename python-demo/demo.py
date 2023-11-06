@@ -14,6 +14,7 @@ class Config:
     log_level = 'DEBUG'
     endpoint = 'http://chat.rddoc.cn'
     user = 'guido'
+    attendee = 'vitalk'
 
     @property
     def dbname(self):
@@ -24,9 +25,10 @@ config = Config()
 
 
 class MainView(client.Callback):
-    def __init__(self, c: client.Client) -> None:
+    def __init__(self, c: client.Client, attendee: str) -> None:
         super().__init__()
         self.c = c
+        self.attendee = attendee
         c.set_callback(self)
 
     def shutdown(self):
@@ -65,13 +67,25 @@ class MainView(client.Callback):
         for conv in conversations.items:
             logger.info('conversation: %s %s', conv.topic_id, conv.name)
         now = time.ctime()
-        self.c.do_send_text('guido:vitalik',
-                            'hello, vitalik from python at ' + now, None, None)
+        # self.c.do_send_text('guido:vitalik',
+        #
+        #                     'hello, vitalik from python at ' + now, None, None)
+        topic = self.c.create_chat(self.attendee)
+        logger.info('topic: %s', topic)
+        self.c.do_send_text(
+            topic.id, f'hello {self.attendee},  from python at {now}', None, None)
 
 
 if __name__ == '__main__':
     FORMAT = '\033[1;32m%(asctime)s\033[1;0m %(filename)s:%(lineno)d %(message)s'
     logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+
+    for u in ['guido', 'vitalik']:
+        info = client.login(config.endpoint, u, f'{u}:demo')
+        c = client.Client(f'u{u}.db', config.endpoint)
+        c.prepare()
+        c.attach(info)
+        c.set_allow_guest_chat(True)
 
     client.init_log(config.log_level, False)
     info = client.login(config.endpoint, config.user, f'{config.user}:demo')
@@ -80,5 +94,5 @@ if __name__ == '__main__':
     c.prepare()
     c.attach(info)
 
-    win = MainView(c)
+    win = MainView(c, config.attendee)
     win.run()
