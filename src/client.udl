@@ -96,6 +96,7 @@ dictionary Topic {
     u32 members;             // 成员数量
     u64 last_seq;            // 最后一条消息的seq
     boolean multiple;        // 是否群聊
+    string source;
     boolean private;         // 是否私聊
     string created_at;       // 创建时间
     string updated_at;       // 更新时间

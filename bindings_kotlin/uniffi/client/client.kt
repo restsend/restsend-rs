@@ -2418,6 +2418,7 @@ data class Topic (
     var `members`: UInt, 
     var `lastSeq`: ULong, 
     var `multiple`: Boolean, 
+    var `source`: String, 
     var `private`: Boolean, 
     var `createdAt`: String, 
     var `updatedAt`: String, 
@@ -2442,6 +2443,7 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterUInt.read(buf),
             FfiConverterULong.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
@@ -2463,6 +2465,7 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterUInt.allocationSize(value.`members`) +
             FfiConverterULong.allocationSize(value.`lastSeq`) +
             FfiConverterBoolean.allocationSize(value.`multiple`) +
+            FfiConverterString.allocationSize(value.`source`) +
             FfiConverterBoolean.allocationSize(value.`private`) +
             FfiConverterString.allocationSize(value.`createdAt`) +
             FfiConverterString.allocationSize(value.`updatedAt`) +
@@ -2483,6 +2486,7 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterUInt.write(value.`members`, buf)
             FfiConverterULong.write(value.`lastSeq`, buf)
             FfiConverterBoolean.write(value.`multiple`, buf)
+            FfiConverterString.write(value.`source`, buf)
             FfiConverterBoolean.write(value.`private`, buf)
             FfiConverterString.write(value.`createdAt`, buf)
             FfiConverterString.write(value.`updatedAt`, buf)

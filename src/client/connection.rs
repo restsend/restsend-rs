@@ -706,6 +706,9 @@ impl Client {
                     }
                     if let Ok(conversation) = self.db.get_conversation(&req.topic_id) {
                         cb.on_conversation_updated(vec![conversation]);
+                    } else {
+                        warn!("conversation not found: {}", req.topic_id);
+                        // update conversation
                     }
                 }
             }

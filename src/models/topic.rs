@@ -76,6 +76,8 @@ pub struct Topic {
     #[serde(default)]
     pub multiple: bool,       //是否群聊
     #[serde(default)]
+    pub source: String,       //是否群聊
+    #[serde(default)]
     pub private: bool,        // 是否私聊
     #[serde(default)]
     pub created_at: String,   // 创建时间
@@ -114,6 +116,7 @@ impl DBStore {
             topic.members = row.get("members")?;
             topic.last_seq = row.get("last_seq")?;
             topic.multiple = row.get("multiple")?;
+            topic.source = row.get("source")?;
             topic.private = row.get("private")?;
             topic.notice = row.get("notice")?;
             topic.silent = row.get("silent")?;
@@ -128,7 +131,7 @@ impl DBStore {
     pub fn save_topic(&self, topic: &Topic) -> crate::Result<()> {
         let conn = self.pool.get()?;
         conn.execute(
-            "INSERT OR REPLACE INTO topics (id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, private, notice, silent, unread, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13 ,?14, ?15, ?16)",
+            "INSERT OR REPLACE INTO topics (id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, notice, silent, unread, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13 ,?14, ?15, ?16, ?17)",
             params![topic.id, 
             topic.name, 
             topic.icon, 
@@ -139,6 +142,7 @@ impl DBStore {
             topic.members, 
             topic.last_seq, 
             topic.multiple, 
+            topic.source, 
             topic.private, 
             topic.notice, 
             topic.silent,

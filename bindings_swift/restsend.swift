@@ -1953,6 +1953,7 @@ public struct Topic {
     public var `members`: UInt32
     public var `lastSeq`: UInt64
     public var `multiple`: Bool
+    public var `source`: String
     public var `private`: Bool
     public var `createdAt`: String
     public var `updatedAt`: String
@@ -1963,7 +1964,7 @@ public struct Topic {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(`id`: String, `name`: String, `icon`: String, `remark`: String, `ownerId`: String, `attendeeId`: String, `admins`: [String], `members`: UInt32, `lastSeq`: UInt64, `multiple`: Bool, `private`: Bool, `createdAt`: String, `updatedAt`: String, `notice`: TopicNotice?, `silent`: Bool, `unread`: UInt32, `cachedAt`: String) {
+    public init(`id`: String, `name`: String, `icon`: String, `remark`: String, `ownerId`: String, `attendeeId`: String, `admins`: [String], `members`: UInt32, `lastSeq`: UInt64, `multiple`: Bool, `source`: String, `private`: Bool, `createdAt`: String, `updatedAt`: String, `notice`: TopicNotice?, `silent`: Bool, `unread`: UInt32, `cachedAt`: String) {
         self.`id` = `id`
         self.`name` = `name`
         self.`icon` = `icon`
@@ -1974,6 +1975,7 @@ public struct Topic {
         self.`members` = `members`
         self.`lastSeq` = `lastSeq`
         self.`multiple` = `multiple`
+        self.`source` = `source`
         self.`private` = `private`
         self.`createdAt` = `createdAt`
         self.`updatedAt` = `updatedAt`
@@ -2017,6 +2019,9 @@ extension Topic: Equatable, Hashable {
         if lhs.`multiple` != rhs.`multiple` {
             return false
         }
+        if lhs.`source` != rhs.`source` {
+            return false
+        }
         if lhs.`private` != rhs.`private` {
             return false
         }
@@ -2052,6 +2057,7 @@ extension Topic: Equatable, Hashable {
         hasher.combine(`members`)
         hasher.combine(`lastSeq`)
         hasher.combine(`multiple`)
+        hasher.combine(`source`)
         hasher.combine(`private`)
         hasher.combine(`createdAt`)
         hasher.combine(`updatedAt`)
@@ -2076,6 +2082,7 @@ public struct FfiConverterTypeTopic: FfiConverterRustBuffer {
             `members`: FfiConverterUInt32.read(from: &buf), 
             `lastSeq`: FfiConverterUInt64.read(from: &buf), 
             `multiple`: FfiConverterBool.read(from: &buf), 
+            `source`: FfiConverterString.read(from: &buf), 
             `private`: FfiConverterBool.read(from: &buf), 
             `createdAt`: FfiConverterString.read(from: &buf), 
             `updatedAt`: FfiConverterString.read(from: &buf), 
@@ -2097,6 +2104,7 @@ public struct FfiConverterTypeTopic: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.`members`, into: &buf)
         FfiConverterUInt64.write(value.`lastSeq`, into: &buf)
         FfiConverterBool.write(value.`multiple`, into: &buf)
+        FfiConverterString.write(value.`source`, into: &buf)
         FfiConverterBool.write(value.`private`, into: &buf)
         FfiConverterString.write(value.`createdAt`, into: &buf)
         FfiConverterString.write(value.`updatedAt`, into: &buf)

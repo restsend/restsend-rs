@@ -2887,7 +2887,7 @@ class FfiConverterTypeListUserResult(FfiConverterRustBuffer):
 
 class Topic:
 
-    def __init__(self, id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, private, created_at, updated_at, notice, silent, unread, cached_at):
+    def __init__(self, id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, created_at, updated_at, notice, silent, unread, cached_at):
         self.id = id
         self.name = name
         self.icon = icon
@@ -2898,6 +2898,7 @@ class Topic:
         self.members = members
         self.last_seq = last_seq
         self.multiple = multiple
+        self.source = source
         self.private = private
         self.created_at = created_at
         self.updated_at = updated_at
@@ -2907,7 +2908,7 @@ class Topic:
         self.cached_at = cached_at
 
     def __str__(self):
-        return "Topic(id={}, name={}, icon={}, remark={}, owner_id={}, attendee_id={}, admins={}, members={}, last_seq={}, multiple={}, private={}, created_at={}, updated_at={}, notice={}, silent={}, unread={}, cached_at={})".format(self.id, self.name, self.icon, self.remark, self.owner_id, self.attendee_id, self.admins, self.members, self.last_seq, self.multiple, self.private, self.created_at, self.updated_at, self.notice, self.silent, self.unread, self.cached_at)
+        return "Topic(id={}, name={}, icon={}, remark={}, owner_id={}, attendee_id={}, admins={}, members={}, last_seq={}, multiple={}, source={}, private={}, created_at={}, updated_at={}, notice={}, silent={}, unread={}, cached_at={})".format(self.id, self.name, self.icon, self.remark, self.owner_id, self.attendee_id, self.admins, self.members, self.last_seq, self.multiple, self.source, self.private, self.created_at, self.updated_at, self.notice, self.silent, self.unread, self.cached_at)
 
     def __eq__(self, other):
         if self.id != other.id:
@@ -2929,6 +2930,8 @@ class Topic:
         if self.last_seq != other.last_seq:
             return False
         if self.multiple != other.multiple:
+            return False
+        if self.source != other.source:
             return False
         if self.private != other.private:
             return False
@@ -2960,6 +2963,7 @@ class FfiConverterTypeTopic(FfiConverterRustBuffer):
             members=FfiConverterUInt32.read(buf),
             last_seq=FfiConverterUInt64.read(buf),
             multiple=FfiConverterBool.read(buf),
+            source=FfiConverterString.read(buf),
             private=FfiConverterBool.read(buf),
             created_at=FfiConverterString.read(buf),
             updated_at=FfiConverterString.read(buf),
@@ -2981,6 +2985,7 @@ class FfiConverterTypeTopic(FfiConverterRustBuffer):
         FfiConverterUInt32.write(value.members, buf)
         FfiConverterUInt64.write(value.last_seq, buf)
         FfiConverterBool.write(value.multiple, buf)
+        FfiConverterString.write(value.source, buf)
         FfiConverterBool.write(value.private, buf)
         FfiConverterString.write(value.created_at, buf)
         FfiConverterString.write(value.updated_at, buf)

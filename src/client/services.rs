@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use super::{Client, CONVERSATION_CACHE, LIMIT, USER_CACHE};
+use super::{
+    Client, CONVERSATIONS_SYNC, CONVERSATION_CACHE, KEY_CONVERSATIONS_SYNC_AT, LIMIT, USER_CACHE,
+};
 use crate::error::ClientError;
 use crate::models::{
     AuthInfo, ChatLog, Conversation, ListChatLogResult, ListConversationResult, ListUserResult,
@@ -232,8 +234,12 @@ impl Client {
             serde_json::json!({}),
             None,
         )
-        .and_then(|_| self.db.remove_conversation(&topic_id))
-        .and(Ok(()))
+        .and_then(|_| self.db.remove_conversation(&topic_id))?;
+
+        if let Some(cb) = self.callback.read().unwrap().as_ref() {
+            cb.on_conversation_removed(topic_id);
+        }
+        Ok(())
     }
 
     fn update_conversation(&self, topic_id: &str, data: &serde_json::Value) -> Result<()> {
@@ -566,6 +572,36 @@ impl Client {
 
 #[allow(unused_variables)]
 impl Client {
+    pub fn sync_conversations(&self, without_cache: bool) -> Result<()> {
+        let mut conversations_sync_at = match without_cache {
+            true => String::default(),
+            false => match self.db.get_value(KEY_CONVERSATIONS_SYNC_AT) {
+                Ok(v) => {
+                    if is_expired(&v, CONVERSATIONS_SYNC) {
+                        String::default()
+                    } else {
+                        v
+                    }
+                }
+                Err(_) => String::default(),
+            },
+        };
+
+        loop {
+            let lr = self.get_conversations(conversations_sync_at, LIMIT)?;
+            if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                cb.on_conversation_updated(lr.items)
+            }
+            conversations_sync_at = lr.updated_at;
+            if !lr.has_more {
+                break;
+            }
+        }
+        self.db
+            .set_value(KEY_CONVERSATIONS_SYNC_AT, &conversations_sync_at)?;
+        Ok(())
+    }
+
     pub fn set_conversation_read(&self, topic_id: String) -> Result<()> {
         self.db.set_conversation_read(&topic_id)?;
         let r: CommonResp = self.json_call(

@@ -12,7 +12,6 @@ use crate::Uploader;
 use crate::models::DBStore;
 use crate::net::NetStore;
 use crate::request::PendingRequest;
-use crate::utils::is_expired;
 use crate::Callback;
 use crate::Result;
 
@@ -118,36 +117,6 @@ impl Client {
     pub fn prepare(&self) -> Result<()> {
         warn!("init client");
         self.db.prepare()?;
-        Ok(())
-    }
-
-    pub fn sync_conversations(&self, without_cache: bool) -> Result<()> {
-        let mut conversations_sync_at = match without_cache {
-            true => String::default(),
-            false => match self.db.get_value(KEY_CONVERSATIONS_SYNC_AT) {
-                Ok(v) => {
-                    if is_expired(&v, CONVERSATIONS_SYNC) {
-                        String::default()
-                    } else {
-                        v
-                    }
-                }
-                Err(_) => String::default(),
-            },
-        };
-
-        loop {
-            let lr = self.get_conversations(conversations_sync_at, LIMIT)?;
-            if let Some(cb) = self.callback.read().unwrap().as_ref() {
-                cb.on_conversation_updated(lr.items)
-            }
-            conversations_sync_at = lr.updated_at;
-            if !lr.has_more {
-                break;
-            }
-        }
-        self.db
-            .set_value(KEY_CONVERSATIONS_SYNC_AT, &conversations_sync_at)?;
         Ok(())
     }
 

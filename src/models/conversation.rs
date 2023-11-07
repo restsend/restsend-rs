@@ -51,10 +51,11 @@ impl From<&Topic> for Conversation {
             topic_id:topic.id.clone(), 
             owner_id:topic.owner_id.clone(),
             last_seq:topic.last_seq,
-            multiple:topic.multiple,            
+            multiple:topic.multiple,    
+            source: topic.source.clone(),        
             name:topic.name.clone(),
             icon:topic.icon.clone(),            
-            unread:topic.unread,
+            unread:topic.unread,          
             attendee:topic.attendee_id.clone(),                       
             ..Default::default()}
     }
@@ -86,6 +87,7 @@ impl DBStore {
                 conversation.icon = row.get("icon")?;
                 conversation.sticky = row.get("sticky")?;
                 conversation.mute = row.get("mute")?;
+                conversation.source = row.get("source")?;
                 conversation.last_sender_id = row.get("last_sender_id")?;
                 let last_message = row.get("last_message")?;
                 conversation.last_message = Some(last_message);
@@ -99,7 +101,7 @@ impl DBStore {
     pub fn save_conversation(&self, conversation: &Conversation) -> crate::Result<()> {
         let conn = self.pool.get()?;
         conn.execute(
-            "INSERT OR REPLACE INTO conversations (topic_id, owner_id, cached_at, last_seq, multiple, attendee, name, icon, sticky, mute, last_sender_id, last_message, last_message_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+            "INSERT OR REPLACE INTO conversations (topic_id, owner_id, cached_at, last_seq, multiple, attendee, name, icon, sticky, mute, source, last_sender_id, last_message, last_message_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14 )",
             params![conversation.topic_id, 
             conversation.owner_id, 
             conversation.cached_at,
@@ -110,6 +112,7 @@ impl DBStore {
             conversation.icon, 
             conversation.sticky, 
             conversation.mute, 
+            conversation.source, 
             conversation.last_sender_id, 
             serde_json::to_string(&conversation.last_message)?,
             conversation.last_message_at]
