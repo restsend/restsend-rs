@@ -2229,6 +2229,7 @@ data class Conversation (
     var `icon`: String, 
     var `sticky`: Boolean, 
     var `mute`: Boolean, 
+    var `source`: String, 
     var `unread`: UInt, 
     var `lastSenderId`: String, 
     var `lastMessage`: Content?, 
@@ -2250,6 +2251,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterString.read(buf),
             FfiConverterUInt.read(buf),
             FfiConverterString.read(buf),
             FfiConverterOptionalTypeContent.read(buf),
@@ -2268,6 +2270,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.allocationSize(value.`icon`) +
             FfiConverterBoolean.allocationSize(value.`sticky`) +
             FfiConverterBoolean.allocationSize(value.`mute`) +
+            FfiConverterString.allocationSize(value.`source`) +
             FfiConverterUInt.allocationSize(value.`unread`) +
             FfiConverterString.allocationSize(value.`lastSenderId`) +
             FfiConverterOptionalTypeContent.allocationSize(value.`lastMessage`) +
@@ -2285,6 +2288,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.write(value.`icon`, buf)
             FfiConverterBoolean.write(value.`sticky`, buf)
             FfiConverterBoolean.write(value.`mute`, buf)
+            FfiConverterString.write(value.`source`, buf)
             FfiConverterUInt.write(value.`unread`, buf)
             FfiConverterString.write(value.`lastSenderId`, buf)
             FfiConverterOptionalTypeContent.write(value.`lastMessage`, buf)

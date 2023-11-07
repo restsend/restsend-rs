@@ -23,6 +23,8 @@ pub struct Conversation {
     #[serde(default)]
     pub mute: bool,                      //是否静音
     #[serde(default)]
+    pub source: String,                  
+    #[serde(default)]
     pub unread: u32,                     //未读消息数量
     #[serde(default)]
     pub last_sender_id: String,          //最后一条消息的发送者

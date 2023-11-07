@@ -155,6 +155,7 @@ dictionary Conversation {
     string icon;
     boolean sticky;              //是否置顶
     boolean mute;
+    string source;
     u32 unread;
     string last_sender_id;       // 最后一条消息的发送者
     Content? last_message;       // 最后一条消息

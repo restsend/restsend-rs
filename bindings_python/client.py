@@ -2677,7 +2677,7 @@ class FfiConverterTypeContent(FfiConverterRustBuffer):
 
 class Conversation:
 
-    def __init__(self, owner_id, topic_id, last_seq, multiple, attendee, name, icon, sticky, mute, unread, last_sender_id, last_message, last_message_at, cached_at):
+    def __init__(self, owner_id, topic_id, last_seq, multiple, attendee, name, icon, sticky, mute, source, unread, last_sender_id, last_message, last_message_at, cached_at):
         self.owner_id = owner_id
         self.topic_id = topic_id
         self.last_seq = last_seq
@@ -2687,6 +2687,7 @@ class Conversation:
         self.icon = icon
         self.sticky = sticky
         self.mute = mute
+        self.source = source
         self.unread = unread
         self.last_sender_id = last_sender_id
         self.last_message = last_message
@@ -2694,7 +2695,7 @@ class Conversation:
         self.cached_at = cached_at
 
     def __str__(self):
-        return "Conversation(owner_id={}, topic_id={}, last_seq={}, multiple={}, attendee={}, name={}, icon={}, sticky={}, mute={}, unread={}, last_sender_id={}, last_message={}, last_message_at={}, cached_at={})".format(self.owner_id, self.topic_id, self.last_seq, self.multiple, self.attendee, self.name, self.icon, self.sticky, self.mute, self.unread, self.last_sender_id, self.last_message, self.last_message_at, self.cached_at)
+        return "Conversation(owner_id={}, topic_id={}, last_seq={}, multiple={}, attendee={}, name={}, icon={}, sticky={}, mute={}, source={}, unread={}, last_sender_id={}, last_message={}, last_message_at={}, cached_at={})".format(self.owner_id, self.topic_id, self.last_seq, self.multiple, self.attendee, self.name, self.icon, self.sticky, self.mute, self.source, self.unread, self.last_sender_id, self.last_message, self.last_message_at, self.cached_at)
 
     def __eq__(self, other):
         if self.owner_id != other.owner_id:
@@ -2714,6 +2715,8 @@ class Conversation:
         if self.sticky != other.sticky:
             return False
         if self.mute != other.mute:
+            return False
+        if self.source != other.source:
             return False
         if self.unread != other.unread:
             return False
@@ -2740,6 +2743,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
             icon=FfiConverterString.read(buf),
             sticky=FfiConverterBool.read(buf),
             mute=FfiConverterBool.read(buf),
+            source=FfiConverterString.read(buf),
             unread=FfiConverterUInt32.read(buf),
             last_sender_id=FfiConverterString.read(buf),
             last_message=FfiConverterOptionalTypeContent.read(buf),
@@ -2758,6 +2762,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
         FfiConverterString.write(value.icon, buf)
         FfiConverterBool.write(value.sticky, buf)
         FfiConverterBool.write(value.mute, buf)
+        FfiConverterString.write(value.source, buf)
         FfiConverterUInt32.write(value.unread, buf)
         FfiConverterString.write(value.last_sender_id, buf)
         FfiConverterOptionalTypeContent.write(value.last_message, buf)

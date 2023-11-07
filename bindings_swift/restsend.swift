@@ -1588,6 +1588,7 @@ public struct Conversation {
     public var `icon`: String
     public var `sticky`: Bool
     public var `mute`: Bool
+    public var `source`: String
     public var `unread`: UInt32
     public var `lastSenderId`: String
     public var `lastMessage`: Content?
@@ -1596,7 +1597,7 @@ public struct Conversation {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(`ownerId`: String, `topicId`: String, `lastSeq`: UInt64, `multiple`: Bool, `attendee`: String, `name`: String, `icon`: String, `sticky`: Bool, `mute`: Bool, `unread`: UInt32, `lastSenderId`: String, `lastMessage`: Content?, `lastMessageAt`: String, `cachedAt`: String) {
+    public init(`ownerId`: String, `topicId`: String, `lastSeq`: UInt64, `multiple`: Bool, `attendee`: String, `name`: String, `icon`: String, `sticky`: Bool, `mute`: Bool, `source`: String, `unread`: UInt32, `lastSenderId`: String, `lastMessage`: Content?, `lastMessageAt`: String, `cachedAt`: String) {
         self.`ownerId` = `ownerId`
         self.`topicId` = `topicId`
         self.`lastSeq` = `lastSeq`
@@ -1606,6 +1607,7 @@ public struct Conversation {
         self.`icon` = `icon`
         self.`sticky` = `sticky`
         self.`mute` = `mute`
+        self.`source` = `source`
         self.`unread` = `unread`
         self.`lastSenderId` = `lastSenderId`
         self.`lastMessage` = `lastMessage`
@@ -1644,6 +1646,9 @@ extension Conversation: Equatable, Hashable {
         if lhs.`mute` != rhs.`mute` {
             return false
         }
+        if lhs.`source` != rhs.`source` {
+            return false
+        }
         if lhs.`unread` != rhs.`unread` {
             return false
         }
@@ -1672,6 +1677,7 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(`icon`)
         hasher.combine(`sticky`)
         hasher.combine(`mute`)
+        hasher.combine(`source`)
         hasher.combine(`unread`)
         hasher.combine(`lastSenderId`)
         hasher.combine(`lastMessage`)
@@ -1693,6 +1699,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             `icon`: FfiConverterString.read(from: &buf), 
             `sticky`: FfiConverterBool.read(from: &buf), 
             `mute`: FfiConverterBool.read(from: &buf), 
+            `source`: FfiConverterString.read(from: &buf), 
             `unread`: FfiConverterUInt32.read(from: &buf), 
             `lastSenderId`: FfiConverterString.read(from: &buf), 
             `lastMessage`: FfiConverterOptionTypeContent.read(from: &buf), 
@@ -1711,6 +1718,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterString.write(value.`icon`, into: &buf)
         FfiConverterBool.write(value.`sticky`, into: &buf)
         FfiConverterBool.write(value.`mute`, into: &buf)
+        FfiConverterString.write(value.`source`, into: &buf)
         FfiConverterUInt32.write(value.`unread`, into: &buf)
         FfiConverterString.write(value.`lastSenderId`, into: &buf)
         FfiConverterOptionTypeContent.write(value.`lastMessage`, into: &buf)
