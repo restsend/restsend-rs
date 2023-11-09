@@ -1,12 +1,9 @@
-
-from client_libs import client
-import logging
-
 from threading import Thread
 from client_libs import client
 import logging
-import time
 
+import time
+import sys
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +76,12 @@ class MainView(client.Callback):
 if __name__ == '__main__':
     FORMAT = '\033[1;32m%(asctime)s\033[1;0m %(filename)s:%(lineno)d %(message)s'
     logging.basicConfig(format=FORMAT, level=logging.DEBUG)
+    if len(sys.argv) > 1:
+        config.user = sys.argv[1]
+        if config.user == 'guido':
+            config.attendee = 'vitalik'
+        else:
+            config.attendee = 'guido'
 
     for u in [config.user, config.attendee]:
         info = client.login(config.endpoint, u, f'{u}:demo')

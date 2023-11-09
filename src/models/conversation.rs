@@ -89,7 +89,7 @@ impl DBStore {
                 conversation.mute = row.get("mute")?;
                 conversation.source = row.get("source")?;
                 conversation.last_sender_id = row.get("last_sender_id")?;
-                let last_message = row.get("last_message")?;
+                let last_message: Content = row.get("last_message")?;
                 conversation.last_message = Some(last_message);
                 conversation.last_message_at = row.get("last_message_at")?;
                 Ok(conversation)

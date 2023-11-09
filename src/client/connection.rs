@@ -645,11 +645,34 @@ impl Client {
                     }
                 }
 
+                match crate::models::ContentType::from(content.r#type.clone()) {
+                    crate::models::ContentType::Recall => {
+                        chat_log.recall = true;
+                        self.db.save_chat_log(&chat_log)?;
+                    }
+                    _ => {}
+                }
+
+                /*
+                let conversation = self.db.get_conversation(&req.topic_id);
+                let conversation = match conversation {
+                    Ok(c) => c,
+                    Err(_) => {
+                        let c = Conversation::new(&req.topic_id);
+                        self.db.save_conversation(&c)?;
+                        c
+                    }
+                };
+                */
+                let topic = self
+                    .get_topic(req.topic_id.clone())
+                    .unwrap_or(Topic::new(&req.topic_id));
+
+                self.on_topic_updated_with_request(&topic, &req).ok();
+
                 if let Some(cb) = self.callback.read().unwrap().as_ref() {
                     match crate::models::ContentType::from(content.r#type) {
                         crate::models::ContentType::Recall => {
-                            chat_log.recall = true;
-                            self.db.save_chat_log(&chat_log)?;
                             cb.on_recall(req.topic_id.clone(), req.chat_id.clone());
                         }
                         crate::models::ContentType::TopicKickout => {
@@ -704,12 +727,7 @@ impl Client {
                             cb.on_topic_message(req.topic_id.clone(), chat_log.clone());
                         }
                     }
-                    if let Ok(conversation) = self.db.get_conversation(&req.topic_id) {
-                        cb.on_conversation_updated(vec![conversation]);
-                    } else {
-                        warn!("conversation not found: {}", req.topic_id);
-                        // update conversation
-                    }
+                    // cb.on_conversation_updated(vec![conversation]);
                 }
             }
             ChatRequestType::Kickout => {
