@@ -57,7 +57,7 @@ impl Callback for TestChatCallBack<'_> {
             .expect("send text");
     }
 
-    fn on_topic_message(&self, topic_id: String, message: ChatLog) {
+    fn on_topic_message(&self, topic_id: String, message: ChatLog) -> bool {
         info!(
             "{} received: on_topic_message: {} {:?}",
             self.user_id, topic_id, message
@@ -89,6 +89,7 @@ impl Callback for TestChatCallBack<'_> {
                 _ => {}
             }
         }
+        true
     }
 
     fn on_topic_member_updated(&self, topic_id: String, member: User, is_add: bool) {
@@ -187,12 +188,13 @@ fn test_single_chat() {
     }
 
     impl crate::Callback for TestSingleChatCallback {
-        fn on_topic_message(&self, _topic_id: String, _message: crate::models::ChatLog) {
+        fn on_topic_message(&self, _topic_id: String, _message: crate::models::ChatLog) -> bool {
             warn!(
                 "on_topic_message: {} -> {} {}",
                 self.user_id, _topic_id, _message.id
             );
             *self.is_done.lock().unwrap() = true;
+            true
         }
 
         fn on_send_message_fail(&self, topic_id: String, chat_id: String, code: u32) {
@@ -252,6 +254,4 @@ fn test_single_chat() {
 fn test_multi_chat() {}
 
 #[test]
-fn test_conversation_state() {
-    
-}
+fn test_conversation_state() {}

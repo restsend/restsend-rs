@@ -241,7 +241,7 @@ impl Client {
             //         );
             //     }
             // }
-            self.on_topic_updated_with_request(&topic, &req).ok();
+            self.on_topic_updated_with_request(&topic, &req, true).ok();
         }
     }
     pub fn on_request_timeout(&self, req: &ChatRequest) {
@@ -652,7 +652,7 @@ impl Client {
                     }
                     _ => {}
                 }
-
+                let mut has_read = false;
                 if let Some(cb) = self.callback.read().unwrap().as_ref() {
                     match crate::models::ContentType::from(content.r#type) {
                         crate::models::ContentType::Recall => {
@@ -707,12 +707,18 @@ impl Client {
                             }
                         }
                         _ => {
-                            cb.on_topic_message(req.topic_id.clone(), chat_log.clone());
+                            has_read = cb.on_topic_message(req.topic_id.clone(), chat_log.clone());
                         }
                     }
                 }
                 let topic = self.get_topic(req.topic_id.clone())?;
-                self.on_topic_updated_with_request(&topic, &req).ok();
+                self.on_topic_updated_with_request(&topic, &req, has_read)
+                    .ok();
+
+                if has_read {
+                    debug!("do read: {}", req.topic_id);
+                    self.do_read(topic.id)?;
+                }
             }
             ChatRequestType::Kickout => {
                 if let Some(cb) = self.callback.read().unwrap().as_ref() {
@@ -747,13 +753,21 @@ impl Client {
     }
 
     // 通知 Topic 收到消息，并且更新本地的会话状态
-    fn on_topic_updated_with_request(&self, topic: &Topic, req: &ChatRequest) -> Result<()> {
+    fn on_topic_updated_with_request(
+        &self,
+        topic: &Topic,
+        req: &ChatRequest,
+        has_read: bool,
+    ) -> Result<()> {
         let mut conversation = self
             .db
             .get_conversation(&topic.id)
             .unwrap_or(Conversation::from(topic));
 
         conversation.last_seq = max(conversation.last_seq, req.seq);
+        if has_read {
+            conversation.last_read_seq = conversation.last_seq;
+        }
         conversation.unread = max(conversation.last_seq - conversation.last_read_seq, 0);
 
         if conversation.last_seq == req.seq && req.content.is_some() {

@@ -114,7 +114,12 @@ impl super::Client {
 
     pub fn do_typing(&self, topic_id: String) -> Result<String> {
         let req = ChatRequest::new_typing(&topic_id);
-        //TODO: 控制频率
+        self.ws_send(serde_json::to_string(&req)?, 0)
+            .map(|_| req.chat_id)
+    }
+
+    pub fn do_read(&self, topic_id: String) -> Result<String> {
+        let req = ChatRequest::new_read(&topic_id);
         self.ws_send(serde_json::to_string(&req)?, 0)
             .map(|_| req.chat_id)
     }

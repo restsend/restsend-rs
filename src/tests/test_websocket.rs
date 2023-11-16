@@ -15,8 +15,9 @@ fn test_client_websocket_connect_with_handle_incoming() {
     }
 
     impl crate::Callback for TestWebsocketCallBack {
-        fn on_topic_message(&self, _topic_id: String, _message: crate::models::ChatLog) {
+        fn on_topic_message(&self, _topic_id: String, _message: crate::models::ChatLog) -> bool {
             //*self.is_done.lock().unwrap() = true;
+            true
         }
 
         fn on_send_message_fail(&self, topic_id: String, chat_id: String, code: u32) {

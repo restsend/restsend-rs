@@ -2984,7 +2984,7 @@ public interface Callback {
     fun `onRead`(`topicId`: String)
     fun `onRecall`(`topicId`: String, `chatId`: String)
     fun `onTyping`(`topicId`: String, `userId`: String)
-    fun `onTopicMessage`(`topicId`: String, `message`: ChatLog)
+    fun `onTopicMessage`(`topicId`: String, `message`: ChatLog): Boolean
     fun `onTopicNoticeUpdated`(`topicId`: String, `notice`: TopicNotice)
     fun `onTopicMemberUpdated`(`topicId`: String, `member`: User, `isAdd`: Boolean)
     fun `onConversationUpdated`(`conversations`: List<Conversation>)
@@ -3627,10 +3627,13 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
             it.order(ByteOrder.BIG_ENDIAN)
         }
         fun makeCall() : Int {
-            kotlinCallbackInterface.`onTopicMessage`(
-                FfiConverterString.read(argsBuf), 
+            val returnValue = kotlinCallbackInterface.`onTopicMessage`(
+                FfiConverterString.read(argsBuf)
+                , 
                 FfiConverterTypeChatLog.read(argsBuf)
+                
             )
+            outBuf.setValue(FfiConverterBoolean.lowerIntoRustBuffer(returnValue))
             return UNIFFI_CALLBACK_SUCCESS
         }
         fun makeCallAndHandleError() : Int = makeCall()

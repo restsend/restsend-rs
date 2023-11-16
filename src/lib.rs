@@ -78,8 +78,9 @@ pub trait Callback: Send + Sync {
         debug!("on_typing: {} {}", topic_id, user_id);
     }
     // 收到一条消息
-    fn on_topic_message(&self, topic_id: String, message: ChatLog) {
+    fn on_topic_message(&self, topic_id: String, message: ChatLog) -> bool {
         debug!("on_topic_message: {} {:?}", topic_id, message);
+        return false;
     }
     // 群公告更新
     fn on_topic_notice_updated(&self, topic_id: String, notice: TopicNotice) {

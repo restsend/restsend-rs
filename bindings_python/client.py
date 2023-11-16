@@ -3791,7 +3791,10 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
                 )
 
         def makeCallAndHandleReturn():
-            makeCall()
+            rval = makeCall()
+            with RustBuffer.allocWithBuilder() as builder:
+                FfiConverterBool.write(rval, builder)
+                buf_ptr[0] = builder.finalize()
             return UNIFFI_CALLBACK_SUCCESS
         return makeCallAndHandleReturn()
 

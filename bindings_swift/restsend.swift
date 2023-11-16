@@ -2904,7 +2904,7 @@ public protocol Callback : AnyObject {
     func `onRead`(`topicId`: String) 
     func `onRecall`(`topicId`: String, `chatId`: String) 
     func `onTyping`(`topicId`: String, `userId`: String) 
-    func `onTopicMessage`(`topicId`: String, `message`: ChatLog) 
+    func `onTopicMessage`(`topicId`: String, `message`: ChatLog)  -> Bool
     func `onTopicNoticeUpdated`(`topicId`: String, `notice`: TopicNotice) 
     func `onTopicMemberUpdated`(`topicId`: String, `member`: User, `isAdd`: Bool) 
     func `onConversationUpdated`(`conversations`: [Conversation]) 
@@ -3054,10 +3054,13 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
     func `invokeOnTopicMessage`(_ swiftCallbackInterface: Callback, _ argsData: UnsafePointer<UInt8>, _ argsLen: Int32, _ out_buf: UnsafeMutablePointer<RustBuffer>) throws -> Int32 {
         var reader = createReader(data: Data(bytes: argsData, count: Int(argsLen)))
         func makeCall() throws -> Int32 {
-            try swiftCallbackInterface.`onTopicMessage`(
+            let result = try swiftCallbackInterface.`onTopicMessage`(
                     `topicId`:  try FfiConverterString.read(from: &reader), 
                     `message`:  try FfiConverterTypeChatLog.read(from: &reader)
                     )
+            var writer = [UInt8]()
+            FfiConverterBool.write(result, into: &writer)
+            out_buf.pointee = RustBuffer(bytes: writer)
             return UNIFFI_CALLBACK_SUCCESS
         }
         return try makeCall()

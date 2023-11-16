@@ -89,6 +89,13 @@ impl ChatRequest {
             ..Default::default()
         }
     }
+    pub fn new_read(topic_id: &str) -> Self {
+        ChatRequest {
+            r#type: String::from(ChatRequestType::Read),
+            topic_id: String::from(topic_id),
+            ..Default::default()
+        }
+    }
 
     pub fn new_chat_with_content(topic_id: &str, content: Content) -> Self {
         ChatRequest {

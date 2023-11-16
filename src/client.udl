@@ -196,7 +196,7 @@ callback interface Callback {
   void on_read(string topic_id); //消息已读
   void on_recall(string topic_id, string chat_id); // 撤回一条
   void on_typing(string topic_id, string user_id); // 收到一条typing
-  void on_topic_message(string topic_id, ChatLog message); // 收到一条消息， 这个用来替代所有的消息发送成功
+  boolean on_topic_message(string topic_id, ChatLog message); // 收到一条消息， 这个用来替代所有的消息发送成功
   void on_topic_notice_updated(string topic_id, TopicNotice notice); // 群公告更新
   void on_topic_member_updated(string topic_id, User member, boolean is_add); // 群成员更新
   void on_conversation_updated(sequence<Conversation> conversations); // 会话更新

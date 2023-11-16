@@ -1,5 +1,5 @@
 use super::{Content, DBStore, Topic};
-use log::{debug, warn};
+use log::{ warn};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
