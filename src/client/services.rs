@@ -194,6 +194,14 @@ impl Client {
         )
         .and_then(|mut user| {
             user.cached_at = chrono::Utc::now().to_rfc3339();
+            if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
+                let endpoint = self.net_store.endpoint()?;
+                user.avatar = format!(
+                    "{}{}",
+                    endpoint.trim_end_matches('/').to_string(),
+                    user.avatar
+                );
+            }
             self.db.save_user(&user)?;
             Ok(user)
         })
@@ -297,6 +305,15 @@ impl Client {
         )
         .and_then(|mut topic: Topic| {
             topic.cached_at = chrono::Utc::now().to_rfc3339();
+            if !topic.icon.is_empty() && !topic.icon.starts_with("http") {
+                let endpoint = self.net_store.endpoint()?;
+                topic.icon = format!(
+                    "{}{}",
+                    endpoint.trim_end_matches('/').to_string(),
+                    topic.icon
+                );
+            }
+
             self.db.save_topic(&topic).and(Ok(topic))
         })
     }

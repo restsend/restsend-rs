@@ -2677,10 +2677,11 @@ class FfiConverterTypeContent(FfiConverterRustBuffer):
 
 class Conversation:
 
-    def __init__(self, owner_id, topic_id, last_seq, multiple, attendee, name, icon, sticky, mute, source, unread, last_sender_id, last_message, last_message_at, cached_at):
+    def __init__(self, owner_id, topic_id, last_seq, last_read_seq, multiple, attendee, name, icon, sticky, mute, source, unread, last_sender_id, last_message, last_message_at, cached_at):
         self.owner_id = owner_id
         self.topic_id = topic_id
         self.last_seq = last_seq
+        self.last_read_seq = last_read_seq
         self.multiple = multiple
         self.attendee = attendee
         self.name = name
@@ -2695,7 +2696,7 @@ class Conversation:
         self.cached_at = cached_at
 
     def __str__(self):
-        return "Conversation(owner_id={}, topic_id={}, last_seq={}, multiple={}, attendee={}, name={}, icon={}, sticky={}, mute={}, source={}, unread={}, last_sender_id={}, last_message={}, last_message_at={}, cached_at={})".format(self.owner_id, self.topic_id, self.last_seq, self.multiple, self.attendee, self.name, self.icon, self.sticky, self.mute, self.source, self.unread, self.last_sender_id, self.last_message, self.last_message_at, self.cached_at)
+        return "Conversation(owner_id={}, topic_id={}, last_seq={}, last_read_seq={}, multiple={}, attendee={}, name={}, icon={}, sticky={}, mute={}, source={}, unread={}, last_sender_id={}, last_message={}, last_message_at={}, cached_at={})".format(self.owner_id, self.topic_id, self.last_seq, self.last_read_seq, self.multiple, self.attendee, self.name, self.icon, self.sticky, self.mute, self.source, self.unread, self.last_sender_id, self.last_message, self.last_message_at, self.cached_at)
 
     def __eq__(self, other):
         if self.owner_id != other.owner_id:
@@ -2703,6 +2704,8 @@ class Conversation:
         if self.topic_id != other.topic_id:
             return False
         if self.last_seq != other.last_seq:
+            return False
+        if self.last_read_seq != other.last_read_seq:
             return False
         if self.multiple != other.multiple:
             return False
@@ -2737,6 +2740,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
             owner_id=FfiConverterString.read(buf),
             topic_id=FfiConverterString.read(buf),
             last_seq=FfiConverterUInt64.read(buf),
+            last_read_seq=FfiConverterUInt64.read(buf),
             multiple=FfiConverterBool.read(buf),
             attendee=FfiConverterString.read(buf),
             name=FfiConverterString.read(buf),
@@ -2744,7 +2748,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
             sticky=FfiConverterBool.read(buf),
             mute=FfiConverterBool.read(buf),
             source=FfiConverterString.read(buf),
-            unread=FfiConverterUInt32.read(buf),
+            unread=FfiConverterUInt64.read(buf),
             last_sender_id=FfiConverterString.read(buf),
             last_message=FfiConverterOptionalTypeContent.read(buf),
             last_message_at=FfiConverterString.read(buf),
@@ -2756,6 +2760,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
         FfiConverterString.write(value.owner_id, buf)
         FfiConverterString.write(value.topic_id, buf)
         FfiConverterUInt64.write(value.last_seq, buf)
+        FfiConverterUInt64.write(value.last_read_seq, buf)
         FfiConverterBool.write(value.multiple, buf)
         FfiConverterString.write(value.attendee, buf)
         FfiConverterString.write(value.name, buf)
@@ -2763,7 +2768,7 @@ class FfiConverterTypeConversation(FfiConverterRustBuffer):
         FfiConverterBool.write(value.sticky, buf)
         FfiConverterBool.write(value.mute, buf)
         FfiConverterString.write(value.source, buf)
-        FfiConverterUInt32.write(value.unread, buf)
+        FfiConverterUInt64.write(value.unread, buf)
         FfiConverterString.write(value.last_sender_id, buf)
         FfiConverterOptionalTypeContent.write(value.last_message, buf)
         FfiConverterString.write(value.last_message_at, buf)
@@ -2887,7 +2892,7 @@ class FfiConverterTypeListUserResult(FfiConverterRustBuffer):
 
 class Topic:
 
-    def __init__(self, id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, created_at, updated_at, notice, silent, unread, cached_at):
+    def __init__(self, id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, created_at, updated_at, notice, silent, cached_at):
         self.id = id
         self.name = name
         self.icon = icon
@@ -2904,11 +2909,10 @@ class Topic:
         self.updated_at = updated_at
         self.notice = notice
         self.silent = silent
-        self.unread = unread
         self.cached_at = cached_at
 
     def __str__(self):
-        return "Topic(id={}, name={}, icon={}, remark={}, owner_id={}, attendee_id={}, admins={}, members={}, last_seq={}, multiple={}, source={}, private={}, created_at={}, updated_at={}, notice={}, silent={}, unread={}, cached_at={})".format(self.id, self.name, self.icon, self.remark, self.owner_id, self.attendee_id, self.admins, self.members, self.last_seq, self.multiple, self.source, self.private, self.created_at, self.updated_at, self.notice, self.silent, self.unread, self.cached_at)
+        return "Topic(id={}, name={}, icon={}, remark={}, owner_id={}, attendee_id={}, admins={}, members={}, last_seq={}, multiple={}, source={}, private={}, created_at={}, updated_at={}, notice={}, silent={}, cached_at={})".format(self.id, self.name, self.icon, self.remark, self.owner_id, self.attendee_id, self.admins, self.members, self.last_seq, self.multiple, self.source, self.private, self.created_at, self.updated_at, self.notice, self.silent, self.cached_at)
 
     def __eq__(self, other):
         if self.id != other.id:
@@ -2943,8 +2947,6 @@ class Topic:
             return False
         if self.silent != other.silent:
             return False
-        if self.unread != other.unread:
-            return False
         if self.cached_at != other.cached_at:
             return False
         return True
@@ -2969,7 +2971,6 @@ class FfiConverterTypeTopic(FfiConverterRustBuffer):
             updated_at=FfiConverterString.read(buf),
             notice=FfiConverterOptionalTypeTopicNotice.read(buf),
             silent=FfiConverterBool.read(buf),
-            unread=FfiConverterUInt32.read(buf),
             cached_at=FfiConverterString.read(buf),
         )
 
@@ -2991,7 +2992,6 @@ class FfiConverterTypeTopic(FfiConverterRustBuffer):
         FfiConverterString.write(value.updated_at, buf)
         FfiConverterOptionalTypeTopicNotice.write(value.notice, buf)
         FfiConverterBool.write(value.silent, buf)
-        FfiConverterUInt32.write(value.unread, buf)
         FfiConverterString.write(value.cached_at, buf)
 
 

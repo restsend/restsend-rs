@@ -187,11 +187,11 @@ fn test_user() {
     let test_user = "test_user";
     let user = User::new(test_user);
 
-    db.save_user(&user).expect("save user fail");
+    db.save_user(&user).expect("save user failed");
 
     assert_eq!(db.get_user(test_user).unwrap().user_id, test_user);
     db.set_user_block(test_user, true).expect("set blocked");
     assert_eq!(db.get_user(test_user).unwrap().is_blocked, true);
     // clean
-    db.remove_user(test_user).expect("remove user fail");
+    db.remove_user(test_user).expect("remove user failed");
 }

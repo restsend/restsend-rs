@@ -53,6 +53,9 @@ class MainView(client.Callback):
         logger.info('on_conversation_updated: %d', len(conversations))
         for c in conversations:
             logger.info('conversation: %s %s', c.topic_id, c)
+            if not c.multiple:
+                info = self.c.get_user(c.attendee)
+                logger.info('user: %s', info)
 
     def run(self):
         self.client_thr = Thread(target=self.c.run_loop)

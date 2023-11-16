@@ -10,9 +10,9 @@ fn test_single_topic() {
     let bob = super::login_with("bob", "bob:demo");
     alice
         .set_allow_guest_chat(true)
-        .expect("set_allow_guest_chat fail");
+        .expect("set_allow_guest_chat failed");
     bob.set_allow_guest_chat(true)
-        .expect("set_allow_guest_chat fail");
+        .expect("set_allow_guest_chat failed");
 
     let topic = alice.create_chat("bob".to_string()).unwrap();
     assert!(topic.id == "alice:bob" && !topic.multiple);

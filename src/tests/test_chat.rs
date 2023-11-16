@@ -249,38 +249,9 @@ fn test_single_chat() {
 }
 
 #[test]
-fn test_multi_chat() {
-    /*
-    let (alice, bob, carol) = &*crate::tests::CLIENTS;
+fn test_multi_chat() {}
 
-    info!("test_multi_chat:");
-
-    alice.set_callback(Some(Box::new(AliceCallBack {
-        user_id: "alice".to_string(),
-        user: alice,
-        is_multi_chat: true,
-        create_topic: true,
-    }) as Box<dyn Callback>));
-    let alice_agent = std::sync::Arc::new(alice).clone();
-    std::thread::spawn(move || {
-        alice_agent.run_loop().unwrap();
-    });
-
-    bob.set_callback(Some(Box::new(BobCallBack {
-        bob: bob,
-        is_multi_chat: true,
-    }) as Box<dyn Callback>));
-    let bob_agent = std::sync::Arc::new(bob).clone();
-    std::thread::spawn(move || {
-        bob_agent.run_loop().unwrap();
-    });
-
-    carol.set_callback(Some(Box::new(CarolCallBack { carol }) as Box<dyn Callback>));
-    let carol_agent = std::sync::Arc::new(carol).clone();
-    std::thread::spawn(move || {
-        carol_agent.run_loop().unwrap();
-    });
-
-    std::thread::sleep(Duration::from_secs(3));
-     */
+#[test]
+fn test_conversation_state() {
+    
 }

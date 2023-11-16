@@ -1,4 +1,5 @@
 use super::{Content, DBStore, Topic};
+use log::{debug, warn};
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
@@ -8,30 +9,46 @@ use serde::{Deserialize, Serialize};
 pub struct Conversation {
     pub owner_id: String,
     pub topic_id: String,
+
     #[serde(default)]
     pub last_seq: u64,
+
+    #[serde(default)]
+    pub last_read_seq: u64,               //最后一条已读消息的seq
+
     #[serde(default)]
     pub multiple: bool,                   //是否群聊
+
     #[serde(default)]
     pub attendee: String,                 // 如果是单聊, 则是对方的id
+
     #[serde(default)]
     pub name: String,
+
     #[serde(default)]
     pub icon: String,
+
     #[serde(default)]
     pub sticky: bool,                    //是否置顶
+
     #[serde(default)]
     pub mute: bool,                      //是否静音
+
     #[serde(default)]
     pub source: String,                  
+
     #[serde(default)]
-    pub unread: u32,                     //未读消息数量
+    pub unread: u64,                     //未读消息数量
+
     #[serde(default)]
     pub last_sender_id: String,          //最后一条消息的发送者
+
     #[serde(default)]
     pub last_message: Option<Content>,   // 最后一条消息
+
     #[serde(default)]
     pub last_message_at: String,         // 最后一条消息的时间
+
     #[serde(skip)]
     pub cached_at: String,
 }
@@ -54,8 +71,7 @@ impl From<&Topic> for Conversation {
             multiple:topic.multiple,    
             source: topic.source.clone(),        
             name:topic.name.clone(),
-            icon:topic.icon.clone(),            
-            unread:topic.unread,          
+            icon:topic.icon.clone(),       
             attendee:topic.attendee_id.clone(),                       
             ..Default::default()}
     }
@@ -81,6 +97,7 @@ impl DBStore {
                 conversation.owner_id = row.get("owner_id")?;
                 conversation.cached_at = row.get("cached_at")?;
                 conversation.last_seq = row.get("last_seq")?;
+                conversation.last_read_seq = row.get("last_read_seq")?;
                 conversation.multiple = row.get("multiple")?;
                 conversation.attendee = row.get("attendee")?;
                 conversation.name = row.get("name")?;
@@ -89,23 +106,35 @@ impl DBStore {
                 conversation.mute = row.get("mute")?;
                 conversation.source = row.get("source")?;
                 conversation.last_sender_id = row.get("last_sender_id")?;
-                let last_message: Content = row.get("last_message")?;
-                conversation.last_message = Some(last_message);
+
+                let last_message: String = row.get("last_message")?;
+                conversation.last_message = serde_json::from_str(&last_message).ok();
+
                 conversation.last_message_at = row.get("last_message_at")?;
+                conversation.unread = std::cmp::max(conversation.last_seq - conversation.last_read_seq, 0);
                 Ok(conversation)
             },
-        )?;
-        Ok(conversation)
+        );
+        match conversation {
+            Ok(conversation) =>{
+                Ok(conversation)
+            },
+            Err(e) => {
+                warn!("get_conversation fail: {:?} {:?}", topic_id, e);
+                Err(e.into())
+            }
+        }
     }
 
     pub fn save_conversation(&self, conversation: &Conversation) -> crate::Result<()> {
         let conn = self.pool.get()?;
         conn.execute(
-            "INSERT OR REPLACE INTO conversations (topic_id, owner_id, cached_at, last_seq, multiple, attendee, name, icon, sticky, mute, source, last_sender_id, last_message, last_message_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14 )",
+            "INSERT OR REPLACE INTO conversations (topic_id, owner_id, cached_at, last_seq, last_read_seq, multiple, attendee, name, icon, sticky, mute, source, last_sender_id, last_message, last_message_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![conversation.topic_id, 
             conversation.owner_id, 
             conversation.cached_at,
             conversation.last_seq,
+            conversation.last_read_seq,
             conversation.multiple,
             conversation.attendee, 
             conversation.name, 
@@ -150,8 +179,8 @@ impl DBStore {
     pub fn set_conversation_read(&self, topic_id: &str) -> crate::Result<()> {
         let conn = self.pool.get()?;
         conn.execute(
-            "UPDATE conversations SET unread = ? WHERE topic_id = ?",
-            params![0, topic_id],
+            "UPDATE conversations SET last_read_seq = last_seq WHERE topic_id = ?",
+            params![topic_id],
         )?;
         Ok(())
     }

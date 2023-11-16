@@ -2223,6 +2223,7 @@ data class Conversation (
     var `ownerId`: String, 
     var `topicId`: String, 
     var `lastSeq`: ULong, 
+    var `lastReadSeq`: ULong, 
     var `multiple`: Boolean, 
     var `attendee`: String, 
     var `name`: String, 
@@ -2230,7 +2231,7 @@ data class Conversation (
     var `sticky`: Boolean, 
     var `mute`: Boolean, 
     var `source`: String, 
-    var `unread`: UInt, 
+    var `unread`: ULong, 
     var `lastSenderId`: String, 
     var `lastMessage`: Content?, 
     var `lastMessageAt`: String, 
@@ -2245,6 +2246,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
             FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterString.read(buf),
             FfiConverterString.read(buf),
@@ -2252,7 +2254,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterBoolean.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterString.read(buf),
-            FfiConverterUInt.read(buf),
+            FfiConverterULong.read(buf),
             FfiConverterString.read(buf),
             FfiConverterOptionalTypeContent.read(buf),
             FfiConverterString.read(buf),
@@ -2264,6 +2266,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.allocationSize(value.`ownerId`) +
             FfiConverterString.allocationSize(value.`topicId`) +
             FfiConverterULong.allocationSize(value.`lastSeq`) +
+            FfiConverterULong.allocationSize(value.`lastReadSeq`) +
             FfiConverterBoolean.allocationSize(value.`multiple`) +
             FfiConverterString.allocationSize(value.`attendee`) +
             FfiConverterString.allocationSize(value.`name`) +
@@ -2271,7 +2274,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterBoolean.allocationSize(value.`sticky`) +
             FfiConverterBoolean.allocationSize(value.`mute`) +
             FfiConverterString.allocationSize(value.`source`) +
-            FfiConverterUInt.allocationSize(value.`unread`) +
+            FfiConverterULong.allocationSize(value.`unread`) +
             FfiConverterString.allocationSize(value.`lastSenderId`) +
             FfiConverterOptionalTypeContent.allocationSize(value.`lastMessage`) +
             FfiConverterString.allocationSize(value.`lastMessageAt`) +
@@ -2282,6 +2285,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterString.write(value.`ownerId`, buf)
             FfiConverterString.write(value.`topicId`, buf)
             FfiConverterULong.write(value.`lastSeq`, buf)
+            FfiConverterULong.write(value.`lastReadSeq`, buf)
             FfiConverterBoolean.write(value.`multiple`, buf)
             FfiConverterString.write(value.`attendee`, buf)
             FfiConverterString.write(value.`name`, buf)
@@ -2289,7 +2293,7 @@ public object FfiConverterTypeConversation: FfiConverterRustBuffer<Conversation>
             FfiConverterBoolean.write(value.`sticky`, buf)
             FfiConverterBoolean.write(value.`mute`, buf)
             FfiConverterString.write(value.`source`, buf)
-            FfiConverterUInt.write(value.`unread`, buf)
+            FfiConverterULong.write(value.`unread`, buf)
             FfiConverterString.write(value.`lastSenderId`, buf)
             FfiConverterOptionalTypeContent.write(value.`lastMessage`, buf)
             FfiConverterString.write(value.`lastMessageAt`, buf)
@@ -2424,7 +2428,6 @@ data class Topic (
     var `updatedAt`: String, 
     var `notice`: TopicNotice?, 
     var `silent`: Boolean, 
-    var `unread`: UInt, 
     var `cachedAt`: String
 ) {
     
@@ -2449,7 +2452,6 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterString.read(buf),
             FfiConverterOptionalTypeTopicNotice.read(buf),
             FfiConverterBoolean.read(buf),
-            FfiConverterUInt.read(buf),
             FfiConverterString.read(buf),
         )
     }
@@ -2471,7 +2473,6 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterString.allocationSize(value.`updatedAt`) +
             FfiConverterOptionalTypeTopicNotice.allocationSize(value.`notice`) +
             FfiConverterBoolean.allocationSize(value.`silent`) +
-            FfiConverterUInt.allocationSize(value.`unread`) +
             FfiConverterString.allocationSize(value.`cachedAt`)
     )
 
@@ -2492,7 +2493,6 @@ public object FfiConverterTypeTopic: FfiConverterRustBuffer<Topic> {
             FfiConverterString.write(value.`updatedAt`, buf)
             FfiConverterOptionalTypeTopicNotice.write(value.`notice`, buf)
             FfiConverterBoolean.write(value.`silent`, buf)
-            FfiConverterUInt.write(value.`unread`, buf)
             FfiConverterString.write(value.`cachedAt`, buf)
     }
 }

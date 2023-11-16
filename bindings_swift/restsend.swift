@@ -1582,6 +1582,7 @@ public struct Conversation {
     public var `ownerId`: String
     public var `topicId`: String
     public var `lastSeq`: UInt64
+    public var `lastReadSeq`: UInt64
     public var `multiple`: Bool
     public var `attendee`: String
     public var `name`: String
@@ -1589,7 +1590,7 @@ public struct Conversation {
     public var `sticky`: Bool
     public var `mute`: Bool
     public var `source`: String
-    public var `unread`: UInt32
+    public var `unread`: UInt64
     public var `lastSenderId`: String
     public var `lastMessage`: Content?
     public var `lastMessageAt`: String
@@ -1597,10 +1598,11 @@ public struct Conversation {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(`ownerId`: String, `topicId`: String, `lastSeq`: UInt64, `multiple`: Bool, `attendee`: String, `name`: String, `icon`: String, `sticky`: Bool, `mute`: Bool, `source`: String, `unread`: UInt32, `lastSenderId`: String, `lastMessage`: Content?, `lastMessageAt`: String, `cachedAt`: String) {
+    public init(`ownerId`: String, `topicId`: String, `lastSeq`: UInt64, `lastReadSeq`: UInt64, `multiple`: Bool, `attendee`: String, `name`: String, `icon`: String, `sticky`: Bool, `mute`: Bool, `source`: String, `unread`: UInt64, `lastSenderId`: String, `lastMessage`: Content?, `lastMessageAt`: String, `cachedAt`: String) {
         self.`ownerId` = `ownerId`
         self.`topicId` = `topicId`
         self.`lastSeq` = `lastSeq`
+        self.`lastReadSeq` = `lastReadSeq`
         self.`multiple` = `multiple`
         self.`attendee` = `attendee`
         self.`name` = `name`
@@ -1626,6 +1628,9 @@ extension Conversation: Equatable, Hashable {
             return false
         }
         if lhs.`lastSeq` != rhs.`lastSeq` {
+            return false
+        }
+        if lhs.`lastReadSeq` != rhs.`lastReadSeq` {
             return false
         }
         if lhs.`multiple` != rhs.`multiple` {
@@ -1671,6 +1676,7 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(`ownerId`)
         hasher.combine(`topicId`)
         hasher.combine(`lastSeq`)
+        hasher.combine(`lastReadSeq`)
         hasher.combine(`multiple`)
         hasher.combine(`attendee`)
         hasher.combine(`name`)
@@ -1693,6 +1699,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             `ownerId`: FfiConverterString.read(from: &buf), 
             `topicId`: FfiConverterString.read(from: &buf), 
             `lastSeq`: FfiConverterUInt64.read(from: &buf), 
+            `lastReadSeq`: FfiConverterUInt64.read(from: &buf), 
             `multiple`: FfiConverterBool.read(from: &buf), 
             `attendee`: FfiConverterString.read(from: &buf), 
             `name`: FfiConverterString.read(from: &buf), 
@@ -1700,7 +1707,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             `sticky`: FfiConverterBool.read(from: &buf), 
             `mute`: FfiConverterBool.read(from: &buf), 
             `source`: FfiConverterString.read(from: &buf), 
-            `unread`: FfiConverterUInt32.read(from: &buf), 
+            `unread`: FfiConverterUInt64.read(from: &buf), 
             `lastSenderId`: FfiConverterString.read(from: &buf), 
             `lastMessage`: FfiConverterOptionTypeContent.read(from: &buf), 
             `lastMessageAt`: FfiConverterString.read(from: &buf), 
@@ -1712,6 +1719,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterString.write(value.`ownerId`, into: &buf)
         FfiConverterString.write(value.`topicId`, into: &buf)
         FfiConverterUInt64.write(value.`lastSeq`, into: &buf)
+        FfiConverterUInt64.write(value.`lastReadSeq`, into: &buf)
         FfiConverterBool.write(value.`multiple`, into: &buf)
         FfiConverterString.write(value.`attendee`, into: &buf)
         FfiConverterString.write(value.`name`, into: &buf)
@@ -1719,7 +1727,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterBool.write(value.`sticky`, into: &buf)
         FfiConverterBool.write(value.`mute`, into: &buf)
         FfiConverterString.write(value.`source`, into: &buf)
-        FfiConverterUInt32.write(value.`unread`, into: &buf)
+        FfiConverterUInt64.write(value.`unread`, into: &buf)
         FfiConverterString.write(value.`lastSenderId`, into: &buf)
         FfiConverterOptionTypeContent.write(value.`lastMessage`, into: &buf)
         FfiConverterString.write(value.`lastMessageAt`, into: &buf)
@@ -1959,12 +1967,11 @@ public struct Topic {
     public var `updatedAt`: String
     public var `notice`: TopicNotice?
     public var `silent`: Bool
-    public var `unread`: UInt32
     public var `cachedAt`: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(`id`: String, `name`: String, `icon`: String, `remark`: String, `ownerId`: String, `attendeeId`: String, `admins`: [String], `members`: UInt32, `lastSeq`: UInt64, `multiple`: Bool, `source`: String, `private`: Bool, `createdAt`: String, `updatedAt`: String, `notice`: TopicNotice?, `silent`: Bool, `unread`: UInt32, `cachedAt`: String) {
+    public init(`id`: String, `name`: String, `icon`: String, `remark`: String, `ownerId`: String, `attendeeId`: String, `admins`: [String], `members`: UInt32, `lastSeq`: UInt64, `multiple`: Bool, `source`: String, `private`: Bool, `createdAt`: String, `updatedAt`: String, `notice`: TopicNotice?, `silent`: Bool, `cachedAt`: String) {
         self.`id` = `id`
         self.`name` = `name`
         self.`icon` = `icon`
@@ -1981,7 +1988,6 @@ public struct Topic {
         self.`updatedAt` = `updatedAt`
         self.`notice` = `notice`
         self.`silent` = `silent`
-        self.`unread` = `unread`
         self.`cachedAt` = `cachedAt`
     }
 }
@@ -2037,9 +2043,6 @@ extension Topic: Equatable, Hashable {
         if lhs.`silent` != rhs.`silent` {
             return false
         }
-        if lhs.`unread` != rhs.`unread` {
-            return false
-        }
         if lhs.`cachedAt` != rhs.`cachedAt` {
             return false
         }
@@ -2063,7 +2066,6 @@ extension Topic: Equatable, Hashable {
         hasher.combine(`updatedAt`)
         hasher.combine(`notice`)
         hasher.combine(`silent`)
-        hasher.combine(`unread`)
         hasher.combine(`cachedAt`)
     }
 }
@@ -2088,7 +2090,6 @@ public struct FfiConverterTypeTopic: FfiConverterRustBuffer {
             `updatedAt`: FfiConverterString.read(from: &buf), 
             `notice`: FfiConverterOptionTypeTopicNotice.read(from: &buf), 
             `silent`: FfiConverterBool.read(from: &buf), 
-            `unread`: FfiConverterUInt32.read(from: &buf), 
             `cachedAt`: FfiConverterString.read(from: &buf)
         )
     }
@@ -2110,7 +2111,6 @@ public struct FfiConverterTypeTopic: FfiConverterRustBuffer {
         FfiConverterString.write(value.`updatedAt`, into: &buf)
         FfiConverterOptionTypeTopicNotice.write(value.`notice`, into: &buf)
         FfiConverterBool.write(value.`silent`, into: &buf)
-        FfiConverterUInt32.write(value.`unread`, into: &buf)
         FfiConverterString.write(value.`cachedAt`, into: &buf)
     }
 }

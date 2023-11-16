@@ -102,7 +102,6 @@ dictionary Topic {
     string updated_at;       // 更新时间
     TopicNotice? notice;     // 群公告
     boolean silent;          // 是否禁言
-    u32 unread;              // 未读消息数量
     string cached_at;        // 缓存时间
 };
 
@@ -150,16 +149,17 @@ dictionary Conversation {
     string owner_id;
     string topic_id;
     u64 last_seq;
+    u64 last_read_seq;
     boolean multiple;
     string attendee;
     string name;
     string icon;
-    boolean sticky;              //是否置顶
-    boolean mute;
+    boolean sticky;             
+    boolean mute; 
     string source;
-    u32 unread;
-    string last_sender_id;       // 最后一条消息的发送者
-    Content? last_message;       // 最后一条消息
+    u64 unread;
+    string last_sender_id;        
+    Content? last_message;     
     string last_message_at;
     string cached_at;
 };

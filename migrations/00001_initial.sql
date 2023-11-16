@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS "conversations" (
     `topic_id` text UNIQUE,
     `owner_id` text,
     `last_seq` integer,
+    `last_read_seq` integer,
     `multiple` integer,
     `attendee` text,
     `name` text,
@@ -43,12 +44,10 @@ CREATE TABLE IF NOT EXISTS "conversations" (
     `sticky` integer,
     `mute` integer,
     `source` text,
-    `unread` integer,
     `last_sender_id` text,
-    `last_message_id` text,
+    `last_message` text,
     `last_message_at` datetime,
     `cached_at` datetime,
-    `last_message` text,
     PRIMARY KEY (`topic_id`)
 );
 
@@ -74,7 +73,6 @@ CREATE TABLE IF NOT EXISTS "topics" (
     `private` integer,
     `notice` text,
     `silent` integer,
-    `unread` integer,
     `cached_at` datetime,
     `created_at` datetime,
     PRIMARY KEY (`id`)

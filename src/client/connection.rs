@@ -620,7 +620,7 @@ impl Client {
                 }
             }
             ChatRequestType::Read => {
-                self.db.update_topic_read(&req.topic_id)?;
+                self.db.set_conversation_read(&req.topic_id)?;
                 if let Some(cb) = self.callback.read().unwrap().as_ref() {
                     cb.on_read(req.topic_id.clone())
                 }
@@ -754,6 +754,8 @@ impl Client {
             .unwrap_or(Conversation::from(topic));
 
         conversation.last_seq = max(conversation.last_seq, req.seq);
+        conversation.unread = max(conversation.last_seq - conversation.last_read_seq, 0);
+
         if conversation.last_seq == req.seq && req.content.is_some() {
             conversation.last_message = Some(req.content.as_ref().unwrap().clone());
         }

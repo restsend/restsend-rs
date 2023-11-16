@@ -12,7 +12,7 @@ fn test_db_prepare() {
 #[test]
 fn test_client_init() {
     let c = Client::new(crate::models::MEMORY_DSN.to_string(), "".to_string());
-    c.prepare().expect("prepare fail");
+    c.prepare().expect("prepare failed");
 }
 
 #[test]
@@ -37,7 +37,7 @@ fn test_login_and_getchatlogs() {
     let c = super::login_with("guido", "guido:demo");
     let logs = c
         .get_chat_logs_desc("guido:vitalik".to_string(), 0, 0)
-        .expect("logs fail");
+        .expect("logs failed");
 
     assert!(logs.items.len() > 0 || logs.items.len() == 0);
 }

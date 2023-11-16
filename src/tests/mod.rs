@@ -16,16 +16,16 @@ pub(crate) fn login_with(user_id: &str, password: &str) -> crate::Client {
         crate::models::MEMORY_DSN.to_string(),
         TEST_SERVER.to_string(),
     );
-    c.prepare().expect("prepare fail");
+    c.prepare().expect("prepare failed");
     let info = login(
         TEST_SERVER.to_string(),
         user_id.to_string(),
         password.to_string(),
     )
-    .expect("login fail");
-    c.attach(info).expect("login fail");
+    .expect("login failed");
+    c.attach(info).expect("login failed");
     c.set_allow_guest_chat(true)
-        .expect("set_allow_guest_chat fail");
+        .expect("set_allow_guest_chat failed");
     c
 }
 

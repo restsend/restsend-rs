@@ -89,8 +89,6 @@ pub struct Topic {
     pub silent: bool,        // 是否禁言
     #[serde(skip)]
     pub cached_at: String,   // 缓存时间
-    #[serde(skip)]
-    pub unread: u32,         // 未读消息数量
 }
 
 impl Topic {
@@ -122,7 +120,6 @@ impl DBStore {
             topic.silent = row.get("silent")?;
             topic.created_at = row.get("created_at")?;
             topic.cached_at = row.get("cached_at")?;
-            topic.unread = row.get("unread")?;
             Ok(topic)
         })?;
         Ok(topic)
@@ -131,7 +128,7 @@ impl DBStore {
     pub fn save_topic(&self, topic: &Topic) -> crate::Result<()> {
         let conn = self.pool.get()?;
         conn.execute(
-            "INSERT OR REPLACE INTO topics (id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, notice, silent, unread, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13 ,?14, ?15, ?16, ?17)",
+            "INSERT OR REPLACE INTO topics (id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, notice, silent, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13 ,?14, ?15, ?16)",
             params![topic.id, 
             topic.name, 
             topic.icon, 
@@ -146,7 +143,6 @@ impl DBStore {
             topic.private, 
             topic.notice, 
             topic.silent,
-            topic.unread,
             topic.created_at,
             topic.cached_at,]
         ).map(|_|{Ok(())})?
@@ -160,11 +156,11 @@ impl DBStore {
         ).map(|_|{Ok(())})?
     }
 
-    pub fn update_topic_read(&self, id: &str) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute("UPDATE topics SET unread = ? WHERE id = ?", params![0, id])
-        .map(|_|{Ok(())})?
-    }
+    // pub fn update_topic_read(&self, id: &str) -> crate::Result<()> {
+    //     let conn = self.pool.get()?;
+    //     conn.execute("UPDATE topics SET unread = ? WHERE id = ?", params![0, id])
+    //     .map(|_|{Ok(())})?
+    // }
 
     pub fn get_topic_admins(&self, id: &str) -> crate::Result<Vec<String>> {
         let conn = self.pool.get()?;
