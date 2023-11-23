@@ -73,6 +73,9 @@ pub(crate) enum CtrlMessageType {
     OnMediaUploadCancel(String, String, String, String),
     OnMediaUploadDone(String, String, u32, String),
 
+    // Conversation
+    ConversationSync(bool),
+    ChatLogSync(String, u64, u64),
     Shutdown,
 }
 type CtrlReceiver = mpsc::UnboundedReceiver<CtrlMessageType>;

@@ -417,6 +417,7 @@ public protocol ClientProtocol {
     func `getTopicOwner`(`topicId`: String)  throws -> User
     func `getTopicMembers`(`topicId`: String, `updatedAt`: String, `limit`: UInt32)  throws -> ListUserResult
     func `getChatLogsDesc`(`topicId`: String, `startSeq`: UInt64, `endSeq`: UInt64)  throws -> ListChatLogResult
+    func `syncChatlogs`(`topicId`: String, `startSeq`: UInt64, `endSeq`: UInt64)  throws
     func `getChatLog`(`topicId`: String, `id`: String)  throws -> ChatLog
     func `searchChatLog`(`topicId`: String, `senderId`: String, `keyword`: String)  throws -> [ChatLog]
     func `getTopicKnocks`(`topicId`: String)  throws -> [TopicKnock]
@@ -724,6 +725,17 @@ public class Client: ClientProtocol {
     )
 }
         )
+    }
+
+    public func `syncChatlogs`(`topicId`: String, `startSeq`: UInt64, `endSeq`: UInt64) throws {
+        try 
+    rustCallWithError(FfiConverterTypeClientError.lift) {
+    uniffi_client_fn_method_client_sync_chatlogs(self.pointer, 
+        FfiConverterString.lower(`topicId`),
+        FfiConverterUInt64.lower(`startSeq`),
+        FfiConverterUInt64.lower(`endSeq`),$0
+    )
+}
     }
 
     public func `getChatLog`(`topicId`: String, `id`: String) throws -> ChatLog {
@@ -2913,6 +2925,7 @@ public protocol Callback : AnyObject {
     func `onTopicDismissed`(`topicId`: String, `userId`: String) 
     func `onTopicSilent`(`topicId`: String, `duration`: String) 
     func `onTopicSilentMember`(`topicId`: String, `userId`: String, `duration`: String) 
+    func `onTopicLogsSync`(`topicId`: String, `result`: ListChatLogResult) 
     func `onDownloadProgress`(`fileUrl`: String, `received`: UInt32, `total`: UInt32, `key`: String) 
     func `onDownloadDone`(`fileUrl`: String, `localFileName`: String, `size`: UInt32, `key`: String) 
     func `onDownloadCancel`(`fileUrl`: String, `localFileName`: String, `reason`: String, `key`: String) 
@@ -3157,6 +3170,18 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                     `topicId`:  try FfiConverterString.read(from: &reader), 
                     `userId`:  try FfiConverterString.read(from: &reader), 
                     `duration`:  try FfiConverterString.read(from: &reader)
+                    )
+            return UNIFFI_CALLBACK_SUCCESS
+        }
+        return try makeCall()
+    }
+
+    func `invokeOnTopicLogsSync`(_ swiftCallbackInterface: Callback, _ argsData: UnsafePointer<UInt8>, _ argsLen: Int32, _ out_buf: UnsafeMutablePointer<RustBuffer>) throws -> Int32 {
+        var reader = createReader(data: Data(bytes: argsData, count: Int(argsLen)))
+        func makeCall() throws -> Int32 {
+            try swiftCallbackInterface.`onTopicLogsSync`(
+                    `topicId`:  try FfiConverterString.read(from: &reader), 
+                    `result`:  try FfiConverterTypeListChatLogResult.read(from: &reader)
                     )
             return UNIFFI_CALLBACK_SUCCESS
         }
@@ -3543,7 +3568,7 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try `invokeOnDownloadProgress`(cb, argsData, argsLen, out_buf)
+                return try `invokeOnTopicLogsSync`(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
@@ -3557,7 +3582,7 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try `invokeOnDownloadDone`(cb, argsData, argsLen, out_buf)
+                return try `invokeOnDownloadProgress`(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
@@ -3571,7 +3596,7 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try `invokeOnDownloadCancel`(cb, argsData, argsLen, out_buf)
+                return try `invokeOnDownloadDone`(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
@@ -3585,7 +3610,7 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try `invokeOnUploadProgress`(cb, argsData, argsLen, out_buf)
+                return try `invokeOnDownloadCancel`(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
@@ -3599,12 +3624,26 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try `invokeOnUploadDone`(cb, argsData, argsLen, out_buf)
+                return try `invokeOnUploadProgress`(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
         case 26:
+            let cb: Callback
+            do {
+                cb = try FfiConverterCallbackInterfaceCallback.lift(handle)
+            } catch {
+                out_buf.pointee = FfiConverterString.lower("Callback: Invalid handle")
+                return UNIFFI_CALLBACK_UNEXPECTED_ERROR
+            }
+            do {
+                return try `invokeOnUploadDone`(cb, argsData, argsLen, out_buf)
+            } catch let error {
+                out_buf.pointee = FfiConverterString.lower(String(describing: error))
+                return UNIFFI_CALLBACK_UNEXPECTED_ERROR
+            }
+        case 27:
             let cb: Callback
             do {
                 cb = try FfiConverterCallbackInterfaceCallback.lift(handle)
@@ -4263,6 +4302,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_client_checksum_method_client_get_chat_logs_desc() != 33827) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_client_checksum_method_client_sync_chatlogs() != 49097) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_client_checksum_method_client_get_chat_log() != 14674) {

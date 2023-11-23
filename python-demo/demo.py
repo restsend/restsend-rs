@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class Config:
     log_level = 'DEBUG'
-    endpoint = 'http://chat.rddoc.cn'
+    endpoint = 'https://chat.ruzhila.cn'
     user = 'guido'
     attendee = 'vitalik'
 

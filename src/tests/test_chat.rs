@@ -171,7 +171,9 @@ fn test_get_conversations() {
     };
     alice.set_callback(Some(Box::new(cb)));
 
-    alice.sync_conversations(false).expect("sync conversations");
+    alice
+        .begin_sync_conversations(false)
+        .expect("sync conversations");
     assert!(cc.lock().unwrap().clone() > 0);
 }
 #[test]

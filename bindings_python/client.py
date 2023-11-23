@@ -578,6 +578,8 @@ def uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_get_chat_logs_desc() != 33827:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_client_checksum_method_client_sync_chatlogs() != 49097:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_get_chat_log() != 14674:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_client_checksum_method_client_search_chat_log() != 60608:
@@ -820,6 +822,14 @@ _UniFFILib.uniffi_client_fn_method_client_get_chat_logs_desc.argtypes = (
     ctypes.POINTER(RustCallStatus),
 )
 _UniFFILib.uniffi_client_fn_method_client_get_chat_logs_desc.restype = RustBuffer
+_UniFFILib.uniffi_client_fn_method_client_sync_chatlogs.argtypes = (
+    ctypes.c_void_p,
+    RustBuffer,
+    ctypes.c_uint64,
+    ctypes.c_uint64,
+    ctypes.POINTER(RustCallStatus),
+)
+_UniFFILib.uniffi_client_fn_method_client_sync_chatlogs.restype = None
 _UniFFILib.uniffi_client_fn_method_client_get_chat_log.argtypes = (
     ctypes.c_void_p,
     RustBuffer,
@@ -1272,6 +1282,9 @@ _UniFFILib.uniffi_client_checksum_method_client_get_topic_members.restype = ctyp
 _UniFFILib.uniffi_client_checksum_method_client_get_chat_logs_desc.argtypes = (
 )
 _UniFFILib.uniffi_client_checksum_method_client_get_chat_logs_desc.restype = ctypes.c_uint16
+_UniFFILib.uniffi_client_checksum_method_client_sync_chatlogs.argtypes = (
+)
+_UniFFILib.uniffi_client_checksum_method_client_sync_chatlogs.restype = ctypes.c_uint16
 _UniFFILib.uniffi_client_checksum_method_client_get_chat_log.argtypes = (
 )
 _UniFFILib.uniffi_client_checksum_method_client_get_chat_log.restype = ctypes.c_uint16
@@ -1803,6 +1816,22 @@ class Client:
         FfiConverterUInt64.lower(start_seq),
         FfiConverterUInt64.lower(end_seq))
         )
+
+
+
+
+
+
+    def sync_chatlogs(self, topic_id: "str",start_seq: "int",end_seq: "int"):
+        
+        
+        
+        rust_call_with_error(
+    FfiConverterTypeClientError,_UniFFILib.uniffi_client_fn_method_client_sync_chatlogs,self._pointer,
+        FfiConverterString.lower(topic_id),
+        FfiConverterUInt64.lower(start_seq),
+        FfiConverterUInt64.lower(end_seq))
+
 
 
 
@@ -3636,6 +3665,9 @@ class Callback:
     def on_topic_silent_member(self, topic_id: "str",user_id: "str",duration: "str"):
         raise NotImplementedError
 
+    def on_topic_logs_sync(self, topic_id: "str",result: "ListChatLogResult"):
+        raise NotImplementedError
+
     def on_download_progress(self, file_url: "str",received: "int",total: "int",key: "str"):
         raise NotImplementedError
 
@@ -3888,6 +3920,18 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
                 FfiConverterString.read(args_stream), 
                 FfiConverterString.read(args_stream), 
                 FfiConverterString.read(args_stream)
+                )
+
+        def makeCallAndHandleReturn():
+            makeCall()
+            return UNIFFI_CALLBACK_SUCCESS
+        return makeCallAndHandleReturn()
+
+    
+    def invoke_on_topic_logs_sync(python_callback, args_stream, buf_ptr):
+        def makeCall():return python_callback.on_topic_logs_sync(
+                FfiConverterString.read(args_stream), 
+                FfiConverterTypeListChatLogResult.read(args_stream)
                 )
 
         def makeCallAndHandleReturn():
@@ -4275,7 +4319,7 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:
-            return invoke_on_download_progress(cb, RustBufferStream(args_data, args_len), buf_ptr)
+            return invoke_on_topic_logs_sync(cb, RustBufferStream(args_data, args_len), buf_ptr)
         except BaseException as e:
             # Catch unexpected errors
             try:
@@ -4289,7 +4333,7 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:
-            return invoke_on_download_done(cb, RustBufferStream(args_data, args_len), buf_ptr)
+            return invoke_on_download_progress(cb, RustBufferStream(args_data, args_len), buf_ptr)
         except BaseException as e:
             # Catch unexpected errors
             try:
@@ -4303,7 +4347,7 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:
-            return invoke_on_download_cancel(cb, RustBufferStream(args_data, args_len), buf_ptr)
+            return invoke_on_download_done(cb, RustBufferStream(args_data, args_len), buf_ptr)
         except BaseException as e:
             # Catch unexpected errors
             try:
@@ -4317,7 +4361,7 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:
-            return invoke_on_upload_progress(cb, RustBufferStream(args_data, args_len), buf_ptr)
+            return invoke_on_download_cancel(cb, RustBufferStream(args_data, args_len), buf_ptr)
         except BaseException as e:
             # Catch unexpected errors
             try:
@@ -4331,7 +4375,7 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:
-            return invoke_on_upload_done(cb, RustBufferStream(args_data, args_len), buf_ptr)
+            return invoke_on_upload_progress(cb, RustBufferStream(args_data, args_len), buf_ptr)
         except BaseException as e:
             # Catch unexpected errors
             try:
@@ -4342,6 +4386,20 @@ def py_foreignCallbackCallbackInterfaceCallback(handle, method, args_data, args_
                 pass
             return UNIFFI_CALLBACK_UNEXPECTED_ERROR
     if method == 26:
+        # Call the method and handle any errors
+        # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
+        try:
+            return invoke_on_upload_done(cb, RustBufferStream(args_data, args_len), buf_ptr)
+        except BaseException as e:
+            # Catch unexpected errors
+            try:
+                # Try to serialize the exception into a String
+                buf_ptr[0] = FfiConverterString.lower(repr(e))
+            except:
+                # If that fails, just give up
+                pass
+            return UNIFFI_CALLBACK_UNEXPECTED_ERROR
+    if method == 27:
         # Call the method and handle any errors
         # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
         try:

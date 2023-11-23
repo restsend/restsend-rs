@@ -205,7 +205,8 @@ callback interface Callback {
   void on_topic_dismissed(string topic_id, string user_id); // 群被解散
   void on_topic_silent(string topic_id, string duration); // 群被禁言
   void on_topic_silent_member(string topic_id, string user_id, string duration); // 群成员被禁言
-  
+  void on_topic_logs_sync(string topic_id, ListChatLogResult result); // 同步聊天记录
+
   void on_download_progress(string file_url, u32 received, u32 total, string key); // 下载的进度
   void on_download_done(string file_url, string local_file_name, u32 size, string key);
   void on_download_cancel(string file_url, string local_file_name, string reason, string key); // 下载取消
@@ -282,6 +283,10 @@ interface Client {
   ListUserResult get_topic_members(string topic_id, string updated_at, u32 limit); // 获取群成员列表
   [Throws=ClientError]
   ListChatLogResult get_chat_logs_desc(string topic_id, u64 start_seq, u64 end_seq); // 倒序的获取聊天记录
+  
+  [Throws=ClientError]
+  void sync_chatlogs(string topic_id, u64 start_seq, u64 end_seq);
+
   [Throws=ClientError]
   ChatLog get_chat_log(string topic_id, string id); // 获取一条本地聊天记录
   [Throws=ClientError]

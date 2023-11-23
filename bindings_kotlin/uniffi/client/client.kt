@@ -422,6 +422,8 @@ internal interface _UniFFILib : Library {
     ): RustBuffer.ByValue
     fun uniffi_client_fn_method_client_get_chat_logs_desc(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`startSeq`: Long,`endSeq`: Long,_uniffi_out_err: RustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_client_fn_method_client_sync_chatlogs(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`startSeq`: Long,`endSeq`: Long,_uniffi_out_err: RustCallStatus, 
+    ): Unit
     fun uniffi_client_fn_method_client_get_chat_log(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`id`: RustBuffer.ByValue,_uniffi_out_err: RustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_client_fn_method_client_search_chat_log(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`senderId`: RustBuffer.ByValue,`keyword`: RustBuffer.ByValue,_uniffi_out_err: RustCallStatus, 
@@ -579,6 +581,8 @@ internal interface _UniFFILib : Library {
     fun uniffi_client_checksum_method_client_get_topic_members(
     ): Short
     fun uniffi_client_checksum_method_client_get_chat_logs_desc(
+    ): Short
+    fun uniffi_client_checksum_method_client_sync_chatlogs(
     ): Short
     fun uniffi_client_checksum_method_client_get_chat_log(
     ): Short
@@ -763,6 +767,9 @@ private fun uniffiCheckApiChecksums(lib: _UniFFILib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_client_checksum_method_client_get_chat_logs_desc() != 33827.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_client_checksum_method_client_sync_chatlogs() != 49097.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_client_checksum_method_client_get_chat_log() != 14674.toShort()) {
@@ -1211,6 +1218,7 @@ public interface ClientInterface {
     fun `getTopicOwner`(`topicId`: String): User@Throws(ClientException::class)
     fun `getTopicMembers`(`topicId`: String, `updatedAt`: String, `limit`: UInt): ListUserResult@Throws(ClientException::class)
     fun `getChatLogsDesc`(`topicId`: String, `startSeq`: ULong, `endSeq`: ULong): ListChatLogResult@Throws(ClientException::class)
+    fun `syncChatlogs`(`topicId`: String, `startSeq`: ULong, `endSeq`: ULong)@Throws(ClientException::class)
     fun `getChatLog`(`topicId`: String, `id`: String): ChatLog@Throws(ClientException::class)
     fun `searchChatLog`(`topicId`: String, `senderId`: String, `keyword`: String): List<ChatLog>@Throws(ClientException::class)
     fun `getTopicKnocks`(`topicId`: String): List<TopicKnock>@Throws(ClientException::class)
@@ -1545,6 +1553,17 @@ class Client(
         }.let {
             FfiConverterTypeListChatLogResult.lift(it)
         }
+    
+    
+    @Throws(ClientException::class)override fun `syncChatlogs`(`topicId`: String, `startSeq`: ULong, `endSeq`: ULong) =
+        callWithPointer {
+    rustCallWithError(ClientException) { _status ->
+    _UniFFILib.INSTANCE.uniffi_client_fn_method_client_sync_chatlogs(it,
+        FfiConverterString.lower(`topicId`),FfiConverterULong.lower(`startSeq`),FfiConverterULong.lower(`endSeq`),
+        _status)
+}
+        }
+    
     
     
     @Throws(ClientException::class)override fun `getChatLog`(`topicId`: String, `id`: String): ChatLog =
@@ -2993,6 +3012,7 @@ public interface Callback {
     fun `onTopicDismissed`(`topicId`: String, `userId`: String)
     fun `onTopicSilent`(`topicId`: String, `duration`: String)
     fun `onTopicSilentMember`(`topicId`: String, `userId`: String, `duration`: String)
+    fun `onTopicLogsSync`(`topicId`: String, `result`: ListChatLogResult)
     fun `onDownloadProgress`(`fileUrl`: String, `received`: UInt, `total`: UInt, `key`: String)
     fun `onDownloadDone`(`fileUrl`: String, `localFileName`: String, `size`: UInt, `key`: String)
     fun `onDownloadCancel`(`fileUrl`: String, `localFileName`: String, `reason`: String, `key`: String)
@@ -3338,7 +3358,7 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
-                    this.`invokeOnDownloadProgress`(cb, argsData, argsLen, outBuf)
+                    this.`invokeOnTopicLogsSync`(cb, argsData, argsLen, outBuf)
                 } catch (e: Throwable) {
                     // Unexpected error
                     try {
@@ -3354,7 +3374,7 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
-                    this.`invokeOnDownloadDone`(cb, argsData, argsLen, outBuf)
+                    this.`invokeOnDownloadProgress`(cb, argsData, argsLen, outBuf)
                 } catch (e: Throwable) {
                     // Unexpected error
                     try {
@@ -3370,7 +3390,7 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
-                    this.`invokeOnDownloadCancel`(cb, argsData, argsLen, outBuf)
+                    this.`invokeOnDownloadDone`(cb, argsData, argsLen, outBuf)
                 } catch (e: Throwable) {
                     // Unexpected error
                     try {
@@ -3386,7 +3406,7 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
-                    this.`invokeOnUploadProgress`(cb, argsData, argsLen, outBuf)
+                    this.`invokeOnDownloadCancel`(cb, argsData, argsLen, outBuf)
                 } catch (e: Throwable) {
                     // Unexpected error
                     try {
@@ -3402,7 +3422,7 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
-                    this.`invokeOnUploadDone`(cb, argsData, argsLen, outBuf)
+                    this.`invokeOnUploadProgress`(cb, argsData, argsLen, outBuf)
                 } catch (e: Throwable) {
                     // Unexpected error
                     try {
@@ -3415,6 +3435,22 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 }
             }
             26 -> {
+                // Call the method, write to outBuf and return a status code
+                // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
+                try {
+                    this.`invokeOnUploadDone`(cb, argsData, argsLen, outBuf)
+                } catch (e: Throwable) {
+                    // Unexpected error
+                    try {
+                        // Try to serialize the error into a string
+                        outBuf.setValue(FfiConverterString.lower(e.toString()))
+                    } catch (e: Throwable) {
+                        // If that fails, then it's time to give up and just return
+                    }
+                    UNIFFI_CALLBACK_UNEXPECTED_ERROR
+                }
+            }
+            27 -> {
                 // Call the method, write to outBuf and return a status code
                 // See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for info
                 try {
@@ -3770,6 +3806,23 @@ internal class ForeignCallbackTypeCallback : ForeignCallback {
                 FfiConverterString.read(argsBuf), 
                 FfiConverterString.read(argsBuf), 
                 FfiConverterString.read(argsBuf)
+            )
+            return UNIFFI_CALLBACK_SUCCESS
+        }
+        fun makeCallAndHandleError() : Int = makeCall()
+
+        return makeCallAndHandleError()
+    }
+    
+    @Suppress("UNUSED_PARAMETER")
+    private fun `invokeOnTopicLogsSync`(kotlinCallbackInterface: Callback, argsData: Pointer, argsLen: Int, outBuf: RustBufferByReference): Int {
+        val argsBuf = argsData.getByteBuffer(0, argsLen.toLong()).also {
+            it.order(ByteOrder.BIG_ENDIAN)
+        }
+        fun makeCall() : Int {
+            kotlinCallbackInterface.`onTopicLogsSync`(
+                FfiConverterString.read(argsBuf), 
+                FfiConverterTypeListChatLogResult.read(argsBuf)
             )
             return UNIFFI_CALLBACK_SUCCESS
         }

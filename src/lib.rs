@@ -121,6 +121,13 @@ pub trait Callback: Send + Sync {
         );
     }
 
+    fn on_topic_logs_sync(&self, topic_id: String, result: ListChatLogResult) {
+        debug!(
+            "on_topic_logs_sync: {} last_seq:{}",
+            topic_id, result.last_seq,
+        );
+    }
+
     // 下载的进度
     fn on_download_progress(&self, url: String, received: u32, total: u32, key: String) {
         debug!(

@@ -55,6 +55,6 @@ if [ $DEV -eq 0 ]; then
     zip -x "*.zip" -r /tmp/${NAME}-${VERSION}.xcframework.zip *
     zipsize=`du -m /tmp/${NAME}-${VERSION}.xcframework.zip | cut -f1`
     echo "▸ Compressed xcframework size: ${zipsize}M"
-    scp /tmp/${NAME}-${VERSION}.xcframework.zip ubuntu@chat.rddoc.cn:/var/www/chat/downloads/
+    scp /tmp/${NAME}-${VERSION}.xcframework.zip ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/
 fi
 echo "🎉 Done with config: ${CONF}"

@@ -118,6 +118,8 @@ RustBuffer uniffi_client_fn_method_client_get_topic_members(void*_Nonnull ptr, R
 );
 RustBuffer uniffi_client_fn_method_client_get_chat_logs_desc(void*_Nonnull ptr, RustBuffer topic_id, uint64_t start_seq, uint64_t end_seq, RustCallStatus *_Nonnull out_status
 );
+void uniffi_client_fn_method_client_sync_chatlogs(void*_Nonnull ptr, RustBuffer topic_id, uint64_t start_seq, uint64_t end_seq, RustCallStatus *_Nonnull out_status
+);
 RustBuffer uniffi_client_fn_method_client_get_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer id, RustCallStatus *_Nonnull out_status
 );
 RustBuffer uniffi_client_fn_method_client_search_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer sender_id, RustBuffer keyword, RustCallStatus *_Nonnull out_status
@@ -302,6 +304,9 @@ uint16_t uniffi_client_checksum_method_client_get_topic_members(void
     
 );
 uint16_t uniffi_client_checksum_method_client_get_chat_logs_desc(void
+    
+);
+uint16_t uniffi_client_checksum_method_client_sync_chatlogs(void
     
 );
 uint16_t uniffi_client_checksum_method_client_get_chat_log(void

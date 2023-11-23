@@ -54,7 +54,7 @@ cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin
 
 ```shell
     cargo build --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin --release
-    # 构建swift的framework, 并且会发布到rddoc.cn上
+    # 构建swift的framework, 并且会发布到ruzhila.cn上
     ./scripts/xcframework.sh
 ```
 

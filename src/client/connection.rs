@@ -352,6 +352,18 @@ impl Client {
 
             let cmd = cmd.unwrap();
             match cmd {
+                CtrlMessageType::ConversationSync(without_cache) => {
+                    let r = self.begin_sync_conversations(without_cache);
+                    if let Err(e) = r {
+                        warn!("sync_conversations failed: {}", e);
+                    }
+                }
+                CtrlMessageType::ChatLogSync(topic_id, from, to) => {
+                    let r = self.begin_sync_chatlogs(topic_id, from, to);
+                    if let Err(e) = r {
+                        warn!("sync_chat_logs failed: {}", e);
+                    }
+                }
                 CtrlMessageType::Shutdown => {
                     warn!("shutdown run_loop");
                     self.net_store.set_running(false);

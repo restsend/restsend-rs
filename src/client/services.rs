@@ -231,6 +231,7 @@ impl Client {
         )
         .and_then(|mut c: Conversation| {
             c.cached_at = chrono::Utc::now().to_rfc3339();
+
             self.db.save_conversation(&c)?;
             Ok(c)
         })
@@ -527,6 +528,44 @@ impl Client {
         .and(Ok(()))
     }
 
+    pub fn sync_chatlogs(&self, topic_id: String, start_seq: u64, end_seq: u64) -> Result<()> {
+        self.ctrl_tx
+            .send(super::CtrlMessageType::ChatLogSync(
+                topic_id, start_seq, end_seq,
+            ))
+            .map_err(|e| crate::error::ClientError::SendCtrlMessageError(e.to_string()))
+    }
+
+    pub fn begin_sync_chatlogs(
+        &self,
+        topic_id: String,
+        start_seq: u64,
+        end_seq: u64,
+    ) -> Result<()> {
+        loop {
+            let lr = self.get_chat_logs_desc(topic_id.clone(), start_seq, end_seq)?;
+            let has_more = lr.has_more;
+            let chat_logs_sync_at = lr.updated_at.clone();
+            debug!(
+                "sync logs start_seq:{} end_seq:{} counts:{} last_seq:{}",
+                start_seq,
+                end_seq,
+                lr.items.len(),
+                lr.last_seq,
+            );
+
+            if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                cb.on_topic_logs_sync(topic_id.clone(), lr);
+            }
+
+            if !has_more {
+                self.db.set_value(&topic_id, &chat_logs_sync_at)?;
+                break;
+            }
+        }
+        Ok(())
+    }
+
     // 倒序的获取聊天记录
     pub fn get_chat_logs_desc(
         &self,
@@ -590,6 +629,12 @@ impl Client {
 #[allow(unused_variables)]
 impl Client {
     pub fn sync_conversations(&self, without_cache: bool) -> Result<()> {
+        self.ctrl_tx
+            .send(super::CtrlMessageType::ConversationSync(without_cache))
+            .map_err(|e| crate::error::ClientError::SendCtrlMessageError(e.to_string()))
+    }
+
+    pub(crate) fn begin_sync_conversations(&self, without_cache: bool) -> Result<()> {
         let mut conversations_sync_at = match without_cache {
             true => String::default(),
             false => match self.db.get_value(KEY_CONVERSATIONS_SYNC_AT) {
