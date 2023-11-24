@@ -4,8 +4,7 @@ mod migrate;
 mod models;
 mod net;
 mod request;
-#[cfg(test)]
-mod tests;
+mod storage;
 
 mod utils;
 use log::debug;

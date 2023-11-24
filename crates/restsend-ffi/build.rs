@@ -1,4 +1,5 @@
-use uniffi_bindgen::bindings::TargetLanguage;
+fn main() {}
+/*use uniffi_bindgen::bindings::TargetLanguage;
 
 fn main() {
     println!("cargo:rerun-if-changed=src/client.udl");
@@ -33,3 +34,4 @@ fn main() {
         }
     }
 }
+*/

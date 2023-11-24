@@ -1,53 +1,14 @@
-[package]
-name = "restsend-sdk"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
 
-[lib]
-crate-type = ["cdylib", "staticlib"]
+members = ["crates/*"]
 
-[dependencies]
-rusqlite = { version = "0.29.0", features = ["bundled", "trace"] }
-reqwest = { version = "0.11.20", default-features = false, features = [
-    "json",
-    "multipart",
-    "stream",
-    "rustls-tls",
-] }
-tokio = { version = "1.32.0", features = ["full"] }
-tokio-util = "0.7.9"
-rusqlite_migration = "1.0.2"
-lazy_static = "1.4.0"
-include_dir = "0.7.3"
-r2d2_sqlite = "0.22.0"
-r2d2 = "0.8.10"
-serde_json = "1.0.107"
-serde = "1.0.188"
-log = "0.4.20"
-tokio-tungstenite = { version = "0.20.0", features = [
-    "rustls-tls-native-roots",
-] }
-url = "2.4.1"
-futures-channel = "0.3.28"
-futures-util = { version = "0.3.28", features = ["sink", "std"] }
-http = "0.2.9"
-base64 = "0.21.4"
-rand = "0.8.5"
-thiserror = "1.0.48"
-uniffi = "0.24.3"
-env_logger = "0.10.0"
-chrono = "0.4.31"
+[profile.dev.package."*"]
+opt-level = 2
 
-[build-dependencies]
-uniffi = { version = "0.24.3", features = ["build", "cli"] }
-uniffi_bindgen = { version = "0.24.3" }
-camino = "1.1.6"
-
-[dev-dependencies]
-hyper = { version = "0.14.27", features = ["server", "stream"] }
-tempfile = "3.8.0"
+[profile.dev]
+opt-level = 1
 
 [profile.release]
-opt-level = "z"
-strip = "debuginfo"
-lto = true
+lto = "thin"
+codegen-units = 1

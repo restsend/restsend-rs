@@ -1,8 +1,6 @@
 use crate::request::ChatRequest;
 
 use super::DBStore;
-use rusqlite::params;
-use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use serde::{Deserialize, Serialize};
 
 // define content type enum for content
