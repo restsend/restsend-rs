@@ -20,12 +20,6 @@ pub enum ClientError {
     UserNotFound(String),
     #[error("auth: kickoff by other client")]
     KickOffByOtherClient(String),
-    #[error("migration: {0}")]
-    DbMigrateError(String),
-    #[error("db pool error: {0}")]
-    DbPoolError(#[from] r2d2::Error),
-    #[error("database: {0}")]
-    DbError(#[from] rusqlite::Error),
     #[error("std: {0}")]
     StdError(String),
     #[error("websocket: {0}")]

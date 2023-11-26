@@ -1,13 +1,14 @@
 use futures_util::TryStreamExt;
 use tokio::io::AsyncWriteExt;
 
+use super::CtrlMessageType;
 use crate::error::ClientError;
+use anyhow::Result;
 use http::StatusCode;
 use log::{info, warn};
 use reqwest::multipart;
+use serde;
 use tokio::select;
-
-use super::CtrlMessageType;
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -50,7 +51,7 @@ impl super::Client {
         local_file_path: String,
         key: String,
         is_private: bool,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
         let uploader_url = match uploader_url {
             Some(url) => url,
             None => format!("{}/api/attachment/upload", self.net_store.endpoint()?),
@@ -70,12 +71,7 @@ impl super::Client {
         }
     }
 
-    pub fn download(
-        &self,
-        file_url: String,
-        save_to_local: String,
-        key: String,
-    ) -> crate::Result<()> {
+    pub fn download(&self, file_url: String, save_to_local: String, key: String) -> Result<()> {
         if let Some(uploader) = self.external_uploader.lock().unwrap().as_ref() {
             Ok(uploader.download(file_url, save_to_local, key))
         } else {
@@ -85,7 +81,7 @@ impl super::Client {
         }
     }
 
-    pub fn cancel_download(&self, file_url: String, key: String) -> crate::Result<()> {
+    pub fn cancel_download(&self, file_url: String, key: String) -> Result<()> {
         if let Some(uploader) = self.external_uploader.lock().unwrap().as_ref() {
             Ok(uploader.cancel_download(file_url, key))
         } else {
@@ -94,7 +90,7 @@ impl super::Client {
                 .map_err(|e| crate::error::ClientError::SendCtrlMessageError(e.to_string()))
         }
     }
-    pub fn cancel_upload(&self, local_file_path: String, key: String) -> crate::Result<()> {
+    pub fn cancel_upload(&self, local_file_path: String, key: String) -> Result<()> {
         if let Some(uploader) = self.external_uploader.lock().unwrap().as_ref() {
             Ok(uploader.cancel_upload(local_file_path, key))
         } else {
@@ -112,7 +108,7 @@ impl super::Client {
         file_name: String,
         key: String,
         is_private: bool,
-    ) -> crate::Result<()> {
+    ) -> Result<()> {
         let (media_tx, mut media_rx) = tokio::sync::mpsc::unbounded_channel::<bool>();
 
         let tx = self.ctrl_tx.clone();
@@ -247,12 +243,7 @@ impl super::Client {
         Ok(())
     }
 
-    pub fn handle_media_download(
-        &self,
-        url: String,
-        save_to: String,
-        key: String,
-    ) -> crate::Result<()> {
+    pub fn handle_media_download(&self, url: String, save_to: String, key: String) -> Result<()> {
         info!(
             "handle_media_download url:{} save_to:{} key:{}",
             url, save_to, key
@@ -371,7 +362,7 @@ impl super::Client {
         Ok(())
     }
 
-    pub fn handle_media_cancel_upload(&self, file_name: String, key: String) -> crate::Result<()> {
+    pub fn handle_media_cancel_upload(&self, file_name: String, key: String) -> Result<()> {
         info!(
             "handle_media_cancel_upload key: {} file_name: {}",
             key, file_name
@@ -384,7 +375,7 @@ impl super::Client {
         Ok(())
     }
 
-    pub fn handle_media_cancel_download(&self, url: String, key: String) -> crate::Result<()> {
+    pub fn handle_media_cancel_download(&self, url: String, key: String) -> Result<()> {
         info!("handle_media_cancel_download key: {} url: {}", key, url);
         let binding = self.pending_medias.lock().unwrap();
         let cancel_tx = binding.get(key.as_str());

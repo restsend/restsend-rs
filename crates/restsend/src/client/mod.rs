@@ -13,7 +13,7 @@ use crate::models::DBStore;
 use crate::net::NetStore;
 use crate::request::PendingRequest;
 use crate::Callback;
-use crate::Result;
+use anyhow::Result;
 
 pub mod connection;
 pub mod media;

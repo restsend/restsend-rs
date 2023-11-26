@@ -29,7 +29,7 @@ pub(crate) fn login_with(user_id: &str, password: &str) -> crate::Client {
         .expect("set_allow_guest_chat failed");
     c
 }
-pub(crate) fn signup_demo_user(user_id: &str) -> crate::Result<()> {
+pub(crate) fn signup_demo_user(user_id: &str) -> Result<()> {
     let data = serde_json::json!({
         "email": user_id,
         "password": format!("{}:demo", user_id),
@@ -63,7 +63,7 @@ pub(crate) fn signup_demo_user(user_id: &str) -> crate::Result<()> {
         })
 }
 
-fn check_until(duration: Duration, f: impl Fn() -> bool) -> crate::Result<()> {
+fn check_until(duration: Duration, f: impl Fn() -> bool) -> Result<()> {
     let st = Instant::now();
     loop {
         if f() {

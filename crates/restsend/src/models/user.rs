@@ -1,5 +1,4 @@
 use super::DBStore;
-use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default)]
@@ -97,86 +96,86 @@ impl User {
     }
 }
 
-impl DBStore {
-    pub fn update_user(&self, new_user: &User) {
-        let old_user = self.get_user(new_user.user_id.as_str());
-        if old_user.is_err() {
-            self.save_user(&new_user).ok();
-            return;
-        }
-        self.save_user(&old_user.unwrap()).ok();
-    }
+// impl DBStore {
+//     pub fn update_user(&self, new_user: &User) {
+//         let old_user = self.get_user(new_user.user_id.as_str());
+//         if old_user.is_err() {
+//             self.save_user(&new_user).ok();
+//             return;
+//         }
+//         self.save_user(&old_user.unwrap()).ok();
+//     }
 
-    pub fn save_user(&self, user: &User) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "INSERT OR REPLACE INTO users (user_id, name, avatar, public_key, remark, is_contact, is_star, is_blocked, locale, city, country, source, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-            params![user.user_id, user.name, user.avatar, user.public_key, user.remark, user.is_contact, user.is_star, user.is_blocked, user.locale, user.city, user.country, user.source, user.created_at, user.cached_at],
-        )?;
-        Ok(())
-    }
-    #[allow(dead_code)]
-    pub fn remove_user(&self, user_id: &str) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute("DELETE FROM users WHERE user_id = ?", params![user_id])?;
-        Ok(())
-    }
+//     pub fn save_user(&self, user: &User) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "INSERT OR REPLACE INTO users (user_id, name, avatar, public_key, remark, is_contact, is_star, is_blocked, locale, city, country, source, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+//             params![user.user_id, user.name, user.avatar, user.public_key, user.remark, user.is_contact, user.is_star, user.is_blocked, user.locale, user.city, user.country, user.source, user.created_at, user.cached_at],
+//         )?;
+//         Ok(())
+//     }
+//     #[allow(dead_code)]
+//     pub fn remove_user(&self, user_id: &str) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute("DELETE FROM users WHERE user_id = ?", params![user_id])?;
+//         Ok(())
+//     }
 
-    pub fn get_user(&self, user_id: &str) -> crate::Result<User> {
-        let conn = self.pool.get()?;
-        let user = conn.query_row(
-            "SELECT * FROM users WHERE user_id = ?",
-            params![user_id],
-            |row| {
-                let mut user = User::new(&row.get::<_, String>("user_id")?);
-                user.name = row.get("name")?;
-                user.avatar = row.get("avatar")?;
-                user.public_key = row.get("public_key")?;
-                user.remark = row.get("remark")?;
-                user.is_contact = row.get("is_contact")?;
-                user.is_star = row.get("is_star")?;
-                user.is_blocked = row.get("is_blocked")?;
-                user.locale = row.get("locale")?;
-                user.city = row.get("city")?;
-                user.country = row.get("country")?;
-                user.source = row.get("source")?;
-                user.created_at = row.get("created_at")?;
-                user.cached_at = row.get("cached_at")?;
-                Ok(user)
-            },
-        )?;
-        Ok(user)
-    }
-}
+//     pub fn get_user(&self, user_id: &str) -> Result<User> {
+//         let conn = self.pool.get()?;
+//         let user = conn.query_row(
+//             "SELECT * FROM users WHERE user_id = ?",
+//             params![user_id],
+//             |row| {
+//                 let mut user = User::new(&row.get::<_, String>("user_id")?);
+//                 user.name = row.get("name")?;
+//                 user.avatar = row.get("avatar")?;
+//                 user.public_key = row.get("public_key")?;
+//                 user.remark = row.get("remark")?;
+//                 user.is_contact = row.get("is_contact")?;
+//                 user.is_star = row.get("is_star")?;
+//                 user.is_blocked = row.get("is_blocked")?;
+//                 user.locale = row.get("locale")?;
+//                 user.city = row.get("city")?;
+//                 user.country = row.get("country")?;
+//                 user.source = row.get("source")?;
+//                 user.created_at = row.get("created_at")?;
+//                 user.cached_at = row.get("cached_at")?;
+//                 Ok(user)
+//             },
+//         )?;
+//         Ok(user)
+//     }
+// }
 
-impl DBStore {
-    pub fn set_user_star(&self, user_id: &str, is_star: bool) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "UPDATE users SET is_star = ?1 WHERE user_id = ?2",
-            params![is_star, user_id],
-        )?;
-        Ok(())
-    }
+// impl DBStore {
+//     pub fn set_user_star(&self, user_id: &str, is_star: bool) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "UPDATE users SET is_star = ?1 WHERE user_id = ?2",
+//             params![is_star, user_id],
+//         )?;
+//         Ok(())
+//     }
 
-    pub fn set_user_remark(&self, user_id: &str, remark: &str) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "UPDATE users SET remark = ?1 WHERE user_id = ?2",
-            params![remark, user_id],
-        )?;
-        Ok(())
-    }
+//     pub fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "UPDATE users SET remark = ?1 WHERE user_id = ?2",
+//             params![remark, user_id],
+//         )?;
+//         Ok(())
+//     }
 
-    pub fn set_user_block(&self, user_id: &str, is_blocked: bool) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "UPDATE users SET is_blocked = ?1 WHERE user_id = ?2",
-            params![is_blocked, user_id],
-        )?;
-        Ok(())
-    }
-}
+//     pub fn set_user_block(&self, user_id: &str, is_blocked: bool) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "UPDATE users SET is_blocked = ?1 WHERE user_id = ?2",
+//             params![is_blocked, user_id],
+//         )?;
+//         Ok(())
+//     }
+// }
 
 #[test]
 fn test_user() {

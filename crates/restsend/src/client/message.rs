@@ -1,6 +1,6 @@
 use crate::models::Content;
 use crate::request::ChatRequest;
-use crate::Result;
+use anyhow::Result;
 
 impl super::Client {
     pub fn do_send_text(

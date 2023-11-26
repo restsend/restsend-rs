@@ -9,7 +9,7 @@ use crate::models::{
     Topic, TopicKnock, TopicMember, TopicNotice, User,
 };
 use crate::utils::is_expired;
-use crate::Result;
+use anyhow::Result;
 use log::{debug, warn};
 
 use reqwest::header::HeaderValue;
@@ -369,7 +369,7 @@ impl Client {
         Ok(lr)
     }
 
-    pub fn get_topic_owner(&self, topic_id: String) -> crate::Result<User> {
+    pub fn get_topic_owner(&self, topic_id: String) -> Result<User> {
         let owner_id = self.db.get_topic_owner(&topic_id)?;
         self.get_user(owner_id)
     }

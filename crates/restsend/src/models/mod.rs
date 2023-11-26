@@ -8,37 +8,30 @@
      - topic_members: 群成员表， 用来记录用户和群的关系
 */
 
-use r2d2_sqlite::SqliteConnectionManager;
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-
 pub const MEMORY_DSN: &str = ":memory:";
 
-pub struct DBStore {
-    pool: r2d2::Pool<SqliteConnectionManager>,
-}
+pub struct DBStore {}
 
 impl DBStore {
     pub fn new(path: &str) -> Self {
-        let manager = if path == MEMORY_DSN {
-            SqliteConnectionManager::memory().with_init(|_conn| {
-                #[cfg(test)]
-                _conn.trace(Some(|trace| {
-                    println!("SQL: {}", trace);
-                }));
-                Ok(())
-            })
-        } else {
-            SqliteConnectionManager::file(path)
-        };
+        // let manager = if path == MEMORY_DSN {
+        //     SqliteConnectionManager::memory().with_init(|_conn| {
+        //         #[cfg(test)]
+        //         _conn.trace(Some(|trace| {
+        //             println!("SQL: {}", trace);
+        //         }));
+        //         Ok(())
+        //     })
+        // } else {
+        //     SqliteConnectionManager::file(path)
+        // };
 
-        DBStore {
-            pool: r2d2::Pool::new(manager).unwrap(),
-        }
+        DBStore {}
     }
 
-    pub fn prepare(&self) -> crate::Result<()> {
-        let mut c = self.pool.get()?;
-        crate::migrate::do_migrate(&mut c)?;
+    pub fn prepare(&self) -> Result<()> {
         Ok(())
     }
 }

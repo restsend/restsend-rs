@@ -6,7 +6,7 @@ use crate::error::ClientError;
 use crate::models::{ChatLog, Conversation, Topic};
 use crate::request::{ChatRequest, ChatRequestType, PendingRequest};
 use crate::utils::random_text;
-use crate::Result;
+use anyhow::Result;
 
 use futures_util::{SinkExt, StreamExt};
 use http::request::Builder as WSBuilder;

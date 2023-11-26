@@ -1,36 +1,34 @@
-use serde::Serializer;
+use std::str::FromStr;
 
-mod memroy;
+mod indexeddb;
+mod memory;
 mod sqlite;
 
-pub trait SortKey<T>
-where
-    T: Sized,
-{
-    fn sorted_value(&self) -> &T;
+pub const MEMORY_DSN: &str = ":memory:";
+
+pub trait SortKey: ToString + FromStr {
+    fn sort_key(&self) -> i64;
 }
 
-pub struct QureyResult<T>
-where
-    T: Serializer + SortKey<T>,
-{
-    pub items: Vec<T>,
-    pub has_more: bool,
+type Storage = sqlite::SqliteStorage;
+
+pub trait Table<T: SortKey> {
+    fn get(&mut self, key: &str) -> Option<T>;
+    fn set(&mut self, key: &str, value: Option<T>);
+    fn remove(&mut self, key: &str);
+    fn clear(&mut self);
 }
 
-pub trait Table: Sync + Send {
-    fn get<T>(&self, key: &str) -> Result<T>
-    where
-        T: Serializer;
-    fn set<T>(&self, key: &str, value: &T)
-    where
-        T: Serializer;
-    fn query<T>(&self, key: &str, pos: u32, limit: u32) -> Result<QureyResult<T>>;
-    fn remove(&self, key: &str);
-    fn clear(&self);
+pub fn prepare(storage: &Storage) -> anyhow::Result<()> {
+    let tables = vec!["topics", "users", "messages", "conversations"];
+    for table in tables {
+        storage.make_table(table)?;
+    }
+    Ok(())
 }
 
-pub trait Storage {
-    fn prepare() -> Result<()>;
-    fn table(&self, name: &str) -> Box<dyn Table>;
+#[test]
+pub fn test_storage_prepare() {
+    let storage = Storage::new(MEMORY_DSN);
+    prepare(&storage).unwrap();
 }

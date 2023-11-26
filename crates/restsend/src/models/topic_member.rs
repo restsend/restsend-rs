@@ -1,5 +1,4 @@
 use super::DBStore;
-use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -31,61 +30,61 @@ impl TopicMember {
     }
 }
 
-impl DBStore {
-    #[allow(unused)]
-    pub fn get_topic_member(&self, topic_id: &str, user_id: &str) -> crate::Result<TopicMember> {
-        let conn = self.pool.get()?;
-        let topic_member = conn.query_row(
-            "SELECT * FROM topic_members WHERE topic_id = ? AND user_id = ?",
-            params![topic_id, user_id],
-            |row| {
-                Ok(TopicMember {
-                    topic_id: row.get("topic_id")?,
-                    user_id: row.get("user_id")?,
-                    is_owner: row.get("is_owner")?,
-                    is_admin: row.get("is_admin")?,
-                    remark: row.get("remark")?,
-                    silent: row.get("silent")?,
-                    joined_at: row.get("joined_at")?,
-                    cached_at: row.get("cached_at")?,
-                })
-            },
-        )?;
-        Ok(topic_member)
-    }
+// impl DBStore {
+//     #[allow(unused)]
+//     pub fn get_topic_member(&self, topic_id: &str, user_id: &str) -> Result<TopicMember> {
+//         let conn = self.pool.get()?;
+//         let topic_member = conn.query_row(
+//             "SELECT * FROM topic_members WHERE topic_id = ? AND user_id = ?",
+//             params![topic_id, user_id],
+//             |row| {
+//                 Ok(TopicMember {
+//                     topic_id: row.get("topic_id")?,
+//                     user_id: row.get("user_id")?,
+//                     is_owner: row.get("is_owner")?,
+//                     is_admin: row.get("is_admin")?,
+//                     remark: row.get("remark")?,
+//                     silent: row.get("silent")?,
+//                     joined_at: row.get("joined_at")?,
+//                     cached_at: row.get("cached_at")?,
+//                 })
+//             },
+//         )?;
+//         Ok(topic_member)
+//     }
 
-    pub fn save_topic_member(&self, topic_member: &TopicMember) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "INSERT OR REPLACE INTO topic_members (topic_id, user_id, is_owner, is_admin, remark, silent, joined_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![topic_member.topic_id, topic_member.user_id, topic_member.is_owner, topic_member.is_admin, topic_member.remark, topic_member.silent,  topic_member.joined_at, topic_member.cached_at]
-        )?;
-        Ok(())
-    }
+//     pub fn save_topic_member(&self, topic_member: &TopicMember) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "INSERT OR REPLACE INTO topic_members (topic_id, user_id, is_owner, is_admin, remark, silent, joined_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+//             params![topic_member.topic_id, topic_member.user_id, topic_member.is_owner, topic_member.is_admin, topic_member.remark, topic_member.silent,  topic_member.joined_at, topic_member.cached_at]
+//         )?;
+//         Ok(())
+//     }
 
-    pub fn remove_topic_member(&self, topic_id: &str, user_id: &str) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "DELETE FROM topic_members WHERE topic_id = ? AND user_id = ?",
-            params![topic_id, user_id],
-        )?;
-        Ok(())
-    }
+//     pub fn remove_topic_member(&self, topic_id: &str, user_id: &str) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "DELETE FROM topic_members WHERE topic_id = ? AND user_id = ?",
+//             params![topic_id, user_id],
+//         )?;
+//         Ok(())
+//     }
 
-    pub fn silent_topic_member(
-        &self,
-        topic_id: &str,
-        user_id: &str,
-        silent: bool,
-    ) -> crate::Result<()> {
-        let conn = self.pool.get()?;
-        conn.execute(
-            "UPDATE topic_members SET silent = ? WHERE topic_id = ? AND user_id = ?",
-            params![silent, topic_id, user_id],
-        )?;
-        Ok(())
-    }
-}
+//     pub fn silent_topic_member(
+//         &self,
+//         topic_id: &str,
+//         user_id: &str,
+//         silent: bool,
+//     ) -> Result<()> {
+//         let conn = self.pool.get()?;
+//         conn.execute(
+//             "UPDATE topic_members SET silent = ? WHERE topic_id = ? AND user_id = ?",
+//             params![silent, topic_id, user_id],
+//         )?;
+//         Ok(())
+//     }
+// }
 
 #[test]
 fn test_topic_member() {
