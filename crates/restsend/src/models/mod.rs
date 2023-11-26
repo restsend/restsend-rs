@@ -98,7 +98,6 @@ impl TopicKnock {
 }
 
 pub mod chat_log;
-pub mod config;
 pub mod conversation;
 pub mod topic;
 pub mod topic_member;
@@ -107,15 +106,8 @@ pub mod user;
 pub use chat_log::ChatLog;
 pub use chat_log::Content;
 pub use chat_log::ContentType;
-pub use config::Config;
 pub use conversation::Conversation;
 pub use topic::Topic;
 pub use topic::TopicNotice;
 pub use topic_member::TopicMember;
 pub use user::{AuthInfo, User};
-
-#[test]
-fn test_db_prepare() {
-    let db = DBStore::new(MEMORY_DSN);
-    assert!(db.prepare().is_ok());
-}

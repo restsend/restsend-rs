@@ -1,4 +1,3 @@
-use super::DBStore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -27,38 +26,38 @@ pub struct Topic {
     // 群id
     pub id: String,
     #[serde(default)]
-    pub name: String, // 群名称
+    pub name: String,
     #[serde(default)]
-    pub icon: String, // 群头像
+    pub icon: String,
     #[serde(default)]
-    pub remark: String, // 备注
+    pub remark: String,
     #[serde(default)]
-    pub owner_id: String, // 群主
+    pub owner_id: String,
     #[serde(default)]
-    pub attendee_id: String, // 如果是单聊, 则是对方的id
+    pub attendee_id: String,
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub admins: Vec<String>, // 群聊的管理员
+    pub admins: Vec<String>,
     #[serde(default)]
-    pub members: u32, // 成员数量
+    pub members: u32,
     #[serde(default)]
-    pub last_seq: u64, // 最后一条消息的seq
+    pub last_seq: u64,
     #[serde(default)]
-    pub multiple: bool, //是否群聊
+    pub multiple: bool,
     #[serde(default)]
-    pub source: String, //是否群聊
+    pub source: String,
     #[serde(default)]
-    pub private: bool, // 是否私聊
+    pub private: bool,
     #[serde(default)]
-    pub created_at: String, // 创建时间
+    pub created_at: String,
     #[serde(default)]
-    pub updated_at: String, // 创建时间
+    pub updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub notice: Option<TopicNotice>, // 群公告
+    pub notice: Option<TopicNotice>,
     #[serde(default)]
-    pub silent: bool, // 是否禁言
+    pub silent: bool,
     #[serde(skip)]
-    pub cached_at: String, // 缓存时间
+    pub cached_at: String,
 }
 
 impl Topic {
@@ -68,172 +67,4 @@ impl Topic {
             ..Default::default()
         }
     }
-}
-
-// impl DBStore {
-//     pub fn get_topic(&self, id: &str) -> Result<Topic> {
-//         let conn = self.pool.get()?;
-//         let topic = conn.query_row("SELECT * FROM topics WHERE id = ?", params![id], |row| {
-//             let mut topic = Topic::new(&row.get::<_, String>("id")?);
-//             topic.name = row.get("name")?;
-//             topic.icon = row.get("icon")?;
-//             topic.remark = row.get("remark")?;
-//             topic.owner_id = row.get("owner_id")?;
-//             topic.attendee_id = row.get("attendee_id")?;
-//             topic.admins = column_to_strings(&row.get::<_, String>("admins")?)?;
-//             topic.members = row.get("members")?;
-//             topic.last_seq = row.get("last_seq")?;
-//             topic.multiple = row.get("multiple")?;
-//             topic.source = row.get("source")?;
-//             topic.private = row.get("private")?;
-//             topic.notice = row.get("notice")?;
-//             topic.silent = row.get("silent")?;
-//             topic.created_at = row.get("created_at")?;
-//             topic.cached_at = row.get("cached_at")?;
-//             Ok(topic)
-//         })?;
-//         Ok(topic)
-//     }
-
-//     pub fn save_topic(&self, topic: &Topic) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "INSERT OR REPLACE INTO topics (id, name, icon, remark, owner_id, attendee_id, admins, members, last_seq, multiple, source, private, notice, silent, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13 ,?14, ?15, ?16)",
-//             params![topic.id,
-//             topic.name,
-//             topic.icon,
-//             topic.remark,
-//             topic.owner_id,
-//             topic.attendee_id,
-//             strings_to_column(&topic.admins)?,
-//             topic.members,
-//             topic.last_seq,
-//             topic.multiple,
-//             topic.source,
-//             topic.private,
-//             topic.notice,
-//             topic.silent,
-//             topic.created_at,
-//             topic.cached_at,]
-//         ).map(|_|{Ok(())})?
-//     }
-
-//     pub fn update_topic_notice(&self, id: &str, notice: Option<TopicNotice>) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "UPDATE topics SET notice = ? WHERE id = ?",
-//             params![notice, id],
-//         ).map(|_|{Ok(())})?
-//     }
-
-//     // pub fn update_topic_read(&self, id: &str) -> Result<()> {
-//     //     let conn = self.pool.get()?;
-//     //     conn.execute("UPDATE topics SET unread = ? WHERE id = ?", params![0, id])
-//     //     .map(|_|{Ok(())})?
-//     // }
-
-//     pub fn get_topic_admins(&self, id: &str) -> Result<Vec<String>> {
-//         let conn = self.pool.get()?;
-//         let admins = conn.query_row(
-//             "SELECT admins FROM topics WHERE id = ?",
-//             params![id],
-//             |row| {
-//                 let admins = column_to_strings(&row.get::<_, String>("admins")?)?;
-//                 Ok(admins)
-//             },
-//         )?;
-//         Ok(admins)
-//     }
-
-//     pub fn get_topic_owner(&self, id: &str) -> Result<String> {
-//         let conn = self.pool.get()?;
-//         let owner = conn.query_row(
-//             "SELECT owner_id FROM topics WHERE id = ?",
-//             params![id],
-//             |row| Ok(row.get::<_, String>("owner_id")?),
-//         )?;
-//         Ok(owner)
-//     }
-
-//     pub fn silent_topic(&self, id: &str, silent: bool) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "UPDATE topics SET silent = ? WHERE id = ?",
-//             params![silent, id],
-//         )?;
-//         Ok(())
-//     }
-
-//     pub fn dismiss_topic(&self, id: &str) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute("DELETE FROM topics WHERE id = ?", params![id])?;
-//         Ok(())
-//     }
-// }
-
-// #[test]
-// fn test_vec_string_decode() {
-
-//     let src = r#"["a","b","c"]"#;
-//     let value = serde_json::from_str::<Vec<String>>(src).unwrap();
-//     let r = strings_to_column(&value);
-//     assert!(r.is_ok());
-//     let r = r.unwrap();
-//     let r = r.to_sql();
-//     assert!(r.is_ok());
-// }
-
-#[test]
-fn test_topic() {
-    let db = DBStore::new(super::MEMORY_DSN);
-    assert!(db.prepare().is_ok());
-
-    let test_topic = "test_topic";
-    let test_owner = "test_user";
-    let test_admin = "admin";
-
-    let mut topic = Topic::new(test_topic);
-    topic.admins = vec![test_owner.to_string(), test_admin.to_string()];
-    topic.owner_id = test_owner.to_string();
-    topic.silent = true;
-
-    assert!(db
-        .save_topic(&topic)
-        .map_err(|e| println!("{:?}", e))
-        .is_ok());
-    assert_eq!(db.get_topic(test_topic).unwrap().id, test_topic);
-
-    let admins = db.get_topic_admins(test_topic).unwrap();
-    assert!(
-        admins[0] == test_owner && admins[1] == test_admin
-            || admins[1] == test_owner && admins[0] == test_admin
-    );
-
-    assert_eq!(db.get_topic_owner(test_topic).unwrap(), test_owner);
-
-    assert!(db
-        .silent_topic(test_topic, true)
-        .map_err(|e| println!("{:?}", e))
-        .is_ok());
-    assert_eq!(db.get_topic(test_topic).unwrap().silent, true);
-
-    let notice = Some(TopicNotice::new(
-        "notice text",
-        test_owner,
-        &chrono::Utc::now().to_rfc3339(),
-    ));
-
-    assert!(db
-        .update_topic_notice(test_topic, notice)
-        .map_err(|e| println!("{:?}", e))
-        .is_ok());
-    assert_eq!(
-        db.get_topic(test_topic).unwrap().notice.unwrap().text,
-        "notice text"
-    );
-
-    assert!(db
-        .dismiss_topic(test_topic)
-        .map_err(|e| println!("{:?}", e))
-        .is_ok());
 }

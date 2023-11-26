@@ -1,4 +1,4 @@
-use super::SortKey;
+use super::StoreModel;
 use lru::LruCache;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
@@ -14,7 +14,7 @@ impl InMemoryStorage {
     }
     pub fn table<T>(&self, _name: &str) -> Option<Box<dyn super::Table<T>>>
     where
-        T: SortKey + 'static,
+        T: StoreModel + 'static,
     {
         let table = MemoryTable::new(100);
         Some(table)
@@ -24,13 +24,13 @@ impl InMemoryStorage {
 #[derive(Debug)]
 pub(super) struct MemoryTable<T>
 where
-    T: SortKey,
+    T: StoreModel,
 {
     data: LruCache<String, String>,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: SortKey + 'static> MemoryTable<T> {
+impl<T: StoreModel + 'static> MemoryTable<T> {
     pub fn new(max_items: usize) -> Box<dyn super::Table<T>> {
         Box::new(MemoryTable {
             data: LruCache::new(NonZeroUsize::new(max_items).unwrap()),
@@ -39,7 +39,7 @@ impl<T: SortKey + 'static> MemoryTable<T> {
     }
 }
 
-impl<T: SortKey> super::Table<T> for MemoryTable<T> {
+impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     fn get(&mut self, key: &str) -> Option<T> {
         let v = self.data.get(key);
         v.and_then(|v| match T::from_str(v) {

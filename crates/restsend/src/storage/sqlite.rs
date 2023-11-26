@@ -1,4 +1,4 @@
-use super::{SortKey, MEMORY_DSN};
+use super::{StoreModel, MEMORY_DSN};
 use anyhow::{anyhow, Result};
 use log::{debug, error};
 use rusqlite::{params, Connection};
@@ -46,7 +46,7 @@ impl SqliteStorage {
 
     pub fn table<T>(&self, name: &str) -> Option<Box<dyn super::Table<T>>>
     where
-        T: SortKey + 'static,
+        T: StoreModel + 'static,
     {
         let table = SqliteTable::new(self.conn.clone(), name);
         Some(Box::new(table))
@@ -55,14 +55,14 @@ impl SqliteStorage {
 
 struct SqliteTable<T>
 where
-    T: SortKey,
+    T: StoreModel,
 {
     session: Session,
     name: String,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: SortKey> SqliteTable<T> {
+impl<T: StoreModel> SqliteTable<T> {
     pub fn new(conn: Session, name: &str) -> Self {
         SqliteTable {
             session: conn,
@@ -72,7 +72,7 @@ impl<T: SortKey> SqliteTable<T> {
     }
 }
 
-impl<T: SortKey> super::Table<T> for SqliteTable<T> {
+impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
     fn get(&mut self, key: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
@@ -159,7 +159,7 @@ impl<T: SortKey> super::Table<T> for SqliteTable<T> {
 }
 
 #[cfg(test)]
-impl SortKey for i32 {
+impl StoreModel for i32 {
     fn sort_key(&self) -> i64 {
         *self as i64
     }

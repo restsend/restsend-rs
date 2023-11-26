@@ -1,4 +1,3 @@
-use super::DBStore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default)]
@@ -10,7 +9,6 @@ pub struct AuthInfo {
     pub token: String,
 }
 
-//所有的用户都会存储到本地表,只要不管是不是好友
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
@@ -21,27 +19,27 @@ pub struct User {
     #[serde(default)]
     pub avatar: String,
     #[serde(default)]
-    pub public_key: String, //e2e的公钥
+    pub public_key: String,
     #[serde(default)]
-    pub remark: String, // 本地或者联系人备注
+    pub remark: String,
     #[serde(default)]
-    pub is_contact: bool, //是否好友
+    pub is_contact: bool,
     #[serde(default)]
-    pub is_star: bool, //是否星标
+    pub is_star: bool,
     #[serde(default)]
-    pub is_blocked: bool, //是否被拉黑
+    pub is_blocked: bool,
     #[serde(default)]
-    pub locale: String, //语言
+    pub locale: String,
     #[serde(default)]
-    pub city: String, //城市
+    pub city: String,
     #[serde(default)]
-    pub country: String, //国家
+    pub country: String,
     #[serde(default)]
-    pub source: String, //来源
+    pub source: String,
     #[serde(default)]
     pub created_at: String,
     #[serde(default)]
-    pub gender: String, // 性别: f/female, m/male
+    pub gender: String, // f/female, m/male
     #[serde(skip)]
     pub cached_at: String,
 }
@@ -94,103 +92,4 @@ impl User {
         new_user.cached_at = chrono::Local::now().timestamp_millis().to_string();
         new_user
     }
-}
-
-// impl DBStore {
-//     pub fn update_user(&self, new_user: &User) {
-//         let old_user = self.get_user(new_user.user_id.as_str());
-//         if old_user.is_err() {
-//             self.save_user(&new_user).ok();
-//             return;
-//         }
-//         self.save_user(&old_user.unwrap()).ok();
-//     }
-
-//     pub fn save_user(&self, user: &User) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "INSERT OR REPLACE INTO users (user_id, name, avatar, public_key, remark, is_contact, is_star, is_blocked, locale, city, country, source, created_at, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-//             params![user.user_id, user.name, user.avatar, user.public_key, user.remark, user.is_contact, user.is_star, user.is_blocked, user.locale, user.city, user.country, user.source, user.created_at, user.cached_at],
-//         )?;
-//         Ok(())
-//     }
-//     #[allow(dead_code)]
-//     pub fn remove_user(&self, user_id: &str) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute("DELETE FROM users WHERE user_id = ?", params![user_id])?;
-//         Ok(())
-//     }
-
-//     pub fn get_user(&self, user_id: &str) -> Result<User> {
-//         let conn = self.pool.get()?;
-//         let user = conn.query_row(
-//             "SELECT * FROM users WHERE user_id = ?",
-//             params![user_id],
-//             |row| {
-//                 let mut user = User::new(&row.get::<_, String>("user_id")?);
-//                 user.name = row.get("name")?;
-//                 user.avatar = row.get("avatar")?;
-//                 user.public_key = row.get("public_key")?;
-//                 user.remark = row.get("remark")?;
-//                 user.is_contact = row.get("is_contact")?;
-//                 user.is_star = row.get("is_star")?;
-//                 user.is_blocked = row.get("is_blocked")?;
-//                 user.locale = row.get("locale")?;
-//                 user.city = row.get("city")?;
-//                 user.country = row.get("country")?;
-//                 user.source = row.get("source")?;
-//                 user.created_at = row.get("created_at")?;
-//                 user.cached_at = row.get("cached_at")?;
-//                 Ok(user)
-//             },
-//         )?;
-//         Ok(user)
-//     }
-// }
-
-// impl DBStore {
-//     pub fn set_user_star(&self, user_id: &str, is_star: bool) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "UPDATE users SET is_star = ?1 WHERE user_id = ?2",
-//             params![is_star, user_id],
-//         )?;
-//         Ok(())
-//     }
-
-//     pub fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "UPDATE users SET remark = ?1 WHERE user_id = ?2",
-//             params![remark, user_id],
-//         )?;
-//         Ok(())
-//     }
-
-//     pub fn set_user_block(&self, user_id: &str, is_blocked: bool) -> Result<()> {
-//         let conn = self.pool.get()?;
-//         conn.execute(
-//             "UPDATE users SET is_blocked = ?1 WHERE user_id = ?2",
-//             params![is_blocked, user_id],
-//         )?;
-//         Ok(())
-//     }
-// }
-
-#[test]
-fn test_user() {
-    // basic
-    let db = DBStore::new(super::MEMORY_DSN);
-    assert!(db.prepare().is_ok());
-
-    let test_user = "test_user";
-    let user = User::new(test_user);
-
-    db.save_user(&user).expect("save user failed");
-
-    assert_eq!(db.get_user(test_user).unwrap().user_id, test_user);
-    db.set_user_block(test_user, true).expect("set blocked");
-    assert_eq!(db.get_user(test_user).unwrap().is_blocked, true);
-    // clean
-    db.remove_user(test_user).expect("remove user failed");
 }

@@ -1,16 +1,19 @@
 //mod client;
 mod error;
-//mod models;
+mod models;
 //mod net;
-//mod request;
+mod account;
+mod callback;
+mod request;
 mod storage;
-
 mod utils;
+mod websocket;
+
 use anyhow::Result;
 use log::debug;
 use std::io::Write;
 
-pub const USER_AGENT: &str = "restsend/0.1.0"; // ios/android
+pub const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
 const CHAT_ID_LEN: usize = 10;
 const REQ_ID_LEN: usize = 12;
 
@@ -168,50 +171,21 @@ pub const DEVICE: &str = "web";
 //     fn cancel_upload(&self, local_file_name: String, key: String);
 // }
 
-// pub fn init_log(level: String, is_test: bool) {
-//     let _ = env_logger::builder()
-//         .is_test(is_test)
-//         .format(|buf, record| {
-//             writeln!(
-//                 buf,
-//                 "{} [{}] {}:{} - {}",
-//                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-//                 record.level(),
-//                 record.file().unwrap_or("unknown"),
-//                 record.line().unwrap_or(0),
-//                 record.args()
-//             )
-//         })
-//         .format_timestamp(None)
-//         .filter_level(level.parse().unwrap())
-//         .try_init();
-// }
-
-// pub fn set_current_user(root: String, user_id: String) -> Result<()> {
-//     let mut root = root;
-//     if root == String::default() {
-//         root = String::from(".");
-//     }
-//     let current_file = std::path::PathBuf::from(root.clone()).join(".current_user");
-//     if user_id != String::default() {
-//         let user_dir = std::path::PathBuf::from(root).join(&user_id);
-//         std::fs::create_dir_all(std::path::Path::new(&user_dir))?;
-//     }
-//     Ok(std::fs::write(&current_file, user_id)?)
-// }
-
-// pub fn get_current_user(root: String) -> Option<AuthInfo> {
-//     let mut root = root;
-//     if root == String::default() {
-//         root = String::from(".");
-//     }
-
-//     let current_file = std::path::PathBuf::from(root.clone()).join(".current_user");
-//     match std::fs::read_to_string(&current_file) {
-//         Ok(user_id) => Some(AuthInfo {
-//             user_id,
-//             ..Default::default()
-//         }),
-//         _ => None,
-//     }
-// }
+pub fn init_log(level: String, is_test: bool) {
+    let _ = env_logger::builder()
+        .is_test(is_test)
+        .format(|buf, record| {
+            writeln!(
+                buf,
+                "{} [{}] {}:{} - {}",
+                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.file().unwrap_or("unknown"),
+                record.line().unwrap_or(0),
+                record.args()
+            )
+        })
+        .format_timestamp(None)
+        .filter_level(level.parse().unwrap())
+        .try_init();
+}

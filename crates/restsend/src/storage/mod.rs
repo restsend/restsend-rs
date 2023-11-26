@@ -5,14 +5,19 @@ mod memory;
 mod sqlite;
 
 pub const MEMORY_DSN: &str = ":memory:";
-
-pub trait SortKey: ToString + FromStr {
+pub trait StoreModel: ToString + FromStr {
     fn sort_key(&self) -> i64;
+}
+
+pub struct SearchOption {
+    pub keyword: String,
+    pub pos: u32,
+    pub limit: u32,
 }
 
 type Storage = sqlite::SqliteStorage;
 
-pub trait Table<T: SortKey> {
+pub trait Table<T: StoreModel> {
     fn get(&mut self, key: &str) -> Option<T>;
     fn set(&mut self, key: &str, value: Option<T>);
     fn remove(&mut self, key: &str);

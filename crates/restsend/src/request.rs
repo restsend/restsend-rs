@@ -46,7 +46,6 @@ impl From<ChatRequestType> for String {
     }
 }
 
-// 服务器与客户端的通讯的消息格式
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
