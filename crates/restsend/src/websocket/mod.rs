@@ -4,10 +4,12 @@ use std::time::Duration;
 mod tests;
 
 mod tokio_impl;
+type WebSocketInner = tokio_impl::WebSocketInner;
 #[allow(unused)]
 pub trait WebSocketCallback: Send + Sync {
-    fn on_connected(&self) {}
+    fn on_connected(&self, usage: Duration) {}
     fn on_connecting(&self) {}
+    fn on_unauthorized(&self) {}
     fn on_net_broken(&self, reason: String) {}
     fn on_message(&self, message: String) {}
 }
@@ -19,7 +21,9 @@ pub struct WebsocketOption {
     pub handshake_timeout: Duration,
 }
 
-pub struct WebSocket {}
+pub struct WebSocket {
+    inner: WebSocketInner,
+}
 
 impl WebsocketOption {
     pub fn new(url: &str, token: &str) -> Self {

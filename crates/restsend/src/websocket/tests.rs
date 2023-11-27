@@ -1,9 +1,9 @@
 const TEST_ENDPOINT: &str = "ws://chat.ruzhila.cn/";
-
+use std::time::Duration;
 struct WebSocketCallbackImpl {}
 impl super::WebSocketCallback for WebSocketCallbackImpl {
-    fn on_connected(&self) {
-        println!("on_connected");
+    fn on_connected(&self, usage: Duration) {
+        println!("on_connected, usage:{:?}", usage);
     }
     fn on_connecting(&self) {
         println!("on_connecting");
@@ -21,5 +21,5 @@ async fn test_websocket() {
     let mut ws = super::WebSocket::new();
     let opt = super::WebsocketOption::new(TEST_ENDPOINT, "");
     let cb = Box::new(WebSocketCallbackImpl {});
-    ws.connect(&opt, cb).await.expect("connect fail");
+    ws.serve(&opt, cb).await.expect("connect fail");
 }
