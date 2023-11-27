@@ -5,6 +5,7 @@ mod tests;
 
 mod tokio_impl;
 type WebSocketInner = tokio_impl::WebSocketInner;
+
 #[allow(unused)]
 pub trait WebSocketCallback: Send + Sync {
     fn on_connected(&self, usage: Duration) {}
@@ -14,15 +15,11 @@ pub trait WebSocketCallback: Send + Sync {
     fn on_message(&self, message: String) {}
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct WebsocketOption {
     pub url: String,
     pub token: String,
     pub handshake_timeout: Duration,
-}
-
-pub struct WebSocket {
-    inner: WebSocketInner,
 }
 
 impl WebsocketOption {
@@ -33,4 +30,8 @@ impl WebsocketOption {
             handshake_timeout: Duration::from_secs(30), // default 30s
         }
     }
+}
+
+pub struct WebSocket {
+    inner: WebSocketInner,
 }

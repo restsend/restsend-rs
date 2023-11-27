@@ -1,17 +1,17 @@
 use crate::error::ClientError::{HTTPError, TokenExpired};
 use anyhow::Result;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use log::{debug, warn};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 
 use tokio::select;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
-use tokio::time::{sleep, Duration, Instant};
-use tokio_websockets::ClientBuilder;
+use tokio::time::{sleep, Instant};
+use tokio_websockets::{ClientBuilder, Message};
 
 pub(super) struct WebSocketInner {
     sender_tx: UnboundedSender<String>,
-    sender_rx: UnboundedReceiver<String>,
+    sender_rx: Option<UnboundedReceiver<String>>,
 }
 
 impl super::WebSocket {
@@ -20,7 +20,7 @@ impl super::WebSocket {
         Self {
             inner: WebSocketInner {
                 sender_tx,
-                sender_rx,
+                sender_rx: Some(sender_rx),
             },
         }
     }
@@ -50,17 +50,24 @@ impl super::WebSocket {
         let st = Instant::now();
         callback.on_connecting();
 
-        let (mut stream, resp) = select! {
+        let resp = select! {
             r = req.connect() => {
                 r
             },
-            _ = sleep(Duration::from_secs(10)) => {
-                warn!("websocket connect timeout");
-                let reason = format!("websocket connect timeout");
+            _ = sleep(opt.handshake_timeout) => {
+                return Err(HTTPError(format!("websocket connect timeout")).into());
+            },
+        };
+
+        let (stream, resp) = match resp {
+            Ok(v) => v,
+            Err(e) => {
+                warn!("websocket connect failed: {}", e);
+                let reason = format!("websocket connect failed: {}", e);
                 callback.on_net_broken(reason.clone());
                 return Err(HTTPError(reason).into());
-            },
-        }?;
+            }
+        };
 
         let usage = st.elapsed();
         match resp.status() {
@@ -82,39 +89,82 @@ impl super::WebSocket {
             }
         }
 
+        let (mut stream_tx, mut stream_rx) = stream.split();
         let recv_loop = async {
             loop {
-                let msg = match stream.next().await {
+                let msg = match stream_rx.next().await {
                     Some(Ok(msg)) => Ok(msg),
                     Some(Err(e)) => Err(HTTPError(format!("websocket recv failed: {}", e))),
                     None => Err(HTTPError(format!("websocket recv None"))),
-                }?;
+                };
+
+                let msg = match msg {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        return Err(e);
+                    }
+                };
 
                 if msg.is_ping() {
                     debug!("websocket recv ping");
                     continue;
                 }
+
                 if msg.is_pong() {
                     debug!("websocket recv pong");
                     continue;
                 }
 
                 if msg.is_close() {
-                    break;
+                    debug!("websocket recv close");
+                    return Ok(());
                 }
 
                 let body = {
                     if msg.is_binary() {
-                        let data: Vec<u8> = msg.as_payload().to_vec();
-                        String::from_utf8(data).unwrap()
+                        String::from_utf8(msg.as_payload().to_vec()).unwrap()
                     } else {
                         msg.as_text().unwrap().to_string()
                     }
                 };
+                debug!("websocket recv: {}", body);
                 callback.on_message(body);
             }
         };
 
+        let sender_rx = self.inner.sender_rx.take();
+        let send_loop = async move {
+            let mut sender_rx = sender_rx.unwrap();
+            loop {
+                let msg = match sender_rx.recv().await {
+                    Some(msg) => msg,
+                    None => {
+                        debug!("websocket send close");
+                        return Ok(());
+                    }
+                };
+                debug!("websocket send: {}", msg);
+                let r = stream_tx.send(Message::text(msg)).await;
+                if let Err(e) = r {
+                    return Err(HTTPError(format!("websocket send failed: {}", e)));
+                }
+            }
+        };
+
+        let r = select! {
+            r = recv_loop => {
+                r
+            },
+            r = send_loop => {
+                r
+            },
+        };
+
+        let reason = match r {
+            Ok(_) => "websocket closed".to_string(),
+            Err(e) => e.to_string(),
+        };
+        callback.on_net_broken(reason);
         Ok(())
     }
 }

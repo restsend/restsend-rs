@@ -1,10 +1,18 @@
-const TEST_ENDPOINT: &str = "ws://chat.ruzhila.cn/";
+const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
 use std::time::Duration;
 struct WebSocketCallbackImpl {}
+
+impl Default for WebSocketCallbackImpl {
+    fn default() -> Self {
+        Self {}
+    }
+}
+
 impl super::WebSocketCallback for WebSocketCallbackImpl {
     fn on_connected(&self, usage: Duration) {
         println!("on_connected, usage:{:?}", usage);
     }
+
     fn on_connecting(&self) {
         println!("on_connecting");
     }
@@ -17,9 +25,26 @@ impl super::WebSocketCallback for WebSocketCallbackImpl {
 }
 
 #[tokio::test]
-async fn test_websocket() {
+async fn test_websocket_bad_handshake() {
     let mut ws = super::WebSocket::new();
     let opt = super::WebsocketOption::new(TEST_ENDPOINT, "");
-    let cb = Box::new(WebSocketCallbackImpl {});
-    ws.serve(&opt, cb).await.expect("connect fail");
+    let cb = Box::new(WebSocketCallbackImpl::default());
+    let r = ws.serve(&opt, cb).await;
+    assert!(r
+        .unwrap_err()
+        .to_string()
+        .contains("expected HTTP 101 Switching Protocols"));
+}
+
+#[tokio::test]
+async fn test_websocket_handshake() {
+    let mut ws = super::WebSocket::new();
+    let url = format!("{}/api/connect", TEST_ENDPOINT);
+    let opt = super::WebsocketOption::new(&url, "");
+    let cb = Box::new(WebSocketCallbackImpl::default());
+    let r = ws.serve(&opt, cb).await;
+    assert!(r
+        .unwrap_err()
+        .to_string()
+        .contains("expected HTTP 101 Switching Protocols"));
 }
