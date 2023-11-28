@@ -51,7 +51,7 @@ pub(crate) fn build_download_url(endpoint: &str, url: &str) -> String {
 
 pub(crate) async fn upload_file(
     uploader_url: String,
-    token: Option<String>,
+    token: Option<&str>,
     file_name: String,
     is_private: bool,
     callback: Box<dyn crate::callback::UploadCallback>,

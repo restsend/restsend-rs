@@ -23,7 +23,7 @@ pub async fn login_with_password(endpoint: &str, email: &str, password: &str) ->
 }
 
 pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
-    let st = std::time::Instant::now();
+    let st = tokio::time::Instant::now();
     let url = format!("{}/auth/logout", endpoint);
     let req = super::make_get_request(endpoint, "/auth/logout", Some(token.to_string()), None);
     let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
@@ -52,7 +52,7 @@ pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
 }
 
 async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
-    let st = std::time::Instant::now();
+    let st = tokio::time::Instant::now();
     let url = format!("{}/auth/login", endpoint);
     let req = super::make_post_request(
         endpoint,

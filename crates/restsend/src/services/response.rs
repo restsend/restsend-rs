@@ -10,12 +10,6 @@ pub struct Login {
 }
 
 #[derive(serde::Deserialize)]
-#[allow(unused)]
-pub struct Common {
-    ok: bool,
-}
-
-#[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Upload {
     pub path: String,

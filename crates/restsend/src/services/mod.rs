@@ -1,13 +1,17 @@
 use crate::error::ClientError::{Forbidden, HTTPError, InvalidPassword};
 use anyhow::Result;
-use log::warn;
+use log::{info, warn};
 use reqwest::{header::HeaderValue, RequestBuilder, Response};
 use std::time::Duration;
 mod auth;
+mod conversation;
 mod media;
 mod response;
 #[cfg(test)]
 mod tests;
+mod topic;
+mod topic_admin;
+mod user;
 
 const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute
@@ -42,7 +46,7 @@ pub(super) fn make_get_request(
 pub(super) fn make_post_request(
     endpoint: &str,
     uri: &str,
-    auth_token: Option<String>,
+    auth_token: Option<&str>,
     content_type: Option<&str>,
     body: Option<String>,
     timeout: Option<Duration>,
@@ -104,4 +108,36 @@ where
             }
         }
     }
+}
+
+pub(super) async fn api_call<R>(
+    endpoint: &str,
+    uri: &str,
+    auth_token: Option<&str>,
+    body: Option<String>,
+) -> Result<R>
+where
+    R: serde::de::DeserializeOwned,
+{
+    let st = tokio::time::Instant::now();
+    let req = make_post_request(
+        endpoint,
+        uri,
+        auth_token,
+        Some("application/json"),
+        body,
+        None,
+    );
+
+    let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
+    let status = resp.status();
+
+    info!(
+        "api url:{}{} status:{} usage: {:?}",
+        endpoint,
+        uri,
+        status,
+        st.elapsed()
+    );
+    handle_response::<R>(resp).await
 }
