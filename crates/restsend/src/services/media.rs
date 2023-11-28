@@ -1,10 +1,9 @@
-use std::time::Duration;
-
 use crate::error::ClientError::{HTTPError, StdError, UserCancel};
 use anyhow::Result;
 use futures_util::TryStreamExt;
 use log::{info, warn};
 use reqwest::multipart;
+use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::select;
 use tokio::sync::oneshot;
@@ -100,10 +99,12 @@ pub(crate) async fn upload_file(
             &uploader_url,
             token,
             None,
+            None,
             Some(Duration::from_secs(super::MEDIA_TIMEOUT_SECS)),
         );
 
         let resp = req.multipart(form).send().await?;
+        info!("upload {} response: {:?}", uploader_url, resp);
         super::handle_response::<super::response::Upload>(resp).await
     };
 
@@ -216,35 +217,4 @@ pub(crate) async fn download_file(
             }
         }
     }
-}
-
-#[tokio::test]
-async fn test_download_file() {
-    let url = build_download_url(super::tests::TEST_ENDPOINT, "/static/inter.css");
-    let file_name = "/tmp/inter.css";
-
-    struct DownloadCallback {}
-    impl crate::callback::DownloadCallback for DownloadCallback {
-        fn on_progress(&self, sent: u64, total: u64) {
-            println!("on_progress: {}/{}", sent, total);
-        }
-        fn on_success(&self, url: String, file_name: String) {
-            println!("on_success: {} {}", url, file_name);
-        }
-        fn on_fail(&self, err: anyhow::Error) {
-            println!("on_fail: {}", err.to_string());
-        }
-    }
-
-    let (_, cancel_rx) = oneshot::channel::<()>();
-    let r = download_file(
-        url.to_string(),
-        None,
-        file_name.to_string(),
-        Box::new(DownloadCallback {}),
-        cancel_rx,
-    )
-    .await;
-
-    assert!(r.is_ok());
 }

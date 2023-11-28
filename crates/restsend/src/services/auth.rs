@@ -54,7 +54,14 @@ pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
 async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
     let st = std::time::Instant::now();
     let url = format!("{}/auth/login", endpoint);
-    let req = super::make_post_request(endpoint, "/auth/login", None, Some(body), None);
+    let req = super::make_post_request(
+        endpoint,
+        "/auth/login",
+        None,
+        Some("application/json"),
+        Some(body),
+        None,
+    );
     let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
     let status = resp.status();
 

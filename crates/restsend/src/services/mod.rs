@@ -1,7 +1,7 @@
 use crate::error::ClientError::{Forbidden, HTTPError, InvalidPassword};
 use anyhow::Result;
 use log::warn;
-use reqwest::{RequestBuilder, Response};
+use reqwest::{header::HeaderValue, RequestBuilder, Response};
 use std::time::Duration;
 mod auth;
 mod media;
@@ -43,6 +43,7 @@ pub(super) fn make_post_request(
     endpoint: &str,
     uri: &str,
     auth_token: Option<String>,
+    content_type: Option<&str>,
     body: Option<String>,
     timeout: Option<Duration>,
 ) -> RequestBuilder {
@@ -52,11 +53,15 @@ pub(super) fn make_post_request(
         .build()
         .unwrap()
         .post(&url)
-        .header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_bytes(b"application/json").unwrap(),
-        )
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+
+    let req = match content_type {
+        Some(content_type) => req.header(
+            reqwest::header::CONTENT_TYPE,
+            HeaderValue::from_bytes(content_type.as_bytes()).unwrap(),
+        ),
+        None => req,
+    };
 
     let req = match auth_token {
         Some(token) => req.header(
