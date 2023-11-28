@@ -167,6 +167,7 @@ impl WebSocketImpl {
             Ok(_) => "websocket closed".to_string(),
             Err(e) => e.to_string(),
         };
+        warn!("websocket closed: {} lifetime:{:?}", reason, st.elapsed());
         callback.on_net_broken(reason);
         Ok(())
     }

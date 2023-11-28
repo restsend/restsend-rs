@@ -1,7 +1,102 @@
+use crate::error::ClientError::{Forbidden, HTTPError, InvalidPassword};
+use anyhow::Result;
+use log::warn;
+use reqwest::{RequestBuilder, Response};
+use std::time::Duration;
 mod auth;
+mod media;
 mod response;
 #[cfg(test)]
 mod tests;
 
 const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute
+
+pub(super) fn make_get_request(
+    endpoint: &str,
+    uri: &str,
+    auth_token: Option<String>,
+    timeout: Option<Duration>,
+) -> RequestBuilder {
+    let url = format!("{}{}", endpoint, uri);
+    let req = reqwest::ClientBuilder::new()
+        .user_agent(crate::USER_AGENT)
+        .build()
+        .unwrap()
+        .get(&url)
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_bytes(b"application/json").unwrap(),
+        )
+        .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+
+    match auth_token {
+        Some(token) => req.header(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&token).unwrap(),
+        ),
+        None => req,
+    }
+}
+
+pub(super) fn make_post_request(
+    endpoint: &str,
+    uri: &str,
+    auth_token: Option<String>,
+    body: Option<String>,
+    timeout: Option<Duration>,
+) -> RequestBuilder {
+    let url = format!("{}{}", endpoint, uri);
+    let req = reqwest::ClientBuilder::new()
+        .user_agent(crate::USER_AGENT)
+        .build()
+        .unwrap()
+        .post(&url)
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            reqwest::header::HeaderValue::from_bytes(b"application/json").unwrap(),
+        )
+        .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+
+    let req = match auth_token {
+        Some(token) => req.header(
+            reqwest::header::AUTHORIZATION,
+            reqwest::header::HeaderValue::from_str(&token).unwrap(),
+        ),
+        None => req,
+    };
+    match body {
+        Some(body) => req.body(body),
+        None => req,
+    }
+}
+
+pub(crate) async fn handle_response<T>(resp: Response) -> Result<T>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let status = resp.status();
+    let url = resp.url().to_string();
+
+    match status {
+        reqwest::StatusCode::OK => Ok(resp.json::<T>().await?),
+        _ => {
+            let body = resp.text().await?;
+            let msg = serde_json::from_str::<serde_json::Value>(&body)
+                .map(|v| {
+                    let msg = v["error"].as_str().unwrap_or_default();
+                    msg.to_string()
+                })
+                .unwrap_or(status.to_string());
+
+            warn!("response with {} error: {}", url, msg);
+
+            match status {
+                reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string()).into()),
+                reqwest::StatusCode::UNAUTHORIZED => Err(InvalidPassword(msg.to_string()).into()),
+                reqwest::StatusCode::BAD_REQUEST => Err(HTTPError(msg.to_string()).into()),
+                _ => Err(HTTPError(msg.to_string()).into()),
+            }
+        }
+    }
+}

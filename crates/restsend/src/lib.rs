@@ -169,7 +169,7 @@ pub const DEVICE: &str = "web";
 //     fn cancel_upload(&self, local_file_name: String, key: String);
 // }
 
-pub fn init_log(level: String, is_test: bool) {
+pub fn init_log(level: &str, is_test: bool) {
     let _ = env_logger::builder()
         .is_test(is_test)
         .format(|buf, record| {

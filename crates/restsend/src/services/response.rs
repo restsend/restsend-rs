@@ -14,3 +14,12 @@ pub struct Login {
 pub struct Common {
     ok: bool,
 }
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Upload {
+    pub path: String,
+    pub file_name: String,
+    pub ext: String,
+    pub size: i64,
+}

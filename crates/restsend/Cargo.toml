@@ -50,7 +50,9 @@ uniffi_bindgen = { version = "0.25.2" }
 camino = "1.1.6"
 
 [dev-dependencies]
-hyper = { version = "1.0.1", features = ["server"] }
+hyper = { version = "1.0.1", features = ["full"] }
+http-body-util = "0.1"
+hyper-util = { version = "0.1.1", features = ["full"] }
 tempfile = "3.8.1"
 
 [profile.release]

@@ -30,8 +30,8 @@ pub enum ClientError {
     HTTPError(String),
     #[error("json: {0}")]
     JSONError(#[from] serde_json::Error),
-    #[error("send ctl message: {0}")]
-    SendCtrlMessageError(String),
+    #[error("cancel: {0}")]
+    UserCancel(String),
     #[error("unknown: {0}")]
     UnknownError(String),
 }
