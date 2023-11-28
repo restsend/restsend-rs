@@ -2,6 +2,8 @@
 pub enum ClientError {
     #[error("auth: invalid password")]
     InvalidPassword(String),
+    #[error("auth: forbidden")]
+    Forbidden(String),
     #[error("auth: invalid token")]
     TokenExpired(String),
     #[error("websocket: network broken")]

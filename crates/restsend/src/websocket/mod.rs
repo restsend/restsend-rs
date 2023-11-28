@@ -4,7 +4,6 @@ use std::time::Duration;
 mod tests;
 
 mod tokio_impl;
-type WebSocketInner = tokio_impl::WebSocketInner;
 
 #[allow(unused)]
 pub trait WebSocketCallback: Send + Sync {
@@ -32,6 +31,4 @@ impl WebsocketOption {
     }
 }
 
-pub struct WebSocket {
-    inner: WebSocketInner,
-}
+type WebSocket = tokio_impl::WebSocketImpl;

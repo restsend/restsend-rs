@@ -35,12 +35,12 @@ impl SqliteStorage {
         }
         let conn = conn.as_mut().unwrap();
         let create_sql = format!(
-            "CREATE TABLE IF NOT EXISTS {0} (id TEXT PRIMARY KEY, value TEXT, sort_by INTEGER);
-            CREATE INDEX IF NOT EXISTS idx_{0}_id ON {0} (id);
+            "CREATE TABLE IF NOT EXISTS {0} (partition TEXT, key TEXT, value TEXT, sort_by INTEGER);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_{0}_partition_ikey ON {0} (partition, key);
             CREATE INDEX IF NOT EXISTS idx_{0}_sort_by ON {0} (sort_by);",
             name
         );
-        conn.execute(&create_sql, [])?;
+        conn.execute_batch(&create_sql)?;
         Ok(())
     }
 
@@ -73,14 +73,17 @@ impl<T: StoreModel> SqliteTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
-    fn get(&mut self, key: &str) -> Option<T> {
+    fn get(&mut self, partition: &str, key: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
-        let stmt = format!("SELECT value FROM {} WHERE id = ?", self.name);
+        let stmt = format!(
+            "SELECT value FROM {} WHERE partition = ? AND key = ?",
+            self.name
+        );
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let mut rows = stmt.query(&[&key]).unwrap();
+        let mut rows = stmt.query(&[&partition, &key]).unwrap();
 
         match rows.next() {
             Ok(rows) => match rows {
@@ -100,7 +103,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn set(&mut self, key: &str, value: Option<T>) {
+    fn set(&mut self, partition: &str, key: &str, value: Option<T>) {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -108,11 +111,11 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 let conn = conn.as_mut().unwrap();
 
                 let stmt = format!(
-                    "INSERT OR REPLACE INTO {} (id, value, sort_by) VALUES (?, ?, ?)",
+                    "INSERT OR REPLACE INTO {} (partition, key, value, sort_by) VALUES (?, ?, ?, ?)",
                     self.name
                 );
                 let mut stmt = conn.prepare(&stmt).unwrap();
-                let r = stmt.execute(params![&key, &v.to_string().as_str(), v.sort_key()]);
+                let r = stmt.execute(params![&partition, &key, &v.to_string(), v.sort_key()]);
                 match r {
                     Ok(_) => {}
                     Err(e) => {
@@ -121,19 +124,19 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 }
             }
             None => {
-                self.remove(key);
+                self.remove(partition, key);
             }
         }
     }
 
-    fn remove(&mut self, key: &str) {
+    fn remove(&mut self, partition: &str, key: &str) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
-        let stmt = format!("DELETE FROM {} WHERE id = ?", self.name);
+        let stmt = format!("DELETE FROM {} WHERE partition = ? AND key = ?", self.name);
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let r = stmt.execute(&[&key]);
+        let r = stmt.execute(&[&partition, &key]);
         match r {
             Ok(_) => {}
             Err(e) => {
@@ -185,19 +188,19 @@ pub fn test_store_i32() {
     storage.make_table("tests").unwrap();
 
     let mut t = storage.table::<i32>("tests").unwrap();
-    t.set("1", Some(1));
-    t.set("2", Some(2));
+    t.set("", "1", Some(1));
+    t.set("", "2", Some(2));
 
-    let not_exist_3 = t.get("3");
+    let not_exist_3 = t.get("", "3");
     assert_eq!(not_exist_3, None);
-    let value_2 = t.get("2");
+    let value_2 = t.get("", "2");
     assert_eq!(value_2, Some(2));
 
-    t.remove("2");
-    let value_2 = t.get("2");
+    t.remove("", "2");
+    let value_2 = t.get("", "2");
     assert_eq!(value_2, None);
 
     t.clear();
-    let value_1 = t.get("1");
+    let value_1 = t.get("", "1");
     assert_eq!(value_1, None);
 }

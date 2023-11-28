@@ -8,6 +8,20 @@ pub struct AuthInfo {
     pub name: String,
     pub token: String,
 }
+#[derive(serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UserProfile {
+    #[serde(default)]
+    pub avatar: String,
+    #[serde(default)]
+    pub gender: String,
+    #[serde(default)]
+    pub city: String,
+    #[serde(default)]
+    pub region: String,
+    #[serde(default)]
+    pub country: String,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]

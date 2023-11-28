@@ -14,28 +14,6 @@ pub const MEMORY_DSN: &str = ":memory:";
 
 pub struct DBStore {}
 
-impl DBStore {
-    pub fn new(path: &str) -> Self {
-        // let manager = if path == MEMORY_DSN {
-        //     SqliteConnectionManager::memory().with_init(|_conn| {
-        //         #[cfg(test)]
-        //         _conn.trace(Some(|trace| {
-        //             println!("SQL: {}", trace);
-        //         }));
-        //         Ok(())
-        //     })
-        // } else {
-        //     SqliteConnectionManager::file(path)
-        // };
-
-        DBStore {}
-    }
-
-    pub fn prepare(&self) -> Result<()> {
-        Ok(())
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {
@@ -110,4 +88,4 @@ pub use conversation::Conversation;
 pub use topic::Topic;
 pub use topic::TopicNotice;
 pub use topic_member::TopicMember;
-pub use user::{AuthInfo, User};
+pub use user::{AuthInfo, User, UserProfile};

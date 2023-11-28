@@ -18,9 +18,9 @@ pub struct SearchOption {
 type Storage = sqlite::SqliteStorage;
 
 pub trait Table<T: StoreModel> {
-    fn get(&mut self, key: &str) -> Option<T>;
-    fn set(&mut self, key: &str, value: Option<T>);
-    fn remove(&mut self, key: &str);
+    fn get(&mut self, partition: &str, key: &str) -> Option<T>;
+    fn set(&mut self, partition: &str, key: &str, value: Option<T>);
+    fn remove(&mut self, partition: &str, key: &str);
     fn clear(&mut self);
 }
 

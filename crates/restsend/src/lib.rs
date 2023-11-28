@@ -1,16 +1,14 @@
 //mod client;
-mod error;
-mod models;
-//mod net;
 mod account;
 mod callback;
+mod error;
+mod models;
 mod request;
+mod services;
 mod storage;
 mod utils;
 mod websocket;
 
-use anyhow::Result;
-use log::debug;
 use std::io::Write;
 
 pub const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android

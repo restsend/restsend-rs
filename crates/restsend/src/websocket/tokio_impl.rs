@@ -9,12 +9,18 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::time::{sleep, Instant};
 use tokio_websockets::{ClientBuilder, Message};
 
+use super::{WebSocketCallback, WebsocketOption};
+
 pub(super) struct WebSocketInner {
     sender_tx: UnboundedSender<String>,
     sender_rx: Option<UnboundedReceiver<String>>,
 }
 
-impl super::WebSocket {
+pub struct WebSocketImpl {
+    inner: WebSocketInner,
+}
+
+impl WebSocketImpl {
     pub fn new() -> Self {
         let (sender_tx, sender_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
         Self {
@@ -32,8 +38,8 @@ impl super::WebSocket {
 
     pub async fn serve(
         &mut self,
-        opt: &super::WebsocketOption,
-        callback: Box<dyn super::WebSocketCallback>,
+        opt: &WebsocketOption,
+        callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
         let url = opt.url.replace("http", "ws");
 
@@ -93,15 +99,12 @@ impl super::WebSocket {
         let recv_loop = async {
             loop {
                 let msg = match stream_rx.next().await {
-                    Some(Ok(msg)) => Ok(msg),
-                    Some(Err(e)) => Err(HTTPError(format!("websocket recv failed: {}", e))),
-                    None => Err(HTTPError(format!("websocket recv None"))),
-                };
-
-                let msg = match msg {
-                    Ok(msg) => msg,
-                    Err(e) => {
-                        return Err(e);
+                    Some(Ok(msg)) => msg,
+                    Some(Err(e)) => {
+                        return Err(HTTPError(format!("websocket recv failed: {}", e)));
+                    }
+                    None => {
+                        return Err(HTTPError(format!("websocket recv None")));
                     }
                 };
 

@@ -40,27 +40,30 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
-    fn get(&mut self, key: &str) -> Option<T> {
-        let v = self.data.get(key);
+    fn get(&mut self, partition: &str, key: &str) -> Option<T> {
+        let key = format!("{}:{}", partition, key);
+        let v = self.data.get(&key);
         v.and_then(|v| match T::from_str(v) {
             Ok(v) => Some(v),
             _ => None,
         })
     }
 
-    fn set(&mut self, key: &str, value: Option<T>) {
+    fn set(&mut self, partition: &str, key: &str, value: Option<T>) {
         match value {
             Some(v) => {
-                self.data.push(key.to_string(), v.to_string());
+                let key = format!("{}:{}", partition, key);
+                self.data.push(key, v.to_string());
             }
             None => {
-                self.remove(key);
+                self.remove(partition, key);
             }
         }
     }
 
-    fn remove(&mut self, key: &str) {
-        self.data.pop(key);
+    fn remove(&mut self, partition: &str, key: &str) {
+        let key = format!("{}:{}", partition, key);
+        self.data.pop(&key);
     }
     fn clear(&mut self) {
         self.data.clear();
@@ -70,16 +73,16 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
 #[test]
 fn test_memory_table() {
     let mut table = MemoryTable::new(100);
-    table.set("1", Some(1));
-    table.set("2", Some(2));
-    table.set("3", Some(3));
-    let v = table.get("1");
+    table.set("", "1", Some(1));
+    table.set("", "2", Some(2));
+    table.set("", "3", Some(3));
+    let v = table.get("", "1");
     assert_eq!(v, Some(1));
-    table.remove("1");
-    let v = table.get("1");
+    table.remove("", "1");
+    let v = table.get("", "1");
     assert_eq!(v, None);
     table.clear();
-    let v = table.get("2");
+    let v = table.get("", "2");
     assert_eq!(v, None);
 }
 
@@ -88,15 +91,15 @@ fn test_memory_storage() {
     let storage = InMemoryStorage::new();
     storage.make_table("test").unwrap();
     let mut table = storage.table::<i32>("test").unwrap();
-    table.set("1", Some(1));
-    table.set("2", Some(2));
-    table.set("3", Some(3));
-    let v = table.get("1");
+    table.set("", "1", Some(1));
+    table.set("", "2", Some(2));
+    table.set("", "3", Some(3));
+    let v = table.get("", "1");
     assert_eq!(v, Some(1));
-    table.remove("1");
-    let v = table.get("1");
+    table.remove("", "1");
+    let v = table.get("", "1");
     assert_eq!(v, None);
     table.clear();
-    let v = table.get("2");
+    let v = table.get("", "2");
     assert_eq!(v, None);
 }
