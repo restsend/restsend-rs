@@ -1,9 +1,9 @@
-use std::time::Duration;
-
-use crate::error::ClientError::{Forbidden, HTTPError, InvalidPassword};
+use crate::error::ClientError::{Forbidden, HTTPError};
 use crate::models::AuthInfo;
+use crate::services::{handle_response, make_get_request, make_post_request, response};
 use anyhow::Result;
-use log::{info, warn};
+use log::info;
+use tokio::time::Instant;
 
 pub async fn login_with_token(endpoint: &str, email: &str, token: &str) -> Result<AuthInfo> {
     let data = serde_json::json!({
@@ -24,14 +24,15 @@ pub async fn login_with_password(endpoint: &str, email: &str, password: &str) ->
 
 pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
     let st = tokio::time::Instant::now();
-    let url = format!("{}/auth/logout", endpoint);
-    let req = super::make_get_request(endpoint, "/auth/logout", Some(token.to_string()), None);
+    let uri = "/auth/logout";
+    let req = make_get_request(endpoint, uri, Some(token.to_string()), None);
     let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
     let status = resp.status();
 
     info!(
-        "logout url:{} status:{} usage: {:?}",
-        url,
+        "logout url:{}{} status:{} usage: {:?}",
+        endpoint,
+        uri,
         status,
         st.elapsed()
     );
@@ -52,11 +53,11 @@ pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
 }
 
 async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
-    let st = tokio::time::Instant::now();
-    let url = format!("{}/auth/login", endpoint);
-    let req = super::make_post_request(
+    let st: Instant = Instant::now();
+    let uri = "/auth/login";
+    let req = make_post_request(
         endpoint,
-        "/auth/login",
+        uri,
         None,
         Some("application/json"),
         Some(body),
@@ -66,14 +67,15 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
     let status = resp.status();
 
     info!(
-        "login url:{} email:{} status:{} usage: {:?}",
-        url,
+        "login url:{}{} email:{} status:{} usage: {:?}",
+        endpoint,
+        uri,
         email,
         status,
         st.elapsed()
     );
 
-    let r = super::handle_response::<super::response::Login>(resp).await?;
+    let r = handle_response::<response::Login>(resp).await?;
     Ok(AuthInfo {
         endpoint: endpoint.to_string(),
         user_id: r.email,

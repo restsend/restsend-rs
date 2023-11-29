@@ -1,12 +1,15 @@
+use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{HTTPError, StdError, UserCancel};
 use anyhow::Result;
 use futures_util::TryStreamExt;
-use log::{info, warn};
+use log::info;
 use reqwest::multipart;
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::select;
+use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
+use tokio::time::Instant;
 
 //implement human readable for u64
 pub trait HumanReadable {
@@ -54,25 +57,25 @@ pub(crate) async fn upload_file(
     token: Option<&str>,
     file_name: String,
     is_private: bool,
-    callback: Box<dyn crate::callback::UploadCallback>,
+    callback: Box<dyn UploadCallback>,
     cancel: oneshot::Receiver<()>,
 ) -> Result<()> {
     let file = tokio::fs::File::open(file_name.clone()).await?;
     let total = file.metadata().await?.len();
 
-    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<(u64, u64)>();
+    let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
 
     let upload_runner = async move {
         let form = multipart::Form::new();
-        let mut last_progress_time = tokio::time::Instant::now();
+        let mut last_progress_time = Instant::now();
         let mut total_sent: u64 = 0;
 
         let file_stream = reqwest::Body::wrap_stream(
             tokio_util::io::ReaderStream::new(file).map_ok(move |buf| {
                 let sent = buf.len() as u64;
-                if last_progress_time.elapsed() > tokio::time::Duration::from_millis(300) {
+                if last_progress_time.elapsed() > Duration::from_millis(300) {
                     progress_tx.send((total_sent, total)).ok();
-                    last_progress_time = tokio::time::Instant::now();
+                    last_progress_time = Instant::now();
                 }
                 total_sent += sent;
                 buf
@@ -145,10 +148,10 @@ pub(crate) async fn download_file(
     download_url: String,
     token: Option<String>,
     save_file_name: String,
-    callback: Box<dyn crate::callback::DownloadCallback>,
+    callback: Box<dyn DownloadCallback>,
     cancel: oneshot::Receiver<()>,
 ) -> Result<()> {
-    let (progress_tx, mut progress_rx) = tokio::sync::mpsc::unbounded_channel::<(u64, u64)>();
+    let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
     let req = super::make_get_request(
         "",
         &download_url,
@@ -169,18 +172,18 @@ pub(crate) async fn download_file(
         let mut file = file.unwrap();
         let mut buf = Vec::new();
         let mut total_recived: u64 = 0;
-        let mut last_progress_time = tokio::time::Instant::now();
+        let mut last_progress_time = Instant::now();
 
         // begin download
         while let Some(chunk) = resp.chunk().await? {
             buf.extend_from_slice(&chunk);
             file.write_all(&chunk).await?;
 
-            if last_progress_time.elapsed() > tokio::time::Duration::from_millis(300) {
+            if last_progress_time.elapsed() > Duration::from_millis(300) {
                 let recived = buf.len() as u64;
                 total_recived += recived;
                 progress_tx.send((total_recived, total)).ok();
-                last_progress_time = tokio::time::Instant::now();
+                last_progress_time = Instant::now();
             }
         }
         Ok((save_file_name.clone(), total))

@@ -1,86 +1,83 @@
-use crate::models::{User, UserProfile};
+use crate::models::User;
 use anyhow::Result;
-use futures_util::FutureExt;
 
 use super::api_call;
 
 pub async fn get_user(endpoint: &str, token: &str, user_id: &str) -> Result<User> {
-    api_call::<User>(
-        endpoint,
-        &format!("/api/profile/{}", user_id),
-        Some(token),
-        None,
-    )
-    .await
-    .and_then(|mut user| {
-        user.cached_at = chrono::Utc::now().to_rfc3339();
-        if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
-            let endpoint = endpoint.trim_end_matches('/');
-            user.avatar = format!("{}{}", endpoint, user.avatar);
-        }
-        Ok(user)
-    })
+    api_call(endpoint, &format!("/profile/{}", user_id), token, None)
+        .await
+        .map(|mut user: User| {
+            user.cached_at = chrono::Utc::now().to_rfc3339();
+            if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
+                user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
+            }
+            user
+        })
 }
 
-pub async fn set_user_block(
-    endpoint: &str,
-    token: &str,
-    user_id: String,
-    block: bool,
-) -> Result<()> {
+pub async fn get_users(endpoint: &str, token: &str, user_ids: Vec<&str>) -> Result<Vec<User>> {
+    let data = serde_json::json!({
+        "userIds": user_ids,
+    })
+    .to_string();
+
+    api_call(endpoint, "/profile", token, Some(data))
+        .await
+        .map(|mut users: Vec<User>| {
+            users.iter_mut().for_each(|user| {
+                user.cached_at = chrono::Utc::now().to_rfc3339();
+                if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
+                    user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
+                }
+            });
+            users
+        })
+}
+
+pub async fn set_user_block(endpoint: &str, token: &str, user_id: &str, block: bool) -> Result<()> {
     let action = if block { "block" } else { "unblock" };
-    api_call::<bool>(
-        endpoint,
-        &format!("/api/{}/{}", action, user_id),
-        Some(token),
-        None,
-    )
-    .map(|_| Ok(()))
-    .await
+    api_call(endpoint, &format!("/{}/{}", action, user_id), token, None)
+        .await
+        .map(|_: bool| ())
 }
 
 pub async fn set_user_remark(
     endpoint: &str,
     token: &str,
-    user_id: String,
-    remark: String,
+    user_id: &str,
+    remark: &str,
 ) -> Result<()> {
-    let vals = serde_json::json!({ "remark": remark });
-    api_call::<bool>(
+    let data = serde_json::json!({ "remark": remark }).to_string();
+    api_call(
         endpoint,
-        &format!("/api/relation/{}", user_id),
-        Some(token),
-        Some(vals.to_string()),
+        &format!("/relation/{}", user_id),
+        token,
+        Some(data),
     )
-    .map(|_| Ok(()))
     .await
+    .map(|_: bool| ())
 }
 
 pub async fn set_user_favorite(
     endpoint: &str,
     token: &str,
-    user_id: String,
+    user_id: &str,
     favorite: bool,
 ) -> Result<()> {
-    let vals = serde_json::json!({ "favorite": favorite });
-    api_call::<bool>(
+    let data = serde_json::json!({ "favorite": favorite }).to_string();
+    api_call(
         endpoint,
-        &format!("/api/relation/{}", user_id),
-        Some(token),
-        Some(vals.to_string()),
+        &format!("/relation/{}", user_id),
+        token,
+        Some(data),
     )
-    .map(|_| Ok(()))
     .await
+    .map(|_: bool| ())
 }
 
 pub async fn set_allow_guest_chat(endpoint: &str, token: &str, allowed: bool) -> Result<()> {
-    let vals = serde_json::json!({ "allowGuest": allowed });
-    api_call::<bool>(
-        endpoint,
-        "/api/profile/update",
-        Some(token),
-        Some(vals.to_string()),
-    )
-    .map(|_| Ok(()))
-    .await
+    let data = serde_json::json!({ "allowGuest": allowed }).to_string();
+    api_call(endpoint, "/profile/update", token, Some(data))
+        .await
+        .map(|_: bool| ())
 }

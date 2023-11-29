@@ -438,8 +438,8 @@ impl Client {
                         ws_headers_ref.insert(k.clone(), v.clone());
                     }
 
-                    let (send_tx, send_rx) = tokio::sync::mpsc::unbounded_channel::<WSMessage>();
-                    let (recv_tx, recv_rx) = tokio::sync::mpsc::unbounded_channel::<WSMessage>();
+                    let (send_tx, send_rx) = unbounded_channel::<WSMessage>();
+                    let (recv_tx, recv_rx) = unbounded_channel::<WSMessage>();
 
                     let (ws_tx, ws_rx) = mpsc::unbounded_channel::<String>();
                     self.ws_tx.write().unwrap().replace(ws_tx.clone());

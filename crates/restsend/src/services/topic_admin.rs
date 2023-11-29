@@ -1,214 +1,218 @@
 use anyhow::Result;
+
+use crate::models::TopicKnock;
+
+use super::api_call;
 pub async fn update_topic_notice(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    text: String,
+    topic_id: &str,
+    text: &str,
 ) -> Result<()> {
     let data = serde_json::json!({
         "topicId": topic_id,
         "text": text
-    });
-
-    self.json_call::<CommonResp>(&format!("/api/topic/admin/notice/{}", topic_id), data, None)
-        .and({
-            let user_id = self.db.get_value(super::KEY_USER_ID)?;
-            let notice = Some(TopicNotice::new(
-                &text,
-                &user_id,
-                &chrono::Utc::now().to_rfc3339(),
-            ));
-            self.db.update_topic_notice(&topic_id, notice)
-        })
-        .and(Ok(()))
+    })
+    .to_string();
+    api_call(
+        endpoint,
+        &format!("/topic/admin/notice/{}", topic_id),
+        token,
+        Some(data),
+    )
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn silent_topic(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    duration: String,
+    topic_id: &str,
+    duration: &str,
 ) -> Result<()> {
-    let data = serde_json::json!({ "duration": duration });
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/admin/silent_topic/{}", topic_id),
-        data,
-        None,
+    let data = serde_json::json!({ "duration": duration }).to_string();
+    api_call(
+        endpoint,
+        &format!("/topic/admin/silent_topic/{}", topic_id),
+        token,
+        Some(data),
     )
-    .and(self.db.silent_topic(&topic_id, true))
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn silent_topic_member(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
-    duration: String,
+    topic_id: &str,
+    user_id: &str,
+    duration: &str,
 ) -> Result<()> {
-    let data = serde_json::json!({ "duration": duration });
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/admin/silent/{}/{}", topic_id, user_id),
-        data,
-        None,
+    let data = serde_json::json!({ "duration": duration }).to_string();
+    api_call(
+        endpoint,
+        &format!("/topic/admin/silent_topic/{}/{}", topic_id, user_id),
+        token,
+        Some(data),
     )
-    .and(self.db.silent_topic_member(&topic_id, &user_id, true))
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
-pub async fn quit_topic(endpoint: &str, token: &str, topic_id: String) -> Result<()> {
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/quit/{}", topic_id),
-        serde_json::json!({}),
-        None,
-    )
-    .and({
-        let user_id = self.db.get_value(super::KEY_USER_ID)?;
-        self.db.remove_topic_member(&topic_id, &user_id)
-    })
-    .and(Ok(()))
+pub async fn quit_topic(endpoint: &str, token: &str, topic_id: &str) -> Result<()> {
+    api_call(endpoint, &format!("/topic/quit/{}", topic_id), token, None)
+        .await
+        .map(|_: bool| ())
 }
 
-pub async fn dismiss_topic(endpoint: &str, token: &str, topic_id: String) -> Result<()> {
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/dismiss/{}", topic_id),
-        serde_json::json!({}),
+pub async fn dismiss_topic(endpoint: &str, token: &str, topic_id: &str) -> Result<()> {
+    api_call(
+        endpoint,
+        &format!("/topic/dismiss/{}", topic_id),
+        token,
         None,
     )
-    .and(self.db.dismiss_topic(&topic_id))
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn get_topic_knocks(
     endpoint: &str,
     token: &str,
-    topic_id: String,
+    topic_id: &str,
 ) -> Result<Vec<TopicKnock>> {
-    let topic_knocks: Vec<TopicKnock> = self.json_call(
-        &format!("/api/topic/admin/list_knock/{}", topic_id),
-        serde_json::json!({}),
+    api_call(
+        endpoint,
+        &format!("/topic/admin/list_knock/{}", topic_id),
+        token,
         None,
-    )?;
-    let mut topics_knock_count = self
-        .db
-        .get_value(super::KEY_TOPICS_KNOCK_COUNT)
-        .unwrap_or("0".to_string())
-        .parse::<u32>()
-        .unwrap_or(0);
-    topics_knock_count = topics_knock_count + topic_knocks.len() as u32;
-    self.db.set_value(
-        super::KEY_TOPICS_KNOCK_COUNT,
-        topics_knock_count.to_string().as_str(),
-    )?;
-    Ok(topic_knocks)
+    )
+    .await
 }
 
 pub async fn accept_topic_join(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
-    memo: String,
+    topic_id: &str,
+    user_id: &str,
+    memo: &str,
 ) -> Result<()> {
-    let data = serde_json::json!({ "memo": memo });
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/admin/knock/accept/{}/{}", topic_id, user_id),
-        data,
-        None,
+    let data = serde_json::json!({ "memo": memo }).to_string();
+    api_call(
+        endpoint,
+        &format!("/topic/admin/knock/accept/{}/{}", topic_id, user_id),
+        token,
+        Some(data),
     )
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn decline_topic_join(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
-    message: String,
+    topic_id: &str,
+    user_id: &str,
+    message: &str,
 ) -> Result<()> {
     let data = serde_json::json!({
         "message": message,
-    });
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/admin/knock/reject/{}/{}", topic_id, user_id),
-        data,
-        None,
+    })
+    .to_string();
+
+    api_call(
+        endpoint,
+        &format!("/topic/admin/knock/reject/{}/{}", topic_id, user_id),
+        token,
+        Some(data),
     )
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn remove_topic_member(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
+    topic_id: &str,
+    user_id: &str,
 ) -> Result<()> {
-    self.json_call::<CommonResp>(
-        &format!("/api/topic/admin/kickout/{}/{}", topic_id, user_id),
-        serde_json::json!({}),
+    api_call(
+        endpoint,
+        &format!("/topic/admin/kickout/{}/{}", topic_id, user_id),
+        token,
         None,
     )
-    .and(self.db.remove_topic_member(&topic_id, &user_id))
-    .and(Ok(()))
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn update_topic(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    name: String,
-    icon: String,
+    topic_id: &str,
+    name: &str,
+    icon: &str,
 ) -> Result<()> {
-    let vals = serde_json::json!({
+    let data = serde_json::json!({
         "name":name,
         "icon":icon,
-    });
-    let r: CommonResp = self.json_call(
-        &format!("/api/topic/admin/add_admin/{}", topic_id),
-        vals,
-        None,
-    )?;
-    Ok(())
+    })
+    .to_string();
+
+    api_call(
+        endpoint,
+        &format!("/topic/admin/update/{}", topic_id),
+        token,
+        Some(data),
+    )
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn add_topic_admin(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
+    topic_id: &str,
+    user_id: &str,
 ) -> Result<()> {
-    let r: CommonResp = self.json_call(
-        &format!("/api/topic/admin/add_admin/{}/{}", topic_id, user_id),
-        serde_json::json!({}),
+    api_call(
+        endpoint,
+        &format!("/topic/admin/add_admin/{}/{}", topic_id, user_id),
+        token,
         None,
-    )?;
-    Ok(())
+    )
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn remove_topic_admin(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
+    topic_id: &str,
+    user_id: &str,
 ) -> Result<()> {
-    let r: CommonResp = self.json_call(
-        &format!("/api/topic/admin/remove_admin/{}/{}", topic_id, user_id),
-        serde_json::json!({}),
+    api_call(
+        endpoint,
+        &format!("/topic/admin/remove_admin/{}/{}", topic_id, user_id),
+        token,
         None,
-    )?;
-    Ok(())
+    )
+    .await
+    .map(|_: bool| ())
 }
 
 pub async fn transfer_topic(
     endpoint: &str,
     token: &str,
-    topic_id: String,
-    user_id: String,
+    topic_id: &str,
+    user_id: &str,
 ) -> Result<()> {
-    let r: CommonResp = self.json_call(
-        &format!("/api/topic/admin/transfer/{}/{}", topic_id, user_id),
-        serde_json::json!({}),
+    api_call(
+        endpoint,
+        &format!("/topic/admin/transfer/{}/{}", topic_id, user_id),
+        token,
         None,
-    )?;
-    Ok(())
+    )
+    .await
+    .map(|_: bool| ())
 }

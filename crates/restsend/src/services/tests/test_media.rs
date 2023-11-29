@@ -11,7 +11,7 @@ async fn test_download_file() {
     let addr = super::open_port();
     let url = format!("http://{}/hello.txt", addr);
 
-    super::serve_test_server(&addr, |req| async {
+    super::serve_test_server(&addr, |_| async {
         let body = "hello world";
         let mut resp = hyper::Response::new(http_body_util::Full::new(Bytes::from(body)));
         resp.headers_mut()

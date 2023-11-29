@@ -5,7 +5,7 @@ use log::{debug, warn};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 
 use tokio::select;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use tokio::time::{sleep, Instant};
 use tokio_websockets::{ClientBuilder, Message};
 
@@ -22,7 +22,7 @@ pub struct WebSocketImpl {
 
 impl WebSocketImpl {
     pub fn new() -> Self {
-        let (sender_tx, sender_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+        let (sender_tx, sender_rx) = unbounded_channel::<String>();
         Self {
             inner: WebSocketInner {
                 sender_tx,

@@ -8,11 +8,7 @@
      - topic_members: 群成员表， 用来记录用户和群的关系
 */
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
-pub const MEMORY_DSN: &str = ":memory:";
-
-pub struct DBStore {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]

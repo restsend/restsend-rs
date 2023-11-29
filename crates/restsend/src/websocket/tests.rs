@@ -12,7 +12,6 @@ impl super::WebSocketCallback for WebSocketCallbackImpl {
     fn on_connected(&self, usage: Duration) {
         println!("on_connected, usage:{:?}", usage);
     }
-
     fn on_connecting(&self) {
         println!("on_connecting");
     }

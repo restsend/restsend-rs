@@ -1,7 +1,6 @@
 use super::StoreModel;
 use lru::LruCache;
 use std::num::NonZeroUsize;
-use std::str::FromStr;
 
 pub struct InMemoryStorage {}
 

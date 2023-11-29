@@ -1,7 +1,7 @@
 mod test_media;
 use anyhow::Result;
 use futures_util::Future;
-use http_body_util::combinators::{BoxBody, Collect};
+use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
@@ -10,6 +10,7 @@ use hyper_util::rt::TokioIo;
 use std::convert::Infallible;
 use tokio::net::TcpListener;
 use tokio::spawn;
+use tokio::sync::oneshot;
 
 pub(crate) const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
 
@@ -38,7 +39,7 @@ where
     Fut: Future<Output = Result<Response<Full<Bytes>>>> + Send + 'static,
 {
     let addr = addr.to_string();
-    let (is_started_tx, is_started) = tokio::sync::oneshot::channel();
+    let (is_started_tx, is_started) = oneshot::channel();
     spawn(async move {
         let listener = TcpListener::bind(addr.clone()).await.unwrap();
         println!("Listening on http://{}", addr);

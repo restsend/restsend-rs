@@ -1,8 +1,15 @@
-use crate::error::ClientError::{Forbidden, HTTPError, InvalidPassword};
+use std::time::Duration;
+
+use crate::{
+    error::ClientError::{Forbidden, HTTPError, InvalidPassword},
+    USER_AGENT,
+};
 use anyhow::Result;
 use log::{info, warn};
-use reqwest::{header::HeaderValue, RequestBuilder, Response};
-use std::time::Duration;
+use reqwest::{
+    header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
+    RequestBuilder, Response,
+};
 mod auth;
 mod conversation;
 mod media;
@@ -15,6 +22,9 @@ mod user;
 
 const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute
+const API_PREFIX: &str = "/api";
+const LOGS_LIMIT: u32 = 100;
+const USERS_LIMIT: u32 = 100;
 
 pub(super) fn make_get_request(
     endpoint: &str,
@@ -24,21 +34,18 @@ pub(super) fn make_get_request(
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
     let req = reqwest::ClientBuilder::new()
-        .user_agent(crate::USER_AGENT)
+        .user_agent(USER_AGENT)
         .build()
         .unwrap()
         .get(&url)
         .header(
-            reqwest::header::CONTENT_TYPE,
-            reqwest::header::HeaderValue::from_bytes(b"application/json").unwrap(),
+            CONTENT_TYPE,
+            HeaderValue::from_bytes(b"application/json").unwrap(),
         )
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
 
     match auth_token {
-        Some(token) => req.header(
-            reqwest::header::AUTHORIZATION,
-            reqwest::header::HeaderValue::from_str(&token).unwrap(),
-        ),
+        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
         None => req,
     }
 }
@@ -53,7 +60,7 @@ pub(super) fn make_post_request(
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
     let req = reqwest::ClientBuilder::new()
-        .user_agent(crate::USER_AGENT)
+        .user_agent(USER_AGENT)
         .build()
         .unwrap()
         .post(&url)
@@ -61,17 +68,14 @@ pub(super) fn make_post_request(
 
     let req = match content_type {
         Some(content_type) => req.header(
-            reqwest::header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_bytes(content_type.as_bytes()).unwrap(),
         ),
         None => req,
     };
 
     let req = match auth_token {
-        Some(token) => req.header(
-            reqwest::header::AUTHORIZATION,
-            reqwest::header::HeaderValue::from_str(&token).unwrap(),
-        ),
+        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
         None => req,
     };
     match body {
@@ -113,7 +117,7 @@ where
 pub(super) async fn api_call<R>(
     endpoint: &str,
     uri: &str,
-    auth_token: Option<&str>,
+    auth_token: &str,
     body: Option<String>,
 ) -> Result<R>
 where
@@ -122,8 +126,8 @@ where
     let st = tokio::time::Instant::now();
     let req = make_post_request(
         endpoint,
-        uri,
-        auth_token,
+        &format!("{}{}", API_PREFIX, uri),
+        Some(auth_token),
         Some("application/json"),
         body,
         None,

@@ -1,3 +1,5 @@
+use tokio::sync::mpsc::unbounded_channel;
+
 #[test]
 fn test_async_http() {
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -5,7 +7,7 @@ fn test_async_http() {
         .enable_all()
         .build()
         .unwrap();
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = unbounded_channel::<String>();
     rt.spawn(async move {
         print!("hello world");
         tx.send("hello world".to_string()).unwrap();
@@ -21,7 +23,7 @@ fn test_blockon_with_block() {
         .build()
         .unwrap();
 
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = unbounded_channel::<String>();
     rt.block_on(async {
         rt.spawn(async move {
             print!("hello world");
@@ -40,7 +42,7 @@ fn test_blockon_with_multithread() {
         .build()
         .unwrap();
 
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = unbounded_channel::<String>();
     tokio::task::block_in_place(|| {
         rt.spawn(async move {
             print!("hello world");
