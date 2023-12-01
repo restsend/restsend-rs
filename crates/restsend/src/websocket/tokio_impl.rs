@@ -76,7 +76,7 @@ impl WebSocketImpl {
 
         let usage = st.elapsed();
         match resp.status() {
-            reqwest::StatusCode::OK => {
+            reqwest::StatusCode::SWITCHING_PROTOCOLS => {
                 debug!("websocket connected usage: {:?}", st.elapsed());
                 callback.on_connected(usage);
             }
