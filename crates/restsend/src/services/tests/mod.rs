@@ -16,7 +16,12 @@ pub(crate) const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
 
 #[allow(unused)]
 pub(crate) fn open_port() -> String {
-    for port in 30000..30100 {
+    // random port
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+
+    for port in 1..10 {
+        let port = rng.gen_range(30000..30100);
         let addr = format!("127.0.0.1:{}", port);
         if let Ok(_) = std::net::TcpListener::bind(addr.clone()) {
             return addr;

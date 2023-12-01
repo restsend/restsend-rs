@@ -1,8 +1,7 @@
-use std::path::{Path, PathBuf};
-
 use crate::models::AuthInfo;
 use anyhow::Result;
 use std::fs::{create_dir_all, read_to_string, write};
+use std::path::{Path, PathBuf};
 
 pub fn set_current_user(root: &str, user_id: &str) -> Result<()> {
     let current_file = PathBuf::from(root).join(".current_user");

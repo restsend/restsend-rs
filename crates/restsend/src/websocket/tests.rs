@@ -1,5 +1,7 @@
-const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
 use std::time::Duration;
+
+const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
+
 struct WebSocketCallbackImpl {}
 
 impl Default for WebSocketCallbackImpl {
@@ -38,7 +40,7 @@ async fn test_websocket_bad_handshake() {
 #[tokio::test]
 async fn test_websocket_handshake() {
     let mut ws = super::WebSocket::new();
-    let url = format!("{}/api/connect", TEST_ENDPOINT);
+    let url = super::WebsocketOption::url_from_endpoint(TEST_ENDPOINT);
     let opt = super::WebsocketOption::new(&url, "");
     let cb = Box::new(WebSocketCallbackImpl::default());
     let r = ws.serve(&opt, cb).await;

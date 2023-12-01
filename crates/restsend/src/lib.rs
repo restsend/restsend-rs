@@ -1,19 +1,24 @@
-//mod client;
-mod account;
-mod callback;
-mod error;
-mod models;
-mod request;
-mod services;
-mod storage;
-mod utils;
+pub mod account;
+pub mod callback;
+pub mod client;
+pub mod error;
+pub mod models;
+pub mod request;
+pub mod services;
+pub mod storage;
+pub mod utils;
 mod websocket;
 
-use std::io::Write;
+const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
+const DB_SUFFIX: &str = ".sqlite3";
 
-pub const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
 const CHAT_ID_LEN: usize = 10;
 const REQ_ID_LEN: usize = 12;
+
+const MAX_RETRIES: usize = 3;
+const MAX_SEND_IDLE_SECS: u64 = 120; // 2 minutes
+const MAX_CONNECT_INTERVAL_SECS: u64 = 5; // 5 seconds
+const KEEPALIVE_INTERVAL_SECS: u64 = 50; // 50 seconds
 
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "apple")]
@@ -168,22 +173,3 @@ pub const DEVICE: &str = "web";
 //     fn cancel_download(&self, file_url: String, key: String);
 //     fn cancel_upload(&self, local_file_name: String, key: String);
 // }
-
-pub fn init_log(level: &str, is_test: bool) {
-    let _ = env_logger::builder()
-        .is_test(is_test)
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{} [{}] {}:{} - {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.level(),
-                record.file().unwrap_or("unknown"),
-                record.line().unwrap_or(0),
-                record.args()
-            )
-        })
-        .format_timestamp(None)
-        .filter_level(level.parse().unwrap())
-        .try_init();
-}

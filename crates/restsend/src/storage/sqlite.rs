@@ -1,4 +1,4 @@
-use super::{StoreModel, MEMORY_DSN};
+use super::StoreModel;
 use anyhow::{anyhow, Result};
 use log::{debug, error};
 use rusqlite::{params, Connection};
@@ -73,7 +73,7 @@ impl<T: StoreModel> SqliteTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
-    fn get(&mut self, partition: &str, key: &str) -> Option<T> {
+    fn get(&self, partition: &str, key: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -103,7 +103,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn set(&mut self, partition: &str, key: &str, value: Option<T>) {
+    fn set(&self, partition: &str, key: &str, value: Option<T>) {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -129,7 +129,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn remove(&mut self, partition: &str, key: &str) {
+    fn remove(&self, partition: &str, key: &str) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -144,7 +144,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             }
         }
     }
-    fn clear(&mut self) {
+    fn clear(&self) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -184,10 +184,10 @@ pub fn test_prepare() {
 
 #[test]
 pub fn test_store_i32() {
-    let storage = SqliteStorage::new(MEMORY_DSN);
+    let storage = SqliteStorage::new(":memory:");
     storage.make_table("tests").unwrap();
 
-    let mut t = storage.table::<i32>("tests").unwrap();
+    let t = storage.table::<i32>("tests").unwrap();
     t.set("", "1", Some(1));
     t.set("", "2", Some(2));
 

@@ -1,7 +1,6 @@
-use crate::models::{Content, ContentType, User};
+use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;
 use serde::{Deserialize, Serialize};
-use tokio::time::Instant;
 
 #[derive(Debug, PartialEq)]
 pub enum ChatRequestType {
@@ -15,8 +14,8 @@ pub enum ChatRequestType {
     Unknown(String),
 }
 
-impl From<String> for ChatRequestType {
-    fn from(value: String) -> Self {
+impl From<&String> for ChatRequestType {
+    fn from(value: &String) -> Self {
         match value.as_str() {
             "chat" => ChatRequestType::Chat,
             "typing" => ChatRequestType::Typing,
@@ -25,7 +24,7 @@ impl From<String> for ChatRequestType {
             "kickout" => ChatRequestType::Kickout,
             "system" => ChatRequestType::System,
             "nop" => ChatRequestType::Nop,
-            _ => ChatRequestType::Unknown(value),
+            _ => ChatRequestType::Unknown(value.clone()),
         }
     }
 }
@@ -50,32 +49,47 @@ impl From<ChatRequestType> for String {
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
     pub r#type: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub id: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub code: u32,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub topic_id: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub seq: u64,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub attendee: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attendee_profile: Option<User>,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub chat_id: String,
-    #[serde(default)]
+
     #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub created_at: String,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<Content>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub e2e_content: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 }
@@ -124,27 +138,43 @@ impl ChatRequest {
         Self::new_chat(topic_id, ContentType::Text).text(text)
     }
 
-    pub fn new_image(topic_id: &str, url_or_data: &str) -> Self {
-        Self::new_chat(topic_id, ContentType::Image).text(url_or_data)
+    pub fn new_image(topic_id: &str, url_or_data: &str, size: u64) -> Self {
+        Self::new_chat(topic_id, ContentType::Image)
+            .text(url_or_data)
+            .size(size)
     }
 
-    pub fn new_voice(topic_id: &str, url_or_data: &str, duration: &str) -> Self {
+    pub fn new_voice(topic_id: &str, url_or_data: &str, duration: &str, size: u64) -> Self {
         Self::new_chat(topic_id, ContentType::Voice)
             .text(url_or_data)
             .duration(duration)
+            .size(size)
     }
 
-    pub fn new_video(topic_id: &str, url_or_data: &str, thumbnail: &str, duration: &str) -> Self {
+    pub fn new_video(
+        topic_id: &str,
+        url_or_data: &str,
+        thumbnail: &str,
+        duration: &str,
+        size: u64,
+    ) -> Self {
         Self::new_chat(topic_id, ContentType::Video)
             .text(url_or_data)
             .duration(duration)
             .thumbnail(thumbnail)
+            .size(size)
     }
 
     pub fn new_file(topic_id: &str, url_or_data: &str, filename: &str, size: u64) -> Self {
         Self::new_chat(topic_id, ContentType::File)
             .text(url_or_data)
             .placeholder(filename)
+            .size(size)
+    }
+
+    pub fn new_logs(topic_id: &str, url_or_data: &str, size: u64) -> Self {
+        Self::new_chat(topic_id, ContentType::Logs)
+            .text(url_or_data)
             .size(size)
     }
 
@@ -260,21 +290,25 @@ impl ChatRequest {
     }
 }
 
-pub struct PendingRequest {
-    pub req: ChatRequest,
-    pub retry: usize,
-    pub created_at: Instant,
-}
-
-impl PendingRequest {
-    pub fn new(req: &ChatRequest, retry: usize) -> Self {
-        PendingRequest {
-            req: req.clone(),
-            retry,
-            created_at: Instant::now(),
-        }
+impl From<ChatRequest> for String {
+    fn from(req: ChatRequest) -> Self {
+        serde_json::to_string(&req).unwrap()
     }
 }
+
+impl From<&ChatRequest> for String {
+    fn from(req: &ChatRequest) -> Self {
+        serde_json::to_string(req).unwrap()
+    }
+}
+
+impl TryFrom<String> for ChatRequest {
+    type Error = serde_json::Error;
+    fn try_from(data: String) -> Result<Self, Self::Error> {
+        serde_json::from_str(&data)
+    }
+}
+
 #[test]
 fn test_chat_request_decode() {
     let data = r#"{"type":"resp","id":"wn8qzkq6nt","code":404}"#;
@@ -292,4 +326,19 @@ fn test_chat_request_decode() {
     assert!(r.content.is_some());
     assert!(r.content.unwrap().text.eq_ignore_ascii_case("hello"));
     assert!(r.topic_id.eq_ignore_ascii_case("greeting"));
+}
+
+#[test]
+fn test_chat_request_encode() {
+    let mut req = ChatRequest::new_text("greeting", "hello");
+    req.chat_id = "mock_chat_id".to_string();
+    req.id = "mock_req_id".to_string();
+
+    let data: String = req.into();
+    assert!(data.contains("hello"));
+    assert!(data.contains("greeting"));
+
+    assert!(data.eq_ignore_ascii_case(
+        r#"{"type":"chat","id":"mock_req_id","topicId":"greeting","chatId":"mock_chat_id","content":{"type":"text","text":"hello"}}"#
+    ));
 }

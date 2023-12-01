@@ -1,10 +1,8 @@
 use std::str::FromStr;
-
 mod indexeddb;
 mod memory;
 mod sqlite;
 
-pub const MEMORY_DSN: &str = ":memory:";
 pub trait StoreModel: ToString + FromStr {
     fn sort_key(&self) -> i64;
 }
@@ -18,10 +16,10 @@ pub struct SearchOption {
 type Storage = sqlite::SqliteStorage;
 
 pub trait Table<T: StoreModel> {
-    fn get(&mut self, partition: &str, key: &str) -> Option<T>;
-    fn set(&mut self, partition: &str, key: &str, value: Option<T>);
-    fn remove(&mut self, partition: &str, key: &str);
-    fn clear(&mut self);
+    fn get(&self, partition: &str, key: &str) -> Option<T>;
+    fn set(&self, partition: &str, key: &str, value: Option<T>);
+    fn remove(&self, partition: &str, key: &str);
+    fn clear(&self);
 }
 
 pub fn prepare(storage: &Storage) -> anyhow::Result<()> {
@@ -34,6 +32,6 @@ pub fn prepare(storage: &Storage) -> anyhow::Result<()> {
 
 #[test]
 pub fn test_storage_prepare() {
-    let storage = Storage::new(MEMORY_DSN);
+    let storage = Storage::new(":memory:");
     prepare(&storage).unwrap();
 }

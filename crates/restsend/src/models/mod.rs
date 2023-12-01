@@ -1,14 +1,12 @@
-/*
-    Tables:
-     - configs: 处理这个账号的配置信息
-     - conversations: 会话表，*需要和服务器同步*， 用来记录会话的信息， 会话的类型， 会话的名称， 会话的头像， 会话的最后一条消息， 会话的未读消息数
-     - messages: 消息表
-     - users: 用户（联系人和群成员）缓存信息 *联系人和群成员需要分别和服务器同步*
-     - topics: topic信息表
-     - topic_members: 群成员表， 用来记录用户和群的关系
-*/
-
 use serde::{Deserialize, Serialize};
+
+#[inline]
+pub fn omit_empty<T: ?Sized + Default + std::cmp::PartialEq>(value: &T) -> bool
+where
+    T: serde::ser::Serialize,
+{
+    return *value == T::default();
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]

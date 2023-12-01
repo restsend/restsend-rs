@@ -1,3 +1,4 @@
+use super::response::Upload;
 use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{HTTPError, StdError, UserCancel};
 use anyhow::Result;
@@ -55,12 +56,12 @@ pub(crate) fn build_download_url(endpoint: &str, url: &str) -> String {
 pub(crate) async fn upload_file(
     uploader_url: String,
     token: Option<&str>,
-    file_name: String,
+    file_path: String,
     is_private: bool,
     callback: Box<dyn UploadCallback>,
     cancel: oneshot::Receiver<()>,
-) -> Result<()> {
-    let file = tokio::fs::File::open(file_name.clone()).await?;
+) -> Result<Option<Upload>> {
+    let file = tokio::fs::File::open(file_path.clone()).await?;
     let total = file.metadata().await?.len();
 
     let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
@@ -83,7 +84,7 @@ pub(crate) async fn upload_file(
         );
 
         let file_part = multipart::Part::stream(file_stream)
-            .file_name(file_name.clone())
+            .file_name(file_path.clone())
             .mime_str("application/octet-stream")?;
 
         let private_part = multipart::Part::text(format!("{}", is_private as u32));
@@ -92,7 +93,7 @@ pub(crate) async fn upload_file(
         info!(
             "upload url:{} filename:{} size:{} private:{}",
             uploader_url,
-            file_name,
+            file_path,
             total.human_readable(),
             is_private,
         );
@@ -125,14 +126,14 @@ pub(crate) async fn upload_file(
                 }
             }
         } => {
-            Ok(())
+            Ok(None)
         },
         r = upload_runner => {
             match r {
                 Ok(r) => {
                     callback.on_progress(total, total);
                     callback.on_success(r.path.clone());
-                    Ok(())
+                    Ok(Some(r))
                 },
                 Err(e) => {
                     let reason = format!("upload failed: {}", e.to_string());

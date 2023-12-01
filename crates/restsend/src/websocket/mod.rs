@@ -1,8 +1,6 @@
 use std::time::Duration;
-
 #[cfg(test)]
 mod tests;
-
 mod tokio_impl;
 
 #[allow(unused)]
@@ -22,6 +20,9 @@ pub struct WebsocketOption {
 }
 
 impl WebsocketOption {
+    pub fn url_from_endpoint(endpoint: &str) -> String {
+        format!("{}/api/connect", endpoint)
+    }
     pub fn new(url: &str, token: &str) -> Self {
         Self {
             url: url.to_string(),
@@ -31,4 +32,4 @@ impl WebsocketOption {
     }
 }
 
-type WebSocket = tokio_impl::WebSocketImpl;
+pub(crate) type WebSocket = tokio_impl::WebSocketImpl;

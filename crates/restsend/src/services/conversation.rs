@@ -1,11 +1,9 @@
-use anyhow::Result;
-
+use super::api_call;
 use crate::{
     models::{Conversation, ListChatLogResult, ListConversationResult},
     services::LOGS_LIMIT,
 };
-
-use super::api_call;
+use anyhow::Result;
 
 pub async fn get_conversations(
     endpoint: &str,

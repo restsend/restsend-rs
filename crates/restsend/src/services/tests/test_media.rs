@@ -1,9 +1,10 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, io::Write};
 
 use futures_util::stream::once;
 use http_body_util::BodyExt;
 use hyper::body::Bytes;
 use multer::Multipart;
+use tempfile::NamedTempFile;
 use tokio::sync::oneshot;
 
 #[tokio::test]
@@ -58,6 +59,8 @@ async fn test_upload_file() {
     let url = format!("http://{}/upload", addr);
 
     super::serve_test_server(&addr, |req| async move {
+        let save_file_name = "/tmp/upload.txt";
+
         let ctype = req
             .headers()
             .get("content-type")
@@ -72,6 +75,7 @@ async fn test_upload_file() {
         let mut multipart = Multipart::new(stream, boundary);
         let mut total = 0;
         let mut ext = String::new();
+
         while let Some(mut field) = multipart.next_field().await? {
             match field.name() {
                 Some("file") => {
@@ -80,20 +84,19 @@ async fn test_upload_file() {
                     while let Some(chunk) = field.chunk().await? {
                         data.extend_from_slice(&chunk);
                     }
-                    let file_name = "/tmp/hello.txt.upload";
+
                     total = data.len() as u64;
-                    std::fs::write(file_name, data).unwrap();
+                    std::fs::write(save_file_name, data).unwrap();
                 }
                 _ => {}
             }
         }
 
-        let file_name = "hello.txt.upload";
         let data = serde_json::json!({
-            "fileName": file_name,
+            "fileName": save_file_name,
             "ext":ext,
             "size":total,
-            "path": format!("/attachment/{}", file_name),
+            "path": save_file_name,
         });
 
         let resp = hyper::Response::new(http_body_util::Full::new(Bytes::from(data.to_string())));
@@ -115,9 +118,11 @@ async fn test_upload_file() {
         }
     }
 
-    let file_name = "/tmp/hello.txt";
-    std::fs::write(file_name, "hello world/upload").unwrap();
+    let mut f = NamedTempFile::new().unwrap();
+    let file_data = "hello world/upload";
+    f.write_all(file_data.as_bytes()).unwrap();
 
+    let file_name = f.path().to_str().unwrap().to_string();
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
     let r = crate::services::media::upload_file(
@@ -130,9 +135,10 @@ async fn test_upload_file() {
     )
     .await;
     assert!(r.is_ok());
-    let file_name = "/tmp/hello.txt.upload";
-    let data = std::fs::read(file_name).unwrap();
-    assert_eq!(String::from_utf8(data).unwrap(), "hello world/upload");
+    let r = r.unwrap();
+
+    let data = std::fs::read(r.unwrap().path).unwrap();
+    assert_eq!(String::from_utf8(data).unwrap(), file_data);
     _ = cancel_tx;
 }
 

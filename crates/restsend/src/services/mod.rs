@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{
     error::ClientError::{Forbidden, HTTPError, InvalidPassword},
     USER_AGENT,
@@ -10,15 +8,17 @@ use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     RequestBuilder, Response,
 };
-mod auth;
-mod conversation;
-mod media;
-mod response;
+use std::time::Duration;
+
+pub mod auth;
+pub mod conversation;
+pub mod media;
+pub mod response;
 #[cfg(test)]
 mod tests;
-mod topic;
-mod topic_admin;
-mod user;
+pub mod topic;
+pub mod topic_admin;
+pub mod user;
 
 const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute

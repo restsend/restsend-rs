@@ -9,11 +9,14 @@ pub struct Login {
     pub profile: crate::models::UserProfile,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Upload {
     pub path: String,
     pub file_name: String,
+    #[serde(default)]
+    pub thumbnail: String,
+    #[serde(default)]
     pub ext: String,
-    pub size: i64,
+    pub size: u64,
 }

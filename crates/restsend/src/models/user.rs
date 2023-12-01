@@ -1,3 +1,4 @@
+use super::omit_empty;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default)]
@@ -8,17 +9,39 @@ pub struct AuthInfo {
     pub name: String,
     pub token: String,
 }
+
+impl AuthInfo {
+    pub fn new(endpoint: &str, user_id: &str, token: &str) -> Self {
+        AuthInfo {
+            endpoint: endpoint.to_string(),
+            user_id: user_id.to_string(),
+            token: token.to_string(),
+            name: String::default(),
+            avatar: String::default(),
+        }
+    }
+}
+
 #[derive(serde::Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UserProfile {
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub avatar: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub gender: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub city: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub region: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub country: String,
 }
@@ -26,34 +49,62 @@ pub struct UserProfile {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub user_id: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub name: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub avatar: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub public_key: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub remark: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub is_contact: bool,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub is_star: bool,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub is_blocked: bool,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub locale: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub city: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub country: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub source: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub created_at: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub gender: String, // f/female, m/male
+
     #[serde(skip)]
     pub cached_at: String,
 }

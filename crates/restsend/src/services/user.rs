@@ -1,7 +1,6 @@
+use super::api_call;
 use crate::models::User;
 use anyhow::Result;
-
-use super::api_call;
 
 pub async fn get_user(endpoint: &str, token: &str, user_id: &str) -> Result<User> {
     api_call(endpoint, &format!("/profile/{}", user_id), token, None)

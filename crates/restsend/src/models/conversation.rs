@@ -1,4 +1,4 @@
-use super::{Content, Topic};
+use super::{omit_empty, Content, Topic};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -7,42 +7,55 @@ pub struct Conversation {
     pub owner_id: String,
     pub topic_id: String,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub last_seq: u64,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub last_read_seq: u64,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub multiple: bool,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub attendee: String,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub name: String,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub icon: String,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub sticky: bool,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub mute: bool,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub source: String,
 
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub unread: u64,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub last_sender_id: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub last_message: Option<Content>,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub last_message_at: String,
 

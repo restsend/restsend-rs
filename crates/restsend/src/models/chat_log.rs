@@ -1,3 +1,4 @@
+use super::omit_empty;
 use crate::request::ChatRequest;
 use serde::{Deserialize, Serialize};
 
@@ -14,8 +15,9 @@ pub enum ContentType {
     Location,
     Sticker,
     Contact,
-    Invite,
     Link,
+    Invite,
+    Logs,
     TopicCreate,
     TopicDismiss,
     TopicQuit,
@@ -47,6 +49,7 @@ impl From<ContentType> for String {
             ContentType::Contact => "contact",
             ContentType::Link => "link",
             ContentType::Invite => "invite",
+            ContentType::Logs => "logs",
             ContentType::TopicCreate => "topic.create",
             ContentType::TopicDismiss => "topic.dismiss",
             ContentType::TopicQuit => "topic.quit",
@@ -101,33 +104,50 @@ impl From<String> for ContentType {
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     pub r#type: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub encrypted: bool,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub checksum: u32,
+
     #[serde(default)]
     pub text: String,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub placeholder: String,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub thumbnail: String,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub duration: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub size: u64,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub width: f32,
+
+    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub height: f32,
+
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     pub mentions: Vec<String>,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub reply: String,
+
     #[serde(skip)]
     pub created_at: String,
 }

@@ -1,19 +1,18 @@
+use super::{WebSocketCallback, WebsocketOption};
 use crate::error::ClientError::{HTTPError, TokenExpired};
 use anyhow::Result;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, warn};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
-
 use tokio::select;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::Mutex;
 use tokio::time::{sleep, Instant};
 use tokio_websockets::{ClientBuilder, Message};
 
-use super::{WebSocketCallback, WebsocketOption};
-
 pub(super) struct WebSocketInner {
-    sender_tx: UnboundedSender<String>,
-    sender_rx: Option<UnboundedReceiver<String>>,
+    sender_tx: Mutex<UnboundedSender<String>>,
+    sender_rx: Mutex<Option<UnboundedReceiver<String>>>,
 }
 
 pub struct WebSocketImpl {
@@ -25,19 +24,19 @@ impl WebSocketImpl {
         let (sender_tx, sender_rx) = unbounded_channel::<String>();
         Self {
             inner: WebSocketInner {
-                sender_tx,
-                sender_rx: Some(sender_rx),
+                sender_tx: Mutex::new(sender_tx),
+                sender_rx: Mutex::new(Some(sender_rx)),
             },
         }
     }
 
-    pub async fn send(&mut self, message: String) -> Result<()> {
-        self.inner.sender_tx.send(message)?;
+    pub async fn send(&self, message: String) -> Result<()> {
+        self.inner.sender_tx.lock().await.send(message)?;
         Ok(())
     }
 
     pub async fn serve(
-        &mut self,
+        &self,
         opt: &WebsocketOption,
         callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
@@ -135,7 +134,7 @@ impl WebSocketImpl {
             }
         };
 
-        let sender_rx = self.inner.sender_rx.take();
+        let sender_rx = self.inner.sender_rx.lock().await.take();
         let send_loop = async move {
             let mut sender_rx = sender_rx.unwrap();
             loop {
