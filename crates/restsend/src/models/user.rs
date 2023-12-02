@@ -1,3 +1,5 @@
+use crate::utils::now_timestamp;
+
 use super::omit_empty;
 use serde::{Deserialize, Serialize};
 
@@ -154,7 +156,7 @@ impl User {
         if user.created_at != String::default() {
             new_user.created_at = user.created_at.clone();
         }
-        new_user.cached_at = chrono::Local::now().timestamp();
+        new_user.cached_at = now_timestamp();
         new_user
     }
 }

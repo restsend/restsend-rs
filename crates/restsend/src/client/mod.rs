@@ -1,11 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use self::{
-    attachment::AttachmentInner,
-    store::{ClientStore, ClientStoreRef, PendingRequest},
+    connection::ConnectState,
+    store::{ClientStore, ClientStoreRef},
 };
 use crate::{models::AuthInfo, DB_SUFFIX};
-use tokio::sync::{mpsc, oneshot};
 pub mod attachment;
 mod connection;
 pub mod message;
@@ -13,18 +12,13 @@ mod store;
 #[cfg(test)]
 mod tests;
 
-type WSMessage = Option<PendingRequest>;
-type WSSender = Option<mpsc::UnboundedSender<WSMessage>>;
-
 pub struct Client {
     pub root_path: String,
     pub user_id: String,
     pub token: String,
     pub endpoint: String,
-    connect_now: Arc<Mutex<Option<oneshot::Sender<()>>>>,
-    ws_sender: Mutex<WSSender>,
-    attachment_inner: AttachmentInner,
     store: ClientStoreRef,
+    state: Arc<ConnectState>,
 }
 
 impl Client {
@@ -47,10 +41,8 @@ impl Client {
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string(),
-            ws_sender: Mutex::new(None),
-            attachment_inner: AttachmentInner::new(),
             store: store_ref,
-            connect_now: Arc::new(Mutex::new(None)),
+            state: Arc::new(ConnectState::new()),
         }
     }
 }

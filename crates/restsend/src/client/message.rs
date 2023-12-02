@@ -11,15 +11,9 @@ impl Client {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
-        let chat_id = req.chat_id.clone();
-
-        // TODO: check if the request is already in pending
-        if let Some(sender) = self.ws_sender.lock().unwrap().as_ref() {
-            let pending = PendingRequest::new(req, callback);
-            sender.send(Some(pending))?;
-        }
-
-        Ok(chat_id)
+        let req_id = req.id.clone();
+        self.store.add_pending_request(req, callback).await;
+        Ok(req_id)
     }
 
     pub async fn do_send_text(

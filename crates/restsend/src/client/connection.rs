@@ -1,4 +1,4 @@
-use super::{store::ClientStoreRef, Client, WSMessage};
+use super::Client;
 use crate::{
     callback::Callback,
     request::{ChatRequest, ChatRequestType},
@@ -6,8 +6,8 @@ use crate::{
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
 
-use anyhow::Result;
 use log::{debug, info, warn};
+use serde_json::de;
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -18,41 +18,63 @@ use std::{
 use tokio::{
     select,
     sync::{
-        mpsc::{self, unbounded_channel, UnboundedSender},
-        oneshot,
+        broadcast,
+        mpsc::{unbounded_channel, UnboundedSender},
+        watch,
     },
     time::sleep,
 };
 
-struct ConnectState {
-    must_broken: AtomicBool,
+#[derive(Clone)]
+pub(super) enum ConnectionStatus {
+    Broken,
+    ConnectNow,
+    Connected,
+    Connecting,
+    Shutdown,
+}
+
+pub(super) struct ConnectState {
+    must_shutdown: AtomicBool,
     broken_count: AtomicU64,
     last_broken_at: Mutex<Option<Instant>>,
     last_alive_at: Mutex<Instant>,
+    state_tx: broadcast::Sender<ConnectionStatus>,
+    state_rx: broadcast::Receiver<ConnectionStatus>,
 }
 
 impl ConnectState {
     pub fn new() -> Self {
+        let (state_tx, state_rx) = broadcast::channel(1);
         Self {
-            must_broken: AtomicBool::new(false),
+            must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
             last_broken_at: Mutex::new(None),
             last_alive_at: Mutex::new(Instant::now()),
+            state_tx,
+            state_rx,
         }
     }
 
-    pub fn disconnect(&self) {
-        self.must_broken.store(true, Ordering::Relaxed);
+    pub fn did_shutdown(&self) {
+        self.must_shutdown.store(true, Ordering::Relaxed);
+        self.state_tx.send(ConnectionStatus::Shutdown).ok();
     }
 
-    pub fn is_must_broken(&self) -> bool {
-        self.must_broken.load(Ordering::Relaxed)
+    pub fn is_must_shutdown(&self) -> bool {
+        self.must_shutdown.load(Ordering::Relaxed)
+    }
+
+    pub fn did_connecting(&self) {
+        *self.last_alive_at.lock().unwrap() = Instant::now();
+        self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
 
     pub fn did_connected(&self) {
         self.broken_count.store(0, Ordering::Relaxed);
         self.last_broken_at.lock().unwrap().take();
         *self.last_alive_at.lock().unwrap() = Instant::now();
+        self.state_tx.send(ConnectionStatus::Connected).ok();
     }
 
     pub fn did_sent_or_recvived(&self) {
@@ -62,6 +84,7 @@ impl ConnectState {
     pub fn did_broken(&self) {
         self.broken_count.fetch_add(1, Ordering::Relaxed);
         *self.last_broken_at.lock().unwrap() = Some(Instant::now());
+        self.state_tx.send(ConnectionStatus::Broken).ok();
     }
 
     pub fn need_send_keepalive(&self) -> bool {
@@ -70,17 +93,19 @@ impl ConnectState {
         elapsed >= KEEPALIVE_INTERVAL_SECS
     }
 
-    pub async fn wait_for_next_connect(&self, connect_now_rx: oneshot::Receiver<()>) {
+    pub async fn wait_for_next_connect(&self) {
         let broken_count = self.broken_count.load(Ordering::Relaxed);
         if broken_count <= 0 {
             return;
         }
 
         let remain_secs = broken_count.max(MAX_CONNECT_INTERVAL_SECS);
+        let mut rx = self.state_tx.subscribe();
+
         select! {
             _ = tokio::time::sleep(Duration::from_secs(remain_secs)) => {
             },
-            _ = connect_now_rx => {
+            _ = rx.recv() => {
                 self.broken_count.store(0, Ordering::Relaxed);
                 self.last_broken_at.lock().unwrap().take();
             }
@@ -95,12 +120,14 @@ struct ConnectionInner {
 }
 
 impl WebSocketCallback for ConnectionInner {
-    fn on_connected(&self, usage: Duration) {
+    fn on_connected(&self, _usage: Duration) {
         self.connect_state_ref.did_connected();
         self.callback_ref.on_connected();
     }
+
     fn on_connecting(&self) {
         self.callback_ref.on_connecting();
+        self.connect_state_ref.did_connecting();
     }
 
     fn on_unauthorized(&self) {
@@ -124,136 +151,140 @@ impl WebSocketCallback for ConnectionInner {
                 return;
             }
         };
-        self.incoming_tx.send(req).unwrap();
+
+        match ChatRequestType::from(&req.r#type) {
+            ChatRequestType::Unknown(t) => {
+                warn!("websocket unknown message: {}", t);
+                return;
+            }
+            ChatRequestType::Nop => {
+                return;
+            }
+            _ => {
+                self.incoming_tx.send(req).unwrap();
+            }
+        }
     }
 }
 
 impl Client {
     pub async fn connect(&self, callback: Box<dyn Callback>) {
-        let (tx, mut rx) = mpsc::unbounded_channel::<WSMessage>();
-        *self.ws_sender.lock().unwrap() = Some(tx.clone());
-        let tx_for_requeue = tx.clone();
+        self.serve_connection(callback).await
+    }
 
+    async fn serve_connection(&self, callback: Box<dyn Callback>) {
         let url = WebsocketOption::url_from_endpoint(&self.endpoint);
         let opt = WebsocketOption::new(&url, &self.token);
 
-        let state = Arc::new(ConnectState::new());
+        let state = self.state.clone();
         let callback = Arc::new(callback);
         let store_ref = self.store.clone();
 
         info!("connect websocket url: {}", url);
-
-        let connect_now_ref = self.connect_now.clone();
-
+        let conn_state_ref = state.state_tx.clone();
         tokio::spawn(async move {
-            while !state.is_must_broken() {
-                let (connect_now_tx, connect_now_rx) = oneshot::channel();
-                connect_now_ref.lock().unwrap().replace(connect_now_tx);
-                state.wait_for_next_connect(connect_now_rx).await;
+            let conn_loop = async {
+                while !state.is_must_shutdown() {
+                    state.wait_for_next_connect().await;
 
-                let (incoming_tx, mut incoming_rx) = unbounded_channel();
+                    let (incoming_tx, mut incoming_rx) = unbounded_channel();
 
-                let conn_inner = Box::new(ConnectionInner {
-                    connect_state_ref: state.clone(),
-                    callback_ref: callback.clone(),
-                    incoming_tx,
-                });
+                    let conn_inner = ConnectionInner {
+                        connect_state_ref: state.clone(),
+                        callback_ref: callback.clone(),
+                        incoming_tx,
+                    };
 
-                let conn = WebSocket::new();
+                    let conn = WebSocket::new();
+                    let (outgoing_tx, mut outgoing_rx) = unbounded_channel::<ChatRequest>();
 
-                let sender_loop = async {
-                    while let Some(message) = rx.recv().await {
-                        match message {
-                            Some(message) => {
-                                state.did_sent_or_recvived();
-                                let data: String = (&message.req).into();
+                    let sender_loop = async {
+                        while let Some(message) = outgoing_rx.recv().await {
+                            if let Err(_) = conn.send((&message).into()).await {
+                                store_ref.handle_send_fail(&message.id).await;
+                                break;
+                            }
+                            state.did_sent_or_recvived();
+                            store_ref.handle_send_success(&message.id).await;
+                        }
+                    };
 
-                                if let Err(_) = conn.send(data).await {
-                                    // requeue the message
-                                    if !message.is_expired() && !state.is_must_broken() {
-                                        message.did_retry();
-                                        tx_for_requeue.send(Some(message)).unwrap();
-                                    }
+                    let keepalive_loop = async {
+                        while !state.is_must_shutdown() {
+                            sleep(Duration::from_secs(5 as u64)).await;
+                            if !state.need_send_keepalive() {
+                                continue;
+                            }
+                            if let Err(e) = conn.send(String::from(r#"{"type":"nop"}"#)).await {
+                                warn!("keepalive_runner send failed: {:?}", e);
+                                break;
+                            }
+                        }
+                    };
+
+                    let incoming_loop = async {
+                        while let Some(req) = incoming_rx.recv().await {
+                            match ChatRequestType::from(&req.r#type) {
+                                ChatRequestType::Kickout => {
+                                    let reason = req.message.unwrap_or_default();
+                                    warn!("websocket kickout by other client: {}", reason);
+
+                                    state.did_shutdown();
+                                    callback.on_kickoff_by_other_client(reason);
                                     break;
                                 }
-
-                                if let Some(callback) = message.callback.as_ref() {
-                                    callback.on_sent();
-                                }
+                                _ => {}
                             }
-                            None => {
-                                state.disconnect();
-                                break;
-                            }
+                            store_ref.process_incoming(req).await;
                         }
+                    };
+
+                    select! {
+                        _ = conn.serve(&opt, Box::new(conn_inner)) => {},
+                        _ = store_ref.handle_outgoing(outgoing_tx) => {
+                        },
+                        _ = sender_loop => {},
+                        _ = incoming_loop => {},
+                        _ = keepalive_loop => {}
                     }
-                };
+                }
+            };
 
-                let keepalive_loop = async {
-                    while !state.is_must_broken() {
-                        sleep(Duration::from_secs(5 as u64)).await;
-                        if !state.need_send_keepalive() {
-                            continue;
-                        }
-                        if let Err(e) = conn.send(String::from("{\"type\":\"nop\"}")).await {
-                            warn!("keepalive_runner send failed: {:?}", e);
-                            break;
-                        }
-                    }
-                };
-
-                let incoming_loop = async {
-                    while let Some(req) = incoming_rx.recv().await {
-                        match ChatRequestType::from(&req.r#type) {
-                            ChatRequestType::Unknown(t) => {
-                                warn!("websocket unknown message: {}", t);
-                                continue;
+            select! {
+                _ = store_ref.process() =>{}
+                _ = conn_loop => {
+                    info!("connect shutdown");
+                },
+                _ = async {
+                    loop {
+                        let mut conn_state_rx = conn_state_ref.subscribe();
+                        let st = conn_state_rx.recv().await;
+                        match st {
+                            Ok(ConnectionStatus::Connected) => {
+                                store_ref.flush_offline_requests().await;
                             }
-                            ChatRequestType::Nop => {
-                                continue;
-                            }
-                            ChatRequestType::Kickout => {
-                                let reason = req.message.unwrap_or_default();
-                                warn!("websocket kickout by other client: {}", reason);
-
-                                state.disconnect();
-                                callback.on_kickoff_by_other_client(reason);
-                                break;
+                            Ok(ConnectionStatus::Shutdown) | Err(_) => {
+                                break
                             }
                             _ => {}
                         }
-                        // lookup pending_request
-                        store_ref.process_incoming(req).await;
                     }
-                };
-
-                select! {
-                    _ = conn.serve(&opt, conn_inner) => {
-                    },
-                    _ = incoming_loop => {
-                    },
-                    _ = sender_loop => {
-                    },
-                    _ = keepalive_loop => {
-                    }
-                }
-            }
+                } => {}
+            };
         });
-        info!("websocket disconnected");
     }
 
     pub async fn app_active(&self) {
-        self.connect_now.lock().unwrap().take();
+        self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
     }
 
     pub async fn app_deactivate(&self) {
-        //TODO:
+        todo!("app_deactivate")
     }
 
     pub async fn shutdown(&self) {
         info!("shutdown websocket");
-        if let Some(sender) = self.ws_sender.lock().unwrap().take() {
-            sender.send(None).unwrap();
-        }
+        self.state.did_shutdown();
+        self.store.shutdown().await;
     }
 }

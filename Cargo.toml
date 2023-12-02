@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/restsend"]
+members = ["crates/restsend", "crates/demo"]
 
 [profile.dev.package."*"]
 opt-level = 2

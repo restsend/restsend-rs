@@ -1,13 +1,20 @@
+use crate::client::connection::ConnectionStatus;
+use log::warn;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
     time::Instant,
 };
-
-use log::warn;
+use tokio::{
+    select,
+    sync::{
+        mpsc::{unbounded_channel, UnboundedSender},
+        oneshot, watch,
+    },
+};
 
 use crate::{
     callback::MessageCallback,
@@ -56,18 +63,82 @@ type PendingRequests = Mutex<HashMap<String, PendingRequest>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
 pub(super) struct ClientStore {
-    pub(super) pendings: PendingRequests,
+    tmps: Mutex<VecDeque<String>>,
+    outgoings: PendingRequests,
+    msg_tx: Mutex<Option<UnboundedSender<String>>>,
 }
 
 impl ClientStore {
     pub fn new(db_path: &str) -> Self {
         Self {
-            pendings: Mutex::new(HashMap::new()),
+            tmps: Mutex::new(VecDeque::new()),
+            outgoings: Mutex::new(HashMap::new()),
+            msg_tx: Mutex::new(None),
+        }
+    }
+
+    pub async fn process(&self) {}
+
+    pub async fn handle_outgoing(&self, outgoing_tx: UnboundedSender<ChatRequest>) {
+        let (msg_tx, mut msg_rx) = unbounded_channel::<String>();
+        self.msg_tx.lock().unwrap().replace(msg_tx.clone());
+
+        while let Some(req_id) = msg_rx.recv().await {
+            let mut outgoings = self.outgoings.lock().unwrap();
+            if let Some(pending) = outgoings.remove(&req_id) {
+                if pending.is_expired() {
+                    continue;
+                }
+                outgoing_tx.send(pending.req).ok();
+                pending.callback.map(|cb| cb.on_sent());
+            }
         }
     }
 
     pub async fn process_incoming(&self, req: ChatRequest) -> Option<ChatRequest> {
         warn!("process_incoming: {:?}", req);
+
         None
     }
+
+    pub async fn handle_send_fail(&self, req_id: &str) {}
+    pub async fn handle_send_success(&self, req_id: &str) {}
+
+    pub async fn add_pending_request(
+        &self,
+        req: ChatRequest,
+        callback: Option<Box<dyn MessageCallback>>,
+    ) {
+        let req_id = req.id.clone();
+        self.outgoings
+            .lock()
+            .unwrap()
+            .insert(req_id.clone(), PendingRequest::new(req, callback));
+
+        let tx = self.msg_tx.lock().unwrap();
+        match tx.as_ref() {
+            Some(tx) => {
+                tx.send(req_id).unwrap();
+            }
+            None => {
+                let mut tmps = self.tmps.lock().unwrap();
+                tmps.push_back(req_id);
+            }
+        }
+    }
+
+    pub async fn flush_offline_requests(&self) {
+        let mut tmps = self.tmps.lock().unwrap();
+        let tx = self.msg_tx.lock().unwrap();
+        match tx.as_ref() {
+            Some(tx) => {
+                while let Some(req_id) = tmps.pop_front() {
+                    tx.send(req_id).unwrap();
+                }
+            }
+            None => {}
+        }
+    }
+
+    pub async fn shutdown(&self) {}
 }

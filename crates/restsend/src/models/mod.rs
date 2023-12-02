@@ -8,7 +8,6 @@ where
     return *value == T::default();
 }
 
-type CachedTime = String;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {
@@ -76,9 +75,7 @@ pub mod topic;
 pub mod topic_member;
 pub mod user;
 
-pub use chat_log::ChatLog;
-pub use chat_log::Content;
-pub use chat_log::ContentType;
+pub use chat_log::{Attachment, AttachmentStatus, ChatLog, Content, ContentType};
 pub use conversation::Conversation;
 pub use topic::Topic;
 pub use topic::TopicNotice;

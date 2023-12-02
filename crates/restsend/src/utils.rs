@@ -10,16 +10,8 @@ pub fn random_text(count: usize) -> String {
         .to_lowercase()
 }
 
-pub fn is_expired(time: &str, seconds: i64) -> bool {
-    if let Ok(_time) = chrono::DateTime::parse_from_rfc3339(time) {
-        if chrono::Utc::now()
-            .signed_duration_since(_time)
-            .gt(&chrono::Duration::seconds(seconds))
-        {
-            return true;
-        }
-    }
-    false
+pub fn now_timestamp() -> i64 {
+    chrono::Local::now().timestamp()
 }
 
 pub fn init_log(level: &str, is_test: bool) {
@@ -40,6 +32,7 @@ pub fn init_log(level: &str, is_test: bool) {
         .filter_level(level.parse().unwrap())
         .try_init();
 }
+
 #[cfg(test)]
 pub(crate) async fn check_until(
     duration: std::time::Duration,

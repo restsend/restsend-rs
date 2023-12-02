@@ -1,5 +1,5 @@
 use super::omit_empty;
-use crate::request::ChatRequest;
+use crate::{request::ChatRequest, utils::now_timestamp};
 use serde::{Deserialize, Serialize};
 
 // define content type enum for content
@@ -256,7 +256,7 @@ impl From<&ChatRequest> for ChatLog {
             read: false,
             recall: req.r#type == "recall",
             status: ChatLogStatus::Received,
-            cached_at: chrono::Utc::now().timestamp(),
+            cached_at: now_timestamp(),
         }
     }
 }

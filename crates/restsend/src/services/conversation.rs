@@ -2,6 +2,7 @@ use super::api_call;
 use crate::{
     models::{Conversation, ListChatLogResult, ListConversationResult},
     services::LOGS_LIMIT,
+    utils::now_timestamp,
 };
 use anyhow::Result;
 
@@ -17,7 +18,7 @@ pub async fn get_conversations(
     })
     .to_string();
 
-    let now = chrono::Utc::now().timestamp();
+    let now = now_timestamp();
 
     api_call(endpoint, "/chat/list", token, Some(data))
         .await
@@ -33,7 +34,7 @@ pub async fn get_conversation(endpoint: &str, token: &str, topic_id: &str) -> Re
     api_call(endpoint, &format!("/chat/info/{}", topic_id), token, None)
         .await
         .map(|mut c: Conversation| {
-            c.cached_at = chrono::Utc::now().timestamp();
+            c.cached_at = now_timestamp();
             c
         })
 }
@@ -134,7 +135,7 @@ pub async fn get_chat_logs_desc(
     })
     .to_string();
 
-    let now = chrono::Utc::now().timestamp();
+    let now = now_timestamp();
     api_call(
         endpoint,
         &format!("/chat/sync/{}", topic_id),

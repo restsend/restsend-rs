@@ -44,6 +44,8 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
 
 #[tokio::test]
 async fn test_client_connected() {
+    init_log("INFO", true);
+
     let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
     assert!(info.is_ok());
 

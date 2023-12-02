@@ -1,45 +1,45 @@
-use super::Client;
-use crate::{
-    callback::UploadCallback,
-    services::media::upload_file,
-    services::{media::build_upload_url, response::Upload},
-};
-use anyhow::{Error, Result};
-use std::{collections::HashMap, sync::Mutex};
-use tokio::sync::oneshot;
+// use super::Client;
+// use crate::{
+//     callback::UploadCallback,
+//     services::media::upload_file,
+//     services::{media::build_upload_url, response::Upload},
+// };
+// use anyhow::{Error, Result};
+// use std::{collections::HashMap, sync::Mutex};
+// use tokio::sync::oneshot;
 
-struct UploadCallbackImpl {}
-impl UploadCallback for UploadCallbackImpl {
-    fn on_progress(&self, _progress: u64, _total: u64) {}
-    fn on_success(&self, _url: String) {}
-    fn on_fail(&self, _e: Error) {}
-}
+// struct UploadCallbackImpl {}
+// impl UploadCallback for UploadCallbackImpl {
+//     fn on_progress(&self, _progress: u64, _total: u64) {}
+//     fn on_success(&self, _url: String) {}
+//     fn on_fail(&self, _e: Error) {}
+// }
 
-pub(crate) fn default_upload_callback() -> Box<dyn UploadCallback> {
-    Box::new(UploadCallbackImpl {})
-}
+// pub(crate) fn default_upload_callback() -> Box<dyn UploadCallback> {
+//     Box::new(UploadCallbackImpl {})
+// }
 
-pub(super) struct AttachmentInner {
-    pub(super) pending: Mutex<HashMap<String, oneshot::Sender<()>>>,
-}
+// pub(super) struct AttachmentInner {
+//     pub(super) pending: Mutex<HashMap<String, oneshot::Sender<()>>>,
+// }
 
-impl AttachmentInner {
-    pub(super) fn new() -> Self {
-        Self {
-            pending: Mutex::new(HashMap::new()),
-        }
-    }
-    pub(super) fn push(&self, key: &str, cancel_tx: oneshot::Sender<()>) {
-        self.pending
-            .lock()
-            .unwrap()
-            .insert(key.to_string(), cancel_tx);
-    }
+// impl AttachmentInner {
+//     pub(super) fn new() -> Self {
+//         Self {
+//             pending: Mutex::new(HashMap::new()),
+//         }
+//     }
+//     pub(super) fn push(&self, key: &str, cancel_tx: oneshot::Sender<()>) {
+//         self.pending
+//             .lock()
+//             .unwrap()
+//             .insert(key.to_string(), cancel_tx);
+//     }
 
-    pub(super) fn cancel(&self, key: &str) {
-        self.pending.lock().unwrap().remove(key);
-    }
-}
+//     pub(super) fn cancel(&self, key: &str) {
+//         self.pending.lock().unwrap().remove(key);
+//     }
+// }
 
 // impl AttachmentInner {
 //     pub(crate) async fn upload_attachment(

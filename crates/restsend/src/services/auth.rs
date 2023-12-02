@@ -1,5 +1,5 @@
 use crate::error::ClientError::{Forbidden, HTTPError};
-use crate::models::AuthInfo;
+use crate::models::{user, AuthInfo};
 use crate::services::{handle_response, make_get_request, make_post_request, response};
 use anyhow::Result;
 use log::info;
@@ -87,25 +87,31 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
 
 #[tokio::test]
 async fn test_login() {
-    let info = login_with_password(super::tests::TEST_ENDPOINT, "bob", "bob:demo2").await;
+    let user_id = "alice";
+    let info = login_with_password(super::tests::TEST_ENDPOINT, user_id, "bad:demo2").await;
     println!("{:?}", info);
     assert!(info.unwrap_err().to_string().contains("invalid password"));
 
-    let info = login_with_password(super::tests::TEST_ENDPOINT, "bob", "bob:demo").await;
+    let info = login_with_password(
+        super::tests::TEST_ENDPOINT,
+        user_id,
+        &format!("{}:demo", user_id),
+    )
+    .await;
     assert!(info.is_ok());
 
     let info = info.unwrap();
-    assert_eq!(info.user_id, "bob");
+    assert_eq!(info.user_id, user_id);
     assert!(!info.avatar.is_empty());
     assert!(!info.token.is_empty());
     assert_eq!(info.endpoint, super::tests::TEST_ENDPOINT);
 
     let token = info.token;
-    let info = login_with_token(super::tests::TEST_ENDPOINT, "bob", &token).await;
+    let info = login_with_token(super::tests::TEST_ENDPOINT, user_id, &token).await;
 
     assert!(info.is_ok());
     let info = info.unwrap();
-    assert_eq!(info.user_id, "bob");
+    assert_eq!(info.user_id, user_id);
     assert!(!info.avatar.is_empty());
     assert!(!info.token.is_empty());
 

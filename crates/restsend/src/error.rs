@@ -72,12 +72,6 @@ impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ClientError {
     }
 }
 
-impl From<chrono::ParseError> for ClientError {
-    fn from(e: chrono::ParseError) -> ClientError {
-        ClientError::StdError(e.to_string())
-    }
-}
-
 impl From<std::io::Error> for ClientError {
     fn from(e: std::io::Error) -> ClientError {
         ClientError::StdError(format!("io error {}", e.to_string()))
