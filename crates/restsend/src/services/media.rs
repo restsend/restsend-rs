@@ -187,6 +187,7 @@ pub(crate) async fn download_file(
                 last_progress_time = Instant::now();
             }
         }
+        file.flush().await?;
         Ok((save_file_name.clone(), total))
     };
 
