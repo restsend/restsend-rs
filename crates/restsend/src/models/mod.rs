@@ -8,6 +8,7 @@ where
     return *value == T::default();
 }
 
+type CachedTime = String;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {

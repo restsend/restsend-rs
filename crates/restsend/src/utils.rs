@@ -40,3 +40,19 @@ pub fn init_log(level: &str, is_test: bool) {
         .filter_level(level.parse().unwrap())
         .try_init();
 }
+#[cfg(test)]
+pub(crate) async fn check_until(
+    duration: std::time::Duration,
+    f: impl Fn() -> bool,
+) -> anyhow::Result<()> {
+    let st = std::time::Instant::now();
+    loop {
+        if f() {
+            return Ok(());
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        if st.elapsed() > duration {
+            return Err(anyhow::anyhow!("check_until timeout: {:?}", duration));
+        }
+    }
+}

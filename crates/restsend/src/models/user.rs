@@ -106,7 +106,7 @@ pub struct User {
     pub gender: String, // f/female, m/male
 
     #[serde(skip)]
-    pub cached_at: String,
+    pub cached_at: i64,
 }
 
 impl User {
@@ -154,7 +154,7 @@ impl User {
         if user.created_at != String::default() {
             new_user.created_at = user.created_at.clone();
         }
-        new_user.cached_at = chrono::Local::now().timestamp_millis().to_string();
+        new_user.cached_at = chrono::Local::now().timestamp();
         new_user
     }
 }

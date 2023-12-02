@@ -6,7 +6,7 @@ pub async fn get_user(endpoint: &str, token: &str, user_id: &str) -> Result<User
     api_call(endpoint, &format!("/profile/{}", user_id), token, None)
         .await
         .map(|mut user: User| {
-            user.cached_at = chrono::Utc::now().to_rfc3339();
+            user.cached_at = chrono::Utc::now().timestamp();
             if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                 user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
             }
@@ -24,7 +24,7 @@ pub async fn get_users(endpoint: &str, token: &str, user_ids: Vec<&str>) -> Resu
         .await
         .map(|mut users: Vec<User>| {
             users.iter_mut().for_each(|user| {
-                user.cached_at = chrono::Utc::now().to_rfc3339();
+                user.cached_at = chrono::Utc::now().timestamp();
                 if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                     user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
                 }

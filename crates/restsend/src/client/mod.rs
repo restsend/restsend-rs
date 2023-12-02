@@ -2,10 +2,9 @@ use std::sync::{Arc, Mutex};
 
 use self::{
     attachment::AttachmentInner,
-    message::PendingRequest,
-    store::{ClientStore, ClientStoreRef},
+    store::{ClientStore, ClientStoreRef, PendingRequest},
 };
-use crate::{models::AuthInfo, request::ChatRequest, DB_SUFFIX};
+use crate::{models::AuthInfo, DB_SUFFIX};
 use tokio::sync::{mpsc, oneshot};
 pub mod attachment;
 mod connection;

@@ -1,4 +1,13 @@
-use std::{convert::Infallible, io::Write};
+use crate::utils::check_until;
+use std::{
+    convert::Infallible,
+    io::Write,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use futures_util::stream::once;
 use http_body_util::BodyExt;
@@ -6,6 +15,38 @@ use hyper::body::Bytes;
 use multer::Multipart;
 use tempfile::NamedTempFile;
 use tokio::sync::oneshot;
+
+struct TestDownloadCallback {
+    is_done: Arc<AtomicBool>,
+}
+impl crate::callback::DownloadCallback for TestDownloadCallback {
+    fn on_progress(&self, sent: u64, total: u64) {
+        println!("on_progress: {}/{}", sent, total);
+    }
+    fn on_success(&self, url: String, file_name: String) {
+        println!("on_success: {} {}", url, file_name);
+        self.is_done.store(true, Ordering::Relaxed);
+    }
+    fn on_fail(&self, err: anyhow::Error) {
+        println!("on_fail: {}", err.to_string());
+    }
+}
+struct TestUploadCallback {
+    is_done: Arc<AtomicBool>,
+}
+
+impl crate::callback::UploadCallback for TestUploadCallback {
+    fn on_progress(&self, sent: u64, total: u64) {
+        println!("on_progress: {}/{}", sent, total);
+    }
+    fn on_success(&self, url: String) {
+        println!("on_success: {} ", url);
+        self.is_done.store(true, Ordering::Relaxed);
+    }
+    fn on_fail(&self, err: anyhow::Error) {
+        println!("on_fail: {}", err.to_string());
+    }
+}
 
 #[tokio::test]
 async fn test_download_file() {
@@ -22,20 +63,8 @@ async fn test_download_file() {
     .await
     .unwrap();
 
-    let file_name = "/tmp/hello.txt";
-
-    struct DownloadCallback {}
-    impl crate::callback::DownloadCallback for DownloadCallback {
-        fn on_progress(&self, sent: u64, total: u64) {
-            println!("on_progress: {}/{}", sent, total);
-        }
-        fn on_success(&self, url: String, file_name: String) {
-            println!("on_success: {} {}", url, file_name);
-        }
-        fn on_fail(&self, err: anyhow::Error) {
-            println!("on_fail: {}", err.to_string());
-        }
-    }
+    let file_name = "/tmp/hello.download.txt";
+    let is_done = Arc::new(AtomicBool::new(false));
 
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
@@ -43,11 +72,18 @@ async fn test_download_file() {
         url.to_string(),
         None,
         file_name.to_string(),
-        Box::new(DownloadCallback {}),
+        Box::new(TestDownloadCallback {
+            is_done: is_done.clone(),
+        }),
         cancel_rx,
     )
     .await;
     assert!(r.is_ok());
+
+    check_until(Duration::from_secs(3), || is_done.load(Ordering::Relaxed))
+        .await
+        .unwrap();
+
     let data = std::fs::read(file_name).unwrap();
     assert_eq!(String::from_utf8(data).unwrap(), "hello world");
     _ = cancel_tx;
@@ -105,18 +141,7 @@ async fn test_upload_file() {
     .await
     .unwrap();
 
-    struct UploadCallback {}
-    impl crate::callback::UploadCallback for UploadCallback {
-        fn on_progress(&self, sent: u64, total: u64) {
-            println!("on_progress: {}/{}", sent, total);
-        }
-        fn on_success(&self, url: String) {
-            println!("on_success: {} ", url);
-        }
-        fn on_fail(&self, err: anyhow::Error) {
-            println!("on_fail: {}", err.to_string());
-        }
-    }
+    let is_done = Arc::new(AtomicBool::new(false));
 
     let mut f = NamedTempFile::new().unwrap();
     let file_data = "hello world/upload";
@@ -130,12 +155,18 @@ async fn test_upload_file() {
         None,
         file_name.to_string(),
         false,
-        Box::new(UploadCallback {}),
+        Box::new(TestUploadCallback {
+            is_done: is_done.clone(),
+        }),
         cancel_rx,
     )
     .await;
     assert!(r.is_ok());
     let r = r.unwrap();
+
+    check_until(Duration::from_secs(3), || is_done.load(Ordering::Relaxed))
+        .await
+        .unwrap();
 
     let data = std::fs::read(r.unwrap().path).unwrap();
     assert_eq!(String::from_utf8(data).unwrap(), file_data);
@@ -169,30 +200,25 @@ async fn test_download_file_with_redirect() {
 
     let file_name = "/tmp/hello.txt";
 
-    struct DownloadCallback {}
-    impl crate::callback::DownloadCallback for DownloadCallback {
-        fn on_progress(&self, sent: u64, total: u64) {
-            println!("on_progress: {}/{}", sent, total);
-        }
-        fn on_success(&self, url: String, file_name: String) {
-            println!("on_success: {} {}", url, file_name);
-        }
-        fn on_fail(&self, err: anyhow::Error) {
-            println!("on_fail: {}", err.to_string());
-        }
-    }
-
+    let is_done = Arc::new(AtomicBool::new(false));
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
     let r = crate::services::media::download_file(
         url.to_string(),
         None,
         file_name.to_string(),
-        Box::new(DownloadCallback {}),
+        Box::new(TestDownloadCallback {
+            is_done: is_done.clone(),
+        }),
         cancel_rx,
     )
     .await;
     assert!(r.is_ok());
+
+    check_until(Duration::from_secs(3), || is_done.load(Ordering::Relaxed))
+        .await
+        .unwrap();
+
     let data = std::fs::read(file_name).unwrap();
     assert_eq!(String::from_utf8(data).unwrap(), "hello world");
     _ = cancel_tx;

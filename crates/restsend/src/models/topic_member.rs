@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
@@ -15,8 +15,9 @@ pub struct TopicMember {
     pub silent: bool,
     #[serde(default)]
     pub joined_at: String,
+
     #[serde(skip)]
-    pub cached_at: String,
+    pub cached_at: i64,
 }
 
 impl TopicMember {

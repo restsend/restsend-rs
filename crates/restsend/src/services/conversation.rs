@@ -16,11 +16,14 @@ pub async fn get_conversations(
         "updatedAt": updated_at,
     })
     .to_string();
+
+    let now = chrono::Utc::now().timestamp();
+
     api_call(endpoint, "/chat/list", token, Some(data))
         .await
         .map(|mut lr: ListConversationResult| {
             lr.items.iter_mut().for_each(|c| {
-                c.cached_at = chrono::Utc::now().to_rfc3339();
+                c.cached_at = now;
             });
             lr
         })
@@ -30,7 +33,7 @@ pub async fn get_conversation(endpoint: &str, token: &str, topic_id: &str) -> Re
     api_call(endpoint, &format!("/chat/info/{}", topic_id), token, None)
         .await
         .map(|mut c: Conversation| {
-            c.cached_at = chrono::Utc::now().to_rfc3339();
+            c.cached_at = chrono::Utc::now().timestamp();
             c
         })
 }
@@ -131,6 +134,7 @@ pub async fn get_chat_logs_desc(
     })
     .to_string();
 
+    let now = chrono::Utc::now().timestamp();
     api_call(
         endpoint,
         &format!("/chat/sync/{}", topic_id),
@@ -140,7 +144,7 @@ pub async fn get_chat_logs_desc(
     .await
     .map(|mut lr: ListChatLogResult| {
         lr.items.iter_mut().for_each(|c| {
-            c.cached_at = chrono::Utc::now().to_rfc3339();
+            c.cached_at = now;
         });
         let last_seq = lr.items.iter().map(|c| c.seq).max().unwrap_or(0);
         (lr, last_seq)

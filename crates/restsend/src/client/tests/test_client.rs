@@ -6,11 +6,11 @@ use std::{
     time::Duration,
 };
 
-use super::check_until;
 use crate::{
     callback,
     client::{tests::TEST_ENDPOINT, Client},
     services::auth::login_with_password,
+    utils::check_until,
     utils::init_log,
 };
 

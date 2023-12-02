@@ -8,12 +8,6 @@ use anyhow::{Error, Result};
 use std::{collections::HashMap, sync::Mutex};
 use tokio::sync::oneshot;
 
-#[derive(Debug)]
-pub struct Attachment {
-    pub key: String,
-    pub file_path: String,
-    pub is_private: bool,
-}
 struct UploadCallbackImpl {}
 impl UploadCallback for UploadCallbackImpl {
     fn on_progress(&self, _progress: u64, _total: u64) {}
@@ -47,39 +41,39 @@ impl AttachmentInner {
     }
 }
 
-impl AttachmentInner {
-    pub(crate) async fn upload_attachment(
-        &self,
-        endpoint: &str,
-        token: &str,
-        attachment: Attachment,
-        callback: Option<Box<dyn UploadCallback>>,
-    ) -> Result<Upload> {
-        let uploader = build_upload_url(&endpoint, "");
-        let (cancel_tx, cancel_rx) = oneshot::channel();
+// impl AttachmentInner {
+//     pub(crate) async fn upload_attachment(
+//         &self,
+//         endpoint: &str,
+//         token: &str,
+//         attachment: Attachment,
+//         callback: Option<Box<dyn UploadCallback>>,
+//     ) -> Result<Upload> {
+//         let uploader = build_upload_url(&endpoint, "");
+//         let (cancel_tx, cancel_rx) = oneshot::channel();
 
-        if !attachment.key.is_empty() {
-            self.push(&attachment.key, cancel_tx);
-        }
+//         if !attachment.key.is_empty() {
+//             self.push(&attachment.key, cancel_tx);
+//         }
 
-        let r = upload_file(
-            uploader,
-            Some(&token),
-            attachment.file_path,
-            attachment.is_private,
-            callback.unwrap_or(default_upload_callback()),
-            cancel_rx,
-        )
-        .await;
+//         let r = upload_file(
+//             uploader,
+//             Some(&token),
+//             attachment.file_path,
+//             attachment.is_private,
+//             callback.unwrap_or(default_upload_callback()),
+//             cancel_rx,
+//         )
+//         .await;
 
-        self.cancel(&attachment.key);
+//         self.cancel(&attachment.key);
 
-        r.map(|r| r.unwrap_or_default())
-    }
-}
+//         r.map(|r| r.unwrap_or_default())
+//     }
+// }
 
-impl Client {
-    pub async fn cancel_upload(&self, key: &str) {
-        self.attachment_inner.cancel(key);
-    }
-}
+// impl Client {
+//     pub async fn cancel_upload(&self, key: &str) {
+//         self.attachment_inner.cancel(key);
+//     }
+// }

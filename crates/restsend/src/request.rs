@@ -1,3 +1,4 @@
+use crate::models::chat_log::Attachment;
 use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;
 use serde::{Deserialize, Serialize};
@@ -138,44 +139,28 @@ impl ChatRequest {
         Self::new_chat(topic_id, ContentType::Text).text(text)
     }
 
-    pub fn new_image(topic_id: &str, url_or_data: &str, size: u64) -> Self {
-        Self::new_chat(topic_id, ContentType::Image)
-            .text(url_or_data)
-            .size(size)
+    pub fn new_image(topic_id: &str, attachment: Attachment) -> Self {
+        Self::new_chat(topic_id, ContentType::Image).attachment(attachment)
     }
 
-    pub fn new_voice(topic_id: &str, url_or_data: &str, duration: &str, size: u64) -> Self {
+    pub fn new_voice(topic_id: &str, duration: &str, attachment: Attachment) -> Self {
         Self::new_chat(topic_id, ContentType::Voice)
-            .text(url_or_data)
             .duration(duration)
-            .size(size)
+            .attachment(attachment)
     }
 
-    pub fn new_video(
-        topic_id: &str,
-        url_or_data: &str,
-        thumbnail: &str,
-        duration: &str,
-        size: u64,
-    ) -> Self {
+    pub fn new_video(topic_id: &str, duration: &str, attachment: Attachment) -> Self {
         Self::new_chat(topic_id, ContentType::Video)
-            .text(url_or_data)
             .duration(duration)
-            .thumbnail(thumbnail)
-            .size(size)
+            .attachment(attachment)
     }
 
-    pub fn new_file(topic_id: &str, url_or_data: &str, filename: &str, size: u64) -> Self {
-        Self::new_chat(topic_id, ContentType::File)
-            .text(url_or_data)
-            .placeholder(filename)
-            .size(size)
+    pub fn new_file(topic_id: &str, attachment: Attachment) -> Self {
+        Self::new_chat(topic_id, ContentType::File).attachment(attachment)
     }
 
-    pub fn new_logs(topic_id: &str, url_or_data: &str, size: u64) -> Self {
-        Self::new_chat(topic_id, ContentType::Logs)
-            .text(url_or_data)
-            .size(size)
+    pub fn new_logs(topic_id: &str, attachment: Attachment) -> Self {
+        Self::new_chat(topic_id, ContentType::Logs).attachment(attachment)
     }
 
     pub fn new_location(topic_id: &str, latitude: &str, longitude: &str, address: &str) -> Self {
@@ -270,6 +255,15 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 mentions: user_ids.unwrap_or_default(),
+                ..self.content.clone().unwrap_or(Content::default())
+            }),
+            ..self.clone()
+        }
+    }
+    pub fn attachment(&self, attachment: Attachment) -> Self {
+        ChatRequest {
+            content: Some(Content {
+                attachment: Some(attachment),
                 ..self.content.clone().unwrap_or(Content::default())
             }),
             ..self.clone()

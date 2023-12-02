@@ -34,6 +34,7 @@ pub trait DownloadCallback: Send + Sync {
 #[allow(unused_variables)]
 pub trait MessageCallback: Send + Sync {
     fn on_sent(&self) {}
+    fn on_progress(&self, progress: u64, total: u64) {}
     fn on_ack(&self, req: ChatRequest) {}
     fn on_fail(&self, reason: String) {}
 }

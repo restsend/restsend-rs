@@ -101,6 +101,37 @@ impl From<String> for ContentType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub enum AttachmentStatus {
+    #[default]
+    Pending,
+    Uploading(usize),
+    Downloading(usize),
+    Paused(usize),
+    Done,
+    Failed,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct Attachment {
+    pub thumbnail: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub url_or_data: String,
+    pub is_private: bool,
+    pub status: AttachmentStatus,
+}
+
+impl Attachment {
+    pub fn local(file_name: &str, file_path: &str, is_private: bool) -> Self {
+        Attachment {
+            file_name: String::from(file_name),
+            file_path: String::from(file_path),
+            is_private,
+            ..Default::default()
+        }
+    }
+}
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     pub r#type: String,
@@ -150,6 +181,10 @@ pub struct Content {
 
     #[serde(skip)]
     pub created_at: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub attachment: Option<Attachment>,
 }
 
 impl Content {
@@ -170,12 +205,14 @@ impl Content {
 }
 
 #[allow(dead_code)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub enum ChatLogStatus {
-    Sending = 0,
-    Sent = 1,
-    Received = 2,
-    Read = 3,
-    Failed = 4,
+    #[default]
+    Sending,
+    Sent,
+    Received,
+    Read,
+    Failed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -189,10 +226,11 @@ pub struct ChatLog {
     pub content: Content,
     pub read: bool,
     pub recall: bool,
-    #[serde(skip)]
-    pub status: u32,
-    #[serde(skip)]
-    pub cached_at: String,
+
+    #[serde(default)]
+    pub status: ChatLogStatus,
+    #[serde(default)]
+    pub cached_at: i64,
 }
 
 impl ChatLog {
@@ -217,8 +255,8 @@ impl From<&ChatRequest> for ChatLog {
             content,
             read: false,
             recall: req.r#type == "recall",
-            status: ChatLogStatus::Received as u32,
-            cached_at: chrono::Utc::now().to_rfc3339(),
+            status: ChatLogStatus::Received,
+            cached_at: chrono::Utc::now().timestamp(),
         }
     }
 }

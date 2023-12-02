@@ -9,7 +9,7 @@ pub async fn get_topic(endpoint: &str, token: &str, topic_id: &str) -> Result<To
     api_call(endpoint, &format!("/topic/info/{}", topic_id), token, None)
         .await
         .map(|mut topic: Topic| {
-            topic.cached_at = chrono::Utc::now().to_rfc3339();
+            topic.cached_at = chrono::Utc::now().timestamp();
             if !topic.icon.is_empty() && !topic.icon.starts_with("http") {
                 topic.icon = format!("{}{}", endpoint.trim_end_matches('/'), topic.icon);
             }
@@ -40,7 +40,7 @@ pub async fn get_topic_members(
     .await
     .map(|mut lr: ListUserResult| {
         lr.items.iter_mut().for_each(|user| {
-            user.cached_at = chrono::Utc::now().to_rfc3339();
+            user.cached_at = chrono::Utc::now().timestamp();
             if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                 user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
             }

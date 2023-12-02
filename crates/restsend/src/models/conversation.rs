@@ -60,7 +60,7 @@ pub struct Conversation {
     pub last_message_at: String,
 
     #[serde(skip)]
-    pub cached_at: String,
+    pub cached_at: i64,
 }
 
 impl Conversation {

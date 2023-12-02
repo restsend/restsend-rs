@@ -91,7 +91,7 @@ pub struct Topic {
     pub silent: bool,
 
     #[serde(skip)]
-    pub cached_at: String,
+    pub cached_at: i64,
 }
 
 impl Topic {
