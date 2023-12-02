@@ -96,23 +96,19 @@ struct ConnectionInner {
 
 impl WebSocketCallback for ConnectionInner {
     fn on_connected(&self, usage: Duration) {
-        info!("websocket connected, usage: {:?}", usage);
         self.connect_state_ref.did_connected();
         self.callback_ref.on_connected();
     }
     fn on_connecting(&self) {
-        debug!("websocket connecting");
         self.callback_ref.on_connecting();
     }
 
     fn on_unauthorized(&self) {
-        warn!("websocket unauthorized");
         self.callback_ref
             .on_token_expired("unauthorized".to_string());
     }
 
     fn on_net_broken(&self, reason: String) {
-        warn!("websocket net broken: {}", reason);
         self.connect_state_ref.did_broken();
         self.callback_ref.on_net_broken(reason);
     }
@@ -133,16 +129,10 @@ impl WebSocketCallback for ConnectionInner {
 }
 
 impl Client {
-    pub(super) async fn ws_send(&self, data: String) -> Result<()> {
-        if let Some(sender) = self.ws_sender.lock().unwrap().as_ref() {
-            sender.send(Some(data))?;
-        }
-        Ok(())
-    }
-
     pub async fn connect(&self, callback: Box<dyn Callback>) {
         let (tx, mut rx) = mpsc::unbounded_channel::<WSMessage>();
-        *self.ws_sender.lock().unwrap() = Some(tx);
+        *self.ws_sender.lock().unwrap() = Some(tx.clone());
+        let tx_for_requeue = tx.clone();
 
         let url = WebsocketOption::url_from_endpoint(&self.endpoint);
         let opt = WebsocketOption::new(&url, &self.token);
@@ -153,7 +143,7 @@ impl Client {
 
         info!("connect websocket url: {}", url);
 
-        let connect_now_ref = self.ws_connect_now.clone();
+        let connect_now_ref = self.connect_now.clone();
 
         tokio::spawn(async move {
             while !state.is_must_broken() {
@@ -176,8 +166,19 @@ impl Client {
                         match message {
                             Some(message) => {
                                 state.did_sent_or_recvived();
-                                if let Err(_) = conn.send(message).await {
+                                let data: String = (&message.req).into();
+
+                                if let Err(_) = conn.send(data).await {
+                                    // requeue the message
+                                    if !message.is_expired() && !state.is_must_broken() {
+                                        message.did_retry();
+                                        tx_for_requeue.send(Some(message)).unwrap();
+                                    }
                                     break;
+                                }
+
+                                if let Some(callback) = message.callback.as_ref() {
+                                    callback.on_sent();
                                 }
                             }
                             None => {
@@ -221,6 +222,7 @@ impl Client {
                             }
                             _ => {}
                         }
+                        // lookup pending_request
                         store_ref.process_incoming(req).await;
                     }
                 };
@@ -241,7 +243,7 @@ impl Client {
     }
 
     pub async fn app_active(&self) {
-        self.ws_connect_now.lock().unwrap().take();
+        self.connect_now.lock().unwrap().take();
     }
 
     pub async fn app_deactivate(&self) {

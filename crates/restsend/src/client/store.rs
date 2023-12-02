@@ -4,6 +4,8 @@ use log::warn;
 
 use crate::request::ChatRequest;
 
+use super::message::PendingRequest;
+
 pub(super) type ClientStoreRef = Arc<ClientStore>;
 pub(super) struct ClientStore {}
 
