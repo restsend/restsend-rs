@@ -20,7 +20,6 @@ use tokio::{
     sync::{
         broadcast,
         mpsc::{unbounded_channel, UnboundedSender},
-        watch,
     },
     time::sleep,
 };
@@ -40,19 +39,17 @@ pub(super) struct ConnectState {
     last_broken_at: Mutex<Option<Instant>>,
     last_alive_at: Mutex<Instant>,
     state_tx: broadcast::Sender<ConnectionStatus>,
-    state_rx: broadcast::Receiver<ConnectionStatus>,
 }
 
 impl ConnectState {
     pub fn new() -> Self {
-        let (state_tx, state_rx) = broadcast::channel(1);
+        let (state_tx, _) = broadcast::channel(1);
         Self {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
             last_broken_at: Mutex::new(None),
             last_alive_at: Mutex::new(Instant::now()),
             state_tx,
-            state_rx,
         }
     }
 

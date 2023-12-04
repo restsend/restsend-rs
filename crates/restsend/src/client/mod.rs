@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use self::{
     connection::ConnectState,
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{models::AuthInfo, DB_SUFFIX};
-pub mod attachment;
+use std::sync::Arc;
+
 mod connection;
 pub mod message;
 mod store;
@@ -33,7 +32,7 @@ impl Client {
 
     pub fn new(root_path: &str, db_name: &str, info: &AuthInfo) -> Self {
         let db_path = Self::db_path(root_path, db_name);
-        let store = ClientStore::new(&db_path);
+        let store = ClientStore::new(root_path, &db_path, &info.endpoint, &info.token);
         let store_ref = Arc::new(store);
 
         Self {

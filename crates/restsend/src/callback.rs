@@ -1,4 +1,4 @@
-use crate::{models::Conversation, request::ChatRequest};
+use crate::{models::Conversation, request::ChatRequest, services::response::Upload};
 use anyhow::Error;
 
 #[allow(unused_variables)]
@@ -20,7 +20,7 @@ pub trait Callback: Send + Sync {
 #[allow(unused_variables)]
 pub trait UploadCallback: Send + Sync {
     fn on_progress(&self, progress: u64, total: u64) {}
-    fn on_success(&self, url: String) {}
+    fn on_success(&self, result: Upload) {}
     fn on_fail(&self, e: Error) {}
 }
 

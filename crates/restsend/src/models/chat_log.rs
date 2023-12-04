@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
 use super::omit_empty;
-use crate::{request::ChatRequest, utils::now_timestamp};
+use crate::{request::ChatRequest, storage::StoreModel, utils::now_timestamp};
 use serde::{Deserialize, Serialize};
 
 // define content type enum for content
@@ -103,7 +105,8 @@ impl From<String> for ContentType {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum AttachmentStatus {
     #[default]
-    Pending,
+    ToUpload,
+    ToDownload,
     Uploading(usize),
     Downloading(usize),
     Paused(usize),
@@ -207,9 +210,11 @@ impl Content {
 #[allow(dead_code)]
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub enum ChatLogStatus {
+    Uploading,
     #[default]
     Sending,
     Sent,
+    Downloading,
     Received,
     Read,
     Failed,
@@ -240,6 +245,25 @@ impl ChatLog {
             id: String::from(id),
             ..Default::default()
         }
+    }
+}
+impl FromStr for ChatLog {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str::<ChatLog>(s)
+    }
+}
+
+impl ToString for ChatLog {
+    fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+impl StoreModel for ChatLog {
+    fn sort_key(&self) -> i64 {
+        self.seq as i64
     }
 }
 

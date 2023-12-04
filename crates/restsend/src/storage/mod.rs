@@ -13,7 +13,7 @@ pub struct SearchOption {
     pub limit: u32,
 }
 
-type Storage = sqlite::SqliteStorage;
+pub type Storage = sqlite::SqliteStorage;
 
 pub trait Table<T: StoreModel> {
     fn get(&self, partition: &str, key: &str) -> Option<T>;

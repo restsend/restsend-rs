@@ -1,3 +1,4 @@
+use crate::callback::MessageCallback;
 use crate::models::Attachment;
 use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;

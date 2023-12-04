@@ -132,7 +132,7 @@ pub(crate) async fn upload_file(
             match r {
                 Ok(r) => {
                     callback.on_progress(total, total);
-                    callback.on_success(r.path.clone());
+                    callback.on_success(r.clone());
                     Ok(Some(r))
                 },
                 Err(e) => {

@@ -1,4 +1,4 @@
-use crate::utils::check_until;
+use crate::{services::response::Upload, utils::check_until};
 use std::{
     convert::Infallible,
     io::Write,
@@ -39,8 +39,8 @@ impl crate::callback::UploadCallback for TestUploadCallback {
     fn on_progress(&self, sent: u64, total: u64) {
         println!("on_progress: {}/{}", sent, total);
     }
-    fn on_success(&self, url: String) {
-        println!("on_success: {} ", url);
+    fn on_success(&self, result: Upload) {
+        println!("on_success: {} ", result.path);
         self.is_done.store(true, Ordering::Relaxed);
     }
     fn on_fail(&self, err: anyhow::Error) {

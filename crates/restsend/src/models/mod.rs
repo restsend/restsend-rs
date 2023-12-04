@@ -75,7 +75,7 @@ pub mod topic;
 pub mod topic_member;
 pub mod user;
 
-pub use chat_log::{Attachment, AttachmentStatus, ChatLog, Content, ContentType};
+pub use chat_log::{Attachment, AttachmentStatus, ChatLog, ChatLogStatus, Content, ContentType};
 pub use conversation::Conversation;
 pub use topic::Topic;
 pub use topic::TopicNotice;

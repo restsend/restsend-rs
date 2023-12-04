@@ -15,10 +15,12 @@ const DB_SUFFIX: &str = ".sqlite3";
 const CHAT_ID_LEN: usize = 10;
 const REQ_ID_LEN: usize = 12;
 
+const MAX_ATTACHMENT_CONCURRENT: usize = 12;
 const MAX_RETRIES: usize = 3;
 const MAX_SEND_IDLE_SECS: u64 = 120; // 2 minutes
 const MAX_CONNECT_INTERVAL_SECS: u64 = 5; // 5 seconds
 const KEEPALIVE_INTERVAL_SECS: u64 = 50; // 50 seconds
+const MEDIA_PROGRESS_INTERVAL: u128 = 300; // 300ms to update progress
 
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "apple")]

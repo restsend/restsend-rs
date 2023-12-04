@@ -9,7 +9,7 @@ pub struct Login {
     pub profile: crate::models::UserProfile,
 }
 
-#[derive(serde::Deserialize, Default)]
+#[derive(serde::Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Upload {
     pub path: String,
