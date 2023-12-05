@@ -129,7 +129,6 @@ impl WebSocketImpl {
                         msg.as_text().unwrap().to_string()
                     }
                 };
-                debug!("websocket recv: {}", body);
                 callback.on_message(body);
             }
         };

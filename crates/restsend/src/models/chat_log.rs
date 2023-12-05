@@ -217,7 +217,7 @@ pub enum ChatLogStatus {
     Downloading,
     Received,
     Read,
-    Failed,
+    SendFailed(u32),
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -225,7 +225,7 @@ pub enum ChatLogStatus {
 pub struct ChatLog {
     pub topic_id: String,
     pub id: String,
-    pub seq: u64,
+    pub seq: i64,
     pub created_at: String,
     pub sender_id: String,
     pub content: Content,
@@ -234,6 +234,7 @@ pub struct ChatLog {
 
     #[serde(default)]
     pub status: ChatLogStatus,
+
     #[serde(default)]
     pub cached_at: i64,
 }

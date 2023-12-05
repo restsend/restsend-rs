@@ -1,7 +1,6 @@
-use super::store::PendingRequest;
 use super::Client;
-use crate::callback::{MessageCallback, UploadCallback};
-use crate::models::chat_log::{Attachment, AttachmentStatus};
+use crate::callback::MessageCallback;
+use crate::models::chat_log::Attachment;
 use crate::{models::Content, request::ChatRequest};
 use anyhow::Result;
 

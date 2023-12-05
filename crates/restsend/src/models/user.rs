@@ -1,4 +1,6 @@
-use crate::utils::now_timestamp;
+use std::str::FromStr;
+
+use crate::{storage::StoreModel, utils::now_timestamp};
 
 use super::omit_empty;
 use serde::{Deserialize, Serialize};
@@ -107,14 +109,17 @@ pub struct User {
     #[serde(default)]
     pub gender: String, // f/female, m/male
 
-    #[serde(skip)]
+    #[serde(default)]
     pub cached_at: i64,
+    #[serde(default)]
+    pub is_partial: bool,
 }
 
 impl User {
     pub fn new(user_id: &str) -> Self {
         User {
             user_id: String::from(user_id),
+            is_partial: true,
             ..Default::default()
         }
     }
@@ -132,31 +137,34 @@ impl User {
         if user.remark != String::default() {
             new_user.remark = user.remark.clone();
         }
-        if user.is_contact != false {
-            new_user.is_contact = user.is_contact;
-        }
-        if user.is_star != false {
-            new_user.is_star = user.is_star;
-        }
-        if user.is_blocked != false {
-            new_user.is_blocked = user.is_blocked;
-        }
-        if user.locale != String::default() {
-            new_user.locale = user.locale.clone();
-        }
-        if user.city != String::default() {
-            new_user.city = user.city.clone();
-        }
-        if user.country != String::default() {
-            new_user.country = user.country.clone();
-        }
-        if user.source != String::default() {
-            new_user.source = user.source.clone();
-        }
-        if user.created_at != String::default() {
-            new_user.created_at = user.created_at.clone();
-        }
-        new_user.cached_at = now_timestamp();
+        new_user.is_contact = user.is_contact;
+        new_user.is_star = user.is_star;
+        new_user.is_blocked = user.is_blocked;
+        new_user.locale = user.locale.clone();
+        new_user.city = user.city.clone();
+        new_user.country = user.country.clone();
+        new_user.source = user.source.clone();
+        new_user.created_at = user.created_at.clone();
         new_user
+    }
+}
+
+impl FromStr for User {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str::<User>(s)
+    }
+}
+
+impl ToString for User {
+    fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+impl StoreModel for User {
+    fn sort_key(&self) -> i64 {
+        self.cached_at as i64
     }
 }

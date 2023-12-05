@@ -123,10 +123,10 @@ pub async fn get_chat_logs_desc(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    start_seq: u64,
-    end_seq: u64,
+    start_seq: i64,
+    end_seq: i64,
     limit: u32,
-) -> Result<(ListChatLogResult, u64)> {
+) -> Result<(ListChatLogResult, i64)> {
     let data = serde_json::json!({
         "topicId": topic_id,
         "lastSeq": start_seq,

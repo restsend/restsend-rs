@@ -33,7 +33,7 @@ pub struct ListConversationResult {
 pub struct ListChatLogResult {
     pub has_more: bool,
     pub updated_at: String,
-    pub last_seq: u64,
+    pub last_seq: i64,
     #[serde(default)]
     pub items: Vec<ChatLog>,
 }

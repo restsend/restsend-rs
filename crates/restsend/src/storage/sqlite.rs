@@ -1,6 +1,6 @@
-use super::StoreModel;
+use super::{QueryOption, QueryResult, StoreModel};
 use anyhow::{anyhow, Result};
-use log::{debug, error};
+use log::{debug, error, info};
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
@@ -70,9 +70,105 @@ impl<T: StoreModel> SqliteTable<T> {
             _phantom: std::marker::PhantomData,
         }
     }
+
+    fn get_total(&self, partition: &str) -> u32 {
+        let db = self.session.clone();
+        let mut conn = db.lock().unwrap();
+        let conn = conn.as_mut().unwrap();
+
+        let stmt = format!("SELECT COUNT(*) FROM {} WHERE partition = ?", self.name);
+        let mut stmt = conn.prepare(&stmt).unwrap();
+        let rows = stmt.query(&[&partition]);
+
+        let mut rows = match rows {
+            Err(e) => {
+                debug!("{} query {} failed: {}", self.name, partition, e);
+                return 0;
+            }
+            Ok(rows) => rows,
+        };
+
+        match rows.next() {
+            Ok(rows) => match rows {
+                Some(row) => {
+                    let value: u32 = row.get(0).unwrap();
+                    value
+                }
+                None => 0,
+            },
+            Err(e) => {
+                debug!("{} get {} failed: {}", self.name, partition, e);
+                0
+            }
+        }
+    }
 }
 
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
+    fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+        let total: u32 = self.get_total(partition);
+
+        let db = self.session.clone();
+        let mut conn = db.lock().unwrap();
+        let conn = conn.as_mut().unwrap();
+
+        let stmt = format!(
+            "SELECT value FROM {} WHERE partition = ? AND sort_by > ? ORDER BY sort_by DESC LIMIT ?",
+            self.name
+        );
+
+        let mut stmt = conn.prepare(&stmt).unwrap();
+        let rows = stmt.query(&[
+            &partition,
+            format!("{}", option.start_sort_value).as_str(),
+            format!("{}", option.limit).as_str(),
+        ]);
+
+        let mut rows = match rows {
+            Err(e) => {
+                debug!("{} query {} failed: {}", self.name, partition, e);
+                return QueryResult {
+                    total: 0,
+                    start_sort_value: option.start_sort_value,
+                    end_sort_value: 0,
+                    items: vec![],
+                };
+            }
+            Ok(rows) => rows,
+        };
+
+        let mut items: Vec<T> = vec![];
+
+        match rows.next() {
+            Ok(rows) => match rows {
+                Some(row) => {
+                    let value: String = row.get(0).unwrap();
+                    match T::from_str(&value) {
+                        Ok(v) => items.push(v),
+                        _ => {}
+                    };
+                }
+                None => {}
+            },
+            Err(e) => {
+                debug!("{} get {} failed: {}", self.name, partition, e);
+            }
+        }
+
+        let end_sort_value: i64 = if items.len() > 0 {
+            items[items.len() - 1].sort_key()
+        } else {
+            0
+        };
+
+        QueryResult {
+            total,
+            start_sort_value: option.start_sort_value,
+            end_sort_value,
+            items,
+        }
+    }
+
     fn get(&self, partition: &str, key: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
@@ -83,7 +179,14 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             self.name
         );
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let mut rows = stmt.query(&[&partition, &key]).unwrap();
+        let rows = stmt.query(&[&partition, &key]);
+        let mut rows = match rows {
+            Err(e) => {
+                debug!("{} query {} failed: {}", self.name, key, e);
+                return None;
+            }
+            Ok(rows) => rows,
+        };
 
         match rows.next() {
             Ok(rows) => match rows {
@@ -115,7 +218,12 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                     self.name
                 );
                 let mut stmt = conn.prepare(&stmt).unwrap();
-                let r = stmt.execute(params![&partition, &key, &v.to_string(), v.sort_key()]);
+                let value = v.to_string();
+                let r = stmt.execute(params![&partition, &key, &value, v.sort_key()]);
+                info!(
+                    "{} set partition:{} key:{} value:{:?}",
+                    self.name, partition, key, value
+                );
                 match r {
                     Ok(_) => {}
                     Err(e) => {

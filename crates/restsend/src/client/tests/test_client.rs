@@ -6,21 +6,39 @@ use std::{
     time::Duration,
 };
 
+use log::warn;
+
 use crate::{
     callback,
     client::{tests::TEST_ENDPOINT, Client},
+    models::Conversation,
+    request::ChatRequest,
     services::auth::login_with_password,
     utils::check_until,
     utils::init_log,
 };
 
 struct TestCallbackImpl {
+    last_topic_id: Arc<Mutex<String>>,
     is_connected: Arc<AtomicBool>,
+    is_recv_message: Arc<AtomicBool>,
+    is_update_conversation: Arc<AtomicBool>,
 }
 
 impl callback::Callback for TestCallbackImpl {
     fn on_connected(&self) {
         self.is_connected.store(true, Ordering::Relaxed);
+    }
+    // if return true, will send `has read` to server
+    fn on_topic_message(&self, topic_id: String, message: ChatRequest) -> bool {
+        self.is_recv_message.store(true, Ordering::Relaxed);
+        return false;
+    }
+    fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
+    fn on_conversation_updated(&self, conversations: Vec<Conversation>) {
+        warn!("on_conversation_updated: {:?}", conversations);
+        *self.last_topic_id.lock().unwrap() = conversations[0].topic_id.clone();
+        self.is_update_conversation.store(true, Ordering::Relaxed);
     }
 }
 
@@ -53,7 +71,10 @@ async fn test_client_connected() {
     let is_connected = Arc::new(AtomicBool::new(false));
 
     let callback = Box::new(TestCallbackImpl {
+        last_topic_id: Arc::new(Mutex::new("".to_string())),
         is_connected: is_connected.clone(),
+        is_recv_message: Arc::new(AtomicBool::new(false)),
+        is_update_conversation: Arc::new(AtomicBool::new(false)),
     });
 
     c.connect(callback).await;
@@ -70,9 +91,17 @@ async fn test_client_send_message() {
     init_log("INFO", true);
     let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
     let c = Client::new("", "", &info.unwrap());
+
     let is_connected = Arc::new(AtomicBool::new(false));
+    let is_recv_message = Arc::new(AtomicBool::new(false));
+    let is_update_conversation = Arc::new(AtomicBool::new(false));
+    let last_topic_id = Arc::new(Mutex::new("".to_string()));
+
     let callback = Box::new(TestCallbackImpl {
+        last_topic_id: last_topic_id.clone(),
         is_connected: is_connected.clone(),
+        is_recv_message: is_recv_message.clone(),
+        is_update_conversation: is_update_conversation.clone(),
     });
 
     c.connect(callback).await;
@@ -98,4 +127,18 @@ async fn test_client_send_message() {
     check_until(Duration::from_secs(3), || is_sent.load(Ordering::Relaxed))
         .await
         .unwrap();
+
+    check_until(Duration::from_secs(3), || {
+        is_recv_message.load(Ordering::Relaxed) && is_update_conversation.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+
+    // check local storage
+    let topic_id = last_topic_id.lock().unwrap().clone();
+    println!("topic_id: {}", topic_id);
+    let logs = c.store.get_chat_logs(&topic_id, 0, 10).await.unwrap();
+    println!("logs: {:?}", logs);
+    assert_eq!(logs.items.len(), 1);
+    assert_eq!(logs.items[0].content.text, "hello");
 }

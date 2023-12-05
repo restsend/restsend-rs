@@ -1,4 +1,4 @@
-use super::PendingRequest;
+use super::{PendingRequest, StoreEvent};
 use crate::{
     callback::UploadCallback,
     services::{
@@ -24,14 +24,10 @@ use tokio::{
 };
 use tokio_task_pool::Pool;
 
-pub(super) enum UploadEvent {
-    Success(PendingRequest, Upload),
-    Progress(String, String, u64, u64), // topic_id, chat_id, progress, total
-    Err(PendingRequest, Error),
-}
 pub(super) struct UploadTask {
     req: Mutex<Option<PendingRequest>>,
-    upload_result_tx: UnboundedSender<UploadEvent>,
+    upload_result_tx: UnboundedSender<StoreEvent>,
+    #[allow(unused)]
     cancel_tx: oneshot::Sender<()>,
     updated_at: AtomicI64,
     last_progress: Mutex<Instant>,
@@ -39,7 +35,7 @@ pub(super) struct UploadTask {
 
 impl UploadTask {
     pub fn new(
-        upload_result_tx: UnboundedSender<UploadEvent>,
+        upload_result_tx: UnboundedSender<StoreEvent>,
         cancel_tx: oneshot::Sender<()>,
         req: PendingRequest,
     ) -> Self {
@@ -64,11 +60,14 @@ impl UploadTask {
 
             req.callback.as_ref().unwrap().on_progress(progress, total);
 
-            let topic_id = req.get_req_id();
+            let req_id = req.get_req_id();
+            let topic_id = req.get_topic_id();
             let chat_id = req.get_chat_id();
 
             self.upload_result_tx
-                .send(UploadEvent::Progress(topic_id, chat_id, progress, total))
+                .send(StoreEvent::UploadProgress(
+                    req_id, topic_id, chat_id, progress, total,
+                ))
                 .ok();
         }
     }
@@ -76,7 +75,7 @@ impl UploadTask {
     pub fn on_success(&self, result: Upload) {
         if let Some(req) = self.req.lock().unwrap().take() {
             self.upload_result_tx
-                .send(UploadEvent::Success(req, result))
+                .send(StoreEvent::UploadSuccess(req, result))
                 .ok();
         }
 
@@ -84,7 +83,9 @@ impl UploadTask {
     }
     pub fn on_fail(&self, e: Error) {
         if let Some(req) = self.req.lock().unwrap().take() {
-            self.upload_result_tx.send(UploadEvent::Err(req, e)).ok();
+            self.upload_result_tx
+                .send(StoreEvent::PendingErr(req, e))
+                .ok();
         }
         self.updated_at.store(now_timestamp(), Ordering::Relaxed)
     }

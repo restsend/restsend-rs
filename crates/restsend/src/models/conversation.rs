@@ -1,3 +1,7 @@
+use std::str::FromStr;
+
+use crate::{request::ChatRequest, storage::StoreModel};
+
 use super::{omit_empty, Content, Topic};
 use serde::{Deserialize, Serialize};
 
@@ -9,11 +13,11 @@ pub struct Conversation {
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
-    pub last_seq: u64,
+    pub last_seq: i64,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
-    pub last_read_seq: u64,
+    pub last_read_seq: i64,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
@@ -59,14 +63,47 @@ pub struct Conversation {
     #[serde(default)]
     pub last_message_at: String,
 
-    #[serde(skip)]
+    #[serde(default)]
     pub cached_at: i64,
+    #[serde(default)]
+    pub is_partial: bool,
 }
 
 impl Conversation {
     pub fn new(topic_id: &str) -> Self {
         Conversation {
             topic_id: String::from(topic_id),
+            ..Default::default()
+        }
+    }
+}
+impl FromStr for Conversation {
+    type Err = serde_json::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str::<Conversation>(s)
+    }
+}
+
+impl ToString for Conversation {
+    fn to_string(&self) -> String {
+        serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+impl StoreModel for Conversation {
+    fn sort_key(&self) -> i64 {
+        self.cached_at
+    }
+}
+
+impl From<&ChatRequest> for Conversation {
+    fn from(req: &ChatRequest) -> Conversation {
+        Conversation {
+            topic_id: req.topic_id.clone(),
+            last_seq: req.seq,
+            attendee: req.attendee.clone(),
+            is_partial: true,
             ..Default::default()
         }
     }
@@ -83,6 +120,7 @@ impl From<&Topic> for Conversation {
             name: topic.name.clone(),
             icon: topic.icon.clone(),
             attendee: topic.attendee_id.clone(),
+            is_partial: false,
             ..Default::default()
         }
     }

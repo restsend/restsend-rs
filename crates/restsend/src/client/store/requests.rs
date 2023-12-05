@@ -1,14 +1,18 @@
-use std::sync::Arc;
-
 use super::attachments::UploadTask;
 use super::{ClientStore, PendingRequest};
-use crate::models::{ChatLog, ChatLogStatus};
+use crate::callback::Callback;
+use crate::client::store::StoreEvent;
+use crate::models::{ChatLog, ChatLogStatus, Content, ContentType};
+use crate::utils::now_timestamp;
+use crate::MAX_RECALL_SECS;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
 };
 use anyhow::Result;
-use log::warn;
+use http::StatusCode;
+use log::{info, warn};
+use std::sync::Arc;
 use tokio::sync::oneshot;
 use tokio::{
     select,
@@ -32,14 +36,105 @@ impl ClientStore {
         }
     }
 
-    pub async fn process_incoming(&self, req: ChatRequest) -> Option<ChatRequest> {
-        warn!("process_incoming: {:?}", req);
+    pub async fn process_incoming(
+        &self,
+        req: ChatRequest,
+        callback: Arc<Box<dyn Callback>>,
+    ) -> Vec<Option<ChatRequest>> {
+        info!("process_incoming: {:?}", req);
+        let topic_id = req.topic_id.clone();
+        let chat_id = req.chat_id.clone();
 
-        None
+        match ChatRequestType::from(&req.r#type) {
+            ChatRequestType::Response => {
+                let status = if req.code == StatusCode::OK.as_u16() as u32 {
+                    ChatLogStatus::Sent
+                } else {
+                    ChatLogStatus::SendFailed(req.code)
+                };
+
+                if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
+                    tx.send(StoreEvent::Ack(status.clone(), req)).ok();
+                }
+
+                self.update_outoing_chat_log_state(&topic_id, &chat_id, status)
+                    .await
+                    .ok();
+                vec![]
+            }
+            ChatRequestType::Chat => {
+                let r = self.save_incoming_chat_log(&req).await;
+                match r {
+                    Ok(_) => match self.update_conversation_from_chat(&req).await {
+                        Ok(conversation) => {
+                            if !conversation.is_partial {
+                                callback.on_conversation_updated(vec![conversation]);
+                            } else {
+                                self.fetch_conversation(&topic_id).await;
+                            }
+                        }
+                        Err(e) => {
+                            warn!("update_conversation_from_chat failed: {:?}", e);
+                        }
+                    },
+                    Err(e) => {
+                        warn!(
+                            "save_incoming_chat_log failed, req_id:{} topic_id:{} err:{}",
+                            req.id, req.topic_id, e
+                        );
+                    }
+                }
+
+                if let Err(e) = self
+                    .fetch_or_update_user(&req.attendee, req.attendee_profile.clone())
+                    .await
+                {
+                    warn!("fetch_or_update_user failed: {:?}", e);
+                }
+
+                let topic_id = req.topic_id.clone();
+                let resp = ChatRequest::new_response(&req, 200);
+                if callback.on_topic_message(topic_id.clone(), req) {
+                    if let Err(e) = self.update_conversation_read(&topic_id).await {
+                        warn!(
+                            "update_conversation_read failed, topic_id:{} error: {:?}",
+                            topic_id, e
+                        );
+                    }
+                    vec![resp, Some(ChatRequest::new_read(&topic_id))]
+                } else {
+                    vec![resp]
+                }
+            }
+            ChatRequestType::Read => {
+                let resp = ChatRequest::new_response(&req, 200);
+                let topic_id = req.topic_id.clone();
+                callback.on_topic_read(topic_id, req);
+                vec![resp]
+            }
+            _ => {
+                warn!("mismatch {:?}", req);
+                vec![ChatRequest::new_response(&req, 200)]
+            }
+        }
     }
 
-    pub async fn handle_send_fail(&self, req_id: &str) {}
-    pub async fn handle_send_success(&self, req_id: &str) {}
+    pub async fn handle_send_fail(&self, req_id: &str) {
+        if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
+            tx.send(StoreEvent::SendFail(req_id.to_string())).ok();
+        }
+    }
+
+    pub async fn handle_send_success(&self, req_id: &str) {
+        if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
+            tx.send(StoreEvent::SendSuccess(req_id.to_string())).ok();
+        }
+    }
+
+    pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
+        let mut outgoings = self.outgoings.lock().unwrap();
+        outgoings.remove(req_id)
+    }
 
     pub async fn add_pending_request(
         &self,
@@ -59,7 +154,7 @@ impl ClientStore {
                 // process media
                 if pending_request.has_attachment() {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
-                    let upload_result_tx = self.upload_result_tx.lock().unwrap().clone();
+                    let upload_result_tx = self.event_tx.lock().unwrap().clone();
 
                     if upload_result_tx.is_none() {
                         warn!("upload_result_tx is none");
@@ -87,7 +182,10 @@ impl ClientStore {
                     .insert(req_id.clone(), pending_request);
             }
         }
+        self.try_send(req_id);
+    }
 
+    pub(super) fn try_send(&self, req_id: String) {
         let tx = self.msg_tx.lock().unwrap();
         match tx.as_ref() {
             Some(tx) => {
@@ -99,7 +197,6 @@ impl ClientStore {
             }
         }
     }
-
     pub async fn flush_offline_requests(&self) {
         let mut tmps = self.tmps.lock().unwrap();
         let tx = self.msg_tx.lock().unwrap();
@@ -129,7 +226,7 @@ impl ClientStore {
     pub(super) async fn update_outoing_chat_log_state(
         &self,
         topic_id: &str,
-        log_id: &str,
+        chat_id: &str,
         status: ChatLogStatus,
     ) -> Result<()> {
         let t = self
@@ -137,10 +234,10 @@ impl ClientStore {
             .table::<ChatLog>("chat_logs")
             .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
 
-        if let Some(log) = t.get(topic_id, log_id) {
+        if let Some(log) = t.get(topic_id, chat_id) {
             let mut log = log.clone();
             log.status = status;
-            t.set(topic_id, log_id, Some(log));
+            t.set(topic_id, chat_id, Some(log));
         }
         Ok(())
     }

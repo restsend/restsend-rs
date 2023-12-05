@@ -66,7 +66,7 @@ pub struct ChatRequest {
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
-    pub seq: u64,
+    pub seq: i64,
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
@@ -97,6 +97,17 @@ pub struct ChatRequest {
 }
 
 impl ChatRequest {
+    pub fn new_response(req: &ChatRequest, code: u32) -> Option<Self> {
+        if req.id == "" {
+            return None;
+        }
+        Some(ChatRequest {
+            r#type: String::from(ChatRequestType::Response),
+            topic_id: req.topic_id.clone(),
+            code,
+            ..Default::default()
+        })
+    }
     pub fn new_typing(topic_id: &str) -> Self {
         ChatRequest {
             r#type: String::from(ChatRequestType::Typing),

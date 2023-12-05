@@ -9,6 +9,7 @@ use crate::{
 use log::{debug, info, warn};
 use serde_json::de;
 use std::{
+    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -175,10 +176,12 @@ impl Client {
 
         let state = self.state.clone();
         let callback = Arc::new(callback);
+        let callback_clone = callback.clone();
         let store_ref = self.store.clone();
 
         info!("connect websocket url: {}", url);
         let conn_state_ref = state.state_tx.clone();
+
         tokio::spawn(async move {
             let conn_loop = async {
                 while !state.is_must_shutdown() {
@@ -221,7 +224,17 @@ impl Client {
 
                     let incoming_loop = async {
                         while let Some(req) = incoming_rx.recv().await {
-                            match ChatRequestType::from(&req.r#type) {
+                            let resps = match ChatRequestType::from(&req.r#type) {
+                                ChatRequestType::Nop => vec![],
+                                ChatRequestType::Unknown(_) => {
+                                    vec![callback.on_unknown_request(req)]
+                                }
+                                ChatRequestType::System => vec![callback.on_system_request(req)],
+                                ChatRequestType::Typing => {
+                                    callback
+                                        .on_topic_typing(req.topic_id.clone(), req.message.clone());
+                                    vec![]
+                                }
                                 ChatRequestType::Kickout => {
                                     let reason = req.message.unwrap_or_default();
                                     warn!("websocket kickout by other client: {}", reason);
@@ -230,9 +243,17 @@ impl Client {
                                     callback.on_kickoff_by_other_client(reason);
                                     break;
                                 }
-                                _ => {}
+                                _ => store_ref.process_incoming(req, callback.clone()).await,
+                            };
+
+                            for resp in resps {
+                                if let Some(resp) = resp {
+                                    if let Err(e) = conn.send((&resp).into()).await {
+                                        warn!("websocket send failed: {}", e);
+                                        break;
+                                    }
+                                }
                             }
-                            store_ref.process_incoming(req).await;
                         }
                     };
 
@@ -248,7 +269,7 @@ impl Client {
             };
 
             select! {
-                _ = store_ref.process() =>{}
+                _ = store_ref.process(callback_clone) =>{}
                 _ = conn_loop => {
                     info!("connect shutdown");
                 },

@@ -1,4 +1,4 @@
-use super::StoreModel;
+use super::{QueryOption, QueryResult, StoreModel};
 use lru::LruCache;
 use std::{num::NonZeroUsize, sync::Mutex};
 
@@ -39,6 +39,9 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
+    fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+        todo!("not implement")
+    }
     fn get(&self, partition: &str, key: &str) -> Option<T> {
         let key = format!("{}:{}", partition, key);
         let mut data = self.data.lock().unwrap();

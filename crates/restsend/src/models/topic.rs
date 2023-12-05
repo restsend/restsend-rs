@@ -61,7 +61,7 @@ pub struct Topic {
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
-    pub last_seq: u64,
+    pub last_seq: i64,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
