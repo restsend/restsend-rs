@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
-use crate::{storage::StoreModel, utils::now_timestamp};
-
 use super::omit_empty;
+use crate::storage::StoreModel;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Default)]
 pub struct AuthInfo {

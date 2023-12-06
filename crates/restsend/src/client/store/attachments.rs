@@ -18,10 +18,7 @@ use std::{
     },
     time::Instant,
 };
-use tokio::{
-    select,
-    sync::{mpsc::UnboundedSender, oneshot, Barrier},
-};
+use tokio::sync::{mpsc::UnboundedSender, oneshot, Barrier};
 use tokio_task_pool::Pool;
 
 pub(super) struct UploadTask {

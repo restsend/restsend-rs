@@ -1,8 +1,7 @@
-use std::str::FromStr;
-
 use super::omit_empty;
 use crate::{request::ChatRequest, storage::StoreModel, utils::now_timestamp};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 // define content type enum for content
 #[derive(Deserialize, Debug)]
@@ -208,7 +207,7 @@ impl Content {
 }
 
 #[allow(dead_code)]
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub enum ChatLogStatus {
     Uploading,
     #[default]

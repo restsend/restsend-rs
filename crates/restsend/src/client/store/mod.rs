@@ -34,8 +34,8 @@ pub(super) enum StoreEvent {
     SendFail(String),    // req_id
     SendSuccess(String), // req_id
     ProcessRetry,
-    UpdateConversation(Conversation),
-    UpdateUser(User),
+    UpdateConversation(Vec<Conversation>),
+    UpdateUser(Vec<User>),
 }
 
 mod attachments;
@@ -123,6 +123,7 @@ type PendingRequests = Mutex<HashMap<String, PendingRequest>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
 pub(super) struct ClientStore {
+    user_id: String,
     endpoint: String,
     token: String,
     tmps: Mutex<VecDeque<String>>,
@@ -134,8 +135,15 @@ pub(super) struct ClientStore {
 }
 
 impl ClientStore {
-    pub fn new(root_path: &str, db_path: &str, endpoint: &str, token: &str) -> Self {
+    pub fn new(
+        _root_path: &str,
+        db_path: &str,
+        endpoint: &str,
+        token: &str,
+        user_id: &str,
+    ) -> Self {
         Self {
+            user_id: user_id.to_string(),
             endpoint: endpoint.to_string(),
             token: token.to_string(),
             tmps: Mutex::new(VecDeque::new()),
@@ -178,14 +186,12 @@ impl ClientStore {
                             let chat_id = pending.req.chat_id.clone();
 
                             // update database status
-                            if let Err(e) = self
-                                .update_outoing_chat_log_state(
-                                    &topic_id,
-                                    &chat_id,
-                                    ChatLogStatus::Sending,
-                                )
-                                .await
-                            {
+                            if let Err(e) = self.update_outoing_chat_log_state(
+                                &topic_id,
+                                &chat_id,
+                                ChatLogStatus::Sending,
+                                None,
+                            ) {
                                 warn!("update_message_content failed: {}", e);
                             }
                             // requeue to send
@@ -267,32 +273,20 @@ impl ClientStore {
                             }
                         }
 
-                        StoreEvent::UpdateConversation(conversation) => {
-                            let conversation_id = conversation.topic_id.clone();
-                            match self.update_conversation(conversation.clone()).await {
-                                Ok(conversation) => {
-                                    debug!("update_conversation success: {}", conversation_id);
-                                    callback.on_conversation_updated(vec![conversation]);
-                                }
-                                Err(e) => {
-                                    warn!(
-                                        "update_conversation failed: conversation_id:{} {}",
-                                        conversation_id, e
-                                    );
-                                }
-                            }
+                        StoreEvent::UpdateConversation(conversations) => {
+                            let conversations = conversations
+                                .iter()
+                                .map(|it| {
+                                    self.update_conversation(it.clone()).unwrap_or(it.clone())
+                                })
+                                .collect();
+                            callback.on_conversations_updated(conversations);
                         }
 
-                        StoreEvent::UpdateUser(user) => {
-                            let user_id = user.user_id.clone();
-                            match self.update_user(user).await {
-                                Ok(_) => {
-                                    debug!("update_user success: {}", user_id);
-                                }
-                                Err(e) => {
-                                    warn!("update_user failed: user_id:{} {}", user_id, e);
-                                }
-                            }
+                        StoreEvent::UpdateUser(users) => {
+                            users.iter().for_each(|it| {
+                                let _ = self.update_user(it.clone());
+                            });
                         }
                     }
                 }

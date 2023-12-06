@@ -15,7 +15,7 @@ impl ClientStore {
             tokio::spawn(async move {
                 let user = get_user(&endpoint, &token, &user_id).await;
                 if let Ok(user) = user {
-                    event_tx.send(StoreEvent::UpdateUser(user)).ok();
+                    event_tx.send(StoreEvent::UpdateUser(vec![user])).ok();
                 } else {
                     warn!("fetch_user failed");
                 }
@@ -30,7 +30,7 @@ impl ClientStore {
     ) -> Result<()> {
         match profile {
             Some(profile) => {
-                self.update_user(profile).await.ok();
+                self.update_user(profile).ok();
             }
             None => {
                 self.fetch_user(user_id).await;
@@ -39,16 +39,15 @@ impl ClientStore {
         Ok(())
     }
 
-    pub(super) async fn update_user(&self, user: User) -> Result<User> {
+    pub(super) fn update_user(&self, mut user: User) -> Result<User> {
         let t = self
             .message_storage
             .table::<User>("users")
             .ok_or(anyhow::anyhow!("update_user: get table failed"))?;
 
         let user_id = user.user_id.clone();
-        let mut user: User = user;
         if let Some(old_user) = t.get("", &user_id) {
-            user = old_user.merge(&mut user);
+            user = old_user.merge(&user);
         }
 
         user.is_partial = false;

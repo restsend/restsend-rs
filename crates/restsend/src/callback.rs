@@ -1,8 +1,4 @@
-use crate::{
-    models::{ChatLog, Conversation, ListChatLogResult},
-    request::ChatRequest,
-    services::response::Upload,
-};
+use crate::{models::Conversation, request::ChatRequest, services::response::Upload};
 use anyhow::Error;
 
 #[allow(unused_variables)]
@@ -26,7 +22,7 @@ pub trait Callback: Send + Sync {
         return false;
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
-    fn on_conversation_updated(&self, conversations: Vec<Conversation>) {}
+    fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
 }
 
 #[allow(unused_variables)]
@@ -48,19 +44,5 @@ pub trait MessageCallback: Send + Sync {
     fn on_sent(&self) {}
     fn on_progress(&self, progress: u64, total: u64) {}
     fn on_ack(&self, req: ChatRequest) {}
-    fn on_fail(&self, reason: String) {}
-}
-
-#[derive(Debug)]
-pub struct GetChatLogsResult {
-    pub has_more: bool,
-    pub start_seq: i64,
-    pub end_seq: i64,
-    pub items: Vec<ChatLog>,
-}
-
-#[allow(unused_variables)]
-pub trait GetChatLogsCallback: Send + Sync {
-    fn on_success(&self, result: GetChatLogsResult) {}
     fn on_fail(&self, reason: String) {}
 }

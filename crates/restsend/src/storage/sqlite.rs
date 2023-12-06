@@ -1,6 +1,6 @@
 use super::{QueryOption, QueryResult, StoreModel};
 use anyhow::{anyhow, Result};
-use log::{debug, error, info};
+use log::{debug, error};
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
@@ -139,8 +139,8 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
 
         let mut items: Vec<T> = vec![];
 
-        match rows.next() {
-            Ok(rows) => match rows {
+        while let Ok(rows) = rows.next() {
+            match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
                     match T::from_str(&value) {
@@ -148,22 +148,19 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                         _ => {}
                     };
                 }
-                None => {}
-            },
-            Err(e) => {
-                debug!("{} get {} failed: {}", self.name, partition, e);
+                None => break,
             }
         }
 
-        let end_sort_value: i64 = if items.len() > 0 {
-            items[items.len() - 1].sort_key()
+        let (start_sort_value, end_sort_value) = if items.len() > 0 {
+            (items[0].sort_key(), items[items.len() - 1].sort_key())
         } else {
-            0
+            (0, 0)
         };
 
         QueryResult {
             total,
-            start_sort_value: option.start_sort_value,
+            start_sort_value,
             end_sort_value,
             items,
         }
@@ -220,7 +217,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 let mut stmt = conn.prepare(&stmt).unwrap();
                 let value = v.to_string();
                 let r = stmt.execute(params![&partition, &key, &value, v.sort_key()]);
-                info!(
+                debug!(
                     "{} set partition:{} key:{} value:{:?}",
                     self.name, partition, key, value
                 );

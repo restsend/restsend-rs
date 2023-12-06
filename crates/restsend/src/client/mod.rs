@@ -3,9 +3,9 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::{GetChatLogsCallback, GetChatLogsResult},
-    models::{AuthInfo, ChatLog, ListChatLogResult},
+    models::{AuthInfo, ChatLogStatus, GetChatLogsResult},
     services::conversation::get_chat_logs_desc,
+    utils::now_timestamp,
     DB_SUFFIX,
 };
 use anyhow::Result;
@@ -39,7 +39,13 @@ impl Client {
 
     pub fn new(root_path: &str, db_name: &str, info: &AuthInfo) -> Self {
         let db_path = Self::db_path(root_path, db_name);
-        let store = ClientStore::new(root_path, &db_path, &info.endpoint, &info.token);
+        let store = ClientStore::new(
+            root_path,
+            &db_path,
+            &info.endpoint,
+            &info.token,
+            &info.user_id,
+        );
         let store_ref = Arc::new(store);
 
         if let Err(e) = store_ref.migrate() {
@@ -59,21 +65,18 @@ impl Client {
     pub async fn get_chat_logs(
         &self,
         topic_id: &str,
-        seq: i64,
+        last_seq: i64,
         limit: u32,
-        callback: Box<dyn GetChatLogsCallback>,
-    ) {
-        match self.store.get_chat_logs(topic_id, seq, limit).await {
+    ) -> Result<GetChatLogsResult> {
+        match self.store.get_chat_logs(topic_id, last_seq, limit).await {
             Ok(local_logs) => {
                 if local_logs.items.len() == limit as usize {
-                    let r = GetChatLogsResult {
-                        has_more: local_logs.end_sort_value > 0,
+                    return Ok(GetChatLogsResult {
+                        has_more: local_logs.end_sort_value > 1,
                         start_seq: local_logs.start_sort_value,
                         end_seq: local_logs.end_sort_value,
                         items: local_logs.items,
-                    };
-                    callback.on_success(r);
-                    return;
+                    });
                 }
             }
             Err(e) => {
@@ -84,13 +87,21 @@ impl Client {
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
 
-        let start_seq = seq;
-        let end_seq = (seq - limit as i64).min(0);
+        let start_seq = (last_seq - limit as i64).max(0);
+        let current_user_id = self.user_id.clone();
 
-        let r = get_chat_logs_desc(&endpoint, &token, topic_id, start_seq, end_seq, limit)
+        get_chat_logs_desc(&endpoint, &token, topic_id, start_seq, limit)
             .await
-            .map(|(lr, _)| {
-                lr.items.iter().for_each(|c| {
+            .map(|(mut lr, _)| {
+                let now = now_timestamp();
+
+                lr.items.iter_mut().for_each(|c| {
+                    c.cached_at = now;
+                    c.status = if c.sender_id == current_user_id {
+                        ChatLogStatus::Sent
+                    } else {
+                        ChatLogStatus::Received
+                    };
                     self.store.save_chat_log(c).ok();
                 });
                 lr
@@ -103,21 +114,12 @@ impl Client {
                     0
                 };
                 let r = GetChatLogsResult {
-                    has_more: lr.items.len() == limit as usize,
+                    has_more: end_seq > 1,
                     start_seq,
                     end_seq,
                     items: lr.items,
                 };
                 r
             })
-            .map_err(|e| {
-                warn!("get_chat_logs_desc failed: {:?}", e);
-                e
-            });
-
-        if let Err(e) = r {
-            callback.on_fail(e.to_string());
-            return;
-        }
     }
 }

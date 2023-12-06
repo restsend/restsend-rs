@@ -8,6 +8,14 @@ where
     return *value == T::default();
 }
 
+#[derive(Debug)]
+pub struct GetChatLogsResult {
+    pub has_more: bool,
+    pub start_seq: i64,
+    pub end_seq: i64,
+    pub items: Vec<ChatLog>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {

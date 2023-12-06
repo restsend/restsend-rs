@@ -2,22 +2,16 @@ use super::attachments::UploadTask;
 use super::{ClientStore, PendingRequest};
 use crate::callback::Callback;
 use crate::client::store::StoreEvent;
-use crate::models::{ChatLog, ChatLogStatus, Content, ContentType};
-use crate::utils::now_timestamp;
-use crate::MAX_RECALL_SECS;
+use crate::models::ChatLogStatus;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
 };
-use anyhow::Result;
 use http::StatusCode;
 use log::{info, warn};
 use std::sync::Arc;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use tokio::sync::oneshot;
-use tokio::{
-    select,
-    sync::mpsc::{unbounded_channel, UnboundedSender},
-};
 
 impl ClientStore {
     pub async fn handle_outgoing(&self, outgoing_tx: UnboundedSender<ChatRequest>) {
@@ -44,6 +38,7 @@ impl ClientStore {
         info!("process_incoming: {:?}", req);
         let topic_id = req.topic_id.clone();
         let chat_id = req.chat_id.clone();
+        let ack_seq = req.seq.clone();
 
         match ChatRequestType::from(&req.r#type) {
             ChatRequestType::Response => {
@@ -57,18 +52,17 @@ impl ClientStore {
                     tx.send(StoreEvent::Ack(status.clone(), req)).ok();
                 }
 
-                self.update_outoing_chat_log_state(&topic_id, &chat_id, status)
-                    .await
+                self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
                     .ok();
                 vec![]
             }
             ChatRequestType::Chat => {
-                let r = self.save_incoming_chat_log(&req).await;
+                let r = self.save_incoming_chat_log(&req);
                 match r {
-                    Ok(_) => match self.update_conversation_from_chat(&req).await {
+                    Ok(_) => match self.update_conversation_from_chat(&req) {
                         Ok(conversation) => {
                             if !conversation.is_partial {
-                                callback.on_conversation_updated(vec![conversation]);
+                                callback.on_conversations_updated(vec![conversation]);
                             } else {
                                 self.fetch_conversation(&topic_id).await;
                             }
@@ -95,7 +89,7 @@ impl ClientStore {
                 let topic_id = req.topic_id.clone();
                 let resp = ChatRequest::new_response(&req, 200);
                 if callback.on_topic_message(topic_id.clone(), req) {
-                    if let Err(e) = self.update_conversation_read(&topic_id).await {
+                    if let Err(e) = self.update_conversation_read(&topic_id) {
                         warn!(
                             "update_conversation_read failed, topic_id:{} error: {:?}",
                             topic_id, e
@@ -147,7 +141,7 @@ impl ClientStore {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
-                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req).await {
+                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
                     warn!("save_outgoing_chat_log failed: req_id:{} err:{}", req_id, e);
                 }
 
@@ -208,38 +202,6 @@ impl ClientStore {
             }
             None => {}
         }
-    }
-
-    async fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<ChatLog>("chat_logs")
-            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
-
-        let mut log = ChatLog::from(req);
-        log.status = crate::models::ChatLogStatus::Sending;
-        t.set(&log.topic_id, &log.id, Some(log.clone()));
-
-        Ok(())
-    }
-
-    pub(super) async fn update_outoing_chat_log_state(
-        &self,
-        topic_id: &str,
-        chat_id: &str,
-        status: ChatLogStatus,
-    ) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<ChatLog>("chat_logs")
-            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
-
-        if let Some(log) = t.get(topic_id, chat_id) {
-            let mut log = log.clone();
-            log.status = status;
-            t.set(topic_id, chat_id, Some(log));
-        }
-        Ok(())
     }
 
     pub async fn pause_send(&self, req_id: &str) {

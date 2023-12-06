@@ -1,5 +1,5 @@
 use crate::error::ClientError::{Forbidden, HTTPError};
-use crate::models::{user, AuthInfo};
+use crate::models::AuthInfo;
 use crate::services::{handle_response, make_get_request, make_post_request, response};
 use anyhow::Result;
 use log::info;

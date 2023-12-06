@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
-use crate::{request::ChatRequest, storage::StoreModel};
-
 use super::{omit_empty, Content, Topic};
+use crate::{request::ChatRequest, storage::StoreModel};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -49,7 +47,7 @@ pub struct Conversation {
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
-    pub unread: u64,
+    pub unread: i64,
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]

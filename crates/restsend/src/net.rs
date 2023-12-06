@@ -1,11 +1,10 @@
-use reqwest::Url;
-//实现NetHandler
 use crate::utils::random_text;
 use crate::{ClientError, NetworkState, Result};
 use reqwest::header::{
     HeaderMap, AUTHORIZATION, CONNECTION, CONTENT_TYPE, HOST, SEC_WEBSOCKET_KEY,
     SEC_WEBSOCKET_VERSION, UPGRADE,
 };
+use reqwest::Url;
 use reqwest::{Body, ClientBuilder, RequestBuilder};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;

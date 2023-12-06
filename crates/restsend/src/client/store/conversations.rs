@@ -1,7 +1,7 @@
 use super::ClientStore;
 use crate::{
     client::store::StoreEvent,
-    models::{ChatLog, Content, ContentType, Conversation},
+    models::{ChatLog, ChatLogStatus, Content, ContentType, Conversation},
     request::ChatRequest,
     services::conversation::get_conversation,
     storage::{QueryOption, QueryResult},
@@ -9,7 +9,7 @@ use crate::{
     MAX_RECALL_SECS,
 };
 use anyhow::Result;
-use log::{info, warn};
+use log::warn;
 
 impl ClientStore {
     pub(super) async fn fetch_conversation(&self, topic_id: &str) {
@@ -22,7 +22,7 @@ impl ClientStore {
                 let converstion = get_conversation(&endpoint, &token, &topic_id).await;
                 if let Ok(converstion) = converstion {
                     event_tx
-                        .send(StoreEvent::UpdateConversation(converstion))
+                        .send(StoreEvent::UpdateConversation(vec![converstion]))
                         .ok();
                 } else {
                     warn!("fetch_conversation failed");
@@ -31,9 +31,9 @@ impl ClientStore {
         }
     }
 
-    pub(super) async fn update_conversation(
+    pub(super) fn update_conversation(
         &self,
-        conversation: Conversation,
+        mut conversation: Conversation,
     ) -> Result<Conversation> {
         let t = self
             .message_storage
@@ -43,7 +43,6 @@ impl ClientStore {
             ))?;
 
         let topic_id = conversation.topic_id.clone();
-        let mut conversation = conversation;
 
         if let Some(old_conversation) = t.get("", &topic_id) {
             if old_conversation.last_seq <= conversation.last_seq {
@@ -61,14 +60,13 @@ impl ClientStore {
 
         conversation.is_partial = false;
         conversation.cached_at = now_timestamp();
+        conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
+
         t.set("", &topic_id, Some(conversation.clone()));
         Ok(conversation)
     }
 
-    pub(super) async fn update_conversation_from_chat(
-        &self,
-        req: &ChatRequest,
-    ) -> Result<Conversation> {
+    pub(super) fn update_conversation_from_chat(&self, req: &ChatRequest) -> Result<Conversation> {
         let topic_id = &req.topic_id;
         let t = self
             .message_storage
@@ -85,12 +83,13 @@ impl ClientStore {
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();
             conversation.cached_at = now_timestamp();
+            conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
         }
 
         Ok(conversation)
     }
 
-    pub(super) async fn update_conversation_read(&self, topic_id: &str) -> Result<()> {
+    pub(super) fn update_conversation_read(&self, topic_id: &str) -> Result<()> {
         let t = self
             .message_storage
             .table::<Conversation>("conversations")
@@ -105,7 +104,49 @@ impl ClientStore {
         Ok(())
     }
 
-    pub(super) async fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
+    pub(super) fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {
+        let t = self
+            .message_storage
+            .table::<ChatLog>("chat_logs")
+            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
+
+        let mut log = ChatLog::from(req);
+        log.status = ChatLogStatus::Sending;
+        log.sender_id = self.user_id.clone();
+        t.set(&log.topic_id, &log.id, Some(log.clone()));
+
+        Ok(())
+    }
+
+    pub(super) fn update_outoing_chat_log_state(
+        &self,
+        topic_id: &str,
+        chat_id: &str,
+        status: ChatLogStatus,
+        seq: Option<i64>,
+    ) -> Result<()> {
+        let t = self
+            .message_storage
+            .table::<ChatLog>("chat_logs")
+            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
+
+        warn!(
+            "update_outoing_chat_log_state: topic_id: {} chat_id: {}, status: {:?} seq: {:?}",
+            topic_id, chat_id, status, seq
+        );
+
+        if let Some(log) = t.get(topic_id, chat_id) {
+            let mut log = log.clone();
+            log.status = status;
+            if let Some(seq) = seq {
+                log.seq = seq;
+            }
+            t.set(topic_id, chat_id, Some(log));
+        }
+        Ok(())
+    }
+
+    pub(super) fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
         let t = self
             .message_storage
             .table::<ChatLog>("chat_logs")
@@ -117,7 +158,16 @@ impl ClientStore {
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
             if req.r#type == "recall" {
                 if now - old_log.cached_at > MAX_RECALL_SECS {
-                    return Err(anyhow::anyhow!("recall timeout"));
+                    return Err(anyhow::anyhow!("[recall] timeout"));
+                }
+
+                match old_log.status {
+                    ChatLogStatus::Received => {}
+                    _ => return Err(anyhow::anyhow!("[recall] invalid status")),
+                }
+
+                if req.attendee != old_log.sender_id {
+                    return Err(anyhow::anyhow!("[recall] invalid  owner"));
                 }
 
                 let mut log = old_log.clone();
@@ -125,35 +175,37 @@ impl ClientStore {
                 log.content = Content::new(ContentType::Recall);
                 t.set(&topic_id, &chat_id, Some(log));
             }
-
-            match old_log.status {
-                crate::models::ChatLogStatus::Received => return Ok(()),
-                _ => {}
-            }
+            return Ok(());
         }
 
         let mut log = ChatLog::from(req);
-        log.status = crate::models::ChatLogStatus::Received;
+        log.status = ChatLogStatus::Received;
         log.cached_at = now;
 
         // TODO: download attachment
         t.set(&log.topic_id, &log.id, Some(log.clone()));
-
         Ok(())
     }
 
-    pub fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
+    pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
         let t = self
             .message_storage
-            .table::<ChatLog>("chat_logs")
+            .table("chat_logs")
             .ok_or(anyhow::anyhow!("save_chat_log: get table failed"))?;
 
         if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
             return Ok(());
         }
-        t.set(&chat_log.topic_id, &chat_log.id, Some(chat_log.clone()));
+
+        let item = match ContentType::from(chat_log.content.r#type.to_string()) {
+            ContentType::None => None, // remove local log
+            _ => Some(chat_log.clone()),
+        };
+
+        t.set(&chat_log.topic_id, &chat_log.id, item);
         Ok(())
     }
+
     pub async fn get_chat_logs(
         &self,
         topic_id: &str,
@@ -162,15 +214,15 @@ impl ClientStore {
     ) -> Result<QueryResult<ChatLog>> {
         let t = self
             .message_storage
-            .table::<ChatLog>("chat_logs")
+            .table("chat_logs")
             .ok_or(anyhow::anyhow!("get_chat_logs: get table failed"))?;
 
+        let start_sort_value = (seq - limit as i64).max(0);
         let option = QueryOption {
             keyword: None,
-            start_sort_value: seq,
+            start_sort_value,
             limit,
         };
-        info!("get_chat_logs topic_id:{} seq:{}", topic_id, seq);
         Ok(t.query(topic_id, &option))
     }
 }

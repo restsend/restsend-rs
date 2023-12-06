@@ -5,11 +5,8 @@ use crate::{
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
-
 use log::{debug, info, warn};
-use serde_json::de;
 use std::{
-    pin::Pin,
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
@@ -97,7 +94,7 @@ impl ConnectState {
             return;
         }
 
-        let remain_secs = broken_count.max(MAX_CONNECT_INTERVAL_SECS);
+        let remain_secs = broken_count.min(MAX_CONNECT_INTERVAL_SECS);
         let mut rx = self.state_tx.subscribe();
 
         select! {

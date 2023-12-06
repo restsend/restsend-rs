@@ -1,6 +1,7 @@
-use super::api_call;
+use super::{api_call, response::APISendResponse};
 use crate::{
     models::{Conversation, ListChatLogResult, ListConversationResult},
+    request::ChatRequest,
     services::LOGS_LIMIT,
     utils::now_timestamp,
 };
@@ -123,19 +124,18 @@ pub async fn get_chat_logs_desc(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    start_seq: i64,
-    end_seq: i64,
+    last_seq: i64,
     limit: u32,
 ) -> Result<(ListChatLogResult, i64)> {
     let data = serde_json::json!({
         "topicId": topic_id,
-        "lastSeq": start_seq,
-        "maxSeq": end_seq,
+        "lastSeq": last_seq,
         "limit": limit.min(LOGS_LIMIT)
     })
     .to_string();
 
     let now = now_timestamp();
+
     api_call(
         endpoint,
         &format!("/chat/sync/{}", topic_id),
@@ -150,4 +150,19 @@ pub async fn get_chat_logs_desc(
         let last_seq = lr.items.iter().map(|c| c.seq).max().unwrap_or(0);
         (lr, last_seq)
     })
+}
+
+pub async fn send_request(
+    endpoint: &str,
+    token: &str,
+    topic_id: &str,
+    req: ChatRequest,
+) -> Result<APISendResponse> {
+    api_call(
+        endpoint,
+        &format!("/chat/send/{}", topic_id),
+        token,
+        Some(req.into()),
+    )
+    .await
 }

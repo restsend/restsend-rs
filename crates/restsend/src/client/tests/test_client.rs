@@ -1,21 +1,19 @@
+use crate::{
+    callback,
+    client::{tests::TEST_ENDPOINT, Client},
+    models::{ChatLogStatus, Conversation},
+    request::ChatRequest,
+    services::auth::login_with_password,
+    utils::check_until,
+    utils::init_log,
+};
+use log::warn;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
     time::Duration,
-};
-
-use log::warn;
-
-use crate::{
-    callback,
-    client::{tests::TEST_ENDPOINT, Client},
-    models::Conversation,
-    request::ChatRequest,
-    services::auth::login_with_password,
-    utils::check_until,
-    utils::init_log,
 };
 
 struct TestCallbackImpl {
@@ -31,11 +29,17 @@ impl callback::Callback for TestCallbackImpl {
     }
     // if return true, will send `has read` to server
     fn on_topic_message(&self, topic_id: String, message: ChatRequest) -> bool {
+        warn!(
+            "on_topic_message topic_id:{} message: {:?}",
+            topic_id, message
+        );
         self.is_recv_message.store(true, Ordering::Relaxed);
         return false;
     }
-    fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
-    fn on_conversation_updated(&self, conversations: Vec<Conversation>) {
+    fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
+        warn!("on_topic_read: topic_id:{} message:{:?}", topic_id, message);
+    }
+    fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
         warn!("on_conversation_updated: {:?}", conversations);
         *self.last_topic_id.lock().unwrap() = conversations[0].topic_id.clone();
         self.is_update_conversation.store(true, Ordering::Relaxed);
@@ -89,7 +93,7 @@ async fn test_client_connected() {
 #[tokio::test]
 async fn test_client_send_message() {
     init_log("INFO", true);
-    let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
+    let info = login_with_password(TEST_ENDPOINT, "guido", "guido:demo").await;
     let c = Client::new("", "", &info.unwrap());
 
     let is_connected = Arc::new(AtomicBool::new(false));
@@ -120,7 +124,7 @@ async fn test_client_send_message() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
-    c.do_send_text("bob:alice", "hello", None, None, Some(msg_cb))
+    c.do_send_text("guido:alice", "hello", None, None, Some(msg_cb))
         .await
         .unwrap();
 
@@ -136,9 +140,10 @@ async fn test_client_send_message() {
 
     // check local storage
     let topic_id = last_topic_id.lock().unwrap().clone();
-    println!("topic_id: {}", topic_id);
+
     let logs = c.store.get_chat_logs(&topic_id, 0, 10).await.unwrap();
-    println!("logs: {:?}", logs);
-    assert_eq!(logs.items.len(), 1);
-    assert_eq!(logs.items[0].content.text, "hello");
+
+    assert!(logs.items.len() == 1);
+    assert_eq!(logs.items[0].sender_id, "guido");
+    assert_eq!(logs.items[0].status, ChatLogStatus::Sent);
 }
