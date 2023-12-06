@@ -1,4 +1,8 @@
-use crate::{models::Conversation, request::ChatRequest, services::response::Upload};
+use crate::{
+    models::{Conversation, GetChatLogsResult, GetConversationsResult},
+    request::ChatRequest,
+    services::response::Upload,
+};
 use anyhow::Error;
 
 #[allow(unused_variables)]
@@ -18,7 +22,7 @@ pub trait Callback: Send + Sync {
     fn on_topic_typing(&self, topic_id: String, message: Option<String>) {}
 
     // if return true, will send `has read` to server
-    fn on_topic_message(&self, topic_id: String, message: ChatRequest) -> bool {
+    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
         return false;
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
@@ -45,4 +49,16 @@ pub trait MessageCallback: Send + Sync {
     fn on_progress(&self, progress: u64, total: u64) {}
     fn on_ack(&self, req: ChatRequest) {}
     fn on_fail(&self, reason: String) {}
+}
+
+#[allow(unused_variables)]
+pub trait SyncChatLogsCallback: Send + Sync {
+    fn on_success(&self, r: GetChatLogsResult) {}
+    fn on_fail(&self, e: Error) {}
+}
+
+#[allow(unused_variables)]
+pub trait SyncConversationsCallback: Send + Sync {
+    fn on_success(&self, r: GetConversationsResult) {}
+    fn on_fail(&self, e: Error) {}
 }

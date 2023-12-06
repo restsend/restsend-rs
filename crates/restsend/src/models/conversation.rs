@@ -9,6 +9,10 @@ pub struct Conversation {
     pub owner_id: String,
     pub topic_id: String,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub updated_at: String,
+
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub last_seq: i64,
@@ -91,7 +95,10 @@ impl ToString for Conversation {
 
 impl StoreModel for Conversation {
     fn sort_key(&self) -> i64 {
-        self.cached_at
+        match chrono::DateTime::parse_from_rfc3339(&self.updated_at) {
+            Ok(dt) => dt.timestamp_millis(),
+            Err(_) => self.cached_at,
+        }
     }
 }
 
@@ -102,6 +109,7 @@ impl From<&ChatRequest> for Conversation {
             last_seq: req.seq,
             attendee: req.attendee.clone(),
             is_partial: true,
+            updated_at: req.created_at.clone(),
             ..Default::default()
         }
     }

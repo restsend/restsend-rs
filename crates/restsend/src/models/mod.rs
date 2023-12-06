@@ -16,6 +16,12 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
+#[derive(Debug)]
+pub struct GetConversationsResult {
+    pub updated_at: String,
+    pub items: Vec<Conversation>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {

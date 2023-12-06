@@ -11,7 +11,7 @@ pub fn random_text(count: usize) -> String {
 }
 
 pub fn now_timestamp() -> i64 {
-    chrono::Local::now().timestamp()
+    chrono::Local::now().timestamp_millis()
 }
 
 pub fn init_log(level: &str, is_test: bool) {

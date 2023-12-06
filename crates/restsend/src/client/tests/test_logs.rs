@@ -1,8 +1,15 @@
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
+
 use crate::{
+    callback,
     client::{tests::TEST_ENDPOINT, Client},
+    models::GetChatLogsResult,
     request::ChatRequest,
     services::auth::login_with_password,
-    utils::init_log,
+    utils::{check_until, init_log},
 };
 
 #[tokio::test]
@@ -18,7 +25,29 @@ async fn test_client_fetch_logs() {
     let req = ChatRequest::new_text(topic_id, "hello via test_client_fetch_logs");
     let resp = c.send_chat_request(topic_id, req).await.unwrap();
 
-    let r = c.get_chat_logs("bob:alice", 0, 10).await.unwrap();
+    struct TestSyncLogsCallbackImpl {
+        result: Arc<Mutex<Option<GetChatLogsResult>>>,
+    };
+
+    impl callback::SyncChatLogsCallback for TestSyncLogsCallbackImpl {
+        fn on_success(&self, r: GetChatLogsResult) {
+            let mut result = self.result.lock().unwrap();
+            result.replace(r);
+        }
+    }
+    let result = Arc::new(Mutex::new(None));
+
+    let cb = TestSyncLogsCallbackImpl {
+        result: result.clone(),
+    };
+
+    c.sync_chat_logs("bob:alice", 0, 10, Box::new(cb)).await;
+
+    check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
+        .await
+        .unwrap();
+
+    let r = result.lock().unwrap().take().unwrap();
     assert!(r.start_seq >= resp.seq);
 
     let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).await.unwrap();

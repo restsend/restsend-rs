@@ -87,9 +87,10 @@ impl ClientStore {
                 }
 
                 let topic_id = req.topic_id.clone();
+                let created_at = req.created_at.clone();
                 let resp = ChatRequest::new_response(&req, 200);
-                if callback.on_topic_message(topic_id.clone(), req) {
-                    if let Err(e) = self.update_conversation_read(&topic_id) {
+                if callback.on_new_message(topic_id.clone(), req) {
+                    if let Err(e) = self.update_conversation_read(&topic_id, &created_at) {
                         warn!(
                             "update_conversation_read failed, topic_id:{} error: {:?}",
                             topic_id, e

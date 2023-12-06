@@ -31,10 +31,7 @@ impl ClientStore {
         }
     }
 
-    pub(super) fn update_conversation(
-        &self,
-        mut conversation: Conversation,
-    ) -> Result<Conversation> {
+    pub(crate) fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
         let t = self
             .message_storage
             .table::<Conversation>("conversations")
@@ -43,7 +40,7 @@ impl ClientStore {
             ))?;
 
         let topic_id = conversation.topic_id.clone();
-
+        let mut conversation = conversation;
         if let Some(old_conversation) = t.get("", &topic_id) {
             if old_conversation.last_seq <= conversation.last_seq {
                 conversation.last_read_seq = old_conversation.last_read_seq;
@@ -84,12 +81,13 @@ impl ClientStore {
             conversation.last_message = req.content.clone();
             conversation.cached_at = now_timestamp();
             conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
+            conversation.updated_at = req.created_at.clone();
         }
 
         Ok(conversation)
     }
 
-    pub(super) fn update_conversation_read(&self, topic_id: &str) -> Result<()> {
+    pub(super) fn update_conversation_read(&self, topic_id: &str, updated_at: &str) -> Result<()> {
         let t = self
             .message_storage
             .table::<Conversation>("conversations")
@@ -99,6 +97,7 @@ impl ClientStore {
 
         if let Some(mut conversation) = t.get("", topic_id) {
             conversation.last_read_seq = conversation.last_seq;
+            conversation.updated_at = updated_at.to_string();
             t.set("", topic_id, Some(conversation));
         }
         Ok(())
@@ -224,5 +223,27 @@ impl ClientStore {
             limit,
         };
         Ok(t.query(topic_id, &option))
+    }
+
+    pub async fn get_conversations(
+        &self,
+        updated_at: &str,
+        limit: u32,
+    ) -> Result<QueryResult<Conversation>> {
+        let t = self
+            .message_storage
+            .table("conversations")
+            .ok_or(anyhow::anyhow!("get_conversations: get table failed"))?;
+
+        let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
+            .map(|v| v.timestamp_millis())
+            .unwrap_or(0);
+
+        let option = QueryOption {
+            keyword: None,
+            start_sort_value,
+            limit,
+        };
+        Ok(t.query("", &option))
     }
 }

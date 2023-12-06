@@ -28,7 +28,7 @@ impl callback::Callback for TestCallbackImpl {
         self.is_connected.store(true, Ordering::Relaxed);
     }
     // if return true, will send `has read` to server
-    fn on_topic_message(&self, topic_id: String, message: ChatRequest) -> bool {
+    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
         warn!(
             "on_topic_message topic_id:{} message: {:?}",
             topic_id, message
