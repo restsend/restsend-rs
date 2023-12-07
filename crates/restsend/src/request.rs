@@ -181,8 +181,10 @@ impl ChatRequest {
             .placeholder(address)
     }
 
-    pub fn new_link(topic_id: &str, url: &str) -> Self {
-        Self::new_chat(topic_id, ContentType::Link).text(url)
+    pub fn new_link(topic_id: &str, url: &str, placeholder: &str) -> Self {
+        Self::new_chat(topic_id, ContentType::Link)
+            .text(url)
+            .placeholder(placeholder)
     }
 
     pub fn new_invite(topic_id: &str, message: &str) -> Self {

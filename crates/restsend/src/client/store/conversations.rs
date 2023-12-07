@@ -15,90 +15,75 @@ use crate::{Error, Result};
 use log::warn;
 
 impl ClientStore {
-    pub fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
-        let t = self.message_storage.table::<Conversation>("conversations");
-        if let Some(mut conversation) = t.get("", topic_id) {
-            conversation.sticky = sticky;
-            t.set("", topic_id, Some(conversation));
+    pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.sticky = sticky;
+                t.set("", topic_id, Some(conversation));
+            }
         }
 
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let topic_id = topic_id.to_string();
-
-        tokio::spawn(async move {
-            match set_conversation_sticky(&endpoint, &token, &topic_id, sticky).await {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("set_conversation_sticky failed: {:?}", e);
-                }
+        match set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!("set_conversation_sticky failed: {:?}", e);
             }
-        });
+        }
     }
 
-    pub fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
-        let t = self.message_storage.table::<Conversation>("conversations");
-        if let Some(mut conversation) = t.get("", topic_id) {
-            conversation.mute = mute;
-            t.set("", topic_id, Some(conversation));
+    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.mute = mute;
+                t.set("", topic_id, Some(conversation));
+            }
         }
 
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let topic_id = topic_id.to_string();
-
-        tokio::spawn(async move {
-            match set_conversation_mute(&endpoint, &token, &topic_id, mute).await {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("set_conversation_mute failed: {:?}", e);
-                }
+        match set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!("set_conversation_sticky failed: {:?}", e);
             }
-        });
+        }
     }
 
-    pub fn set_conversation_read(&self, topic_id: &str) {
-        let t = self.message_storage.table::<Conversation>("conversations");
-        if let Some(mut conversation) = t.get("", topic_id) {
-            conversation.last_read_seq = conversation.last_seq;
-            t.set("", topic_id, Some(conversation));
+    pub async fn set_conversation_read(&self, topic_id: &str) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.last_read_seq = conversation.last_seq;
+                t.set("", topic_id, Some(conversation));
+            }
         }
 
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let topic_id = topic_id.to_string();
-
-        tokio::spawn(async move {
-            match set_conversation_read(&endpoint, &token, &topic_id).await {
-                Ok(_) => {}
-                Err(e) => {
-                    warn!("set_conversation_read failed: {:?}", e);
-                }
+        match set_conversation_read(&self.endpoint, &self.token, &topic_id).await {
+            Ok(_) => {}
+            Err(e) => {
+                warn!("set_conversation_read failed: {:?}", e);
             }
-        });
+        }
     }
 
-    pub(crate) fn remove_conversation(&self, topic_id: &str) {
-        let t = self.message_storage.table::<Conversation>("conversations");
-        t.remove("", topic_id);
+    pub(crate) async fn remove_conversation(&self, topic_id: &str) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            t.remove("", topic_id);
+        }
 
-        let event_tx = self.event_tx.lock().unwrap().clone();
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let topic_id = topic_id.to_string();
-
-        tokio::spawn(async move {
-            match remove_conversation(&endpoint, &token, &topic_id).await {
-                Ok(_) => {
-                    if let Some(event_tx) = event_tx {
-                        event_tx.send(StoreEvent::RemoveConversation(topic_id)).ok();
-                    }
-                }
-                Err(e) => {
-                    warn!("remove_conversation failed: {:?}", e);
+        match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
+            Ok(_) => {
+                if let Some(event_tx) = self.event_tx.lock().unwrap().clone() {
+                    event_tx
+                        .send(StoreEvent::RemoveConversation(topic_id.to_string()))
+                        .ok();
                 }
             }
-        });
+            Err(e) => {
+                warn!("remove_conversation failed: {:?}", e);
+            }
+        }
     }
 
     pub(crate) fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {

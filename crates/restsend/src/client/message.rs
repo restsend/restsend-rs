@@ -56,8 +56,8 @@ impl Client {
     pub async fn do_send_voice(
         &self,
         topic_id: &str,
-        duration: &str,
         attachment: Attachment,
+        duration: &str,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -72,7 +72,7 @@ impl Client {
         &self,
         topic_id: &str,
         attachment: Attachment,
-        duration: String,
+        duration: &str,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -100,9 +100,9 @@ impl Client {
     pub async fn do_send_location(
         &self,
         topic_id: &str,
-        latitude: String,
-        longitude: String,
-        address: String,
+        latitude: &str,
+        longitude: &str,
+        address: &str,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -116,12 +116,13 @@ impl Client {
     pub async fn do_send_link(
         &self,
         topic_id: &str,
-        url: String,
+        url: &str,
+        placeholder: &str,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
-        let req = ChatRequest::new_link(&topic_id, &url)
+        let req = ChatRequest::new_link(&topic_id, &url, &placeholder)
             .mentions(mentions)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
@@ -171,7 +172,7 @@ impl Client {
     pub async fn do_recall(
         &self,
         topic_id: &str,
-        chat_id: String,
+        chat_id: &str,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_recall(&topic_id, &chat_id);

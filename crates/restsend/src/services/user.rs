@@ -57,7 +57,7 @@ pub async fn set_user_remark(
     .map(|_: bool| ())
 }
 
-pub async fn set_user_favorite(
+pub async fn set_user_star(
     endpoint: &str,
     token: &str,
     user_id: &str,

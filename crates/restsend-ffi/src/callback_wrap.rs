@@ -92,3 +92,29 @@ impl callback::SyncConversationsCallback for RSSyncConversationsCallbackWrap {
         self.0.on_fail(e)
     }
 }
+
+#[allow(unused_variables)]
+#[uniffi::export(callback_interface)]
+pub trait RSMessageCallback: Send + Sync {
+    fn on_sent(&self);
+    fn on_progress(&self, progress: u64, total: u64);
+    fn on_ack(&self, req: ChatRequest);
+    fn on_fail(&self, reason: String);
+}
+
+pub(crate) struct RSMessageCallbackWrap(pub(crate) Option<Box<dyn RSMessageCallback>>);
+impl RSMessageCallbackWrap {}
+impl callback::MessageCallback for RSMessageCallbackWrap {
+    fn on_sent(&self) {
+        self.0.as_ref().map(|t| t.on_sent());
+    }
+    fn on_progress(&self, progress: u64, total: u64) {
+        self.0.as_ref().map(|t| t.on_progress(progress, total));
+    }
+    fn on_ack(&self, req: ChatRequest) {
+        self.0.as_ref().map(|t| t.on_ack(req));
+    }
+    fn on_fail(&self, reason: String) {
+        self.0.as_ref().map(|t| t.on_fail(reason));
+    }
+}

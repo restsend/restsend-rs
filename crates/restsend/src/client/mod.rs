@@ -2,16 +2,18 @@ use self::{
     connection::ConnectState,
     store::{ClientStore, ClientStoreRef},
 };
+use crate::Result;
 use crate::{
     callback::{SyncChatLogsCallback, SyncConversationsCallback},
-    models::{AuthInfo, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult},
+    models::{
+        AuthInfo, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult, User,
+    },
     services::conversation::{get_chat_logs_desc, get_conversations},
     utils::now_timestamp,
     DB_SUFFIX,
 };
 use log::warn;
 use std::sync::Arc;
-
 mod connection;
 pub mod message;
 mod store;
@@ -196,19 +198,36 @@ impl Client {
         self.store.get_conversation(topic_id)
     }
 
-    pub fn remove_conversation(&self, topic_id: &str) {
-        self.store.remove_conversation(topic_id)
+    pub async fn remove_conversation(&self, topic_id: &str) {
+        self.store.remove_conversation(topic_id).await
     }
 
-    pub fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
-        self.store.set_conversation_sticky(topic_id, sticky)
+    pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
+        self.store.set_conversation_sticky(topic_id, sticky).await
     }
 
-    pub fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
-        self.store.set_conversation_mute(topic_id, mute)
+    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
+        self.store.set_conversation_mute(topic_id, mute).await
     }
 
-    pub fn set_conversation_read(&self, topic_id: &str) {
-        self.store.set_conversation_read(topic_id)
+    pub async fn set_conversation_read(&self, topic_id: &str) {
+        self.store.set_conversation_read(topic_id).await
+    }
+
+    pub fn get_user(&self, user_id: &str) -> Option<User> {
+        self.store.get_user(user_id)
+    }
+
+    pub async fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
+        self.store.set_user_remark(user_id, remark).await
+    }
+    pub async fn set_user_star(&self, user_id: &str, star: bool) -> Result<()> {
+        self.store.set_user_star(user_id, star).await
+    }
+    pub async fn set_user_block(&self, user_id: &str, block: bool) -> Result<()> {
+        self.store.set_user_block(user_id, block).await
+    }
+    pub async fn set_allow_guest_chat(&self, allow: bool) -> Result<()> {
+        todo!();
     }
 }
