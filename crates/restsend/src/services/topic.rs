@@ -1,10 +1,10 @@
 use super::api_call;
+use crate::Result;
 use crate::{
     models::{ListUserResult, Topic},
     services::USERS_LIMIT,
     utils::now_timestamp,
 };
-use anyhow::Result;
 
 pub async fn get_topic(endpoint: &str, token: &str, topic_id: &str) -> Result<Topic> {
     api_call(endpoint, &format!("/topic/info/{}", topic_id), token, None)

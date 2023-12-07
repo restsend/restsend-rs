@@ -8,7 +8,7 @@ use crate::{
     utils::now_timestamp,
     MAX_ATTACHMENT_CONCURRENT, MEDIA_PROGRESS_INTERVAL,
 };
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use log::warn;
 use std::{
     collections::HashMap,
@@ -107,7 +107,7 @@ impl UploadCallback for UploadTaskCallback {
 }
 struct UploadPendingTask {
     task: Arc<UploadTask>,
-    job_handle: tokio::task::JoinHandle<Result<(), tokio_task_pool::Error>>,
+    job_handle: tokio::task::JoinHandle<std::result::Result<(), tokio_task_pool::Error>>,
 }
 
 pub(super) struct AttachmentInner {
@@ -180,7 +180,7 @@ impl AttachmentInner {
 
         if let Err(e) = task_result {
             warn!("upload_file failed: req_id:{} err:{}", req_id, e);
-            task.on_fail(e.into());
+            task.on_fail(crate::Error::StdError(e.to_string()));
             return;
         }
 

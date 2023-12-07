@@ -1,7 +1,7 @@
-use crate::error::ClientError::{Forbidden, HTTPError};
+use crate::error::ClientError::{Forbidden, HTTP};
 use crate::models::AuthInfo;
 use crate::services::{handle_response, make_get_request, make_post_request, response};
-use anyhow::Result;
+use crate::Result;
 use log::info;
 use tokio::time::Instant;
 
@@ -26,7 +26,7 @@ pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
     let st = tokio::time::Instant::now();
     let uri = "/auth/logout";
     let req = make_get_request(endpoint, uri, Some(token.to_string()), None);
-    let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
+    let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
     let status = resp.status();
 
     info!(
@@ -63,7 +63,7 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
         Some(body),
         None,
     );
-    let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
+    let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
     let status = resp.status();
 
     info!(

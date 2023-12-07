@@ -1,11 +1,11 @@
 use super::{api_call, response::APISendResponse};
+use crate::Result;
 use crate::{
     models::{Conversation, ListChatLogResult, ListConversationResult},
     request::ChatRequest,
     services::LOGS_LIMIT,
     utils::now_timestamp,
 };
-use anyhow::Result;
 
 pub async fn get_conversations(
     endpoint: &str,

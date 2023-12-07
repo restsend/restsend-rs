@@ -11,12 +11,12 @@ impl InMemoryStorage {
     pub fn make_table(&self, _name: &str) -> anyhow::Result<()> {
         Ok(())
     }
-    pub fn table<T>(&self, _name: &str) -> Option<Box<dyn super::Table<T>>>
+    pub fn table<T>(&self, _name: &str) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
         let table = MemoryTable::new(100);
-        Some(table)
+        table
     }
 }
 
@@ -93,7 +93,7 @@ fn test_memory_table() {
 fn test_memory_storage() {
     let storage = InMemoryStorage::new();
     storage.make_table("test").unwrap();
-    let table = storage.table::<i32>("test").unwrap();
+    let table = storage.table::<i32>("test");
     table.set("", "1", Some(1));
     table.set("", "2", Some(2));
     table.set("", "3", Some(3));

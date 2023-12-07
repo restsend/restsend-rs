@@ -1,4 +1,5 @@
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[uniffi(flat_error)]
 pub enum ClientError {
     #[error("auth: invalid password")]
     InvalidPassword(String),
@@ -27,36 +28,20 @@ pub enum ClientError {
     #[error("websocket: {0}")]
     WebsocketError(String),
     #[error("http: {0}")]
-    HTTPError(String),
+    HTTP(String),
     #[error("json: {0}")]
-    JSONError(#[from] serde_json::Error),
+    JSON(#[from] serde_json::Error),
     #[error("cancel: {0}")]
     UserCancel(String),
-    #[error("unknown: {0}")]
-    UnknownError(String),
+    #[error("storage: {0}")]
+    Storage(String),
+    #[error("{0}")]
+    Other(String),
 }
 
 impl From<reqwest::Error> for ClientError {
     fn from(e: reqwest::Error) -> ClientError {
-        ClientError::HTTPError(e.to_string())
-    }
-}
-
-impl From<url::ParseError> for ClientError {
-    fn from(e: url::ParseError) -> ClientError {
-        ClientError::HTTPError(e.to_string())
-    }
-}
-
-impl<T> From<std::sync::PoisonError<T>> for ClientError {
-    fn from(e: std::sync::PoisonError<T>) -> ClientError {
-        ClientError::StdError(e.to_string())
-    }
-}
-
-impl From<std::time::SystemTimeError> for ClientError {
-    fn from(e: std::time::SystemTimeError) -> ClientError {
-        ClientError::StdError(e.to_string())
+        ClientError::HTTP(e.to_string())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::{services::response::Upload, utils::check_until};
+use crate::{services::response::Upload, utils::check_until, Error};
 use std::{
     convert::Infallible,
     io::Write,
@@ -27,7 +27,7 @@ impl crate::callback::DownloadCallback for TestDownloadCallback {
         println!("on_success: {} {}", url, file_name);
         self.is_done.store(true, Ordering::Relaxed);
     }
-    fn on_fail(&self, err: anyhow::Error) {
+    fn on_fail(&self, err: Error) {
         println!("on_fail: {}", err.to_string());
     }
 }
@@ -43,7 +43,7 @@ impl crate::callback::UploadCallback for TestUploadCallback {
         println!("on_success: {} ", result.path);
         self.is_done.store(true, Ordering::Relaxed);
     }
-    fn on_fail(&self, err: anyhow::Error) {
+    fn on_fail(&self, err: Error) {
         println!("on_fail: {}", err.to_string());
     }
 }
@@ -106,18 +106,30 @@ async fn test_upload_file() {
             .to_string();
 
         let boundary = ctype.split("boundary=").collect::<Vec<&str>>()[1];
-        let body = req.collect().await?.to_bytes();
+        let body = req
+            .collect()
+            .await
+            .map_err(|e| Error::HTTP(e.to_string()))?
+            .to_bytes();
         let stream = once(async move { Result::<Bytes, Infallible>::Ok(Bytes::from(body)) });
         let mut multipart = Multipart::new(stream, boundary);
         let mut total = 0;
         let mut ext = String::new();
 
-        while let Some(mut field) = multipart.next_field().await? {
+        while let Some(mut field) = multipart
+            .next_field()
+            .await
+            .map_err(|e| Error::HTTP(e.to_string()))?
+        {
             match field.name() {
                 Some("file") => {
                     ext = field.content_type().unwrap().to_string();
                     let mut data = Vec::new();
-                    while let Some(chunk) = field.chunk().await? {
+                    while let Some(chunk) = field
+                        .chunk()
+                        .await
+                        .map_err(|e| Error::HTTP(e.to_string()))?
+                    {
                         data.extend_from_slice(&chunk);
                     }
 

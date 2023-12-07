@@ -101,19 +101,19 @@ impl From<String> for ContentType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Enum)]
 pub enum AttachmentStatus {
     #[default]
     ToUpload,
     ToDownload,
-    Uploading(usize),
-    Downloading(usize),
-    Paused(usize),
+    Uploading,
+    Downloading,
+    Paused,
     Done,
     Failed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
 pub struct Attachment {
     pub thumbnail: String,
     pub file_name: String,
@@ -133,7 +133,7 @@ impl Attachment {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     pub r#type: String,

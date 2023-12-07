@@ -1,8 +1,8 @@
+use crate::Result;
 use crate::{
-    error::ClientError::{Forbidden, HTTPError, InvalidPassword},
+    error::ClientError::{Forbidden, InvalidPassword, HTTP},
     USER_AGENT,
 };
-use anyhow::Result;
 use log::{info, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
@@ -107,8 +107,8 @@ where
             match status {
                 reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string()).into()),
                 reqwest::StatusCode::UNAUTHORIZED => Err(InvalidPassword(msg.to_string()).into()),
-                reqwest::StatusCode::BAD_REQUEST => Err(HTTPError(msg.to_string()).into()),
-                _ => Err(HTTPError(msg.to_string()).into()),
+                reqwest::StatusCode::BAD_REQUEST => Err(HTTP(msg.to_string()).into()),
+                _ => Err(HTTP(msg.to_string()).into()),
             }
         }
     }
@@ -133,7 +133,7 @@ where
         None,
     );
 
-    let resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
+    let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
     let status = resp.status();
 
     info!(

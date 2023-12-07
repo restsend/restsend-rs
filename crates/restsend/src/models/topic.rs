@@ -1,7 +1,7 @@
 use super::omit_empty;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct TopicNotice {
     pub text: String,

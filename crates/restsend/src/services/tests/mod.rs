@@ -1,5 +1,5 @@
 mod test_media;
-use anyhow::Result;
+use crate::Result;
 use futures_util::Future;
 use http_body_util::combinators::BoxBody;
 use http_body_util::Full;

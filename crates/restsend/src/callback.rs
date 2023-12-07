@@ -2,8 +2,8 @@ use crate::{
     models::{Conversation, GetChatLogsResult, GetConversationsResult},
     request::ChatRequest,
     services::response::Upload,
+    Error,
 };
-use anyhow::Error;
 
 #[allow(unused_variables)]
 pub trait Callback: Send + Sync {
@@ -27,7 +27,8 @@ pub trait Callback: Send + Sync {
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
-}
+        fn on_conversations_removed(&self, conversatio_id: String) {}
+    }
 
 #[allow(unused_variables)]
 pub trait UploadCallback: Send + Sync {

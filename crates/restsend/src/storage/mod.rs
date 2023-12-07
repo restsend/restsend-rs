@@ -1,5 +1,5 @@
+use crate::Result;
 use std::str::FromStr;
-
 #[cfg(target_arch = "wasm32")]
 mod indexeddb;
 
@@ -34,7 +34,7 @@ pub trait Table<T: StoreModel> {
     fn clear(&self);
 }
 
-pub fn prepare(storage: &Storage) -> anyhow::Result<()> {
+pub fn prepare(storage: &Storage) -> Result<()> {
     let tables = vec!["topics", "users", "messages", "conversations", "chat_logs"];
     for table in tables {
         storage.make_table(table)?;

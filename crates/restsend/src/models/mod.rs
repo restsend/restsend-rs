@@ -16,7 +16,7 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, uniffi::Record)]
 pub struct GetConversationsResult {
     pub updated_at: String,
     pub items: Vec<Conversation>,

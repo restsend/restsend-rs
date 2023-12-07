@@ -1,8 +1,8 @@
 use super::ClientStore;
+use crate::Result;
 use crate::{
     client::store::StoreEvent, models::User, services::user::get_user, utils::now_timestamp,
 };
-use anyhow::Result;
 use log::warn;
 
 impl ClientStore {
@@ -40,10 +40,7 @@ impl ClientStore {
     }
 
     pub(super) fn update_user(&self, mut user: User) -> Result<User> {
-        let t = self
-            .message_storage
-            .table::<User>("users")
-            .ok_or(anyhow::anyhow!("update_user: get table failed"))?;
+        let t = self.message_storage.table::<User>("users");
 
         let user_id = user.user_id.clone();
         if let Some(old_user) = t.get("", &user_id) {

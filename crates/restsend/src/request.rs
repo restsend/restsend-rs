@@ -46,7 +46,7 @@ impl From<ChatRequestType> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatRequest {
     pub r#type: String,

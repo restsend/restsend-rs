@@ -1,7 +1,7 @@
 use super::response::Upload;
 use crate::callback::{DownloadCallback, UploadCallback};
-use crate::error::ClientError::{HTTPError, StdError, UserCancel};
-use anyhow::Result;
+use crate::error::ClientError::{StdError, UserCancel, HTTP};
+use crate::Result;
 use futures_util::TryStreamExt;
 use log::info;
 use reqwest::multipart;
@@ -137,8 +137,8 @@ pub(crate) async fn upload_file(
                 },
                 Err(e) => {
                     let reason = format!("upload failed: {}", e.to_string());
-                    callback.on_fail(HTTPError(reason.clone()).into());
-                    Err(HTTPError(reason).into())
+                    callback.on_fail(HTTP(reason.clone()).into());
+                    Err(HTTP(reason).into())
                 }
             }
         }
@@ -161,7 +161,7 @@ pub(crate) async fn download_file(
     );
 
     let download_runner = async move {
-        let mut resp = req.send().await.map_err(|e| HTTPError(e.to_string()))?;
+        let mut resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
         let total = resp.content_length().unwrap_or(0);
         let file = tokio::fs::File::create(save_file_name.clone()).await;
 
@@ -216,8 +216,8 @@ pub(crate) async fn download_file(
                 },
                 Err(e) => {
                     let reason = format!("download failed: {}", e.to_string());
-                    callback.on_fail(HTTPError(reason.clone()).into());
-                    Err(HTTPError(reason).into())
+                    callback.on_fail(HTTP(reason.clone()).into());
+                    Err(HTTP(reason).into())
                 }
             }
         }

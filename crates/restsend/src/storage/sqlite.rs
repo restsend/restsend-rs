@@ -1,5 +1,5 @@
 use super::{QueryOption, QueryResult, StoreModel};
-use anyhow::{anyhow, Result};
+use crate::{error::ClientError, Result};
 use log::{debug, error};
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
@@ -31,7 +31,9 @@ impl SqliteStorage {
         let db = self.conn.clone();
         let mut conn = db.lock().unwrap();
         if conn.is_none() {
-            return Err(anyhow!("sqlite connection is not opened"));
+            return Err(ClientError::Storage(
+                "sqlite connection is not opened".to_string(),
+            ));
         }
         let conn = conn.as_mut().unwrap();
         let create_sql = format!(
@@ -40,16 +42,17 @@ impl SqliteStorage {
             CREATE INDEX IF NOT EXISTS idx_{0}_sort_by ON {0} (sort_by);",
             name
         );
-        conn.execute_batch(&create_sql)?;
+        conn.execute_batch(&create_sql)
+            .map_err(|e| ClientError::Storage(format!("create table {} failed: {}", name, e)))?;
         Ok(())
     }
 
-    pub fn table<T>(&self, name: &str) -> Option<Box<dyn super::Table<T>>>
+    pub fn table<T>(&self, name: &str) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
         let table = SqliteTable::new(self.conn.clone(), name);
-        Some(Box::new(table))
+        Box::new(table)
     }
 }
 
@@ -290,9 +293,9 @@ pub fn test_prepare() {
 #[test]
 pub fn test_store_i32() {
     let storage = SqliteStorage::new(":memory:");
-    storage.make_table("tests").unwrap();
+    storage.make_table("tests");
 
-    let t = storage.table::<i32>("tests").unwrap();
+    let t = storage.table::<i32>("tests");
     t.set("", "1", Some(1));
     t.set("", "2", Some(2));
 

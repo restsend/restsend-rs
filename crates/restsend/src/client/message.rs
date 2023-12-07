@@ -3,8 +3,8 @@ use crate::callback::MessageCallback;
 use crate::models::chat_log::Attachment;
 use crate::services::conversation::send_request;
 use crate::services::response::APISendResponse;
+use crate::Result;
 use crate::{models::Content, request::ChatRequest};
-use anyhow::Result;
 
 impl Client {
     pub async fn send_chat_request(

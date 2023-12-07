@@ -289,17 +289,17 @@ impl Client {
         });
     }
 
-    pub async fn app_active(&self) {
+    pub fn app_active(&self) {
         self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
     }
 
-    pub async fn app_deactivate(&self) {
+    pub fn app_deactivate(&self) {
         todo!("app_deactivate")
     }
 
-    pub async fn shutdown(&self) {
+    pub fn shutdown(&self) {
         info!("shutdown websocket");
         self.state.did_shutdown();
-        self.store.shutdown().await;
+        self.store.shutdown();
     }
 }

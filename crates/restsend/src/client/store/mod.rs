@@ -8,7 +8,7 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use anyhow::{Error, Result};
+use crate::{Error, Result};
 use log::{debug, info, warn};
 use std::sync::atomic::AtomicI64;
 use std::time::Duration;
@@ -34,7 +34,8 @@ pub(super) enum StoreEvent {
     SendFail(String),    // req_id
     SendSuccess(String), // req_id
     ProcessRetry,
-    UpdateConversation(Vec<Conversation>),
+    UpdateConversations(Vec<Conversation>),
+    RemoveConversation(String),
     UpdateUser(Vec<User>),
 }
 
@@ -42,6 +43,10 @@ mod attachments;
 mod conversations;
 mod requests;
 mod users;
+
+pub fn is_cache_expired(cached_at: i64, expire_secs: i64) -> bool {
+    (now_timestamp() - cached_at) / 1000 > expire_secs
+}
 
 pub struct PendingRequest {
     pub callback: Option<Box<dyn MessageCallback>>,
@@ -273,7 +278,7 @@ impl ClientStore {
                             }
                         }
 
-                        StoreEvent::UpdateConversation(conversations) => {
+                        StoreEvent::UpdateConversations(conversations) => {
                             let conversations = conversations
                                 .iter()
                                 .map(|it| {
@@ -283,6 +288,9 @@ impl ClientStore {
                             callback.on_conversations_updated(conversations);
                         }
 
+                        StoreEvent::RemoveConversation(conversation_id) => {
+                            callback.on_conversations_removed(conversation_id);
+                        }
                         StoreEvent::UpdateUser(users) => {
                             users.iter().for_each(|it| {
                                 let _ = self.update_user(it.clone());
@@ -303,5 +311,5 @@ impl ClientStore {
             } => {}
         }
     }
-    pub async fn shutdown(&self) {}
+    pub fn shutdown(&self) {}
 }

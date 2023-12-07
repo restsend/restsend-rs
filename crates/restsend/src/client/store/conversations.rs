@@ -1,18 +1,120 @@
-use super::ClientStore;
+use super::{is_cache_expired, ClientStore};
 use crate::{
     client::store::StoreEvent,
     models::{ChatLog, ChatLogStatus, Content, ContentType, Conversation},
     request::ChatRequest,
-    services::conversation::get_conversation,
+    services::conversation::{
+        get_conversation, remove_conversation, set_conversation_mute, set_conversation_read,
+        set_conversation_sticky,
+    },
     storage::{QueryOption, QueryResult},
     utils::now_timestamp,
-    MAX_RECALL_SECS,
+    CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
-use anyhow::Result;
+use crate::{Error, Result};
 use log::warn;
 
 impl ClientStore {
-    pub(super) async fn fetch_conversation(&self, topic_id: &str) {
+    pub fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        if let Some(mut conversation) = t.get("", topic_id) {
+            conversation.sticky = sticky;
+            t.set("", topic_id, Some(conversation));
+        }
+
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let topic_id = topic_id.to_string();
+
+        tokio::spawn(async move {
+            match set_conversation_sticky(&endpoint, &token, &topic_id, sticky).await {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("set_conversation_sticky failed: {:?}", e);
+                }
+            }
+        });
+    }
+
+    pub fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        if let Some(mut conversation) = t.get("", topic_id) {
+            conversation.mute = mute;
+            t.set("", topic_id, Some(conversation));
+        }
+
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let topic_id = topic_id.to_string();
+
+        tokio::spawn(async move {
+            match set_conversation_mute(&endpoint, &token, &topic_id, mute).await {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("set_conversation_mute failed: {:?}", e);
+                }
+            }
+        });
+    }
+
+    pub fn set_conversation_read(&self, topic_id: &str) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        if let Some(mut conversation) = t.get("", topic_id) {
+            conversation.last_read_seq = conversation.last_seq;
+            t.set("", topic_id, Some(conversation));
+        }
+
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let topic_id = topic_id.to_string();
+
+        tokio::spawn(async move {
+            match set_conversation_read(&endpoint, &token, &topic_id).await {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("set_conversation_read failed: {:?}", e);
+                }
+            }
+        });
+    }
+
+    pub(crate) fn remove_conversation(&self, topic_id: &str) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        t.remove("", topic_id);
+
+        let event_tx = self.event_tx.lock().unwrap().clone();
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let topic_id = topic_id.to_string();
+
+        tokio::spawn(async move {
+            match remove_conversation(&endpoint, &token, &topic_id).await {
+                Ok(_) => {
+                    if let Some(event_tx) = event_tx {
+                        event_tx.send(StoreEvent::RemoveConversation(topic_id)).ok();
+                    }
+                }
+                Err(e) => {
+                    warn!("remove_conversation failed: {:?}", e);
+                }
+            }
+        });
+    }
+
+    pub(crate) fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        let mut conversation = t.get("", topic_id).unwrap_or(Conversation::new(topic_id));
+
+        if conversation.is_partial
+            || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
+        {
+            self.fetch_conversation(topic_id);
+        }
+        conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
+        Some(conversation)
+    }
+
+    pub(super) fn fetch_conversation(&self, topic_id: &str) {
         if let Some(event_tx) = self.event_tx.lock().unwrap().clone() {
             let endpoint = self.endpoint.clone();
             let token = self.token.clone();
@@ -22,7 +124,7 @@ impl ClientStore {
                 let converstion = get_conversation(&endpoint, &token, &topic_id).await;
                 if let Ok(converstion) = converstion {
                     event_tx
-                        .send(StoreEvent::UpdateConversation(vec![converstion]))
+                        .send(StoreEvent::UpdateConversations(vec![converstion]))
                         .ok();
                 } else {
                     warn!("fetch_conversation failed");
@@ -32,12 +134,7 @@ impl ClientStore {
     }
 
     pub(crate) fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
-        let t = self
-            .message_storage
-            .table::<Conversation>("conversations")
-            .ok_or(anyhow::anyhow!(
-                "update_conversation_from_chat: get table failed"
-            ))?;
+        let t = self.message_storage.table::<Conversation>("conversations");
 
         let topic_id = conversation.topic_id.clone();
         let mut conversation = conversation;
@@ -65,12 +162,7 @@ impl ClientStore {
 
     pub(super) fn update_conversation_from_chat(&self, req: &ChatRequest) -> Result<Conversation> {
         let topic_id = &req.topic_id;
-        let t = self
-            .message_storage
-            .table::<Conversation>("conversations")
-            .ok_or(anyhow::anyhow!(
-                "update_conversation_from_chat: get table failed"
-            ))?;
+        let t = self.message_storage.table::<Conversation>("conversations");
 
         let mut conversation = t.get("", &topic_id).unwrap_or(Conversation::from(req));
 
@@ -88,12 +180,7 @@ impl ClientStore {
     }
 
     pub(super) fn update_conversation_read(&self, topic_id: &str, updated_at: &str) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<Conversation>("conversations")
-            .ok_or(anyhow::anyhow!(
-                "update_conversation_from_chat: get table failed"
-            ))?;
+        let t = self.message_storage.table::<Conversation>("conversations");
 
         if let Some(mut conversation) = t.get("", topic_id) {
             conversation.last_read_seq = conversation.last_seq;
@@ -104,10 +191,7 @@ impl ClientStore {
     }
 
     pub(super) fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<ChatLog>("chat_logs")
-            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
 
         let mut log = ChatLog::from(req);
         log.status = ChatLogStatus::Sending;
@@ -124,10 +208,7 @@ impl ClientStore {
         status: ChatLogStatus,
         seq: Option<i64>,
     ) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<ChatLog>("chat_logs")
-            .ok_or(anyhow::anyhow!("save_outgoing_chat_log: get table failed"))?;
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
 
         warn!(
             "update_outoing_chat_log_state: topic_id: {} chat_id: {}, status: {:?} seq: {:?}",
@@ -146,10 +227,7 @@ impl ClientStore {
     }
 
     pub(super) fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
-        let t = self
-            .message_storage
-            .table::<ChatLog>("chat_logs")
-            .ok_or(anyhow::anyhow!("save_incoming_chat_log: get table failed"))?;
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
         let now = now_timestamp();
@@ -157,16 +235,16 @@ impl ClientStore {
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
             if req.r#type == "recall" {
                 if now - old_log.cached_at > MAX_RECALL_SECS {
-                    return Err(anyhow::anyhow!("[recall] timeout"));
+                    return Err(Error::Other("[recall] timeout".to_string()));
                 }
 
                 match old_log.status {
                     ChatLogStatus::Received => {}
-                    _ => return Err(anyhow::anyhow!("[recall] invalid status")),
+                    _ => return Err(Error::Other("[recall] invalid status".to_string())),
                 }
 
                 if req.attendee != old_log.sender_id {
-                    return Err(anyhow::anyhow!("[recall] invalid  owner"));
+                    return Err(Error::Other("[recall] invalid  owner".to_string()));
                 }
 
                 let mut log = old_log.clone();
@@ -187,10 +265,7 @@ impl ClientStore {
     }
 
     pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
-        let t = self
-            .message_storage
-            .table("chat_logs")
-            .ok_or(anyhow::anyhow!("save_chat_log: get table failed"))?;
+        let t = self.message_storage.table("chat_logs");
 
         if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
             return Ok(());
@@ -211,10 +286,7 @@ impl ClientStore {
         seq: i64,
         limit: u32,
     ) -> Result<QueryResult<ChatLog>> {
-        let t = self
-            .message_storage
-            .table("chat_logs")
-            .ok_or(anyhow::anyhow!("get_chat_logs: get table failed"))?;
+        let t = self.message_storage.table("chat_logs");
 
         let start_sort_value = (seq - limit as i64).max(0);
         let option = QueryOption {
@@ -225,15 +297,12 @@ impl ClientStore {
         Ok(t.query(topic_id, &option))
     }
 
-    pub async fn get_conversations(
+    pub fn get_conversations(
         &self,
         updated_at: &str,
         limit: u32,
     ) -> Result<QueryResult<Conversation>> {
-        let t = self
-            .message_storage
-            .table("conversations")
-            .ok_or(anyhow::anyhow!("get_conversations: get table failed"))?;
+        let t = self.message_storage.table("conversations");
 
         let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
             .map(|v| v.timestamp_millis())

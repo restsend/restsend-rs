@@ -1,6 +1,6 @@
 use super::api_call;
 use crate::models::TopicKnock;
-use anyhow::Result;
+use crate::Result;
 
 pub async fn update_topic_notice(
     endpoint: &str,

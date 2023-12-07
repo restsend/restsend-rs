@@ -5,11 +5,10 @@ use self::{
 use crate::{
     callback::{SyncChatLogsCallback, SyncConversationsCallback},
     models::{AuthInfo, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult},
-    services::conversation::{get_chat_logs_desc, get_conversation, get_conversations},
+    services::conversation::{get_chat_logs_desc, get_conversations},
     utils::now_timestamp,
     DB_SUFFIX,
 };
-use anyhow::Result;
 use log::warn;
 use std::sync::Arc;
 
@@ -134,7 +133,7 @@ impl Client {
         });
     }
 
-    pub async fn sync_conversations(
+    pub fn sync_conversations(
         &self,
         updated_at: Option<String>,
         limit: u32,
@@ -142,7 +141,7 @@ impl Client {
     ) {
         let updated_at = updated_at.unwrap_or_default().clone();
 
-        match self.store.get_conversations(&updated_at, limit).await {
+        match self.store.get_conversations(&updated_at, limit) {
             Ok(r) => {
                 if r.items.len() == limit as usize {
                     let r = GetConversationsResult {
@@ -191,5 +190,25 @@ impl Client {
                 Err(e) => callback.on_fail(e),
             }
         });
+    }
+
+    pub fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
+        self.store.get_conversation(topic_id)
+    }
+
+    pub fn remove_conversation(&self, topic_id: &str) {
+        self.store.remove_conversation(topic_id)
+    }
+
+    pub fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
+        self.store.set_conversation_sticky(topic_id, sticky)
+    }
+
+    pub fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
+        self.store.set_conversation_mute(topic_id, mute)
+    }
+
+    pub fn set_conversation_read(&self, topic_id: &str) {
+        self.store.set_conversation_read(topic_id)
     }
 }

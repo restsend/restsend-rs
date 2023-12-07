@@ -64,7 +64,7 @@ impl ClientStore {
                             if !conversation.is_partial {
                                 callback.on_conversations_updated(vec![conversation]);
                             } else {
-                                self.fetch_conversation(&topic_id).await;
+                                self.fetch_conversation(&topic_id);
                             }
                         }
                         Err(e) => {

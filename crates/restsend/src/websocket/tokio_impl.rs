@@ -1,6 +1,6 @@
 use super::{WebSocketCallback, WebsocketOption};
-use crate::error::ClientError::{HTTPError, TokenExpired};
-use anyhow::Result;
+use crate::error::ClientError::{TokenExpired, HTTP};
+use crate::Result;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, warn};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
@@ -60,7 +60,7 @@ impl WebSocketImpl {
                 r
             },
             _ = sleep(opt.handshake_timeout) => {
-                return Err(HTTPError(format!("websocket connect timeout")).into());
+                return Err(HTTP(format!("websocket connect timeout")).into());
             },
         };
 
@@ -70,7 +70,7 @@ impl WebSocketImpl {
                 warn!("websocket connect failed: {}", e);
                 let reason = format!("websocket connect failed: {}", e);
                 callback.on_net_broken(reason.clone());
-                return Err(HTTPError(reason).into());
+                return Err(HTTP(reason).into());
             }
         };
 
@@ -90,7 +90,7 @@ impl WebSocketImpl {
                 warn!("websocket connect failed: {}", resp.status());
                 let reason = format!("websocket connect failed: {}", resp.status());
                 callback.on_net_broken(reason.clone());
-                return Err(HTTPError(reason).into());
+                return Err(HTTP(reason).into());
             }
         }
 
@@ -100,10 +100,10 @@ impl WebSocketImpl {
                 let msg = match stream_rx.next().await {
                     Some(Ok(msg)) => msg,
                     Some(Err(e)) => {
-                        return Err(HTTPError(format!("websocket recv failed: {}", e)));
+                        return Err(HTTP(format!("websocket recv failed: {}", e)));
                     }
                     None => {
-                        return Err(HTTPError(format!("websocket recv None")));
+                        return Err(HTTP(format!("websocket recv None")));
                     }
                 };
 
@@ -147,7 +147,7 @@ impl WebSocketImpl {
                 debug!("websocket send: {}", msg);
                 let r = stream_tx.send(Message::text(msg)).await;
                 if let Err(e) = r {
-                    return Err(HTTPError(format!("websocket send failed: {}", e)));
+                    return Err(HTTP(format!("websocket send failed: {}", e)));
                 }
             }
         };

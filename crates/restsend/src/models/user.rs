@@ -3,7 +3,7 @@ use crate::storage::StoreModel;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Debug, Clone, Default)]
+#[derive(uniffi::Record, Debug, Clone, Default)]
 pub struct AuthInfo {
     pub endpoint: String,
     pub user_id: String,
@@ -48,7 +48,7 @@ pub struct UserProfile {
     pub country: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     #[serde(skip_serializing_if = "String::is_empty")]

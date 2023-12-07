@@ -1,5 +1,5 @@
 use crate::models::AuthInfo;
-use anyhow::Result;
+use crate::Result;
 use std::fs::{create_dir_all, read_to_string, write};
 use std::path::{Path, PathBuf};
 

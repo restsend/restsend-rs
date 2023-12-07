@@ -1,9 +1,9 @@
 use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{default, str::FromStr};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
     pub owner_id: String,
@@ -75,6 +75,7 @@ impl Conversation {
     pub fn new(topic_id: &str) -> Self {
         Conversation {
             topic_id: String::from(topic_id),
+            is_partial: true,
             ..Default::default()
         }
     }
