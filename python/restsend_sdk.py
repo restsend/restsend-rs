@@ -1269,6 +1269,38 @@ class _UniffiConverterTypeConversation(_UniffiConverterRustBuffer):
         _UniffiConverterBool.write(value.is_partial, buf)
 
 
+class GetConversationsResult:
+    updated_at: "str";items: "typing.List[Conversation]";
+
+    @typing.no_type_check
+    def __init__(self, updated_at: "str", items: "typing.List[Conversation]"):
+        self.updated_at = updated_at
+        self.items = items
+
+    def __str__(self):
+        return "GetConversationsResult(updated_at={}, items={})".format(self.updated_at, self.items)
+
+    def __eq__(self, other):
+        if self.updated_at != other.updated_at:
+            return False
+        if self.items != other.items:
+            return False
+        return True
+
+class _UniffiConverterTypeGetConversationsResult(_UniffiConverterRustBuffer):
+    @staticmethod
+    def read(buf):
+        return GetConversationsResult(
+            updated_at=_UniffiConverterString.read(buf),
+            items=_UniffiConverterSequenceTypeConversation.read(buf),
+        )
+
+    @staticmethod
+    def write(value, buf):
+        _UniffiConverterString.write(value.updated_at, buf)
+        _UniffiConverterSequenceTypeConversation.write(value.items, buf)
+
+
 class TopicNotice:
     text: "str";publisher: "str";updated_at: "str";
 
@@ -1774,6 +1806,26 @@ class _UniffiConverterSequenceString(_UniffiConverterRustBuffer):
             _UniffiConverterString.read(buf) for i in range(count)
         ]
 
+
+
+class _UniffiConverterSequenceTypeConversation(_UniffiConverterRustBuffer):
+    @classmethod
+    def write(cls, value, buf):
+        items = len(value)
+        buf.write_i32(items)
+        for item in value:
+            _UniffiConverterTypeConversation.write(item, buf)
+
+    @classmethod
+    def read(cls, buf):
+        count = buf.read_i32()
+        if count < 0:
+            raise InternalError("Unexpected negative sequence length")
+
+        return [
+            _UniffiConverterTypeConversation.read(buf) for i in range(count)
+        ]
+
 __all__ = [
     "InternalError",
     "AttachmentStatus",
@@ -1783,6 +1835,7 @@ __all__ = [
     "ChatRequest",
     "Content",
     "Conversation",
+    "GetConversationsResult",
     "TopicNotice",
     "User",
 ]

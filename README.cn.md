@@ -37,26 +37,30 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
 ### 编译ios
 
 只在M2的机器上测试通过, 请使用M2的机器编译
-开发测试版本：模拟器
-```ruby
-# 在xcode工程的Podfile引入
-pod 'restsendSdk', :path => '../restsend-sdk'
-```
+- 开发测试版本：模拟器
+    ```ruby
+    # 在xcode工程的Podfile引入
+    pod 'restsendSdk', :path => '../restsend-rs'
+    ```
+    后执行生成swift绑定
+    ```shell
+    cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin
+    cargo run --bin bindgen -- --language swift
+    ```
+- 正式版本(release)：
 
-```shell
-cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin
-# 构建xcframework, 本地的Podfile引入
-./scripts/xcframework.sh --debug --dev
-#
-```
+    ```shell
+    cargo build  --release \
+        --target aarch64-apple-ios-sim \
+        --target aarch64-apple-ios \
+        --target x86_64-apple-darwin
 
-正式版本(release)：
-
-```shell
-    cargo build --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin --release
-    # 构建swift的framework, 并且会发布到ruzhila.cn上
-    ./scripts/xcframework.sh
-```
+    cargo run --release --bin bindgen -- --language swift
+    ```
+    如果需要发布正式的pod版本
+    ```shell
+    cargo run --release --bin bindgen -- --language swift -p true
+    ```
 
 ### 编译Android
 
@@ -72,54 +76,27 @@ cargo ndk -t arm64-v8a -t x86_64 -o ./jniLibs build --release
 ### 如何测试
 
 - cargo开发阶段的测试, 是pc上的测试:
-
     ```shell
     cargo test
     ```
-
-- python的demo， 在python-demo/demo.py, 需要先编译rust的代码才能执行
-
+- rust 版本的demo需要有GUI的环境,比如Windows/Mac才能运行
     ```shell
-    cargo build
-    cd python-demo
-    RUST_LOG=debug python demo.py
+    cargo run -p demo
     ```
-
-- ios的测试 (会启动模拟器，不建议命令行启动, 建议用xcode上启动)
-
-```shell
-    cd ios-demo
-    xcodebuild test -project restsend-demo.xcodeproj \
-    -scheme restsend-demo \
-    -destination 'platform=iOS Simulator,name=iPhone 14,OS=16.4'
-```
-
-- android的测试， 需要先启动模拟器:
-
-```shell
-# 需要有android的模拟设备
-cd android-demo
-./gradlew connectedDebugAndroidTest
-```
-
 ### Android的配置
 
 - 在`app/build.gradle` 增加jna的支持， 用aar，能把需要的.so自动编译进去
 
-```gradle
-dependencies {
-    implementation 'net.java.dev.jna:jna:5.5.0@aar'
-    ....
-}
-```
+    ```gradle
+    dependencies {
+        implementation 'net.java.dev.jna:jna:5.5.0@aar'
+        ....
+    }
+    ```
 
 - 在`AndroidManifest.xml` 中增加存储和网络权限
 
-```xml
-    <uses-permission android:name="android.permission.INTERNET"></uses-permission>
-    <application ...>
-```
-
-### 如何维护client.udl
-udl是uniffi-rs的描述语言，保存client.udl之后，会通过build.rs自动生成bindings下的代码，包括kotlin, swift, python的代码
-udl暂时没有linter, 如果出现client.udl保存后没有生成bindings对应的代码，需要在命令行手工运行cargo build, 看看错误的提示。
+    ```xml
+        <uses-permission android:name="android.permission.INTERNET"></uses-permission>
+        <application ...>
+    ```

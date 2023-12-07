@@ -25,13 +25,19 @@ import asyncio
 import platform
 from restsend_sdk import AuthInfo
 from restsend_sdk import ChatRequest
+from restsend_sdk import ClientError
 from restsend_sdk import Conversation
+from restsend_sdk import GetConversationsResult
 from restsend_sdk import _UniffiConverterTypeAuthInfo
 from restsend_sdk import _UniffiConverterTypeChatRequest
+from restsend_sdk import _UniffiConverterTypeClientError
 from restsend_sdk import _UniffiConverterTypeConversation
+from restsend_sdk import _UniffiConverterTypeGetConversationsResult
 from restsend_sdk import _UniffiRustBuffer as _UniffiRustBufferAuthInfo
 from restsend_sdk import _UniffiRustBuffer as _UniffiRustBufferChatRequest
+from restsend_sdk import _UniffiRustBuffer as _UniffiRustBufferClientError
 from restsend_sdk import _UniffiRustBuffer as _UniffiRustBufferConversation
+from restsend_sdk import _UniffiRustBuffer as _UniffiRustBufferGetConversationsResult
 
 # Used for default argument values
 _DEFAULT = object()
@@ -527,7 +533,19 @@ def _uniffi_check_api_checksums(lib):
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_restsend_ffi_checksum_method_rsclient_connect() != 58786:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_get_conversation() != 27970:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_remove_conversation() != 54892:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_mute() != 37431:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_read() != 22336:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_sticky() != 55288:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_restsend_ffi_checksum_method_rsclient_shutdown() != 41772:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rsclient_sync_conversations() != 1803:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_restsend_ffi_checksum_constructor_rsclient_new() != 64553:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
@@ -552,6 +570,12 @@ def _uniffi_check_api_checksums(lib):
     if lib.uniffi_restsend_ffi_checksum_method_rscallback_on_topic_read() != 43005:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     if lib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_updated() != 54859:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_removed() != 23446:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_success() != 39325:
+        raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    if lib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_fail() != 35938:
         raise InternalError("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
 
 # A ctypes library to expose the extern-C FFI definitions.
@@ -585,16 +609,61 @@ _UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_connect.argtypes = (
     ctypes.c_uint64,
 )
 _UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_connect.restype = ctypes.c_void_p
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_get_conversation.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_get_conversation.restype = _UniffiRustBuffer
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_remove_conversation.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_remove_conversation.restype = None
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_mute.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.c_int8,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_mute.restype = None
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_read.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_read.restype = None
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_sticky.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.c_int8,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_sticky.restype = None
 _UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_shutdown.argtypes = (
     ctypes.c_void_p,
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_shutdown.restype = None
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_sync_conversations.argtypes = (
+    ctypes.c_void_p,
+    _UniffiRustBuffer,
+    ctypes.c_uint32,
+    ctypes.c_uint64,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_sync_conversations.restype = None
 _UniffiLib.uniffi_restsend_ffi_fn_init_callback_rscallback.argtypes = (
     _UNIFFI_FOREIGN_CALLBACK_T,
     ctypes.POINTER(_UniffiRustCallStatus),
 )
 _UniffiLib.uniffi_restsend_ffi_fn_init_callback_rscallback.restype = None
+_UniffiLib.uniffi_restsend_ffi_fn_init_callback_rssyncconversationscallback.argtypes = (
+    _UNIFFI_FOREIGN_CALLBACK_T,
+    ctypes.POINTER(_UniffiRustCallStatus),
+)
+_UniffiLib.uniffi_restsend_ffi_fn_init_callback_rssyncconversationscallback.restype = None
 _UniffiLib.uniffi_restsend_ffi_fn_func_get_current_user.argtypes = (
     _UniffiRustBuffer,
     ctypes.POINTER(_UniffiRustCallStatus),
@@ -898,9 +967,27 @@ _UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_app_deactivate.restype =
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_connect.argtypes = (
 )
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_connect.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_get_conversation.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_get_conversation.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_remove_conversation.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_remove_conversation.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_mute.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_mute.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_read.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_read.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_sticky.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_sticky.restype = ctypes.c_uint16
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_shutdown.argtypes = (
 )
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_shutdown.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_sync_conversations.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rsclient_sync_conversations.restype = ctypes.c_uint16
 _UniffiLib.uniffi_restsend_ffi_checksum_constructor_rsclient_new.argtypes = (
 )
 _UniffiLib.uniffi_restsend_ffi_checksum_constructor_rsclient_new.restype = ctypes.c_uint16
@@ -937,6 +1024,15 @@ _UniffiLib.uniffi_restsend_ffi_checksum_method_rscallback_on_topic_read.restype 
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_updated.argtypes = (
 )
 _UniffiLib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_updated.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_removed.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_removed.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_success.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_success.restype = ctypes.c_uint16
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_fail.argtypes = (
+)
+_UniffiLib.uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_fail.restype = ctypes.c_uint16
 _UniffiLib.ffi_restsend_ffi_uniffi_contract_version.argtypes = (
 )
 _UniffiLib.ffi_restsend_ffi_uniffi_contract_version.restype = ctypes.c_uint32
@@ -986,6 +1082,19 @@ _UniffiLib.ffi_restsend_ffi_rust_future_continuation_callback_set(_uniffi_contin
 
 # Public interface members begin here.
 
+
+class _UniffiConverterUInt32(_UniffiConverterPrimitiveInt):
+    CLASS_NAME = "u32"
+    VALUE_MIN = 0
+    VALUE_MAX = 2**32
+
+    @staticmethod
+    def read(buf):
+        return buf.read_u32()
+
+    @staticmethod
+    def write_unchecked(value, buf):
+        buf.write_u32(value)
 
 class _UniffiConverterBool(_UniffiConverterPrimitive):
     @classmethod
@@ -1106,8 +1215,83 @@ class RsClient:
 
 
 
+    def get_conversation(self, topic_id: "str") -> "typing.Optional[Conversation]":
+        
+        return _UniffiConverterOptionalTypeConversation.lift(
+            _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_get_conversation,self._pointer,
+        _UniffiConverterString.lower(topic_id))
+        )
+
+
+
+
+
+
+    def remove_conversation(self, topic_id: "str"):
+        
+        _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_remove_conversation,self._pointer,
+        _UniffiConverterString.lower(topic_id))
+
+
+
+
+
+
+
+    def set_conversation_mute(self, topic_id: "str",mute: "bool"):
+        
+        
+        _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_mute,self._pointer,
+        _UniffiConverterString.lower(topic_id),
+        _UniffiConverterBool.lower(mute))
+
+
+
+
+
+
+
+    def set_conversation_read(self, topic_id: "str"):
+        
+        _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_read,self._pointer,
+        _UniffiConverterString.lower(topic_id))
+
+
+
+
+
+
+
+    def set_conversation_sticky(self, topic_id: "str",sticky: "bool"):
+        
+        
+        _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_set_conversation_sticky,self._pointer,
+        _UniffiConverterString.lower(topic_id),
+        _UniffiConverterBool.lower(sticky))
+
+
+
+
+
+
+
     def shutdown(self, ):
         _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_shutdown,self._pointer,)
+
+
+
+
+
+
+
+    def sync_conversations(self, updated_at: "typing.Optional[str]",limit: "int",callback: "RsSyncConversationsCallback"):
+        
+        
+        
+        _rust_call(_UniffiLib.uniffi_restsend_ffi_fn_method_rsclient_sync_conversations,self._pointer,
+        _UniffiConverterOptionalString.lower(updated_at),
+        _UniffiConverterUInt32.lower(limit),
+        _UniffiConverterCallbackInterfaceRSSyncConversationsCallback.lower(callback))
 
 
 
@@ -1253,6 +1437,9 @@ class RsCallback:
     def on_conversations_updated(self, conversations: "typing.List[Conversation]"):
         raise NotImplementedError
 
+    def on_conversations_removed(self, conversatio_id: "str"):
+        raise NotImplementedError
+
     
 
 def py_foreignCallbackCallbackInterfaceRSCallback(handle, method, args_data, args_len, buf_ptr):
@@ -1380,6 +1567,17 @@ def py_foreignCallbackCallbackInterfaceRSCallback(handle, method, args_data, arg
     def invoke_on_conversations_updated(python_callback, args_stream, buf_ptr):
         def makeCall():return python_callback.on_conversations_updated(
                 _UniffiConverterSequenceTypeConversation.read(args_stream)
+                )
+
+        def makeCallAndHandleReturn():
+            makeCall()
+            return _UNIFFI_CALLBACK_SUCCESS
+        return makeCallAndHandleReturn()
+
+    
+    def invoke_on_conversations_removed(python_callback, args_stream, buf_ptr):
+        def makeCall():return python_callback.on_conversations_removed(
+                _UniffiConverterString.read(args_stream)
                 )
 
         def makeCallAndHandleReturn():
@@ -1553,6 +1751,20 @@ def py_foreignCallbackCallbackInterfaceRSCallback(handle, method, args_data, arg
                 # If that fails, just give up
                 pass
             return _UNIFFI_CALLBACK_UNEXPECTED_ERROR
+    if method == 12:
+        # Call the method and handle any errors
+        # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
+        try:
+            return invoke_on_conversations_removed(cb, _UniffiRustBufferStream(args_data, args_len), buf_ptr)
+        except BaseException as e:
+            # Catch unexpected errors
+            try:
+                # Try to serialize the exception into a String
+                buf_ptr[0] = _UniffiConverterString.lower(repr(e))
+            except:
+                # If that fails, just give up
+                pass
+            return _UNIFFI_CALLBACK_UNEXPECTED_ERROR
     
 
     # This should never happen, because an out of bounds method index won't
@@ -1572,6 +1784,104 @@ _rust_call(lambda err: _UniffiLib.uniffi_restsend_ffi_fn_init_callback_rscallbac
 
 # The _UniffiConverter which transforms the Callbacks in to Handles to pass to Rust.
 _UniffiConverterCallbackInterfaceRSCallback = _UniffiConverterCallbackInterface(foreignCallbackCallbackInterfaceRSCallback)
+
+
+
+
+
+# Declaration and _UniffiConverters for RsSyncConversationsCallback Callback Interface
+
+class RsSyncConversationsCallback:
+    def on_success(self, r: "GetConversationsResult"):
+        raise NotImplementedError
+
+    def on_fail(self, e: "ClientError"):
+        raise NotImplementedError
+
+    
+
+def py_foreignCallbackCallbackInterfaceRSSyncConversationsCallback(handle, method, args_data, args_len, buf_ptr):
+    
+    def invoke_on_success(python_callback, args_stream, buf_ptr):
+        def makeCall():return python_callback.on_success(
+                _UniffiConverterTypeGetConversationsResult.read(args_stream)
+                )
+
+        def makeCallAndHandleReturn():
+            makeCall()
+            return _UNIFFI_CALLBACK_SUCCESS
+        return makeCallAndHandleReturn()
+
+    
+    def invoke_on_fail(python_callback, args_stream, buf_ptr):
+        def makeCall():return python_callback.on_fail(
+                _UniffiConverterTypeClientError.read(args_stream)
+                )
+
+        def makeCallAndHandleReturn():
+            makeCall()
+            return _UNIFFI_CALLBACK_SUCCESS
+        return makeCallAndHandleReturn()
+
+    
+
+    cb = _UniffiConverterCallbackInterfaceRSSyncConversationsCallback.lift(handle)
+    if not cb:
+        raise InternalError("No callback in handlemap; this is a uniffi bug")
+
+    if method == IDX_CALLBACK_FREE:
+        _UniffiConverterCallbackInterfaceRSSyncConversationsCallback.drop(handle)
+        # Successfull return
+        # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs`
+        return _UNIFFI_CALLBACK_SUCCESS
+
+    if method == 1:
+        # Call the method and handle any errors
+        # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
+        try:
+            return invoke_on_success(cb, _UniffiRustBufferStream(args_data, args_len), buf_ptr)
+        except BaseException as e:
+            # Catch unexpected errors
+            try:
+                # Try to serialize the exception into a String
+                buf_ptr[0] = _UniffiConverterString.lower(repr(e))
+            except:
+                # If that fails, just give up
+                pass
+            return _UNIFFI_CALLBACK_UNEXPECTED_ERROR
+    if method == 2:
+        # Call the method and handle any errors
+        # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs` for details
+        try:
+            return invoke_on_fail(cb, _UniffiRustBufferStream(args_data, args_len), buf_ptr)
+        except BaseException as e:
+            # Catch unexpected errors
+            try:
+                # Try to serialize the exception into a String
+                buf_ptr[0] = _UniffiConverterString.lower(repr(e))
+            except:
+                # If that fails, just give up
+                pass
+            return _UNIFFI_CALLBACK_UNEXPECTED_ERROR
+    
+
+    # This should never happen, because an out of bounds method index won't
+    # ever be used. Once we can catch errors, we should return an InternalException.
+    # https://github.com/mozilla/uniffi-rs/issues/351
+
+    # An unexpected error happened.
+    # See docs of ForeignCallback in `uniffi_core/src/ffi/foreigncallbacks.rs`
+    return _UNIFFI_CALLBACK_UNEXPECTED_ERROR
+
+# We need to keep this function reference alive:
+# if they get GC'd while in use then UniFFI internals could attempt to call a function
+# that is in freed memory.
+# That would be...uh...bad. Yeah, that's the word. Bad.
+foreignCallbackCallbackInterfaceRSSyncConversationsCallback = _UNIFFI_FOREIGN_CALLBACK_T(py_foreignCallbackCallbackInterfaceRSSyncConversationsCallback)
+_rust_call(lambda err: _UniffiLib.uniffi_restsend_ffi_fn_init_callback_rssyncconversationscallback(foreignCallbackCallbackInterfaceRSSyncConversationsCallback, err))
+
+# The _UniffiConverter which transforms the Callbacks in to Handles to pass to Rust.
+_UniffiConverterCallbackInterfaceRSSyncConversationsCallback = _UniffiConverterCallbackInterface(foreignCallbackCallbackInterfaceRSSyncConversationsCallback)
 
 
 
@@ -1641,6 +1951,28 @@ class _UniffiConverterOptionalTypeChatRequest(_UniffiConverterRustBuffer):
 
 
 
+class _UniffiConverterOptionalTypeConversation(_UniffiConverterRustBuffer):
+    @classmethod
+    def write(cls, value, buf):
+        if value is None:
+            buf.write_u8(0)
+            return
+
+        buf.write_u8(1)
+        _UniffiConverterTypeConversation.write(value, buf)
+
+    @classmethod
+    def read(cls, buf):
+        flag = buf.read_u8()
+        if flag == 0:
+            return None
+        elif flag == 1:
+            return _UniffiConverterTypeConversation.read(buf)
+        else:
+            raise InternalError("Unexpected flag byte for optional type")
+
+
+
 class _UniffiConverterSequenceTypeConversation(_UniffiConverterRustBuffer):
     @classmethod
     def write(cls, value, buf):
@@ -1675,7 +2007,21 @@ class _UniffiConverterSequenceTypeConversation(_UniffiConverterRustBuffer):
 
 
 
+# External type ClientError is in namespace "restsend_sdk", crate restsend_sdk
+
+
+
+
+
+
 # External type Conversation is in namespace "restsend_sdk", crate restsend_sdk
+
+
+
+
+
+
+# External type GetConversationsResult is in namespace "restsend_sdk", crate restsend_sdk
 
 
 
@@ -1725,5 +2071,6 @@ __all__ = [
     "set_current_user",
     "RsClient",
     "RsCallback",
+    "RsSyncConversationsCallback",
 ]
 
