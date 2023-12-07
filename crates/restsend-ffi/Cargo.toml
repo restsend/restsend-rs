@@ -21,3 +21,8 @@ openssl = { version = "0.10.61", features = ["vendored"] }
 # This can be whatever name makes sense for your project, but the rest of this tutorial assumes uniffi-bindgen.
 name = "bindgen"
 path = "bindgen.rs"
+
+[profile.release]
+opt-level = "z"
+strip = "debuginfo"
+lto = true

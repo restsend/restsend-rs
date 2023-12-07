@@ -46,3 +46,8 @@ http-body-util = "0.1"
 hyper-util = { version = "0.1.1", features = ["full"] }
 tempfile = "3.8.1"
 multer = "2.1.0"
+
+[profile.release]
+opt-level = "z"
+strip = "debuginfo"
+lto = true

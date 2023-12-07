@@ -40,7 +40,7 @@ fn main() {
             build_xcframework(mode.clone());
             if publish {
                 if mode == "release" {
-                    publish_ios_pods(mode);
+                    publish_ios_pods();
                 } else {
                     println!("🔥 Only publish release mode");
                 }
@@ -82,6 +82,7 @@ fn build_xcframework(mode: String) {
     let mut build_args = vec!["-create-xcframework".to_string()];
 
     for library in librarys {
+        println!("▸ Add library {}", library);
         build_args.push("-library".to_string());
         build_args.push(library);
     }
@@ -121,7 +122,7 @@ fn build_xcframework(mode: String) {
     }
 }
 
-fn publish_ios_pods(mode: String) {
+fn publish_ios_pods() {
     // Get version from `swift/RestsendSdk.podspec`
     let podspec = std::fs::read_to_string("swift/RestsendSdk.podspec").unwrap();
     let version = podspec

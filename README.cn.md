@@ -50,10 +50,7 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
 - 正式版本(release)：
 
     ```shell
-    cargo build  --release \
-        --target aarch64-apple-ios-sim \
-        --target aarch64-apple-ios \
-        --target x86_64-apple-darwin
+    cargo build --release --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin
 
     cargo run --release --bin bindgen -- --language swift
     ```
