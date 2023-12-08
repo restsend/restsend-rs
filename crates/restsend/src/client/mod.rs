@@ -100,7 +100,7 @@ impl Client {
     ) -> Result<String> {
         let download_url = build_download_url(&self.endpoint, file_url);
         let file_ext = url::Url::parse(&download_url)
-            .map_err(|e| {
+            .map_err(|_| {
                 ClientError::HTTP(format!("download_file: url parse fail: {}", download_url))
             })
             .map(|u| {

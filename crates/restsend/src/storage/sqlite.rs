@@ -156,7 +156,10 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
 
         let (start_sort_value, end_sort_value) = if items.len() > 0 {
-            (items[0].sort_key(), items[items.len() - 1].sort_key())
+            (
+                items.first().unwrap().sort_key(),
+                items.last().unwrap().sort_key(),
+            )
         } else {
             (0, 0)
         };

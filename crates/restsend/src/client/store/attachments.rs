@@ -106,6 +106,7 @@ impl UploadCallback for UploadTaskCallback {
     }
 }
 struct UploadPendingTask {
+    #[allow(unused)]
     task: Arc<UploadTask>,
     job_handle: tokio::task::JoinHandle<std::result::Result<(), tokio_task_pool::Error>>,
 }

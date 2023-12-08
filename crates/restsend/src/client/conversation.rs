@@ -41,9 +41,9 @@ impl Client {
 
     pub async fn search_chat_log(
         &self,
-        topic_id: Option<String>,
-        sender_id: Option<String>,
-        keyword: &str,
+        _topic_id: Option<String>,
+        _sender_id: Option<String>,
+        _keyword: &str,
     ) -> Option<GetChatLogsResult> {
         warn!("search_chat_log not implemented");
         None
@@ -102,7 +102,7 @@ impl Client {
                 .map(|lr| {
                     let start_seq = lr.items[0].seq;
                     let end_seq = if lr.items.len() > 0 {
-                        lr.items[lr.items.len() - 1].seq
+                        lr.items.last().unwrap().seq
                     } else {
                         0
                     };

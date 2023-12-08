@@ -1,5 +1,5 @@
 use restsend_sdk::{
-    callback::{self, SyncChatLogsCallback},
+    callback::{self},
     models::{Conversation, GetChatLogsResult, GetConversationsResult},
     request::ChatRequest,
     Error,
