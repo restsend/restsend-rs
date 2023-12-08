@@ -107,7 +107,7 @@ pub async fn remove_messages(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    chatlog_ids: Vec<&str>,
+    chatlog_ids: Vec<String>,
 ) -> Result<()> {
     let data = serde_json::json!({ "ids": chatlog_ids }).to_string();
     api_call(

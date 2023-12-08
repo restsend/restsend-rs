@@ -5,6 +5,8 @@ use crate::services::conversation::send_request;
 use crate::services::response::APISendResponse;
 use crate::Result;
 use crate::{models::Content, request::ChatRequest};
+use log::warn;
+use std::io::Write;
 
 impl Client {
     pub async fn send_chat_request(
@@ -128,6 +130,16 @@ impl Client {
         self.send_chat_request_via_connection(req, callback).await
     }
 
+    pub async fn do_send_invite(
+        &self,
+        topic_id: &str,
+        messsage: Option<String>,
+        callback: Option<Box<dyn MessageCallback>>,
+    ) -> Result<String> {
+        let req = ChatRequest::new_invite(&topic_id, &messsage.unwrap_or_default());
+        self.send_chat_request_via_connection(req, callback).await
+    }
+
     pub async fn do_send_logs(
         &self,
         topic_id: &str,
@@ -136,23 +148,44 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let file_name = "Chat history";
-        let file_path = todo!();
-        let attachment = Attachment::local(file_name, file_path, false);
+        let file_path = Self::temp_path(&self.root_path, Some("history_*.json".to_string()));
 
+        let mut items = Vec::new();
+        for log_id in log_ids.iter() {
+            if let Some(log) = self.store.get_chat_log(topic_id, log_id) {
+                items.push(log.to_string());
+            }
+        }
+
+        let data = serde_json::json!({
+            "topicId": topic_id,
+            "ownerId": self.user_id,
+            "createdAt": chrono::Local::now().to_rfc3339(),
+            "logIds": log_ids,
+            "items": items,
+        })
+        .to_string();
+
+        let mut file = std::fs::File::create(&file_path)?;
+        let file_data = data.as_bytes();
+        let file_size = file_data.len();
+        file.write_all(file_data)?;
+        file.sync_all()?;
+
+        drop(file);
+
+        warn!(
+            "save logs, log_ids:{:?} size:{} file:{:?}",
+            log_ids, file_size, file_path
+        );
+
+        let attachment = Attachment::local(file_name, &file_path, false);
         let req = ChatRequest::new_logs(&topic_id, attachment).mentions(mentions);
         self.send_chat_request_via_connection(req, callback).await
     }
 
-    pub async fn do_send_invite(
-        &self,
-        topic_id: String,
-        mentions: Vec<String>,
-        message: Option<String>,
-        callback: Option<Box<dyn MessageCallback>>,
-    ) -> Result<String> {
-        let req = ChatRequest::new_invite(&topic_id, &message.unwrap_or_default())
-            .mentions(Some(mentions));
-        self.send_chat_request_via_connection(req, callback).await
+    pub fn cancel_send(&self, req_id: &str) {
+        self.store.cancel_send(req_id)
     }
 
     pub async fn do_typing(&self, topic_id: &str) -> Result<()> {

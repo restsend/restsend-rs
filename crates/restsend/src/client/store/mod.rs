@@ -1,3 +1,4 @@
+use self::attachments::AttachmentInner;
 use crate::callback::Callback;
 use crate::models::{Attachment, ChatLogStatus, Conversation, User};
 use crate::services::response::Upload;
@@ -23,8 +24,6 @@ use std::{
 use tokio::select;
 use tokio::sync::mpsc::{self, UnboundedSender};
 use tokio::time::sleep;
-
-use self::attachments::AttachmentInner;
 
 pub(super) enum StoreEvent {
     UploadSuccess(PendingRequest, Upload),
@@ -219,7 +218,7 @@ impl ClientStore {
                                     ChatLogStatus::Sent => {
                                         pending.callback.map(|cb| cb.on_ack(req));
                                     }
-                                    ChatLogStatus::SendFailed(_) => {
+                                    ChatLogStatus::SendFailed => {
                                         let reason = req
                                             .message
                                             .unwrap_or(format!("send failed: {:?}", status));

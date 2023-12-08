@@ -2,23 +2,31 @@ use self::{
     connection::ConnectState,
     store::{ClientStore, ClientStoreRef},
 };
-use crate::Result;
 use crate::{
-    callback::{SyncChatLogsCallback, SyncConversationsCallback},
+    callback::{self, Callback, DownloadCallback, SyncChatLogsCallback, SyncConversationsCallback},
+    error::ClientError,
     models::{
         AuthInfo, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult, User,
     },
-    services::conversation::{get_chat_logs_desc, get_conversations},
+    services::{
+        conversation::{get_chat_logs_desc, get_conversations},
+        media::{build_download_url, download_file},
+        user::set_allow_guest_chat,
+    },
     utils::now_timestamp,
-    DB_SUFFIX,
+    DB_SUFFIX, TEMP_FILENAME_LEN,
 };
+use crate::{utils, Result};
 use log::warn;
-use std::sync::Arc;
+use std::{hash, path::Path, sync::Arc};
+use tokio::sync::oneshot;
 mod connection;
-pub mod message;
+mod conversation;
+mod message;
 mod store;
 #[cfg(test)]
 mod tests;
+mod topic;
 
 pub struct Client {
     pub root_path: String,
@@ -37,6 +45,14 @@ impl Client {
         } else {
             format!("{}/{}{}", root_path, db_name, DB_SUFFIX)
         }
+    }
+
+    pub fn temp_path(root_path: &str, file_name: Option<String>) -> String {
+        let mut file_name = file_name.unwrap_or_else(|| utils::random_text(TEMP_FILENAME_LEN));
+        if file_name.contains("*") {
+            file_name = file_name.replace("*", &utils::random_text(TEMP_FILENAME_LEN));
+        }
+        format!("{}/tmp/{}", root_path, file_name)
     }
 
     pub fn new(root_path: &str, db_name: &str, info: &AuthInfo) -> Self {
@@ -64,156 +80,6 @@ impl Client {
         }
     }
 
-    pub async fn sync_chat_logs(
-        &self,
-        topic_id: &str,
-        last_seq: i64,
-        limit: u32,
-        callback: Box<dyn SyncChatLogsCallback>,
-    ) {
-        match self.store.get_chat_logs(topic_id, last_seq, limit).await {
-            Ok(local_logs) => {
-                if local_logs.items.len() == limit as usize {
-                    let r = GetChatLogsResult {
-                        has_more: local_logs.end_sort_value > 1,
-                        start_seq: local_logs.start_sort_value,
-                        end_seq: local_logs.end_sort_value,
-                        items: local_logs.items,
-                    };
-                    callback.on_success(r);
-                    return;
-                }
-            }
-            Err(e) => {
-                warn!("sync_chat_logs failed: {:?}", e);
-            }
-        }
-
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-
-        let start_seq = (last_seq - limit as i64).max(0);
-        let current_user_id = self.user_id.clone();
-        let topic_id = topic_id.to_string();
-        let store_ref = self.store.clone();
-
-        tokio::spawn(async move {
-            let r = get_chat_logs_desc(&endpoint, &token, &topic_id, start_seq, limit)
-                .await
-                .map(|(mut lr, _)| {
-                    let now = now_timestamp();
-
-                    lr.items.iter_mut().for_each(|c| {
-                        c.cached_at = now;
-                        c.status = if c.sender_id == current_user_id {
-                            ChatLogStatus::Sent
-                        } else {
-                            ChatLogStatus::Received
-                        };
-                        store_ref.save_chat_log(c).ok();
-                    });
-                    lr
-                })
-                .map(|lr| {
-                    let start_seq = lr.items[0].seq;
-                    let end_seq = if lr.items.len() > 0 {
-                        lr.items[lr.items.len() - 1].seq
-                    } else {
-                        0
-                    };
-                    GetChatLogsResult {
-                        has_more: end_seq > 1,
-                        start_seq,
-                        end_seq,
-                        items: lr.items,
-                    }
-                });
-            match r {
-                Ok(r) => callback.on_success(r),
-                Err(e) => callback.on_fail(e),
-            }
-        });
-    }
-
-    pub fn sync_conversations(
-        &self,
-        updated_at: Option<String>,
-        limit: u32,
-        callback: Box<dyn SyncConversationsCallback>,
-    ) {
-        let updated_at = updated_at.unwrap_or_default().clone();
-
-        match self.store.get_conversations(&updated_at, limit) {
-            Ok(r) => {
-                if r.items.len() == limit as usize {
-                    let r = GetConversationsResult {
-                        updated_at: r
-                            .items
-                            .last()
-                            .map(|c| c.updated_at.clone())
-                            .unwrap_or_default(),
-                        items: r.items,
-                    };
-                    callback.on_success(r);
-                    return;
-                }
-            }
-            Err(e) => {
-                warn!("sync_conversations failed: {:?}", e);
-            }
-        }
-
-        let store_ref = self.store.clone();
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-
-        tokio::spawn(async move {
-            let r = get_conversations(&endpoint, &token, &updated_at, limit)
-                .await
-                .map(|lr| {
-                    lr.items
-                        .iter()
-                        .map(|c| {
-                            store_ref
-                                .update_conversation(c.clone())
-                                .unwrap_or(c.clone())
-                        })
-                        .collect()
-                })
-                .map(|items: Vec<Conversation>| GetConversationsResult {
-                    updated_at: items
-                        .last()
-                        .map(|c| c.updated_at.clone())
-                        .unwrap_or_default(),
-                    items,
-                });
-            match r {
-                Ok(r) => callback.on_success(r),
-                Err(e) => callback.on_fail(e),
-            }
-        });
-    }
-
-    pub fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
-        self.store.get_conversation(topic_id)
-    }
-
-    pub async fn remove_conversation(&self, topic_id: &str) {
-        self.store.remove_conversation(topic_id).await
-    }
-
-    pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
-        self.store.set_conversation_sticky(topic_id, sticky).await
-    }
-
-    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
-        self.store.set_conversation_mute(topic_id, mute).await
-    }
-
-    pub async fn set_conversation_read(&self, topic_id: &str) {
-        self.store.set_conversation_read(topic_id).await
-    }
-
     pub fn get_user(&self, user_id: &str) -> Option<User> {
         self.store.get_user(user_id)
     }
@@ -228,6 +94,55 @@ impl Client {
         self.store.set_user_block(user_id, block).await
     }
     pub async fn set_allow_guest_chat(&self, allow: bool) -> Result<()> {
-        todo!();
+        set_allow_guest_chat(&self.endpoint, &self.token, allow).await
+    }
+
+    pub async fn download_file(
+        &self,
+        file_url: &str,
+        callback: Box<dyn DownloadCallback>,
+    ) -> Result<String> {
+
+        let download_url = build_download_url(&self.endpoint, file_url);
+        let file_ext = url::Url::parse(&download_url)
+            .map_err(|e| {
+                ClientError::HTTP(format!("download_file: url parse fail: {}", download_url))
+            })
+            .map(|u| {
+                u.path_segments()
+                    .unwrap()
+                    .last()
+                    .unwrap_or_default()
+                    .split('.')
+                    .last()
+                    .unwrap_or_default()
+                    .to_string()
+            })?;
+        
+        let digest = md5::compute(&download_url);
+        let file_name = format!("{:x}.{}", digest, file_ext);
+        let save_file_name = Self::temp_path(&self.root_path, Some(file_name.to_string()));
+
+        match std::fs::metadata(Path::new(&save_file_name)) {
+            Ok(m) => {
+                if m.is_file() && m.len() > 0 {
+                    callback.on_success(download_url, save_file_name.clone());
+                    return Ok(save_file_name);
+                }
+            }
+            Err(_) => {}
+        }
+
+        #[allow(unused_variables)]
+        let (cancel_tx, cancel_rx) = oneshot::channel();
+
+        download_file(
+            download_url,
+            Some(self.token.clone()),
+            save_file_name,
+            callback,
+            cancel_rx,
+        )
+        .await
     }
 }

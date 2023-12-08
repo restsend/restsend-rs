@@ -8,7 +8,7 @@ where
     return *value == T::default();
 }
 
-#[derive(Debug)]
+#[derive(Debug, uniffi::Record)]
 pub struct GetChatLogsResult {
     pub has_more: bool,
     pub start_seq: i64,
@@ -22,15 +22,13 @@ pub struct GetConversationsResult {
     pub items: Vec<Conversation>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct ListUserResult {
     pub has_more: bool,
     pub updated_at: String,
     #[serde(default)]
     pub items: Vec<User>,
-    #[serde(default)]
-    pub removed: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,18 +50,25 @@ pub struct ListChatLogResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct TopicKnock {
     pub created_at: String,
+
     pub updated_at: String,
+
     pub topic_id: String,
+
     pub user_id: String,
+
     #[serde(default)]
     pub message: String,
+
     #[serde(default)]
     pub source: String,
+
     pub status: String,
+
     #[serde(default)]
     pub admin_id: String,
 }

@@ -19,7 +19,7 @@ async fn test_client_fetch_logs() {
     let c = Client::new("", "", &info.unwrap());
     let topic_id = "bob:alice";
 
-    let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).await.unwrap();
+    let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();
     assert_eq!(local_logs.items.len(), 0);
 
     let req = ChatRequest::new_text(topic_id, "hello via test_client_fetch_logs");
@@ -27,7 +27,7 @@ async fn test_client_fetch_logs() {
 
     struct TestSyncLogsCallbackImpl {
         result: Arc<Mutex<Option<GetChatLogsResult>>>,
-    };
+    }
 
     impl callback::SyncChatLogsCallback for TestSyncLogsCallbackImpl {
         fn on_success(&self, r: GetChatLogsResult) {
@@ -41,7 +41,7 @@ async fn test_client_fetch_logs() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs("bob:alice", 0, 10, Box::new(cb)).await;
+    c.sync_chat_logs("bob:alice", 0, 10, Box::new(cb));
 
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
@@ -50,7 +50,7 @@ async fn test_client_fetch_logs() {
     let r = result.lock().unwrap().take().unwrap();
     assert!(r.start_seq >= resp.seq);
 
-    let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).await.unwrap();
+    let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();
     assert_eq!(local_logs.items.len(), 10);
 
     assert_eq!(r.start_seq, local_logs.start_sort_value);

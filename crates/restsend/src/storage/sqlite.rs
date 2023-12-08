@@ -293,7 +293,7 @@ pub fn test_prepare() {
 #[test]
 pub fn test_store_i32() {
     let storage = SqliteStorage::new(":memory:");
-    storage.make_table("tests");
+    storage.make_table("tests").unwrap();
 
     let t = storage.table::<i32>("tests");
     t.set("", "1", Some(1));

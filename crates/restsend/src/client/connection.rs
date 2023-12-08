@@ -268,7 +268,7 @@ impl Client {
             select! {
                 _ = store_ref.process(callback_clone) =>{}
                 _ = conn_loop => {
-                    info!("connect shutdown");
+                    warn!("connect shutdown");
                 },
                 _ = async {
                     loop {
@@ -294,7 +294,7 @@ impl Client {
     }
 
     pub fn app_deactivate(&self) {
-        todo!("app_deactivate")
+        warn!("app_deactivate not implemented")
     }
 
     pub fn shutdown(&self) {

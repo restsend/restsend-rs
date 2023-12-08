@@ -45,7 +45,7 @@ impl ClientStore {
                 let status = if req.code == StatusCode::OK.as_u16() as u32 {
                     ChatLogStatus::Sent
                 } else {
-                    ChatLogStatus::SendFailed(req.code)
+                    ChatLogStatus::SendFailed
                 };
 
                 if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
@@ -205,14 +205,10 @@ impl ClientStore {
         }
     }
 
-    pub async fn pause_send(&self, req_id: &str) {
-        self.attachment_inner.cancel_send(&req_id).await
-    }
-
-    pub async fn cancel_send(&self, req_id: &str) {
+    pub fn cancel_send(&self, req_id: &str) {
         let mut outgoings = self.outgoings.lock().unwrap();
         if let Some(pending) = outgoings.remove(req_id) {
-            self.attachment_inner.cancel_send(&pending.req.id).await;
+            self.attachment_inner.cancel_send(&pending.req.id);
             pending
                 .callback
                 .map(|cb| cb.on_fail("cancel send".to_string()));

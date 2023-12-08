@@ -1,4 +1,5 @@
 use super::{PendingRequest, StoreEvent};
+use crate::Error;
 use crate::{
     callback::UploadCallback,
     services::{
@@ -8,7 +9,6 @@ use crate::{
     utils::now_timestamp,
     MAX_ATTACHMENT_CONCURRENT, MEDIA_PROGRESS_INTERVAL,
 };
-use crate::{Error, Result};
 use log::warn;
 use std::{
     collections::HashMap,
@@ -193,11 +193,7 @@ impl AttachmentInner {
         self.pendings.lock().unwrap().insert(req_id.to_string(), t);
     }
 
-    pub(super) async fn pause_send(&self, req_id: &str) {
-        todo! {}
-    }
-
-    pub(super) async fn cancel_send(&self, req_id: &str) {
+    pub(super) fn cancel_send(&self, req_id: &str) {
         let mut pendings = self.pendings.lock().unwrap();
         if let Some(pending) = pendings.remove(req_id) {
             pending.job_handle.abort();

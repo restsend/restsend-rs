@@ -1,7 +1,7 @@
 use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
 use serde::{Deserialize, Serialize};
-use std::{default, str::FromStr};
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, uniffi::Record)]
 #[serde(rename_all = "camelCase")]

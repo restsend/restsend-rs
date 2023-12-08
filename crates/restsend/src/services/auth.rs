@@ -120,7 +120,7 @@ async fn test_login() {
 
 #[tokio::test]
 async fn test_login_logout() {
-    let info = login_with_password(super::tests::TEST_ENDPOINT, "bob", "bob:demo").await;
+    let info = login_with_password(super::tests::TEST_ENDPOINT, "alice", "alice:demo").await;
     assert!(info.is_ok());
 
     logout(super::tests::TEST_ENDPOINT, info.unwrap().token.as_str())

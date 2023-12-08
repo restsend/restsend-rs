@@ -25,7 +25,7 @@ impl TopicNotice {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct Topic {
     // 群id

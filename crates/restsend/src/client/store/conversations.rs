@@ -265,7 +265,7 @@ impl ClientStore {
         Ok(())
     }
 
-    pub async fn get_chat_logs(
+    pub fn get_chat_logs(
         &self,
         topic_id: &str,
         seq: i64,
@@ -280,6 +280,11 @@ impl ClientStore {
             limit,
         };
         Ok(t.query(topic_id, &option))
+    }
+
+    pub fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
+        let t = self.message_storage.table("chat_logs");
+        t.get(topic_id, chat_id)
     }
 
     pub fn get_conversations(

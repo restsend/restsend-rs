@@ -27,7 +27,7 @@ pub async fn silent_topic(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    duration: &str,
+    duration: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({ "duration": duration }).to_string();
     api_call(
@@ -45,7 +45,7 @@ pub async fn silent_topic_member(
     token: &str,
     topic_id: &str,
     user_id: &str,
-    duration: &str,
+    duration: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({ "duration": duration }).to_string();
     api_call(
@@ -112,7 +112,7 @@ pub async fn decline_topic_join(
     token: &str,
     topic_id: &str,
     user_id: &str,
-    message: &str,
+    message: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({
         "message": message,
@@ -149,8 +149,8 @@ pub async fn update_topic(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    name: &str,
-    icon: &str,
+    name: Option<String>,
+    icon: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({
         "name":name,

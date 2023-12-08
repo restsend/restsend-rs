@@ -79,8 +79,7 @@ fn build_xcframework(mode: String) {
         }
     }
     if librarys.len() == 0 {
-        println!("🔥 No library found run `cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin` first");
-        return;
+        panic!("🔥 No library found run `cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin` first");
     }
 
     let mut build_args = vec!["-create-xcframework".to_string()];

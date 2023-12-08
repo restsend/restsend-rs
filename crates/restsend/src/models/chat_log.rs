@@ -207,7 +207,7 @@ impl Content {
 }
 
 #[allow(dead_code)]
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, uniffi::Enum)]
 pub enum ChatLogStatus {
     Uploading,
     #[default]
@@ -216,10 +216,10 @@ pub enum ChatLogStatus {
     Downloading,
     Received,
     Read,
-    SendFailed(u32),
+    SendFailed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatLog {
     pub topic_id: String,

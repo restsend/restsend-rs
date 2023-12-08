@@ -141,7 +141,7 @@ async fn test_client_send_message() {
     // check local storage
     let topic_id = last_topic_id.lock().unwrap().clone();
 
-    let logs = c.store.get_chat_logs(&topic_id, 0, 10).await.unwrap();
+    let logs = c.store.get_chat_logs(&topic_id, 0, 10).unwrap();
 
     assert!(logs.items.len() == 1);
     assert_eq!(logs.items[0].sender_id, "guido");

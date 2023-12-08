@@ -39,6 +39,7 @@ thiserror = "1.0.50"
 env_logger = "0.10.1"
 chrono = "0.4.31"
 tokio-task-pool = "0.1.5"
+md5 = "0.7.0"
 
 [dev-dependencies]
 hyper = { version = "1.0.1", features = ["full"] }

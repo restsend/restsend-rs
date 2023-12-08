@@ -1,6 +1,6 @@
 use restsend_sdk::{
-    callback,
-    models::{Conversation, GetConversationsResult},
+    callback::{self, SyncChatLogsCallback},
+    models::{Conversation, GetChatLogsResult, GetConversationsResult},
     request::ChatRequest,
     Error,
 };
@@ -116,5 +116,45 @@ impl callback::MessageCallback for RSMessageCallbackWrap {
     }
     fn on_fail(&self, reason: String) {
         self.0.as_ref().map(|t| t.on_fail(reason));
+    }
+}
+
+#[allow(unused_variables)]
+#[uniffi::export(callback_interface)]
+pub trait RSSyncChatLogsCallback: Send + Sync {
+    fn on_success(&self, r: GetChatLogsResult);
+    fn on_fail(&self, e: Error);
+}
+
+pub(crate) struct RSSyncChatLogsCallbackWrap(pub(crate) Box<dyn RSSyncChatLogsCallback>);
+impl RSSyncChatLogsCallbackWrap {}
+impl callback::SyncChatLogsCallback for RSSyncChatLogsCallbackWrap {
+    fn on_success(&self, r: GetChatLogsResult) {
+        self.0.on_success(r);
+    }
+    fn on_fail(&self, e: Error) {
+        self.0.on_fail(e);
+    }
+}
+
+#[allow(unused_variables)]
+#[uniffi::export(callback_interface)]
+pub trait RSDownloadCallback: Send + Sync {
+    fn on_progress(&self, progress: u64, total: u64) {}
+    fn on_success(&self, url: String, file_name: String) {}
+    fn on_fail(&self, e: Error) {}
+}
+
+pub(crate) struct RSDownloadCallbackWrap(pub(crate) Box<dyn RSDownloadCallback>);
+impl RSDownloadCallbackWrap {}
+impl callback::DownloadCallback for RSDownloadCallbackWrap {
+    fn on_progress(&self, progress: u64, total: u64) {
+        self.0.on_progress(progress, total);
+    }
+    fn on_success(&self, url: String, file_name: String) {
+        self.0.on_success(url, file_name);
+    }
+    fn on_fail(&self, e: Error) {
+        self.0.on_fail(e);
     }
 }

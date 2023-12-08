@@ -1,5 +1,5 @@
 use super::{is_cache_expired, ClientStore};
-use crate::services::user::{set_user_block, set_user_remark, set_user_star};
+use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
 use crate::{
     client::store::StoreEvent, models::User, services::user::get_user, utils::now_timestamp,
 };
@@ -46,26 +46,65 @@ impl ClientStore {
         let t = self.message_storage.table::<User>("users");
         let u = t.get("", user_id).unwrap_or(User::new(user_id));
         if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
-            self.fetch_user(user_id);
+            let endpoint = self.endpoint.clone();
+            let token = self.token.clone();
+            let user_id = user_id.to_string();
+            let tx = self.event_tx.lock().unwrap().clone();
+            tokio::spawn(async move {
+                let user = get_user(&endpoint, &token, &user_id).await;
+                if let Ok(user) = user {
+                    if let Some(tx) = tx {
+                        tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
+                    }
+                } else {
+                    warn!("get_user failed: {:?}", user_id);
+                }
+            });
         }
         Some(u)
     }
 
-    fn fetch_user(&self, user_id: &str) {
-        let event_tx = self.event_tx.lock().unwrap().clone();
+    pub async fn fetch_user(&self, user_id: &str) -> Result<User> {
+        let u = {
+            let t = self.message_storage.table::<User>("users");
+            t.get("", user_id).unwrap_or(User::new(user_id))
+        };
 
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let user_id = user_id.to_string();
+        if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+            let endpoint = self.endpoint.clone();
+            let token = self.token.clone();
+            let user_id = user_id.to_string();
+            let tx = self.event_tx.lock().unwrap().clone();
 
-        tokio::spawn(async move {
-            let user = get_user(&endpoint, &token, &user_id).await;
-            if let Ok(user) = user {
-                event_tx.map(|tx| tx.send(StoreEvent::UpdateUser(vec![user])));
-            } else {
-                warn!("fetch_user failed");
+            let user = get_user(&endpoint, &token, &user_id).await?;
+            if let Some(tx) = tx {
+                tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
             }
-        });
+            return Ok(user);
+        }
+        Ok(u)
+    }
+
+    pub async fn fetch_users(&self, user_ids: Vec<String>) -> Result<Vec<User>> {
+        let mut users = vec![];
+        let mut missing_ids = vec![];
+        for user_id in user_ids {
+            let u = self.fetch_user(&user_id).await?;
+            if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+                missing_ids.push(user_id);
+            } else {
+                users.push(u);
+            }
+        }
+        match get_users(&self.endpoint, &self.token, missing_ids).await {
+            Ok(mut us) => {
+                users.append(&mut us);
+            }
+            Err(e) => {
+                warn!("get_users failed: {:?}", e);
+            }
+        }
+        Ok(users)
     }
 
     pub(super) async fn fetch_or_update_user(
@@ -78,7 +117,21 @@ impl ClientStore {
                 self.update_user(profile).ok();
             }
             None => {
-                self.fetch_user(user_id);
+                let endpoint = self.endpoint.clone();
+                let token = self.token.clone();
+                let user_id = user_id.to_string();
+                let tx = self.event_tx.lock().unwrap().clone();
+
+                tokio::spawn(async move {
+                    let user = get_user(&endpoint, &token, &user_id).await;
+                    if let Ok(user) = user {
+                        if let Some(tx) = tx {
+                            tx.send(StoreEvent::UpdateUser(vec![user.clone()]));
+                        }
+                    } else {
+                        warn!("get_user failed: {:?}", user_id);
+                    }
+                });
             }
         }
         Ok(())

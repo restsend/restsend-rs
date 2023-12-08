@@ -151,7 +151,7 @@ pub(crate) async fn download_file(
     save_file_name: String,
     callback: Box<dyn DownloadCallback>,
     cancel: oneshot::Receiver<()>,
-) -> Result<()> {
+) -> Result<String> {
     let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
     let req = super::make_get_request(
         "",
@@ -205,14 +205,14 @@ pub(crate) async fn download_file(
                 }
             }
         } => {
-            Ok(())
+            Err(UserCancel("canceled".to_string()).into())
         },
         r = download_runner => {
             match r {
                 Ok((file_name, total)) => {
                     callback.on_progress(total, total);
-                    callback.on_success(download_url, file_name);
-                    Ok(())
+                    callback.on_success(download_url, file_name.clone());
+                    Ok(file_name)
                 },
                 Err(e) => {
                     let reason = format!("download failed: {}", e.to_string());

@@ -1,4 +1,4 @@
-use restsend_sdk::{account, models::AuthInfo, services, utils, Result};
+use restsend_sdk::{account, models, services, utils, Result};
 
 #[uniffi::export]
 pub fn init_log(level: String, is_test: bool) {
@@ -6,7 +6,7 @@ pub fn init_log(level: String, is_test: bool) {
 }
 
 #[uniffi::export]
-pub fn get_current_user(root_path: String) -> Option<AuthInfo> {
+pub fn get_current_user(root_path: String) -> Option<models::AuthInfo> {
     account::get_current_user(&root_path)
 }
 
@@ -16,6 +16,10 @@ pub fn set_current_user(root_path: String, user_id: String) {
 }
 
 #[uniffi::export]
-pub async fn login(endpoint: String, user_id: String, password: String) -> Result<AuthInfo> {
+pub async fn login(
+    endpoint: String,
+    user_id: String,
+    password: String,
+) -> Result<models::AuthInfo> {
     services::auth::login_with_password(&endpoint, &user_id, &password).await
 }
