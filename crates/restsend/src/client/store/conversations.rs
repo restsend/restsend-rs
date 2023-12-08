@@ -3,10 +3,7 @@ use crate::{
     client::store::StoreEvent,
     models::{ChatLog, ChatLogStatus, Content, ContentType, Conversation},
     request::ChatRequest,
-    services::conversation::{
-        get_conversation, remove_conversation, set_conversation_mute, set_conversation_read,
-        set_conversation_sticky,
-    },
+    services::conversation::*,
     storage::{QueryOption, QueryResult},
     utils::now_timestamp,
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
@@ -285,6 +282,13 @@ impl ClientStore {
     pub fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
         let t = self.message_storage.table("chat_logs");
         t.get(topic_id, chat_id)
+    }
+
+    pub fn remove_messages(&self, topic_id: &str, chat_ids: &[String]) {
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
+        for chat_id in chat_ids {
+            t.remove(topic_id, chat_id);
+        }
     }
 
     pub fn get_conversations(

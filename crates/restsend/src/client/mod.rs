@@ -3,22 +3,18 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::{self, Callback, DownloadCallback, SyncChatLogsCallback, SyncConversationsCallback},
+    callback::DownloadCallback,
     error::ClientError,
-    models::{
-        AuthInfo, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult, User,
-    },
+    models::{AuthInfo, User},
     services::{
-        conversation::{get_chat_logs_desc, get_conversations},
         media::{build_download_url, download_file},
         user::set_allow_guest_chat,
     },
-    utils::now_timestamp,
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};
 use log::warn;
-use std::{hash, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 use tokio::sync::oneshot;
 mod connection;
 mod conversation;
@@ -102,7 +98,6 @@ impl Client {
         file_url: &str,
         callback: Box<dyn DownloadCallback>,
     ) -> Result<String> {
-
         let download_url = build_download_url(&self.endpoint, file_url);
         let file_ext = url::Url::parse(&download_url)
             .map_err(|e| {
@@ -118,7 +113,7 @@ impl Client {
                     .unwrap_or_default()
                     .to_string()
             })?;
-        
+
         let digest = md5::compute(&download_url);
         let file_name = format!("{:x}.{}", digest, file_ext);
         let save_file_name = Self::temp_path(&self.root_path, Some(file_name.to_string()));

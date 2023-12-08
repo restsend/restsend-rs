@@ -126,7 +126,7 @@ impl ClientStore {
                     let user = get_user(&endpoint, &token, &user_id).await;
                     if let Ok(user) = user {
                         if let Some(tx) = tx {
-                            tx.send(StoreEvent::UpdateUser(vec![user.clone()]));
+                            tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
                         }
                     } else {
                         warn!("get_user failed: {:?}", user_id);

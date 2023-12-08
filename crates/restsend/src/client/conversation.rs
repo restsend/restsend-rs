@@ -26,7 +26,13 @@ impl Client {
         chat_ids: Vec<String>,
         sync_to_server: bool,
     ) -> Result<()> {
-        remove_messages(&self.endpoint, &self.token, topic_id, chat_ids).await
+        self.store.remove_messages(topic_id, &chat_ids);
+
+        if sync_to_server {
+            remove_messages(&self.endpoint, &self.token, topic_id, chat_ids).await
+        } else {
+            Ok(())
+        }
     }
 
     pub fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
