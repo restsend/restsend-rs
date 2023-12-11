@@ -5380,6 +5380,62 @@ public func initLog(level: String, isTest: Bool)  {
 
 
 
+public func loginWithPassword(endpoint: String, email: String, password: String) async throws -> AuthInfo {
+    return try  await uniffiRustCallAsync(
+        rustFutureFunc: {
+            uniffi_restsend_sdk_fn_func_login_with_password(
+                FfiConverterString.lower(endpoint),
+                FfiConverterString.lower(email),
+                FfiConverterString.lower(password)
+            )
+        },
+        pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+        completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+        freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+        liftFunc: FfiConverterTypeAuthInfo.lift,
+        errorHandler: FfiConverterTypeClientError.lift
+    )
+}
+
+
+
+public func loginWithToken(endpoint: String, email: String, token: String) async throws -> AuthInfo {
+    return try  await uniffiRustCallAsync(
+        rustFutureFunc: {
+            uniffi_restsend_sdk_fn_func_login_with_token(
+                FfiConverterString.lower(endpoint),
+                FfiConverterString.lower(email),
+                FfiConverterString.lower(token)
+            )
+        },
+        pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+        completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+        freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+        liftFunc: FfiConverterTypeAuthInfo.lift,
+        errorHandler: FfiConverterTypeClientError.lift
+    )
+}
+
+
+
+public func logout(endpoint: String, token: String) async throws {
+    return try  await uniffiRustCallAsync(
+        rustFutureFunc: {
+            uniffi_restsend_sdk_fn_func_logout(
+                FfiConverterString.lower(endpoint),
+                FfiConverterString.lower(token)
+            )
+        },
+        pollFunc: ffi_restsend_sdk_rust_future_poll_void,
+        completeFunc: ffi_restsend_sdk_rust_future_complete_void,
+        freeFunc: ffi_restsend_sdk_rust_future_free_void,
+        liftFunc: { $0 },
+        errorHandler: FfiConverterTypeClientError.lift
+    )
+}
+
+
+
 public func nowTimestamp()  -> Int64 {
     return try!  FfiConverterInt64.lift(
         try! rustCall() {
@@ -5417,6 +5473,15 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_func_init_log() != 64963) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_func_login_with_password() != 63687) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_func_login_with_token() != 38409) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_func_logout() != 45700) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_func_now_timestamp() != 18746) {

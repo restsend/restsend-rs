@@ -197,6 +197,12 @@ RustBuffer uniffi_restsend_sdk_fn_func_get_current_user(RustBuffer root, RustCal
 );
 void uniffi_restsend_sdk_fn_func_init_log(RustBuffer level, int8_t is_test, RustCallStatus *_Nonnull out_status
 );
+void* _Nonnull uniffi_restsend_sdk_fn_func_login_with_password(RustBuffer endpoint, RustBuffer email, RustBuffer password
+);
+void* _Nonnull uniffi_restsend_sdk_fn_func_login_with_token(RustBuffer endpoint, RustBuffer email, RustBuffer token
+);
+void* _Nonnull uniffi_restsend_sdk_fn_func_logout(RustBuffer endpoint, RustBuffer token
+);
 int64_t uniffi_restsend_sdk_fn_func_now_timestamp(RustCallStatus *_Nonnull out_status
     
 );
@@ -320,6 +326,15 @@ uint16_t uniffi_restsend_sdk_checksum_func_get_current_user(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_func_init_log(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_func_login_with_password(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_func_login_with_token(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_func_logout(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_func_now_timestamp(void

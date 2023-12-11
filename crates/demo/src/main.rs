@@ -23,7 +23,12 @@ impl callback::Callback for TestCallbackImpl {
 
 #[tokio::main]
 async fn main() {
-    let info = login_with_password("https://chat.ruzhila.cn", "bob", "bob:demo").await;
+    let info = login_with_password(
+        "https://chat.ruzhila.cn".to_string(),
+        "bob".to_string(),
+        "bob:demo".to_string(),
+    )
+    .await;
     assert!(info.is_ok());
 
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());

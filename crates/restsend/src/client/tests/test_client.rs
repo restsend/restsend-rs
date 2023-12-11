@@ -68,7 +68,12 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
 async fn test_client_connected() {
     init_log("INFO".to_string(), true);
 
-    let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
+    let info = login_with_password(
+        TEST_ENDPOINT.to_string(),
+        "bob".to_string(),
+        "bob:demo".to_string(),
+    )
+    .await;
     assert!(info.is_ok());
 
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
@@ -93,7 +98,12 @@ async fn test_client_connected() {
 #[tokio::test]
 async fn test_client_send_message() {
     init_log("INFO".to_string(), true);
-    let info = login_with_password(TEST_ENDPOINT, "guido", "guido:demo").await;
+    let info = login_with_password(
+        TEST_ENDPOINT.to_string(),
+        "guido".to_string(),
+        "guido:demo".to_string(),
+    )
+    .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
 
     let is_connected = Arc::new(AtomicBool::new(false));

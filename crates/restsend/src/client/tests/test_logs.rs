@@ -15,7 +15,12 @@ use crate::{
 #[tokio::test]
 async fn test_client_fetch_logs() {
     init_log("INFO".to_string(), true);
-    let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
+    let info = login_with_password(
+        TEST_ENDPOINT.to_string(),
+        "bob".to_string(),
+        "bob:demo".to_string(),
+    )
+    .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let topic_id = "bob:alice";
 

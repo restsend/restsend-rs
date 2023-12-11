@@ -5,27 +5,34 @@ use crate::Result;
 use log::info;
 use tokio::time::Instant;
 
-pub async fn login_with_token(endpoint: &str, email: &str, token: &str) -> Result<AuthInfo> {
+#[uniffi::export]
+pub async fn login_with_token(endpoint: String, email: String, token: String) -> Result<AuthInfo> {
     let data = serde_json::json!({
         "token": token,
         "remember": true,
     });
-    login(endpoint, email, data.to_string()).await
+    login(&endpoint, &email, data.to_string()).await
 }
 
-pub async fn login_with_password(endpoint: &str, email: &str, password: &str) -> Result<AuthInfo> {
+#[uniffi::export]
+pub async fn login_with_password(
+    endpoint: String,
+    email: String,
+    password: String,
+) -> Result<AuthInfo> {
     let data = serde_json::json!({
         "email": email,
         "password": password,
         "remember": true,
     });
-    login(endpoint, email, data.to_string()).await
+    login(&endpoint, &email, data.to_string()).await
 }
 
-pub async fn logout(endpoint: &str, token: &str) -> Result<()> {
+#[uniffi::export]
+pub async fn logout(endpoint: String, token: String) -> Result<()> {
     let st = tokio::time::Instant::now();
     let uri = "/auth/logout";
-    let req = make_get_request(endpoint, uri, Some(token.to_string()), None);
+    let req = make_get_request(&endpoint, uri, Some(token.to_string()), None);
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
     let status = resp.status();
 
@@ -88,14 +95,19 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
 #[tokio::test]
 async fn test_login() {
     let user_id = "alice";
-    let info = login_with_password(super::tests::TEST_ENDPOINT, user_id, "bad:demo2").await;
+    let info = login_with_password(
+        super::tests::TEST_ENDPOINT.to_string(),
+        user_id.to_string(),
+        "bad:demo2".to_string(),
+    )
+    .await;
     println!("{:?}", info);
     assert!(info.unwrap_err().to_string().contains("invalid password"));
 
     let info = login_with_password(
-        super::tests::TEST_ENDPOINT,
-        user_id,
-        &format!("{}:demo", user_id),
+        super::tests::TEST_ENDPOINT.to_string(),
+        user_id.to_string(),
+        format!("{}:demo", user_id),
     )
     .await;
     assert!(info.is_ok());
@@ -107,7 +119,12 @@ async fn test_login() {
     assert_eq!(info.endpoint, super::tests::TEST_ENDPOINT);
 
     let token = info.token;
-    let info = login_with_token(super::tests::TEST_ENDPOINT, user_id, &token).await;
+    let info = login_with_token(
+        super::tests::TEST_ENDPOINT.to_string(),
+        user_id.to_string(),
+        token.clone(),
+    )
+    .await;
 
     assert!(info.is_ok());
     let info = info.unwrap();
@@ -120,10 +137,15 @@ async fn test_login() {
 
 #[tokio::test]
 async fn test_login_logout() {
-    let info = login_with_password(super::tests::TEST_ENDPOINT, "alice", "alice:demo").await;
+    let info = login_with_password(
+        super::tests::TEST_ENDPOINT.to_string(),
+        "alice".to_string(),
+        "alice:demo".to_string(),
+    )
+    .await;
     assert!(info.is_ok());
 
-    logout(super::tests::TEST_ENDPOINT, info.unwrap().token.as_str())
+    logout(super::tests::TEST_ENDPOINT.to_string(), info.unwrap().token)
         .await
         .expect("logout failed");
 }
