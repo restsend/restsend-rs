@@ -14,16 +14,19 @@ use crate::{
 
 #[tokio::test]
 async fn test_client_fetch_logs() {
-    init_log("INFO", true);
+    init_log("INFO".to_string(), true);
     let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
-    let c = Client::new("", "", &info.unwrap());
+    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let topic_id = "bob:alice";
 
     let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();
     assert_eq!(local_logs.items.len(), 0);
 
     let req = ChatRequest::new_text(topic_id, "hello via test_client_fetch_logs");
-    let resp = c.send_chat_request(topic_id, req).await.unwrap();
+    let resp = c
+        .send_chat_request(topic_id.to_string(), req)
+        .await
+        .unwrap();
 
     struct TestSyncLogsCallbackImpl {
         result: Arc<Mutex<Option<GetChatLogsResult>>>,
@@ -41,7 +44,7 @@ async fn test_client_fetch_logs() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs("bob:alice", 0, 10, Box::new(cb));
+    c.sync_chat_logs("bob:alice".to_string(), 0, 10, Box::new(cb));
 
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await

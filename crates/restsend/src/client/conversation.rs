@@ -11,39 +11,42 @@ use crate::utils::now_timestamp;
 use crate::Result;
 use log::warn;
 
+#[uniffi::export]
 impl Client {
-    pub async fn create_chat(&self, user_id: &str) -> Option<Conversation> {
-        create_chat(&self.endpoint, &self.token, user_id).await.ok()
+    pub async fn create_chat(&self, user_id: String) -> Option<Conversation> {
+        create_chat(&self.endpoint, &self.token, &user_id)
+            .await
+            .ok()
     }
 
-    pub async fn clean_history(&self, topic_id: &str) -> Result<()> {
-        clean_history(&self.endpoint, &self.token, topic_id).await
+    pub async fn clean_history(&self, topic_id: String) -> Result<()> {
+        clean_history(&self.endpoint, &self.token, &topic_id).await
     }
 
     pub async fn remove_messages(
         &self,
-        topic_id: &str,
+        topic_id: String,
         chat_ids: Vec<String>,
         sync_to_server: bool,
     ) -> Result<()> {
-        self.store.remove_messages(topic_id, &chat_ids);
+        self.store.remove_messages(&topic_id, &chat_ids);
 
         if sync_to_server {
-            remove_messages(&self.endpoint, &self.token, topic_id, chat_ids).await
+            remove_messages(&self.endpoint, &self.token, &topic_id, chat_ids).await
         } else {
             Ok(())
         }
     }
 
-    pub fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
-        self.store.get_chat_log(topic_id, chat_id)
+    pub fn get_chat_log(&self, topic_id: String, chat_id: String) -> Option<ChatLog> {
+        self.store.get_chat_log(&topic_id, &chat_id)
     }
 
     pub async fn search_chat_log(
         &self,
         _topic_id: Option<String>,
         _sender_id: Option<String>,
-        _keyword: &str,
+        _keyword: String,
     ) -> Option<GetChatLogsResult> {
         warn!("search_chat_log not implemented");
         None
@@ -51,12 +54,12 @@ impl Client {
 
     pub fn sync_chat_logs(
         &self,
-        topic_id: &str,
+        topic_id: String,
         last_seq: i64,
         limit: u32,
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
-        match self.store.get_chat_logs(topic_id, last_seq, limit) {
+        match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
                 if local_logs.items.len() == limit as usize {
                     let r = GetChatLogsResult {
@@ -179,23 +182,23 @@ impl Client {
         });
     }
 
-    pub fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
-        self.store.get_conversation(topic_id)
+    pub fn get_conversation(&self, topic_id: String) -> Option<Conversation> {
+        self.store.get_conversation(&topic_id)
     }
 
-    pub async fn remove_conversation(&self, topic_id: &str) {
-        self.store.remove_conversation(topic_id).await
+    pub async fn remove_conversation(&self, topic_id: String) {
+        self.store.remove_conversation(&topic_id).await
     }
 
-    pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
-        self.store.set_conversation_sticky(topic_id, sticky).await
+    pub async fn set_conversation_sticky(&self, topic_id: String, sticky: bool) {
+        self.store.set_conversation_sticky(&topic_id, sticky).await
     }
 
-    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
-        self.store.set_conversation_mute(topic_id, mute).await
+    pub async fn set_conversation_mute(&self, topic_id: String, mute: bool) {
+        self.store.set_conversation_mute(&topic_id, mute).await
     }
 
-    pub async fn set_conversation_read(&self, topic_id: &str) {
-        self.store.set_conversation_read(topic_id).await
+    pub async fn set_conversation_read(&self, topic_id: String) {
+        self.store.set_conversation_read(&topic_id).await
     }
 }

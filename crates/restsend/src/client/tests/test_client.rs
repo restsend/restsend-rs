@@ -66,12 +66,12 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
 
 #[tokio::test]
 async fn test_client_connected() {
-    init_log("INFO", true);
+    init_log("INFO".to_string(), true);
 
     let info = login_with_password(TEST_ENDPOINT, "bob", "bob:demo").await;
     assert!(info.is_ok());
 
-    let c = Client::new("", "", &info.unwrap());
+    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let is_connected = Arc::new(AtomicBool::new(false));
 
     let callback = Box::new(TestCallbackImpl {
@@ -92,9 +92,9 @@ async fn test_client_connected() {
 
 #[tokio::test]
 async fn test_client_send_message() {
-    init_log("INFO", true);
+    init_log("INFO".to_string(), true);
     let info = login_with_password(TEST_ENDPOINT, "guido", "guido:demo").await;
-    let c = Client::new("", "", &info.unwrap());
+    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
 
     let is_connected = Arc::new(AtomicBool::new(false));
     let is_recv_message = Arc::new(AtomicBool::new(false));
@@ -124,9 +124,15 @@ async fn test_client_send_message() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
-    c.do_send_text("guido:alice", "hello", None, None, Some(msg_cb))
-        .await
-        .unwrap();
+    c.do_send_text(
+        "guido:alice".to_string(),
+        "hello".to_string(),
+        None,
+        None,
+        Some(msg_cb),
+    )
+    .await
+    .unwrap();
 
     check_until(Duration::from_secs(3), || is_sent.load(Ordering::Relaxed))
         .await

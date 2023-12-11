@@ -8,13 +8,14 @@ use crate::{models::Content, request::ChatRequest};
 use log::warn;
 use std::io::Write;
 
+#[uniffi::export]
 impl Client {
     pub async fn send_chat_request(
         &self,
-        topic_id: &str,
+        topic_id: String,
         req: ChatRequest,
     ) -> Result<APISendResponse> {
-        send_request(&self.endpoint, &self.token, topic_id, req).await
+        send_request(&self.endpoint, &self.token, &topic_id, req).await
     }
 
     async fn send_chat_request_via_connection(
@@ -29,8 +30,8 @@ impl Client {
 
     pub async fn do_send_text(
         &self,
-        topic_id: &str,
-        text: &str,
+        topic_id: String,
+        text: String,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -43,7 +44,7 @@ impl Client {
 
     pub async fn do_send_image(
         &self,
-        topic_id: &str,
+        topic_id: String,
         attachment: Attachment,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
@@ -57,14 +58,14 @@ impl Client {
 
     pub async fn do_send_voice(
         &self,
-        topic_id: &str,
+        topic_id: String,
         attachment: Attachment,
-        duration: &str,
+        duration: String,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
-        let req = ChatRequest::new_voice(topic_id, duration, attachment)
+        let req = ChatRequest::new_voice(&topic_id, &duration, attachment)
             .mentions(mentions)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
@@ -72,9 +73,9 @@ impl Client {
 
     pub async fn do_send_video(
         &self,
-        topic_id: &str,
+        topic_id: String,
         attachment: Attachment,
-        duration: &str,
+        duration: String,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -87,7 +88,7 @@ impl Client {
 
     pub async fn do_send_file(
         &self,
-        topic_id: &str,
+        topic_id: String,
         attachment: Attachment,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
@@ -101,10 +102,10 @@ impl Client {
 
     pub async fn do_send_location(
         &self,
-        topic_id: &str,
-        latitude: &str,
-        longitude: &str,
-        address: &str,
+        topic_id: String,
+        latitude: String,
+        longitude: String,
+        address: String,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -117,9 +118,9 @@ impl Client {
 
     pub async fn do_send_link(
         &self,
-        topic_id: &str,
-        url: &str,
-        placeholder: &str,
+        topic_id: String,
+        url: String,
+        placeholder: String,
         mentions: Option<Vec<String>>,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -132,7 +133,7 @@ impl Client {
 
     pub async fn do_send_invite(
         &self,
-        topic_id: &str,
+        topic_id: String,
         messsage: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
@@ -142,7 +143,7 @@ impl Client {
 
     pub async fn do_send_logs(
         &self,
-        topic_id: &str,
+        topic_id: String,
         log_ids: Vec<String>,
         mentions: Option<Vec<String>>,
         callback: Option<Box<dyn MessageCallback>>,
@@ -152,7 +153,7 @@ impl Client {
 
         let mut items = Vec::new();
         for log_id in log_ids.iter() {
-            if let Some(log) = self.store.get_chat_log(topic_id, log_id) {
+            if let Some(log) = self.store.get_chat_log(&topic_id, log_id) {
                 items.push(log.to_string());
             }
         }
@@ -184,18 +185,18 @@ impl Client {
         self.send_chat_request_via_connection(req, callback).await
     }
 
-    pub fn cancel_send(&self, req_id: &str) {
-        self.store.cancel_send(req_id)
+    pub fn cancel_send(&self, req_id: String) {
+        self.store.cancel_send(&req_id)
     }
 
-    pub async fn do_typing(&self, topic_id: &str) -> Result<()> {
+    pub async fn do_typing(&self, topic_id: String) -> Result<()> {
         let req = ChatRequest::new_typing(&topic_id);
         self.send_chat_request_via_connection(req, None)
             .await
             .map(|_| ())
     }
 
-    pub async fn do_read(&self, topic_id: &str) -> Result<()> {
+    pub async fn do_read(&self, topic_id: String) -> Result<()> {
         let req = ChatRequest::new_read(&topic_id);
         self.send_chat_request_via_connection(req, None)
             .await
@@ -204,8 +205,8 @@ impl Client {
 
     pub async fn do_recall(
         &self,
-        topic_id: &str,
-        chat_id: &str,
+        topic_id: String,
+        chat_id: String,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_recall(&topic_id, &chat_id);
@@ -214,7 +215,7 @@ impl Client {
 
     pub async fn do_send(
         &self,
-        topic_id: &str,
+        topic_id: String,
         content: Content,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {

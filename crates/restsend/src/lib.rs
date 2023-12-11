@@ -1,15 +1,16 @@
+uniffi::setup_scaffolding!();
+
 pub mod account;
 pub mod callback;
 pub mod client;
 pub mod error;
+//pub mod ffi;
 pub mod models;
 pub mod request;
 pub mod services;
 pub mod storage;
 pub mod utils;
 mod websocket;
-
-uniffi::setup_scaffolding!();
 
 const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
 const DB_SUFFIX: &str = ".sqlite3";

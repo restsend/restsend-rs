@@ -11,7 +11,7 @@ pub struct Login {
     pub profile: UserProfile,
 }
 
-#[derive(serde::Deserialize, Default, Clone)]
+#[derive(serde::Deserialize, Default, Clone, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct Upload {
     pub path: String,
@@ -23,7 +23,7 @@ pub struct Upload {
     pub size: u64,
 }
 
-#[derive(serde::Deserialize, Default, Clone, Debug)]
+#[derive(serde::Deserialize, Default, Clone, Debug, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
 pub struct APISendResponse {
     #[serde(default)]

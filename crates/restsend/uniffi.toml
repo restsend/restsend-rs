@@ -6,4 +6,4 @@ module_name = "restsend"
 ffi_module_filename = "module"
 
 [bindings.python]
-cdylib_name = "restsend_ffi"
+cdylib_name = "restsend_sdk"

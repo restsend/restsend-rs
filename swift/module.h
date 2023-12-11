@@ -63,244 +63,524 @@ typedef struct RustCallStatus {
 typedef void (*UniFfiRustFutureContinuation)(void * _Nonnull, int8_t);
 
 // Scaffolding functions
-void uniffi_restsend_ffi_fn_free_rsclient(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_free_client(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-void*_Nonnull uniffi_restsend_ffi_fn_constructor_rsclient_new(RustBuffer root_path, RustBuffer db_name, RustBuffer info, RustCallStatus *_Nonnull out_status
+void*_Nonnull uniffi_restsend_sdk_fn_constructor_client_new(RustBuffer root_path, RustBuffer db_name, RustBuffer info, RustCallStatus *_Nonnull out_status
 );
-void uniffi_restsend_ffi_fn_method_rsclient_app_active(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_accept_topic_join(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer memo
 );
-void uniffi_restsend_ffi_fn_method_rsclient_app_deactivate(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_add_topic_admin(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
-void* _Nonnull uniffi_restsend_ffi_fn_method_rsclient_connect(void*_Nonnull ptr, uint64_t callback
+void uniffi_restsend_sdk_fn_method_client_app_active(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-RustBuffer uniffi_restsend_ffi_fn_method_rsclient_get_conversation(void*_Nonnull ptr, RustBuffer topic_id, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_app_deactivate(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-void uniffi_restsend_ffi_fn_method_rsclient_remove_conversation(void*_Nonnull ptr, RustBuffer topic_id, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuffer req_id, RustCallStatus *_Nonnull out_status
 );
-void uniffi_restsend_ffi_fn_method_rsclient_set_conversation_mute(void*_Nonnull ptr, RustBuffer topic_id, int8_t mute, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_history(void*_Nonnull ptr, RustBuffer topic_id
 );
-void uniffi_restsend_ffi_fn_method_rsclient_set_conversation_read(void*_Nonnull ptr, RustBuffer topic_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr, uint64_t callback
 );
-void uniffi_restsend_ffi_fn_method_rsclient_set_conversation_sticky(void*_Nonnull ptr, RustBuffer topic_id, int8_t sticky, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_chat(void*_Nonnull ptr, RustBuffer user_id
 );
-void uniffi_restsend_ffi_fn_method_rsclient_shutdown(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_topic(void*_Nonnull ptr, RustBuffer icon, RustBuffer name, RustBuffer members
 );
-void uniffi_restsend_ffi_fn_method_rsclient_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_decline_topic_join(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer message
 );
-void uniffi_restsend_ffi_fn_init_callback_rscallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_dismiss_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
-void uniffi_restsend_ffi_fn_init_callback_rssyncconversationscallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_read(void*_Nonnull ptr, RustBuffer topic_id
 );
-RustBuffer uniffi_restsend_ffi_fn_func_get_current_user(RustBuffer root_path, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_recall(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustBuffer callback
 );
-void uniffi_restsend_ffi_fn_func_init_log(RustBuffer level, int8_t is_test, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer content, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_ffi_fn_func_login(RustBuffer endpoint, RustBuffer user_id, RustBuffer password
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_file(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void uniffi_restsend_ffi_fn_func_set_current_user(RustBuffer root_path, RustBuffer user_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_image(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-RustBuffer ffi_restsend_ffi_rustbuffer_alloc(int32_t size, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_invite(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer messsage, RustBuffer callback
 );
-RustBuffer ffi_restsend_ffi_rustbuffer_from_bytes(ForeignBytes bytes, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer placeholder, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void ffi_restsend_ffi_rustbuffer_free(RustBuffer buf, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-RustBuffer ffi_restsend_ffi_rustbuffer_reserve(RustBuffer buf, int32_t additional, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer log_ids, RustBuffer mentions, RustBuffer callback
 );
-void ffi_restsend_ffi_rust_future_continuation_callback_set(UniFfiRustFutureContinuation _Nonnull callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_text(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void ffi_restsend_ffi_rust_future_poll_u8(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_video(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void ffi_restsend_ffi_rust_future_cancel_u8(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void ffi_restsend_ffi_rust_future_free_u8(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_typing(void*_Nonnull ptr, RustBuffer topic_id
 );
-uint8_t ffi_restsend_ffi_rust_future_complete_u8(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_download_file(void*_Nonnull ptr, RustBuffer file_url, uint64_t callback
 );
-void ffi_restsend_ffi_rust_future_poll_i8(void* _Nonnull handle, void* _Nonnull uniffi_callback
+RustBuffer uniffi_restsend_sdk_fn_method_client_get_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_cancel_i8(void* _Nonnull handle
+RustBuffer uniffi_restsend_sdk_fn_method_client_get_conversation(void*_Nonnull ptr, RustBuffer topic_id, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_free_i8(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
-int8_t ffi_restsend_ffi_rust_future_complete_i8(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_admins(void*_Nonnull ptr, RustBuffer topic_id
 );
-void ffi_restsend_ffi_rust_future_poll_u16(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_knocks(void*_Nonnull ptr, RustBuffer topic_id
 );
-void ffi_restsend_ffi_rust_future_cancel_u16(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_members(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer updated_at, uint32_t limit
 );
-void ffi_restsend_ffi_rust_future_free_u16(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_owner(void*_Nonnull ptr, RustBuffer topic_id
 );
-uint16_t ffi_restsend_ffi_rust_future_complete_u16(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_poll_i16(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_quit_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
-void ffi_restsend_ffi_rust_future_cancel_i16(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_remove_conversation(void*_Nonnull ptr, RustBuffer topic_id
 );
-void ffi_restsend_ffi_rust_future_free_i16(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_remove_messages(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_ids, int8_t sync_to_server
 );
-int16_t ffi_restsend_ffi_rust_future_complete_i16(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_remove_topic_admin(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
-void ffi_restsend_ffi_rust_future_poll_u32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_remove_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
-void ffi_restsend_ffi_rust_future_cancel_u32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_search_chat_log(void*_Nonnull ptr, RustBuffer _topic_id, RustBuffer _sender_id, RustBuffer _keyword
 );
-void ffi_restsend_ffi_rust_future_free_u32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer req
 );
-uint32_t ffi_restsend_ffi_rust_future_complete_u32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request_via_connection(void*_Nonnull ptr, RustBuffer req, RustBuffer callback
 );
-void ffi_restsend_ffi_rust_future_poll_i32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_serve_connection(void*_Nonnull ptr, uint64_t callback
 );
-void ffi_restsend_ffi_rust_future_cancel_i32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_allow_guest_chat(void*_Nonnull ptr, int8_t allow
 );
-void ffi_restsend_ffi_rust_future_free_i32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_mute(void*_Nonnull ptr, RustBuffer topic_id, int8_t mute
 );
-int32_t ffi_restsend_ffi_rust_future_complete_i32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_read(void*_Nonnull ptr, RustBuffer topic_id
 );
-void ffi_restsend_ffi_rust_future_poll_u64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_sticky(void*_Nonnull ptr, RustBuffer topic_id, int8_t sticky
 );
-void ffi_restsend_ffi_rust_future_cancel_u64(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_user_block(void*_Nonnull ptr, RustBuffer user_id, int8_t block
 );
-void ffi_restsend_ffi_rust_future_free_u64(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_user_remark(void*_Nonnull ptr, RustBuffer user_id, RustBuffer remark
 );
-uint64_t ffi_restsend_ffi_rust_future_complete_u64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_user_star(void*_Nonnull ptr, RustBuffer user_id, int8_t star
 );
-void ffi_restsend_ffi_rust_future_poll_i64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void uniffi_restsend_sdk_fn_method_client_shutdown(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_cancel_i64(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer duration
 );
-void ffi_restsend_ffi_rust_future_free_i64(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer duration
 );
-int64_t ffi_restsend_ffi_rust_future_complete_i64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, int64_t last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_poll_f32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_cancel_f32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_transfer_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
-void ffi_restsend_ffi_rust_future_free_f32(void* _Nonnull handle
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_update_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer name, RustBuffer icon
 );
-float ffi_restsend_ffi_rust_future_complete_f32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_update_topic_notice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text
 );
-void ffi_restsend_ffi_rust_future_poll_f64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void uniffi_restsend_sdk_fn_init_callback_callback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_cancel_f64(void* _Nonnull handle
+void uniffi_restsend_sdk_fn_init_callback_downloadcallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_free_f64(void* _Nonnull handle
+void uniffi_restsend_sdk_fn_init_callback_messagecallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-double ffi_restsend_ffi_rust_future_complete_f64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_init_callback_syncchatlogscallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_poll_pointer(void* _Nonnull handle, void* _Nonnull uniffi_callback
+void uniffi_restsend_sdk_fn_init_callback_syncconversationscallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_cancel_pointer(void* _Nonnull handle
+void uniffi_restsend_sdk_fn_init_callback_uploadcallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_free_pointer(void* _Nonnull handle
+RustBuffer uniffi_restsend_sdk_fn_func_get_current_user(RustBuffer root, RustCallStatus *_Nonnull out_status
 );
-void*_Nonnull ffi_restsend_ffi_rust_future_complete_pointer(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_func_init_log(RustBuffer level, int8_t is_test, RustCallStatus *_Nonnull out_status
 );
-void ffi_restsend_ffi_rust_future_poll_rust_buffer(void* _Nonnull handle, void* _Nonnull uniffi_callback
-);
-void ffi_restsend_ffi_rust_future_cancel_rust_buffer(void* _Nonnull handle
-);
-void ffi_restsend_ffi_rust_future_free_rust_buffer(void* _Nonnull handle
-);
-RustBuffer ffi_restsend_ffi_rust_future_complete_rust_buffer(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
-);
-void ffi_restsend_ffi_rust_future_poll_void(void* _Nonnull handle, void* _Nonnull uniffi_callback
-);
-void ffi_restsend_ffi_rust_future_cancel_void(void* _Nonnull handle
-);
-void ffi_restsend_ffi_rust_future_free_void(void* _Nonnull handle
-);
-void ffi_restsend_ffi_rust_future_complete_void(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
-);
-uint16_t uniffi_restsend_ffi_checksum_func_get_current_user(void
+int64_t uniffi_restsend_sdk_fn_func_now_timestamp(RustCallStatus *_Nonnull out_status
     
 );
-uint16_t uniffi_restsend_ffi_checksum_func_init_log(void
+void uniffi_restsend_sdk_fn_func_set_current_user(RustBuffer root, RustBuffer user_id, RustCallStatus *_Nonnull out_status
+);
+RustBuffer ffi_restsend_sdk_rustbuffer_alloc(int32_t size, RustCallStatus *_Nonnull out_status
+);
+RustBuffer ffi_restsend_sdk_rustbuffer_from_bytes(ForeignBytes bytes, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rustbuffer_free(RustBuffer buf, RustCallStatus *_Nonnull out_status
+);
+RustBuffer ffi_restsend_sdk_rustbuffer_reserve(RustBuffer buf, int32_t additional, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_continuation_callback_set(UniFfiRustFutureContinuation _Nonnull callback
+);
+void ffi_restsend_sdk_rust_future_poll_u8(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_u8(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_u8(void* _Nonnull handle
+);
+uint8_t ffi_restsend_sdk_rust_future_complete_u8(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_i8(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_i8(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_i8(void* _Nonnull handle
+);
+int8_t ffi_restsend_sdk_rust_future_complete_i8(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_u16(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_u16(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_u16(void* _Nonnull handle
+);
+uint16_t ffi_restsend_sdk_rust_future_complete_u16(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_i16(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_i16(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_i16(void* _Nonnull handle
+);
+int16_t ffi_restsend_sdk_rust_future_complete_i16(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_u32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_u32(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_u32(void* _Nonnull handle
+);
+uint32_t ffi_restsend_sdk_rust_future_complete_u32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_i32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_i32(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_i32(void* _Nonnull handle
+);
+int32_t ffi_restsend_sdk_rust_future_complete_i32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_u64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_u64(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_u64(void* _Nonnull handle
+);
+uint64_t ffi_restsend_sdk_rust_future_complete_u64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_i64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_i64(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_i64(void* _Nonnull handle
+);
+int64_t ffi_restsend_sdk_rust_future_complete_i64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_f32(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_f32(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_f32(void* _Nonnull handle
+);
+float ffi_restsend_sdk_rust_future_complete_f32(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_f64(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_f64(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_f64(void* _Nonnull handle
+);
+double ffi_restsend_sdk_rust_future_complete_f64(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_pointer(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_pointer(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_pointer(void* _Nonnull handle
+);
+void*_Nonnull ffi_restsend_sdk_rust_future_complete_pointer(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_rust_buffer(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_rust_buffer(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_rust_buffer(void* _Nonnull handle
+);
+RustBuffer ffi_restsend_sdk_rust_future_complete_rust_buffer(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+void ffi_restsend_sdk_rust_future_poll_void(void* _Nonnull handle, void* _Nonnull uniffi_callback
+);
+void ffi_restsend_sdk_rust_future_cancel_void(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_free_void(void* _Nonnull handle
+);
+void ffi_restsend_sdk_rust_future_complete_void(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+uint16_t uniffi_restsend_sdk_checksum_func_get_current_user(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_func_login(void
+uint16_t uniffi_restsend_sdk_checksum_func_init_log(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_func_set_current_user(void
+uint16_t uniffi_restsend_sdk_checksum_func_now_timestamp(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_app_active(void
+uint16_t uniffi_restsend_sdk_checksum_func_set_current_user(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_app_deactivate(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_accept_topic_join(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_connect(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_add_topic_admin(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_get_conversation(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_app_active(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_remove_conversation(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_app_deactivate(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_mute(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_cancel_send(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_read(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_clean_history(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_set_conversation_sticky(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_connect(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_shutdown(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_create_chat(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rsclient_sync_conversations(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_create_topic(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_constructor_rsclient_new(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_decline_topic_join(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_connected(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_dismiss_topic(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_connecting(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_read(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_token_expired(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_recall(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_net_broken(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_kickoff_by_other_client(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_file(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_system_request(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_image(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_unknown_request(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_invite(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_topic_typing(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_link(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_new_message(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_location(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_topic_read(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_logs(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_updated(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_text(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rscallback_on_conversations_removed(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_video(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_success(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_voice(void
     
 );
-uint16_t uniffi_restsend_ffi_checksum_method_rssyncconversationscallback_on_fail(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_typing(void
     
 );
-uint32_t ffi_restsend_ffi_uniffi_contract_version(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_download_file(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_chat_log(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_conversation(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_admins(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_knocks(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_members(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_owner(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_user(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_quit_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_remove_conversation(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_remove_messages(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_remove_topic_admin(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_remove_topic_member(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_search_chat_log(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request_via_connection(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_serve_connection(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_mute(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_read(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_sticky(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_user_block(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_user_remark(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_user_star(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_shutdown(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_silent_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_silent_topic_member(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_sync_chat_logs(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_sync_conversations(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_transfer_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_update_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_update_topic_notice(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_constructor_client_new(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_connected(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_connecting(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_token_expired(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_net_broken(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_kickoff_by_other_client(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_system_request(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_unknown_request(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_topic_typing(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_new_message(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_topic_read(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_updated(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_removed(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_downloadcallback_on_success(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_downloadcallback_on_fail(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_sent(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_progress(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_ack(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_fail(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_syncchatlogscallback_on_success(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_syncchatlogscallback_on_fail(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_success(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_fail(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_uploadcallback_on_progress(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_uploadcallback_on_success(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_uploadcallback_on_fail(void
+    
+);
+uint32_t ffi_restsend_sdk_uniffi_contract_version(void
     
 );
 

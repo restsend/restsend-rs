@@ -42,11 +42,17 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
     # 在xcode工程的Podfile引入
     pod 'restsendSdk', :path => '../restsend-rs'
     ```
-    后执行生成swift绑定
+    1. 先编译rust的库
     ```shell
-    cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin
+    cargo build --target aarch64-apple-ios-sim
+    # 如果是x86的mac机器
+    cargo build  --target x86_64-apple-darwin 
+    ```
+    1. 编译swift的绑定代码
+    ```shell
     cargo run --bin bindgen -- --language swift
     ```
+    
 - 正式版本(release)：
 
     ```shell

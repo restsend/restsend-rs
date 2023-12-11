@@ -162,11 +162,15 @@ impl WebSocketCallback for ConnectionInner {
     }
 }
 
+#[uniffi::export]
 impl Client {
     pub async fn connect(&self, callback: Box<dyn Callback>) {
         self.serve_connection(callback).await
     }
+}
 
+#[uniffi::export]
+impl Client {
     async fn serve_connection(&self, callback: Box<dyn Callback>) {
         let url = WebsocketOption::url_from_endpoint(&self.endpoint);
         let opt = WebsocketOption::new(&url, &self.token);

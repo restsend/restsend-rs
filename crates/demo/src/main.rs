@@ -26,7 +26,7 @@ async fn main() {
     let info = login_with_password("https://chat.ruzhila.cn", "bob", "bob:demo").await;
     assert!(info.is_ok());
 
-    let c = Client::new("", "", &info.unwrap());
+    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let is_connected = Arc::new(Notify::new());
 
     let callback = Box::new(TestCallbackImpl {

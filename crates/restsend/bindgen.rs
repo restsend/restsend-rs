@@ -33,7 +33,7 @@ fn main() {
     let args = Cli::parse();
     let publish = args.publish.unwrap_or(false);
 
-    let (lang, mode) = main_with_cmd(args).unwrap();
+    let (lang, mode) = bindgen_with_language(args).unwrap();
 
     match lang {
         TargetLanguage::Swift => {
@@ -51,8 +51,15 @@ fn main() {
 }
 
 fn build_xcframework(mode: String) {
+    let xcframework_name = "restsendFFI";
+    let crate_name = "restsend_sdk";
     let build_dir = tempdir::TempDir::new_in("", ".xcbuild").unwrap();
-    println!("Build xcframework in {:?} mode: {}", build_dir.path(), mode);
+    println!(
+        "Build xcframework in {:?} mode: {} framename: {}",
+        build_dir.path(),
+        mode,
+        xcframework_name
+    );
     println!("▸ Sync sources");
 
     std::fs::create_dir_all(build_dir.path().join("Headers")).unwrap();
@@ -73,7 +80,7 @@ fn build_xcframework(mode: String) {
     ];
 
     for target in targets {
-        let library = format!("target/{}/{}/librestsend_ffi.a", target, mode.clone());
+        let library = format!("target/{}/{}/lib{}.a", target, mode.clone(), crate_name);
         if std::path::Path::new(&library).exists() {
             librarys.push(library);
         }
@@ -90,10 +97,12 @@ fn build_xcframework(mode: String) {
         build_args.push(library);
     }
 
-    std::fs::remove_dir_all(std::path::Path::new("swift/restsendFFI.xcframework"))
-        .unwrap_or_default();
+    std::fs::remove_dir_all(std::path::Path::new(&format!(
+        "swift/{}.xcframework",
+        xcframework_name
+    )))
+    .unwrap_or_default();
 
-    let xcframework_name = "restsendFFI";
     let out_xcframework = format!("swift/{}.xcframework", xcframework_name);
     for arg in vec![
         "-headers".to_string(),
@@ -191,8 +200,8 @@ fn publish_ios_pods() {
     }
 }
 
-fn main_with_cmd(args: Cli) -> Result<(TargetLanguage, String), Error> {
-    let crate_name_ffi = "restsend_ffi";
+fn bindgen_with_language(args: Cli) -> Result<(TargetLanguage, String), Error> {
+    let crate_name = "restsend_sdk";
     let ext = std::env::consts::DLL_EXTENSION;
 
     let language = args.language.unwrap_or("swift".to_string());
@@ -216,10 +225,10 @@ fn main_with_cmd(args: Cli) -> Result<(TargetLanguage, String), Error> {
     let source = if language == "swift" {
         format!(
             "target/aarch64-apple-ios-sim/{}/lib{}.{}",
-            current_mode, crate_name_ffi, ext
+            current_mode, crate_name, ext
         )
     } else {
-        format!("target/{}/lib{}.{}", current_mode, crate_name_ffi, ext)
+        format!("target/{}/lib{}.{}", current_mode, crate_name, ext)
     };
 
     let source = PathBuf::from(source);
@@ -234,26 +243,23 @@ fn main_with_cmd(args: Cli) -> Result<(TargetLanguage, String), Error> {
     let out_dir = Utf8Path::from_path(&language).unwrap();
     let source = Utf8Path::from_path(&source).unwrap();
     let language = TargetLanguage::from_str(language.to_str().unwrap(), true).unwrap();
-    let crate_names = vec!["restsend_ffi", "restsend_sdk"];
 
-    for crate_name in crate_names {
-        uniffi_bindgen::library_mode::generate_bindings(
-            source,
-            Some(crate_name.to_string()),
-            &vec![language],
-            &out_dir,
-            args.format.unwrap_or_default(),
-        )
-        .unwrap();
-    }
+    uniffi_bindgen::library_mode::generate_bindings(
+        source,
+        Some(crate_name.to_string()),
+        &vec![language],
+        &out_dir,
+        args.format.unwrap_or_default(),
+    )
+    .unwrap();
 
     println!(
         r#"🎉 Generate bindings success
 
     source: {}
-    language: {}
+    language: {} with {}
     mode: {} "#,
-        source, language, current_mode
+        source, language, crate_name, current_mode
     );
     Ok((language, current_mode))
 }

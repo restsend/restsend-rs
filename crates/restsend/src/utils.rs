@@ -10,11 +10,13 @@ pub fn random_text(count: usize) -> String {
         .to_lowercase()
 }
 
+#[uniffi::export]
 pub fn now_timestamp() -> i64 {
     chrono::Local::now().timestamp_millis()
 }
 
-pub fn init_log(level: &str, is_test: bool) {
+#[uniffi::export]
+pub fn init_log(level: String, is_test: bool) {
     let _ = env_logger::builder()
         .is_test(is_test)
         .format(|buf, record| {

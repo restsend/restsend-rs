@@ -24,6 +24,7 @@ mod store;
 mod tests;
 mod topic;
 
+#[derive(uniffi::Object)]
 pub struct Client {
     pub root_path: String,
     pub user_id: String,
@@ -50,11 +51,15 @@ impl Client {
         }
         format!("{}/tmp/{}", root_path, file_name)
     }
+}
 
-    pub fn new(root_path: &str, db_name: &str, info: &AuthInfo) -> Self {
-        let db_path = Self::db_path(root_path, db_name);
+#[uniffi::export]
+impl Client {
+    #[uniffi::constructor]
+    pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {
+        let db_path = Self::db_path(&root_path, &db_name);
         let store = ClientStore::new(
-            root_path,
+            &root_path,
             &db_path,
             &info.endpoint,
             &info.token,
@@ -66,28 +71,28 @@ impl Client {
             warn!("migrate database fail!! {:?}", e)
         }
 
-        Self {
+        Arc::new(Self {
             root_path: root_path.to_string(),
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string(),
             store: store_ref,
             state: Arc::new(ConnectState::new()),
-        }
+        })
     }
 
-    pub fn get_user(&self, user_id: &str) -> Option<User> {
-        self.store.get_user(user_id)
+    pub fn get_user(&self, user_id: String) -> Option<User> {
+        self.store.get_user(&user_id)
     }
 
-    pub async fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
-        self.store.set_user_remark(user_id, remark).await
+    pub async fn set_user_remark(&self, user_id: String, remark: String) -> Result<()> {
+        self.store.set_user_remark(&user_id, &remark).await
     }
-    pub async fn set_user_star(&self, user_id: &str, star: bool) -> Result<()> {
-        self.store.set_user_star(user_id, star).await
+    pub async fn set_user_star(&self, user_id: String, star: bool) -> Result<()> {
+        self.store.set_user_star(&user_id, star).await
     }
-    pub async fn set_user_block(&self, user_id: &str, block: bool) -> Result<()> {
-        self.store.set_user_block(user_id, block).await
+    pub async fn set_user_block(&self, user_id: String, block: bool) -> Result<()> {
+        self.store.set_user_block(&user_id, block).await
     }
     pub async fn set_allow_guest_chat(&self, allow: bool) -> Result<()> {
         set_allow_guest_chat(&self.endpoint, &self.token, allow).await
@@ -95,10 +100,10 @@ impl Client {
 
     pub async fn download_file(
         &self,
-        file_url: &str,
+        file_url: String,
         callback: Box<dyn DownloadCallback>,
     ) -> Result<String> {
-        let download_url = build_download_url(&self.endpoint, file_url);
+        let download_url = build_download_url(&self.endpoint, &file_url);
         let file_ext = url::Url::parse(&download_url)
             .map_err(|_| {
                 ClientError::HTTP(format!("download_file: url parse fail: {}", download_url))
