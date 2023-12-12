@@ -20,6 +20,7 @@ const REQ_ID_LEN: usize = 12;
 const TEMP_FILENAME_LEN: usize = 12;
 
 const MAX_RECALL_SECS: i64 = 2 * 60; // 2 minutes
+#[allow(unused)]
 const MAX_ATTACHMENT_CONCURRENT: usize = 12;
 const MAX_RETRIES: usize = 3;
 const MAX_SEND_IDLE_SECS: u64 = 120; // 2 minutes

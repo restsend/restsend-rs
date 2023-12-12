@@ -1,6 +1,6 @@
 use super::{WebSocketCallback, WebsocketOption};
 use crate::error::ClientError::{TokenExpired, HTTP};
-use crate::utils::{elapsed, now_millis};
+use crate::utils::{elapsed, now_millis, sleep};
 use crate::Result;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, warn};
@@ -8,7 +8,6 @@ use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use std::sync::Mutex;
 use tokio::select;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::time::sleep;
 use tokio_websockets::{ClientBuilder, Message};
 
 pub(super) struct WebSocketInner {

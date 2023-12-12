@@ -8,9 +8,8 @@ use crate::{
         response::Upload,
     },
     utils::now_millis,
-    MAX_ATTACHMENT_CONCURRENT, MEDIA_PROGRESS_INTERVAL,
+    MEDIA_PROGRESS_INTERVAL,
 };
-use log::warn;
 use std::{
     collections::HashMap,
     sync::{
@@ -19,7 +18,6 @@ use std::{
     },
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot, Barrier};
-use tokio_task_pool::Pool;
 
 pub(super) struct UploadTask {
     req: Mutex<Option<PendingRequest>>,
@@ -108,18 +106,16 @@ impl UploadCallback for UploadTaskCallback {
 struct UploadPendingTask {
     #[allow(unused)]
     task: Arc<UploadTask>,
-    job_handle: tokio::task::JoinHandle<std::result::Result<(), tokio_task_pool::Error>>,
+    job_handle: tokio::task::JoinHandle<()>,
 }
 
 pub(super) struct AttachmentInner {
-    worker_pool: Pool,
     pendings: Mutex<HashMap<String, UploadPendingTask>>,
 }
 
 impl AttachmentInner {
     pub fn new() -> Self {
         Self {
-            worker_pool: Pool::bounded(MAX_ATTACHMENT_CONCURRENT),
             pendings: Mutex::new(HashMap::new()),
         }
     }
@@ -151,45 +147,36 @@ impl AttachmentInner {
         let barrier = Arc::new(Barrier::new(2));
         let barrier_ref = barrier.clone();
 
-        let task_result = self
-            .worker_pool
-            .spawn(async move {
-                barrier_ref.wait().await;
+        let task_handle = tokio::spawn(async move {
+            barrier_ref.wait().await;
 
-                let media_callback = Box::new(UploadTaskCallback {
-                    task: task_ref.clone(),
-                });
+            let media_callback = Box::new(UploadTaskCallback {
+                task: task_ref.clone(),
+            });
 
-                let r = upload_file(
-                    uploader,
-                    Some(&token),
-                    attachment.file_path,
-                    attachment.is_private,
-                    media_callback,
-                    cancel_rx,
-                )
-                .await;
-
-                match r {
-                    Err(e) => {
-                        task_ref.on_fail(e.into());
-                    }
-                    _ => {}
-                }
-            })
+            let r = upload_file(
+                uploader,
+                Some(&token),
+                attachment.file_path,
+                attachment.is_private,
+                media_callback,
+                cancel_rx,
+            )
             .await;
 
-        if let Err(e) = task_result {
-            warn!("upload_file failed: req_id:{} err:{}", req_id, e);
-            task.on_fail(crate::Error::StdError(e.to_string()));
-            return;
-        }
+            match r {
+                Err(e) => {
+                    task_ref.on_fail(e.into());
+                }
+                _ => {}
+            }
+        });
 
         barrier.wait().await;
 
         let t = UploadPendingTask {
             task,
-            job_handle: task_result.unwrap(),
+            job_handle: task_handle,
         };
         self.pendings.lock().unwrap().insert(req_id.to_string(), t);
     }

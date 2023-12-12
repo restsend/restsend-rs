@@ -22,7 +22,7 @@ impl RsClient {
 
     pub async fn connect(&self, callback: JsValue) {
         let now = chrono::Local::now().time();
-        js::sleep(Duration::from_secs(1)).await;
+        js::sleep(Duration::from_millis(200)).await;
         js::console_log(&format!("connect {} ms", now));
     }
 }

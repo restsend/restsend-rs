@@ -1,6 +1,8 @@
 use std::time::Duration;
 #[cfg(test)]
 mod tests;
+
+#[cfg(not(target_arch = "wasm32"))]
 mod tokio_impl;
 
 #[allow(unused)]
@@ -32,4 +34,5 @@ impl WebsocketOption {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) type WebSocket = tokio_impl::WebSocketImpl;

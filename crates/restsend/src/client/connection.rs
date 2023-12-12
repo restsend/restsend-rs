@@ -2,6 +2,7 @@ use super::Client;
 use crate::{
     callback::Callback,
     request::{ChatRequest, ChatRequestType},
+    utils::sleep,
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
@@ -19,7 +20,6 @@ use tokio::{
         broadcast,
         mpsc::{unbounded_channel, UnboundedSender},
     },
-    time::sleep,
 };
 
 #[derive(Clone)]
@@ -98,7 +98,7 @@ impl ConnectState {
         let mut rx = self.state_tx.subscribe();
 
         select! {
-            _ = tokio::time::sleep(Duration::from_secs(remain_secs)) => {
+            _ = sleep(Duration::from_secs(remain_secs)) => {
             },
             _ = rx.recv() => {
                 self.broken_count.store(0, Ordering::Relaxed);

@@ -3,7 +3,7 @@ use crate::callback::Callback;
 use crate::models::{Attachment, ChatLogStatus, Conversation, User};
 use crate::services::response::Upload;
 use crate::storage::{prepare, Storage};
-use crate::utils::{elapsed, now_millis};
+use crate::utils::{elapsed, now_millis, sleep};
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -22,7 +22,6 @@ use std::{
 };
 use tokio::select;
 use tokio::sync::mpsc::{self, UnboundedSender};
-use tokio::time::sleep;
 
 pub(super) enum StoreEvent {
     UploadSuccess(PendingRequest, Upload),
