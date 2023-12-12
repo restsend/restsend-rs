@@ -1,8 +1,6 @@
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
-use crate::{
-    client::store::StoreEvent, models::User, services::user::get_user, utils::now_timestamp,
-};
+use crate::{client::store::StoreEvent, models::User, services::user::get_user, utils::now_millis};
 use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
 
@@ -146,7 +144,7 @@ impl ClientStore {
         }
 
         user.is_partial = false;
-        user.cached_at = now_timestamp();
+        user.cached_at = now_millis();
 
         t.set("", &user_id, Some(user.clone()));
         Ok(user)

@@ -5,10 +5,13 @@ use std::{
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::js_sys;
+
 mod js;
+#[cfg(test)]
+mod tests;
 
 #[wasm_bindgen]
-pub struct RsClient();
+pub struct RsClient {}
 
 #[wasm_bindgen]
 impl RsClient {
@@ -16,7 +19,10 @@ impl RsClient {
     pub fn new() -> Self {
         RsClient {}
     }
+
     pub async fn connect(&self, callback: JsValue) {
-        js::console_log("connect");
+        let now = chrono::Local::now().time();
+        js::sleep(Duration::from_secs(1)).await;
+        js::console_log(&format!("connect {} ms", now));
     }
 }

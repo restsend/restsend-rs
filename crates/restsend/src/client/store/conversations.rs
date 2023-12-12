@@ -5,7 +5,7 @@ use crate::{
     request::ChatRequest,
     services::conversation::*,
     storage::{QueryOption, QueryResult},
-    utils::now_timestamp,
+    utils::now_millis,
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
@@ -135,7 +135,7 @@ impl ClientStore {
         }
 
         conversation.is_partial = false;
-        conversation.cached_at = now_timestamp();
+        conversation.cached_at = now_millis();
         conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
 
         t.set("", &topic_id, Some(conversation.clone()));
@@ -153,7 +153,7 @@ impl ClientStore {
             conversation.last_sender_id = req.attendee.clone();
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();
-            conversation.cached_at = now_timestamp();
+            conversation.cached_at = now_millis();
             conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
             conversation.updated_at = req.created_at.clone();
         }
@@ -212,7 +212,7 @@ impl ClientStore {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
-        let now = now_timestamp();
+        let now = now_millis();
 
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
             if req.r#type == "recall" {

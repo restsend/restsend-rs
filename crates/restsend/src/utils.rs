@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{io::Write, time::Duration};
 // a hex random text with length of count, lowercase
 pub fn random_text(count: usize) -> String {
     use rand::Rng;
@@ -11,8 +11,16 @@ pub fn random_text(count: usize) -> String {
 }
 
 #[uniffi::export]
-pub fn now_timestamp() -> i64 {
+pub fn now_millis() -> i64 {
     chrono::Local::now().timestamp_millis()
+}
+
+pub fn now_secs() -> i64 {
+    chrono::Local::now().timestamp()
+}
+
+pub fn elapsed(d: i64) -> Duration {
+    Duration::from_millis((now_millis() - d).abs() as u64)
 }
 
 #[uniffi::export]
@@ -42,13 +50,13 @@ pub(crate) async fn check_until(
 ) -> crate::Result<()> {
     use crate::error::ClientError;
 
-    let st = std::time::Instant::now();
+    let st = crate::utils::now_millis();
     loop {
         if f() {
             return Ok(());
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        if st.elapsed() > duration {
+        if crate::utils::elapsed(st) > duration {
             return Err(ClientError::Other(format!(
                 "check_until timeout: {:?}",
                 duration

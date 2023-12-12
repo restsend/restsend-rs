@@ -1,9 +1,9 @@
 use crate::error::ClientError::{Forbidden, HTTP};
 use crate::models::AuthInfo;
 use crate::services::{handle_response, make_get_request, make_post_request, response};
+use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use log::info;
-use tokio::time::Instant;
 
 #[uniffi::export]
 pub async fn login_with_token(endpoint: String, email: String, token: String) -> Result<AuthInfo> {
@@ -30,7 +30,7 @@ pub async fn login_with_password(
 
 #[uniffi::export]
 pub async fn logout(endpoint: String, token: String) -> Result<()> {
-    let st = tokio::time::Instant::now();
+    let st = now_millis();
     let uri = "/auth/logout";
     let req = make_get_request(&endpoint, uri, Some(token.to_string()), None);
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
@@ -41,7 +41,7 @@ pub async fn logout(endpoint: String, token: String) -> Result<()> {
         endpoint,
         uri,
         status,
-        st.elapsed()
+        elapsed(st)
     );
 
     match status {
@@ -60,7 +60,7 @@ pub async fn logout(endpoint: String, token: String) -> Result<()> {
 }
 
 async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
-    let st: Instant = Instant::now();
+    let st = now_millis();
     let uri = "/auth/login";
     let req = make_post_request(
         endpoint,
@@ -79,7 +79,7 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
         uri,
         email,
         status,
-        st.elapsed()
+        elapsed(st)
     );
 
     let r = handle_response::<response::Login>(resp).await?;

@@ -8,7 +8,7 @@ use reqwest::Url;
 use reqwest::{Body, ClientBuilder, RequestBuilder};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Mutex;
-use tokio::time::Duration;
+use std::time::Duration;
 pub struct ConnectionState {
     is_active: AtomicBool,
     broken_count: AtomicUsize,
@@ -27,25 +27,15 @@ impl ConnectionState {
     }
 
     pub fn did_connect(&self) {
-        self.connected_at.store(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            Ordering::Relaxed,
-        );
+        self.connected_at
+            .store(crate::utils::now_secs(), Ordering::Relaxed);
         self.broken_count.store(0, Ordering::Relaxed);
     }
 
     pub fn did_broken(&self) {
         self.broken_count.fetch_add(1, Ordering::Relaxed);
-        self.broken_at.store(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs(),
-            Ordering::Relaxed,
-        );
+        self.broken_at
+            .store(crate::utils::now_secs(), Ordering::Relaxed);
     }
 
     pub fn is_active(&self) -> bool {
@@ -66,9 +56,7 @@ impl ConnectionState {
             return Ok(false);
         }
 
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
+        let now = crate::utils::now_secs();
 
         let wait_secs = now - broken_at;
         if wait_secs > self.wait_connect_secs()? as u64 {

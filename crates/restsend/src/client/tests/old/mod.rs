@@ -1,6 +1,6 @@
 use crate::{client::Client, login};
 use reqwest::header::HeaderValue;
-use tokio::time::{Duration, Instant};
+use std::time::Duration;
 
 mod http_server;
 mod test_chat;
@@ -64,13 +64,13 @@ pub(crate) fn signup_demo_user(user_id: &str) -> Result<()> {
 }
 
 fn check_until(duration: Duration, f: impl Fn() -> bool) -> Result<()> {
-    let st = Instant::now();
+    let st = now_millis();
     loop {
         if f() {
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(100));
-        if st.elapsed() > duration {
+        if elapsed(st) > duration {
             return Err(crate::ClientError::StdError(format!(
                 "check_until timeout: {:?}",
                 duration

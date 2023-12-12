@@ -1,7 +1,7 @@
 use crate::tests::check_until;
 use log::warn;
 use std::sync::{Arc, Mutex};
-use tokio::time::Duration;
+use std::time::Duration;
 
 #[test]
 fn test_client_websocket_connect_with_handle_incoming() {

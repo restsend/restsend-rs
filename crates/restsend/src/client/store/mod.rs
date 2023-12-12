@@ -3,7 +3,7 @@ use crate::callback::Callback;
 use crate::models::{Attachment, ChatLogStatus, Conversation, User};
 use crate::services::response::Upload;
 use crate::storage::{prepare, Storage};
-use crate::utils::now_timestamp;
+use crate::utils::{elapsed, now_millis};
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -19,7 +19,6 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         Arc, Mutex,
     },
-    time::Instant,
 };
 use tokio::select;
 use tokio::sync::mpsc::{self, UnboundedSender};
@@ -44,14 +43,14 @@ mod requests;
 mod users;
 
 pub fn is_cache_expired(cached_at: i64, expire_secs: i64) -> bool {
-    (now_timestamp() - cached_at) / 1000 > expire_secs
+    (now_millis() - cached_at) / 1000 > expire_secs
 }
 
 pub struct PendingRequest {
     pub callback: Option<Box<dyn MessageCallback>>,
     pub req: ChatRequest,
     pub retry: AtomicUsize,
-    pub updated_at: Instant,
+    pub updated_at: i64,
     pub last_fail_at: AtomicI64,
     pub can_retry: bool,
 }
@@ -68,7 +67,7 @@ impl PendingRequest {
             req,
             retry: AtomicUsize::new(0),
             can_retry,
-            updated_at: Instant::now(),
+            updated_at: now_millis(),
             last_fail_at: AtomicI64::new(0),
         }
     }
@@ -78,12 +77,12 @@ impl PendingRequest {
             return true;
         }
         let retry_count = self.retry.load(Ordering::Relaxed);
-        retry_count >= MAX_RETRIES || self.updated_at.elapsed().as_secs() > MAX_SEND_IDLE_SECS
+        retry_count >= MAX_RETRIES || elapsed(self.updated_at).as_secs() > MAX_SEND_IDLE_SECS
     }
 
     pub fn did_retry(&self) {
         self.retry.fetch_add(1, Ordering::Relaxed);
-        self.last_fail_at.store(now_timestamp(), Ordering::Relaxed);
+        self.last_fail_at.store(now_millis(), Ordering::Relaxed);
     }
 
     pub fn need_retry(&self, now: i64) -> bool {
@@ -255,7 +254,7 @@ impl ClientStore {
                         StoreEvent::ProcessRetry => {
                             let mut outgoings = self.outgoings.lock().unwrap();
                             let mut expired = Vec::new();
-                            let now = now_timestamp();
+                            let now = now_millis();
 
                             for (req_id, pending) in outgoings.iter() {
                                 if pending.is_expired() {

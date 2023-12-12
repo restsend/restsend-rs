@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{client::Client, models::Conversation, Callback, ChatLog, User};
 use log::{info, warn};
-use tokio::time::Duration;
+use std::time::Duration;
 
 /* test single chat
 | Event                 | Alice               | Bob                 |

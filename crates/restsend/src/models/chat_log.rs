@@ -1,5 +1,5 @@
 use super::omit_empty;
-use crate::{request::ChatRequest, storage::StoreModel, utils::now_timestamp};
+use crate::{request::ChatRequest, storage::StoreModel, utils::now_millis};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -280,7 +280,7 @@ impl From<&ChatRequest> for ChatLog {
             read: false,
             recall: req.r#type == "recall",
             status: ChatLogStatus::Received,
-            cached_at: now_timestamp(),
+            cached_at: now_millis(),
         }
     }
 }

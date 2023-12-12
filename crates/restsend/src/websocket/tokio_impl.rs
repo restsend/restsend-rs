@@ -1,13 +1,14 @@
 use super::{WebSocketCallback, WebsocketOption};
 use crate::error::ClientError::{TokenExpired, HTTP};
+use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, warn};
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
+use std::sync::Mutex;
 use tokio::select;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::sync::Mutex;
-use tokio::time::{sleep, Instant};
+use tokio::time::sleep;
 use tokio_websockets::{ClientBuilder, Message};
 
 pub(super) struct WebSocketInner {
@@ -31,7 +32,7 @@ impl WebSocketImpl {
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
-        self.inner.sender_tx.lock().await.send(message)?;
+        self.inner.sender_tx.lock().unwrap().send(message)?;
         Ok(())
     }
 
@@ -52,7 +53,7 @@ impl WebSocketImpl {
             .uri(&url)
             .unwrap();
 
-        let st = Instant::now();
+        let st = now_millis();
         callback.on_connecting();
 
         let resp = select! {
@@ -74,10 +75,10 @@ impl WebSocketImpl {
             }
         };
 
-        let usage = st.elapsed();
+        let usage = elapsed(st);
         match resp.status() {
             reqwest::StatusCode::SWITCHING_PROTOCOLS => {
-                debug!("websocket connected usage: {:?}", st.elapsed());
+                debug!("websocket connected usage: {:?}", elapsed(st));
                 callback.on_connected(usage);
             }
             reqwest::StatusCode::UNAUTHORIZED => {
@@ -133,7 +134,7 @@ impl WebSocketImpl {
             }
         };
 
-        let sender_rx = self.inner.sender_rx.lock().await.take();
+        let sender_rx = self.inner.sender_rx.lock().unwrap().take();
         let send_loop = async move {
             let mut sender_rx = sender_rx.unwrap();
             loop {
@@ -165,7 +166,7 @@ impl WebSocketImpl {
             Ok(_) => "websocket closed".to_string(),
             Err(e) => e.to_string(),
         };
-        warn!("websocket closed: {} lifetime:{:?}", reason, st.elapsed());
+        warn!("websocket closed: {} lifetime:{:?}", reason, elapsed(st));
         callback.on_net_broken(reason);
         Ok(())
     }

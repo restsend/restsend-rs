@@ -1,6 +1,7 @@
 use super::response::Upload;
 use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{StdError, UserCancel, HTTP};
+use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use futures_util::TryStreamExt;
 use log::info;
@@ -10,7 +11,6 @@ use tokio::io::AsyncWriteExt;
 use tokio::select;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
-use tokio::time::Instant;
 
 //implement human readable for u64
 pub trait HumanReadable {
@@ -68,15 +68,15 @@ pub(crate) async fn upload_file(
 
     let upload_runner = async move {
         let form = multipart::Form::new();
-        let mut last_progress_time = Instant::now();
+        let mut last_progress_time = now_millis();
         let mut total_sent: u64 = 0;
 
         let file_stream = reqwest::Body::wrap_stream(
             tokio_util::io::ReaderStream::new(file).map_ok(move |buf| {
                 let sent = buf.len() as u64;
-                if last_progress_time.elapsed() > Duration::from_millis(300) {
+                if elapsed(last_progress_time) > Duration::from_millis(300) {
                     progress_tx.send((total_sent, total)).ok();
-                    last_progress_time = Instant::now();
+                    last_progress_time = now_millis();
                 }
                 total_sent += sent;
                 buf
@@ -173,18 +173,18 @@ pub(crate) async fn download_file(
         let mut file = file.unwrap();
         let mut buf = Vec::new();
         let mut total_recived: u64 = 0;
-        let mut last_progress_time = Instant::now();
+        let mut last_progress_time = now_millis();
 
         // begin download
         while let Some(chunk) = resp.chunk().await? {
             buf.extend_from_slice(&chunk);
             file.write_all(&chunk).await?;
 
-            if last_progress_time.elapsed() > Duration::from_millis(300) {
+            if elapsed(last_progress_time) > Duration::from_millis(300) {
                 let recived = buf.len() as u64;
                 total_recived += recived;
                 progress_tx.send((total_recived, total)).ok();
-                last_progress_time = Instant::now();
+                last_progress_time = now_millis();
             }
         }
         file.flush().await?;

@@ -1,4 +1,5 @@
 use super::{PendingRequest, StoreEvent};
+use crate::utils::elapsed;
 use crate::Error;
 use crate::{
     callback::UploadCallback,
@@ -6,7 +7,7 @@ use crate::{
         media::{build_upload_url, upload_file},
         response::Upload,
     },
-    utils::now_timestamp,
+    utils::now_millis,
     MAX_ATTACHMENT_CONCURRENT, MEDIA_PROGRESS_INTERVAL,
 };
 use log::warn;
@@ -16,7 +17,6 @@ use std::{
         atomic::{AtomicI64, Ordering},
         Arc, Mutex,
     },
-    time::Instant,
 };
 use tokio::sync::{mpsc::UnboundedSender, oneshot, Barrier};
 use tokio_task_pool::Pool;
@@ -27,7 +27,7 @@ pub(super) struct UploadTask {
     #[allow(unused)]
     cancel_tx: oneshot::Sender<()>,
     updated_at: AtomicI64,
-    last_progress: Mutex<Instant>,
+    last_progress: Mutex<i64>,
 }
 
 impl UploadTask {
@@ -40,20 +40,20 @@ impl UploadTask {
             req: Mutex::new(Some(req)),
             cancel_tx,
             upload_result_tx,
-            updated_at: AtomicI64::new(now_timestamp()),
-            last_progress: Mutex::new(Instant::now()),
+            updated_at: AtomicI64::new(now_millis()),
+            last_progress: Mutex::new(now_millis()),
         }
     }
 
     pub fn on_progress(&self, progress: u64, total: u64) {
-        self.updated_at.store(now_timestamp(), Ordering::Relaxed);
+        self.updated_at.store(now_millis(), Ordering::Relaxed);
         if let Some(req) = self.req.lock().unwrap().as_ref() {
             let mut last_progress = self.last_progress.lock().unwrap();
-            if last_progress.elapsed().as_millis() < MEDIA_PROGRESS_INTERVAL {
+            if elapsed(*last_progress).as_millis() < MEDIA_PROGRESS_INTERVAL {
                 // 300ms
                 return;
             }
-            *last_progress = Instant::now();
+            *last_progress = now_millis();
 
             req.callback.as_ref().unwrap().on_progress(progress, total);
 
@@ -76,7 +76,7 @@ impl UploadTask {
                 .ok();
         }
 
-        self.updated_at.store(now_timestamp(), Ordering::Relaxed)
+        self.updated_at.store(now_millis(), Ordering::Relaxed)
     }
     pub fn on_fail(&self, e: Error) {
         if let Some(req) = self.req.lock().unwrap().take() {
@@ -84,7 +84,7 @@ impl UploadTask {
                 .send(StoreEvent::PendingErr(req, e))
                 .ok();
         }
-        self.updated_at.store(now_timestamp(), Ordering::Relaxed)
+        self.updated_at.store(now_millis(), Ordering::Relaxed)
     }
 }
 

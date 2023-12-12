@@ -1,12 +1,12 @@
 use super::api_call;
 use crate::Result;
-use crate::{models::User, utils::now_timestamp};
+use crate::{models::User, utils::now_millis};
 
 pub async fn get_user(endpoint: &str, token: &str, user_id: &str) -> Result<User> {
     api_call(endpoint, &format!("/profile/{}", user_id), token, None)
         .await
         .map(|mut user: User| {
-            user.cached_at = now_timestamp();
+            user.cached_at = now_millis();
             if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                 user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
             }
@@ -24,7 +24,7 @@ pub async fn get_users(endpoint: &str, token: &str, user_ids: Vec<String>) -> Re
         .await
         .map(|mut users: Vec<User>| {
             users.iter_mut().for_each(|user| {
-                user.cached_at = now_timestamp();
+                user.cached_at = now_millis();
                 if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                     user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
                 }

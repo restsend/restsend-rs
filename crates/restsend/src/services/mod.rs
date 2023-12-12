@@ -1,3 +1,4 @@
+use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use crate::{
     error::ClientError::{Forbidden, InvalidPassword, HTTP},
@@ -123,7 +124,7 @@ pub(super) async fn api_call<R>(
 where
     R: serde::de::DeserializeOwned,
 {
-    let st = tokio::time::Instant::now();
+    let st = now_millis();
     let req = make_post_request(
         endpoint,
         &format!("{}{}", API_PREFIX, uri),
@@ -141,7 +142,7 @@ where
         endpoint,
         uri,
         status,
-        st.elapsed()
+        elapsed(st)
     );
     handle_response::<R>(resp).await
 }

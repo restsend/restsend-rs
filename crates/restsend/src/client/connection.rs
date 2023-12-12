@@ -11,7 +11,7 @@ use std::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc, Mutex,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
 use tokio::{
     select,
@@ -34,8 +34,8 @@ pub(super) enum ConnectionStatus {
 pub(super) struct ConnectState {
     must_shutdown: AtomicBool,
     broken_count: AtomicU64,
-    last_broken_at: Mutex<Option<Instant>>,
-    last_alive_at: Mutex<Instant>,
+    last_broken_at: Mutex<Option<i64>>,
+    last_alive_at: Mutex<i64>,
     state_tx: broadcast::Sender<ConnectionStatus>,
 }
 
@@ -46,7 +46,7 @@ impl ConnectState {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
             last_broken_at: Mutex::new(None),
-            last_alive_at: Mutex::new(Instant::now()),
+            last_alive_at: Mutex::new(crate::utils::now_millis()),
             state_tx,
         }
     }
@@ -61,30 +61,30 @@ impl ConnectState {
     }
 
     pub fn did_connecting(&self) {
-        *self.last_alive_at.lock().unwrap() = Instant::now();
+        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
         self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
 
     pub fn did_connected(&self) {
         self.broken_count.store(0, Ordering::Relaxed);
         self.last_broken_at.lock().unwrap().take();
-        *self.last_alive_at.lock().unwrap() = Instant::now();
+        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
         self.state_tx.send(ConnectionStatus::Connected).ok();
     }
 
     pub fn did_sent_or_recvived(&self) {
-        *self.last_alive_at.lock().unwrap() = Instant::now();
+        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
     }
 
     pub fn did_broken(&self) {
         self.broken_count.fetch_add(1, Ordering::Relaxed);
-        *self.last_broken_at.lock().unwrap() = Some(Instant::now());
+        *self.last_broken_at.lock().unwrap() = Some(crate::utils::now_millis());
         self.state_tx.send(ConnectionStatus::Broken).ok();
     }
 
     pub fn need_send_keepalive(&self) -> bool {
-        let last_alive_at = self.last_alive_at.lock().unwrap();
-        let elapsed = last_alive_at.elapsed().as_secs();
+        let last_alive_at = *self.last_alive_at.lock().unwrap();
+        let elapsed = crate::utils::elapsed(last_alive_at).as_secs();
         elapsed >= KEEPALIVE_INTERVAL_SECS
     }
 

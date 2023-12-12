@@ -7,13 +7,17 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-restsend-sdk = { path = "../restsend", features = ["web"] }
+#restsend-sdk = { path = "../restsend", features = ["web"] }
 wasm-bindgen = "0.2.74"
 wasm-bindgen-futures = "0.4.39"
 futures-util = "0.3.29"
 js-sys = "0.3.66"
 futures = "0.3.29"
 web-sys = "0.3.66"
+chrono = "0.4.31"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.39"
 
 [profile.release]
 lto = true

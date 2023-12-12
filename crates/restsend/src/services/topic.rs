@@ -4,14 +4,14 @@ use crate::Result;
 use crate::{
     models::{ListUserResult, Topic},
     services::USERS_LIMIT,
-    utils::now_timestamp,
+    utils::now_millis,
 };
 
 pub async fn get_topic(endpoint: &str, token: &str, topic_id: &str) -> Result<Topic> {
     api_call(endpoint, &format!("/topic/info/{}", topic_id), token, None)
         .await
         .map(|mut topic: Topic| {
-            topic.cached_at = now_timestamp();
+            topic.cached_at = now_millis();
             if !topic.icon.is_empty() && !topic.icon.starts_with("http") {
                 topic.icon = format!("{}{}", endpoint.trim_end_matches('/'), topic.icon);
             }
@@ -42,7 +42,7 @@ pub async fn get_topic_members(
     .await
     .map(|mut lr: ListUserResult| {
         lr.items.iter_mut().for_each(|user| {
-            user.cached_at = now_timestamp();
+            user.cached_at = now_millis();
             if !user.avatar.is_empty() && !user.avatar.starts_with("http") {
                 user.avatar = format!("{}{}", endpoint.trim_end_matches('/'), user.avatar);
             }

@@ -7,7 +7,7 @@ use crate::services::conversation::{
     clean_history, get_chat_logs_desc, get_conversations, remove_messages,
 };
 use crate::services::topic::create_chat;
-use crate::utils::now_timestamp;
+use crate::utils::now_millis;
 use crate::Result;
 use log::warn;
 
@@ -89,7 +89,7 @@ impl Client {
             let r = get_chat_logs_desc(&endpoint, &token, &topic_id, start_seq, limit)
                 .await
                 .map(|(mut lr, _)| {
-                    let now = now_timestamp();
+                    let now = now_millis();
 
                     lr.items.iter_mut().for_each(|c| {
                         c.cached_at = now;
