@@ -19,10 +19,11 @@ async fn test_new_client() {
 
 #[wasm_bindgen_test]
 async fn test_auth() {
-    crate::login_with_password(
+    crate::signin(
         ENDPOINT.to_string(),
         "bob".to_string(),
-        "bob:demo".to_string(),
+        Some("bob:demo".to_string()),
+        None,
     )
     .await
     .expect("auth fail");

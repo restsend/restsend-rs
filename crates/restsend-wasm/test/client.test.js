@@ -2,7 +2,7 @@
  * unittest for client.js
  */
 import WebSocket from "ws";
-const { Client, signup, login_with_password } = await import('../pkg/restsend_wasm.js');
+const { Client, signup, signin } = await import('../pkg/restsend_wasm.js');
 
 import { describe, it, expect, assert, vi } from 'vitest'
 import { loadEnv } from 'vite'
@@ -38,12 +38,14 @@ function createWebsocketWithToken(url, token) {
 }
 
 async function authClient(username, password, withWebSocket = false) {
-    let client = new Client(endpoint)
-    await client.login(username, password)
+    let info = await signin(endpoint, username, password)
+    let client = new Client(endpoint, username, info.token)
+
     if (withWebSocket) {
-        client.newWebSocket = (url) => {
-            return createWebsocketWithToken(url, client.token)
-        }
+        // client.newWebSocket = (url) => {
+        //     console.log('new websocket', url)
+        //     return createWebsocketWithToken(url, client.token)
+        // }
         await client.connect()
         await waitUntil(() => client.status === 'connected', 3000)
     }
@@ -71,10 +73,17 @@ describe('Client auth', function () {
     });
     describe('#login', function () {
         it('should login', async () => {
-            expect(await login_with_password(endpoint, 'guido', 'guido:demo')).toHaveProperty('token')
-            expect(await login_with_password(endpoint, 'vitalik', 'vitalik:demo')).toHaveProperty('token')
-            expect(await login_with_password(endpoint, 'alice', 'alice:demo')).toHaveProperty('token')
-            expect(await login_with_password(endpoint, 'bob', 'bob:demo')).toHaveProperty('token')
+            expect(await signin(endpoint, 'guido', 'guido:demo')).toHaveProperty('token')
+            expect(await signin(endpoint, 'vitalik', 'vitalik:demo')).toHaveProperty('token')
+            expect(await signin(endpoint, 'alice', 'alice:demo')).toHaveProperty('token')
+            expect(await signin(endpoint, 'bob', 'bob:demo')).toHaveProperty('token')
         })
+    })
+})
+
+describe('Websocket connection', function () {
+
+    describe('#handshake', async () => {
+        let guido = await authClient('guido', 'guido:demo', true)
     })
 })
