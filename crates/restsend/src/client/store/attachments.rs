@@ -1,5 +1,5 @@
 use super::{PendingRequest, StoreEvent};
-use crate::utils::elapsed;
+use crate::utils::{elapsed, spawn};
 use crate::Error;
 use crate::{
     callback::UploadCallback,
@@ -106,6 +106,7 @@ impl UploadCallback for UploadTaskCallback {
 struct UploadPendingTask {
     #[allow(unused)]
     task: Arc<UploadTask>,
+    #[cfg(not(target_arch = "wasm32"))]
     job_handle: tokio::task::JoinHandle<()>,
 }
 
@@ -147,7 +148,7 @@ impl AttachmentInner {
         let barrier = Arc::new(Barrier::new(2));
         let barrier_ref = barrier.clone();
 
-        let task_handle = tokio::spawn(async move {
+        let task_handle = spawn(async move {
             barrier_ref.wait().await;
 
             let media_callback = Box::new(UploadTaskCallback {
@@ -176,6 +177,7 @@ impl AttachmentInner {
 
         let t = UploadPendingTask {
             task,
+            #[cfg(not(target_arch = "wasm32"))]
             job_handle: task_handle,
         };
         self.pendings.lock().unwrap().insert(req_id.to_string(), t);
@@ -184,6 +186,7 @@ impl AttachmentInner {
     pub(super) fn cancel_send(&self, req_id: &str) {
         let mut pendings = self.pendings.lock().unwrap();
         if let Some(pending) = pendings.remove(req_id) {
+            #[cfg(not(target_arch = "wasm32"))]
             pending.job_handle.abort();
         }
     }

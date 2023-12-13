@@ -10,6 +10,7 @@ extern "C" {
     pub fn clear_timeout(id: i32);
 }
 
+#[allow(dead_code)]
 pub async fn sleep(d: std::time::Duration) {
     let p = js_sys::Promise::new(&mut |resolve, _| {
         let closure = Closure::new(move || {

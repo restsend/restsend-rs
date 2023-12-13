@@ -1,4 +1,5 @@
 mod test_media;
+use crate::utils::spawn;
 use crate::Result;
 use futures_util::Future;
 use http_body_util::combinators::BoxBody;
@@ -9,7 +10,6 @@ use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
 use std::convert::Infallible;
 use tokio::net::TcpListener;
-use tokio::spawn;
 use tokio::sync::oneshot;
 
 pub(crate) const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";

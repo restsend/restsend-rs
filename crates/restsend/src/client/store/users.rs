@@ -1,5 +1,6 @@
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
+use crate::utils::spawn;
 use crate::{client::store::StoreEvent, models::User, services::user::get_user, utils::now_millis};
 use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
@@ -48,7 +49,7 @@ impl ClientStore {
             let token = self.token.clone();
             let user_id = user_id.to_string();
             let tx = self.event_tx.lock().unwrap().clone();
-            tokio::spawn(async move {
+            spawn(async move {
                 let user = get_user(&endpoint, &token, &user_id).await;
                 if let Ok(user) = user {
                     if let Some(tx) = tx {
@@ -120,7 +121,7 @@ impl ClientStore {
                 let user_id = user_id.to_string();
                 let tx = self.event_tx.lock().unwrap().clone();
 
-                tokio::spawn(async move {
+                spawn(async move {
                     let user = get_user(&endpoint, &token, &user_id).await;
                     if let Ok(user) = user {
                         if let Some(tx) = tx {

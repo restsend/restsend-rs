@@ -1,4 +1,14 @@
 use std::{io::Write, time::Duration};
+
+use std::future::Future;
+#[cfg(not(target_arch = "wasm32"))]
+use tokio::task::JoinHandle;
+
+#[cfg(target_arch = "wasm32")]
+use js_sys;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 #[cfg(not(target_arch = "wasm32"))]
 // a hex random text with length of count, lowercase
 pub fn random_text(count: usize) -> String {
@@ -14,10 +24,9 @@ pub fn random_text(count: usize) -> String {
 #[cfg(target_arch = "wasm32")]
 // a hex random text with length of count, lowercase
 pub fn random_text(count: usize) -> String {
-    use js_sys::Math;
     let mut s = String::new();
     for _ in 0..count {
-        let r = Math::random();
+        let r = js_sys::Math::random();
         let c = (r * 16.0) as u8;
         let c = if c < 10 {
             (c + 48) as char
@@ -47,9 +56,24 @@ pub async fn sleep(duration: Duration) {
     tokio::time::sleep(duration).await
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn spawn<F>(f: F) -> JoinHandle<F::Output>
+where
+    F: Future<Output = ()> + Send + 'static,
+{
+    tokio::spawn(f)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn spawn<F>(f: F)
+where
+    F: Future<Output = ()> + 'static,
+{
+    wasm_bindgen_futures::spawn_local(f);
+}
+
 #[cfg(target_arch = "wasm32")]
 pub async fn sleep(duration: Duration) {
-    use wasm_bindgen::prelude::*;
     #[wasm_bindgen]
     extern "C" {
         #[wasm_bindgen(js_name = setTimeout)]
@@ -60,7 +84,7 @@ pub async fn sleep(duration: Duration) {
             let this = JsValue::null();
             let _ = resolve.call0(&this);
         });
-        set_timeout(&closure, d.as_millis() as u32);
+        set_timeout(&closure, duration.as_millis() as u32);
         closure.forget();
     });
     wasm_bindgen_futures::JsFuture::from(p).await.ok();

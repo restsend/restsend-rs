@@ -5,6 +5,9 @@ use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use log::info;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 #[uniffi::export]
 pub async fn login_with_token(endpoint: String, email: String, token: String) -> Result<AuthInfo> {
     let data = serde_json::json!({
@@ -92,6 +95,7 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::test]
 async fn test_login() {
     let user_id = "alice";
@@ -135,6 +139,7 @@ async fn test_login() {
     assert_eq!(info.token, token);
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::test]
 async fn test_login_logout() {
     let info = login_with_password(

@@ -5,10 +5,10 @@ use std::{num::NonZeroUsize, sync::Mutex};
 pub struct InMemoryStorage {}
 
 impl InMemoryStorage {
-    pub fn new() -> Self {
+    pub fn new(_db_name: &str) -> Self {
         InMemoryStorage {}
     }
-    pub fn make_table(&self, _name: &str) -> anyhow::Result<()> {
+    pub fn make_table(&self, _name: &str) -> crate::Result<()> {
         Ok(())
     }
     pub fn table<T>(&self, _name: &str) -> Box<dyn super::Table<T>>

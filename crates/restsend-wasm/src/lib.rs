@@ -1,28 +1,21 @@
-use futures_util::{pin_mut, select, FutureExt};
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
-use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::js_sys;
+// use restsend_sdk::models::AuthInfo;
+// use std::{sync::Arc, time::Duration};
+// use wasm_bindgen::prelude::*;
 
 mod js;
 #[cfg(test)]
 mod tests;
 
-#[wasm_bindgen]
-pub struct RsClient {}
+// #[wasm_bindgen]
+// pub struct RsClient(Arc<restsend_sdk::client::Client>);
 
-#[wasm_bindgen]
-impl RsClient {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> Self {
-        RsClient {}
-    }
-
-    pub async fn connect(&self, callback: JsValue) {
-        let now = chrono::Local::now().time();
-        js::sleep(Duration::from_millis(200)).await;
-        js::console_log(&format!("connect {} ms", now));
-    }
-}
+// #[wasm_bindgen]
+// impl RsClient {
+//     #[wasm_bindgen(constructor)]
+//     pub fn new() -> Self {
+//         let info = AuthInfo::new("endpoint", "userid", "token");
+//         RsClient {
+//             0: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
+//         }
+//     }
+// }

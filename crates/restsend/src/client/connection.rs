@@ -2,7 +2,7 @@ use super::Client;
 use crate::{
     callback::Callback,
     request::{ChatRequest, ChatRequestType},
-    utils::sleep,
+    utils::{sleep, spawn},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
@@ -183,7 +183,7 @@ impl Client {
         info!("connect websocket url: {}", url);
         let conn_state_ref = state.state_tx.clone();
 
-        tokio::spawn(async move {
+        spawn(async move {
             let conn_loop = async {
                 while !state.is_must_shutdown() {
                     state.wait_for_next_connect().await;

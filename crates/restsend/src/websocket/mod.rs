@@ -5,6 +5,9 @@ mod tests;
 #[cfg(not(target_arch = "wasm32"))]
 mod tokio_impl;
 
+#[cfg(target_arch = "wasm32")]
+mod web_sys_impl;
+
 #[allow(unused)]
 pub trait WebSocketCallback: Send + Sync {
     fn on_connected(&self, usage: Duration) {}
@@ -36,3 +39,6 @@ impl WebsocketOption {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) type WebSocket = tokio_impl::WebSocketImpl;
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) type WebSocket = web_sys_impl::WebSocketImpl;

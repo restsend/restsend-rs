@@ -1,13 +1,12 @@
+use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
 use crate::utils::{elapsed, now_millis};
 use crate::Result;
-use crate::{
-    error::ClientError::{Forbidden, InvalidPassword, HTTP},
-    USER_AGENT,
-};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::USER_AGENT;
 use log::{info, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
-    RequestBuilder, Response,
+    ClientBuilder, RequestBuilder, Response,
 };
 use std::time::Duration;
 
@@ -34,16 +33,17 @@ pub(super) fn make_get_request(
     timeout: Option<Duration>,
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
-    let req = reqwest::ClientBuilder::new()
+    #[cfg(not(target_arch = "wasm32"))]
+    let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
-        .build()
-        .unwrap()
-        .get(&url)
-        .header(
-            CONTENT_TYPE,
-            HeaderValue::from_bytes(b"application/json").unwrap(),
-        )
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+    #[cfg(target_arch = "wasm32")]
+    let req = ClientBuilder::new();
+
+    let req = req.build().unwrap().get(&url).header(
+        CONTENT_TYPE,
+        HeaderValue::from_bytes(b"application/json").unwrap(),
+    );
 
     match auth_token {
         Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
@@ -60,12 +60,15 @@ pub(super) fn make_post_request(
     timeout: Option<Duration>,
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
-    let req = reqwest::ClientBuilder::new()
+    #[cfg(not(target_arch = "wasm32"))]
+    let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
-        .build()
-        .unwrap()
-        .post(&url)
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+
+    #[cfg(target_arch = "wasm32")]
+    let req = ClientBuilder::new();
+
+    let req = req.build().unwrap().post(&url);
 
     let req = match content_type {
         Some(content_type) => req.header(

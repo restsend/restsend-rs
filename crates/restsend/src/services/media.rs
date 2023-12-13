@@ -7,7 +7,10 @@ use futures_util::TryStreamExt;
 use log::info;
 use reqwest::multipart;
 use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
 use tokio::io::AsyncWriteExt;
+
 use tokio::select;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
@@ -53,6 +56,19 @@ pub(crate) fn build_download_url(endpoint: &str, url: &str) -> String {
     format!("{}{}", endpoint, url)
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn upload_file(
+    uploader_url: String,
+    token: Option<&str>,
+    file_path: String,
+    is_private: bool,
+    callback: Box<dyn UploadCallback>,
+    cancel: oneshot::Receiver<()>,
+) -> Result<Option<Upload>> {
+    todo!()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) async fn upload_file(
     uploader_url: String,
     token: Option<&str>,
@@ -145,6 +161,18 @@ pub(crate) async fn upload_file(
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) async fn download_file(
+    download_url: String,
+    token: Option<String>,
+    save_file_name: String,
+    callback: Box<dyn DownloadCallback>,
+    cancel: oneshot::Receiver<()>,
+) -> Result<String> {
+    todo!()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) async fn download_file(
     download_url: String,
     token: Option<String>,

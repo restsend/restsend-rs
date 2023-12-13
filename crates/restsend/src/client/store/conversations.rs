@@ -5,7 +5,7 @@ use crate::{
     request::ChatRequest,
     services::conversation::*,
     storage::{QueryOption, QueryResult},
-    utils::now_millis,
+    utils::{now_millis, spawn},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
@@ -102,7 +102,7 @@ impl ClientStore {
             let token = self.token.clone();
             let topic_id = topic_id.to_string();
 
-            tokio::spawn(async move {
+            spawn(async move {
                 let converstion = get_conversation(&endpoint, &token, &topic_id).await;
                 if let Ok(converstion) = converstion {
                     event_tx
