@@ -1,15 +1,15 @@
 use std::{io::Write, time::Duration};
 
 use std::future::Future;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 use tokio::task::JoinHandle;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 use js_sys;
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 // a hex random text with length of count, lowercase
 pub fn random_text(count: usize) -> String {
     use rand::Rng;
@@ -21,7 +21,7 @@ pub fn random_text(count: usize) -> String {
         .to_lowercase()
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 // a hex random text with length of count, lowercase
 pub fn random_text(count: usize) -> String {
     let mut s = String::new();
@@ -38,7 +38,7 @@ pub fn random_text(count: usize) -> String {
     s
 }
 
-#[uniffi::export]
+//#[uniffi::export]
 pub fn now_millis() -> i64 {
     chrono::Local::now().timestamp_millis()
 }
@@ -51,12 +51,12 @@ pub fn elapsed(d: i64) -> Duration {
     Duration::from_millis((now_millis() - d).abs() as u64)
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub async fn sleep(duration: Duration) {
     tokio::time::sleep(duration).await
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub fn spawn<F>(f: F) -> JoinHandle<F::Output>
 where
     F: Future<Output = ()> + Send + 'static,
@@ -64,7 +64,7 @@ where
     tokio::spawn(f)
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 pub fn spawn<F>(f: F)
 where
     F: Future<Output = ()> + 'static,
@@ -72,7 +72,7 @@ where
     wasm_bindgen_futures::spawn_local(f);
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 pub async fn sleep(duration: Duration) {
     #[wasm_bindgen]
     extern "C" {
@@ -90,6 +90,7 @@ pub async fn sleep(duration: Duration) {
     wasm_bindgen_futures::JsFuture::from(p).await.ok();
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[uniffi::export]
 pub fn init_log(level: String, is_test: bool) {
     let _ = env_logger::builder()

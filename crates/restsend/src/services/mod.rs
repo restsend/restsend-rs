@@ -1,7 +1,7 @@
 use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
 use crate::utils::{elapsed, now_millis};
 use crate::Result;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
 use log::{info, warn};
 use reqwest::{
@@ -33,11 +33,11 @@ pub(super) fn make_get_request(
     timeout: Option<Duration>,
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_family = "wasm"))]
     let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(target_family = "wasm")]
     let req = ClientBuilder::new();
 
     let req = req.build().unwrap().get(&url).header(
@@ -60,12 +60,12 @@ pub(super) fn make_post_request(
     timeout: Option<Duration>,
 ) -> RequestBuilder {
     let url = format!("{}{}", endpoint, uri);
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_family = "wasm"))]
     let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(target_family = "wasm")]
     let req = ClientBuilder::new();
 
     let req = req.build().unwrap().post(&url);

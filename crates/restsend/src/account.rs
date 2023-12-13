@@ -1,9 +1,11 @@
+use restsend_macros::export_wasm_or_ffi;
+
 use crate::models::AuthInfo;
 use crate::Result;
 use std::fs::{create_dir_all, read_to_string, write};
 use std::path::{Path, PathBuf};
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 pub fn set_current_user(root: String, user_id: String) -> Result<()> {
     let current_file = PathBuf::from(&root).join(".current_user");
     if user_id != String::default() {
@@ -13,7 +15,7 @@ pub fn set_current_user(root: String, user_id: String) -> Result<()> {
     Ok(write(&current_file, user_id)?)
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 pub fn get_current_user(root: String) -> Option<AuthInfo> {
     let current_file = PathBuf::from(root).join(".current_user");
     match read_to_string(&current_file) {

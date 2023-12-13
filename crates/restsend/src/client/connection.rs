@@ -7,6 +7,7 @@ use crate::{
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
 use log::{debug, info, warn};
+use restsend_macros::export_wasm_or_ffi;
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -162,14 +163,14 @@ impl WebSocketCallback for ConnectionInner {
     }
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 impl Client {
     pub async fn connect(&self, callback: Box<dyn Callback>) {
         self.serve_connection(callback).await
     }
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 impl Client {
     async fn serve_connection(&self, callback: Box<dyn Callback>) {
         let url = WebsocketOption::url_from_endpoint(&self.endpoint);

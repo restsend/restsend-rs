@@ -5436,14 +5436,6 @@ public func logout(endpoint: String, token: String) async throws {
 
 
 
-public func nowTimestamp()  -> Int64 {
-    return try!  FfiConverterInt64.lift(
-        try! rustCall() {
-    uniffi_restsend_sdk_fn_func_now_timestamp($0)
-}
-    )
-}
-
 public func setCurrentUser(root: String, userId: String) throws {
     try rustCallWithError(FfiConverterTypeClientError.lift) {
     uniffi_restsend_sdk_fn_func_set_current_user(
@@ -5482,9 +5474,6 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_func_logout() != 45700) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_restsend_sdk_checksum_func_now_timestamp() != 18746) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_func_set_current_user() != 58805) {

@@ -12,9 +12,7 @@ mobile = []
 desktop = []
 
 [dependencies]
-uniffi = { version = "0.25.2", features = ["build", "cli"] }
-uniffi_bindgen = "0.25.2"
-
+restsend-macros = { path = "../restsend-macros" }
 tokio-util = "0.7.9"
 lazy_static = "1.4.0"
 include_dir = "0.7.3"
@@ -31,9 +29,6 @@ thiserror = "1.0.50"
 env_logger = "0.10.1"
 chrono = "0.4.31"
 md5 = "0.7.0"
-clap = "4.4.11"
-camino = "1.1.6"
-tempdir = "0.3.7"
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -65,6 +60,12 @@ reqwest = { version = "0.11.22", default-features = false, features = [
     "stream",
     "native-tls",
 ] }
+uniffi = { version = "0.25.2", features = ["build", "cli"] }
+uniffi_bindgen = "0.25.2"
+uniffi_macros = "0.25.2"
+clap = "4.4.11"
+camino = "1.1.6"
+tempdir = "0.3.7"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 hyper = { version = "1.0.1", features = ["full"] }

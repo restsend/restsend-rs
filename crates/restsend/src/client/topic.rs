@@ -1,10 +1,12 @@
+use restsend_macros::export_wasm_or_ffi;
+
 use super::Client;
 use crate::models::{Conversation, ListUserResult, Topic, TopicKnock, User};
 use crate::services::topic::{create_topic, get_topic, get_topic_members};
 use crate::services::topic_admin::*;
 use crate::Result;
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 impl Client {
     // Topic API
     pub async fn create_topic(

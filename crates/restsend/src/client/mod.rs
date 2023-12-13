@@ -14,6 +14,7 @@ use crate::{
 };
 use crate::{utils, Result};
 use log::warn;
+use restsend_macros::export_wasm_or_ffi;
 use std::{path::Path, sync::Arc};
 use tokio::sync::oneshot;
 mod connection;
@@ -53,7 +54,7 @@ impl Client {
     }
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 impl Client {
     #[uniffi::constructor]
     pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {

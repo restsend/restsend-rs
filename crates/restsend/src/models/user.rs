@@ -3,7 +3,7 @@ use crate::storage::StoreModel;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(uniffi::Record, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, uniffi::Record)]
 pub struct AuthInfo {
     pub endpoint: String,
     pub user_id: String,

@@ -1,9 +1,9 @@
 use crate::Result;
 use std::str::FromStr;
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 mod memory;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 mod sqlite;
 
 pub trait StoreModel: ToString + FromStr {
@@ -23,10 +23,10 @@ pub struct QueryResult<T: StoreModel> {
     pub items: Vec<T>,
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 pub type Storage = memory::InMemoryStorage;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub type Storage = sqlite::SqliteStorage;
 
 pub trait Table<T: StoreModel> {

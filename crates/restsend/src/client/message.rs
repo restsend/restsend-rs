@@ -6,9 +6,10 @@ use crate::services::response::APISendResponse;
 use crate::Result;
 use crate::{models::Content, request::ChatRequest};
 use log::warn;
+use restsend_macros::export_wasm_or_ffi;
 use std::io::Write;
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 impl Client {
     pub async fn send_chat_request(
         &self,

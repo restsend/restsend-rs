@@ -1,6 +1,6 @@
 use crate::client::Client;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 #[test]
 fn test_db_prepare() {
     //
@@ -8,7 +8,7 @@ fn test_db_prepare() {
     assert!(d.prepare().is_ok());
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 #[test]
 fn test_client_init() {
     let c = Client::new(crate::models::MEMORY_DSN.to_string(), "".to_string());

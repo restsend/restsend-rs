@@ -33,11 +33,16 @@ fn main() {
     let args = Cli::parse();
     let publish = args.publish.unwrap_or(false);
 
-    let (lang, mode) = bindgen_with_language(args).unwrap();
+    let crate_name = std::env::var("CARGO_PKG_NAME")
+        .unwrap_or("restsend_ffi".to_string())
+        .replace("-", "_");
+    let crate_name = crate_name.as_str();
+
+    let (lang, mode) = bindgen_with_language(crate_name, args).unwrap();
 
     match lang {
         TargetLanguage::Swift => {
-            build_xcframework(mode.clone());
+            build_xcframework(crate_name, mode.clone());
             if publish {
                 if mode == "release" {
                     publish_ios_pods();
@@ -50,9 +55,8 @@ fn main() {
     }
 }
 
-fn build_xcframework(mode: String) {
+fn build_xcframework(crate_name: &str, mode: String) {
     let xcframework_name = "restsendFFI";
-    let crate_name = "restsend_sdk";
     let build_dir = tempdir::TempDir::new_in("", ".xcbuild").unwrap();
     println!(
         "Build xcframework in {:?} mode: {} framename: {}",
@@ -200,8 +204,7 @@ fn publish_ios_pods() {
     }
 }
 
-fn bindgen_with_language(args: Cli) -> Result<(TargetLanguage, String), Error> {
-    let crate_name = "restsend_sdk";
+fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage, String), Error> {
     let ext = std::env::consts::DLL_EXTENSION;
 
     let language = args.language.unwrap_or("swift".to_string());

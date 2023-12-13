@@ -4,11 +4,9 @@ use crate::services::{handle_response, make_get_request, make_post_request, resp
 use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use log::info;
+use restsend_macros::export_wasm_or_ffi;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
-#[uniffi::export]
+#[export_wasm_or_ffi]
 pub async fn login_with_token(endpoint: String, email: String, token: String) -> Result<AuthInfo> {
     let data = serde_json::json!({
         "token": token,
@@ -17,7 +15,7 @@ pub async fn login_with_token(endpoint: String, email: String, token: String) ->
     login(&endpoint, &email, data.to_string()).await
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 pub async fn login_with_password(
     endpoint: String,
     email: String,
@@ -31,7 +29,7 @@ pub async fn login_with_password(
     login(&endpoint, &email, data.to_string()).await
 }
 
-#[uniffi::export]
+#[export_wasm_or_ffi]
 pub async fn logout(endpoint: String, token: String) -> Result<()> {
     let st = now_millis();
     let uri = "/auth/logout";
@@ -95,7 +93,7 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
     })
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login() {
     let user_id = "alice";
@@ -139,7 +137,7 @@ async fn test_login() {
     assert_eq!(info.token, token);
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login_logout() {
     let info = login_with_password(

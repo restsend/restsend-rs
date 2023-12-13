@@ -2,10 +2,10 @@ use std::time::Duration;
 #[cfg(test)]
 mod tests;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 mod tokio_impl;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 mod web_sys_impl;
 
 #[allow(unused)]
@@ -37,8 +37,8 @@ impl WebsocketOption {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_family = "wasm"))]
 pub(crate) type WebSocket = tokio_impl::WebSocketImpl;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(target_family = "wasm")]
 pub(crate) type WebSocket = web_sys_impl::WebSocketImpl;
