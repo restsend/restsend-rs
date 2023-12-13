@@ -1,0 +1,1 @@
+uniffi::setup_scaffolding!();
