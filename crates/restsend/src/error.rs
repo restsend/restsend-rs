@@ -62,6 +62,7 @@ impl From<std::io::Error> for ClientError {
         ClientError::StdError(format!("io error {}", e.to_string()))
     }
 }
+
 #[cfg(target_family = "wasm")]
 impl From<ClientError> for wasm_bindgen::JsValue {
     fn from(e: ClientError) -> wasm_bindgen::JsValue {

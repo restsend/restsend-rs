@@ -15,6 +15,9 @@ desktop = []
 restsend-macros = { path = "../restsend-macros" }
 uniffi = { version = "0.25.2", features = ["build", "cli"] }
 uniffi_bindgen = "0.25.2"
+wasm-bindgen = "0.2.74"
+wasm-bindgen-futures = "0.4.39"
+
 tokio-util = "0.7.9"
 lazy_static = "1.4.0"
 include_dir = "0.7.3"
@@ -31,14 +34,20 @@ thiserror = "1.0.50"
 env_logger = "0.10.1"
 chrono = "0.4.31"
 md5 = "0.7.0"
-
+js-sys = "0.3.66"
+web-sys = { version = "0.3.50", features = [
+    "BinaryType",
+    "Blob",
+    "ErrorEvent",
+    "FileReader",
+    "MessageEvent",
+    "ProgressEvent",
+    "WebSocket",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.34.0", features = ["time", "sync", "macros"] }
-wasm-bindgen = "0.2.74"
-wasm-bindgen-futures = "0.4.39"
-js-sys = "0.3.66"
-web-sys = "0.3.66"
+
 reqwest = { version = "0.11.22", default-features = false, features = [
     "json",
     "multipart",

@@ -12,7 +12,7 @@ pub async fn login_with_token(endpoint: String, email: String, token: String) ->
         "token": token,
         "remember": true,
     });
-    login(&endpoint, &email, data.to_string()).await
+    signin_or_signup(&endpoint, "/auth/login", &email, data.to_string()).await
 }
 
 #[export_wasm_or_ffi]
@@ -26,7 +26,17 @@ pub async fn login_with_password(
         "password": password,
         "remember": true,
     });
-    login(&endpoint, &email, data.to_string()).await
+    signin_or_signup(&endpoint, "/auth/login", &email, data.to_string()).await
+}
+
+#[export_wasm_or_ffi]
+pub async fn signup(endpoint: String, email: String, password: String) -> Result<AuthInfo> {
+    let data = serde_json::json!({
+        "email": email,
+        "password": password,
+        "remember": true,
+    });
+    signin_or_signup(&endpoint, "/auth/signup", &email, data.to_string()).await
 }
 
 #[export_wasm_or_ffi]
@@ -60,9 +70,13 @@ pub async fn logout(endpoint: String, token: String) -> Result<()> {
     }
 }
 
-async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
+async fn signin_or_signup(
+    endpoint: &str,
+    uri: &str,
+    email: &str,
+    body: String,
+) -> Result<AuthInfo> {
     let st = now_millis();
-    let uri = "/auth/login";
     let req = make_post_request(
         endpoint,
         uri,
@@ -75,7 +89,7 @@ async fn login(endpoint: &str, email: &str, body: String) -> Result<AuthInfo> {
     let status = resp.status();
 
     info!(
-        "login url:{}{} email:{} status:{} usage: {:?}",
+        "auth url:{}{} email:{} status:{} usage: {:?}",
         endpoint,
         uri,
         email,

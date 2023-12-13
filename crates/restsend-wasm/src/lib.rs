@@ -7,15 +7,62 @@ mod js;
 mod tests;
 
 #[wasm_bindgen]
-pub struct RsClient(Arc<restsend_sdk::client::Client>);
+pub struct Client(Arc<restsend_sdk::client::Client>);
 
 #[wasm_bindgen]
-impl RsClient {
+pub async fn login_with_password(
+    endpoint: String,
+    user_id: String,
+    password: String,
+) -> Result<JsValue, JsValue> {
+    let info = restsend_sdk::services::auth::login_with_password(endpoint, user_id, password)
+        .await
+        .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
+    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
+}
+#[wasm_bindgen]
+pub async fn signup(
+    endpoint: String,
+    user_id: String,
+    password: String,
+) -> Result<JsValue, JsValue> {
+    let info = restsend_sdk::services::auth::signup(endpoint, user_id, password)
+        .await
+        .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
+    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
+}
+
+#[wasm_bindgen]
+impl Client {
     #[wasm_bindgen(constructor)]
     pub fn new(endpoint: String, user_id: String, token: String) -> Self {
         let info = AuthInfo::new(&endpoint, &user_id, &token);
-        RsClient {
+        Client {
             0: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
         }
+    }
+
+    pub async fn connect(&self) -> Result<(), JsValue> {
+        struct TestCallbackImpl;
+        impl restsend_sdk::callback::Callback for TestCallbackImpl {
+            fn on_connected(&self) {
+                js::log("on_connected");
+            }
+            fn on_connecting(&self) {
+                js::log("on_connecting");
+            }
+        }
+        self.0.connect(Box::new(TestCallbackImpl {})).await;
+        Ok(())
+    }
+
+    pub async fn do_send_text(&self, topic_id: String, text: String) -> Result<(), JsValue> {
+        struct TestCallbackImpl;
+        impl restsend_sdk::callback::Callback for TestCallbackImpl {}
+        self.0
+            .do_send_text(topic_id, text, None, None, None)
+            .await
+            .ok();
+        Ok(())
     }
 }

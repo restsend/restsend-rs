@@ -65,6 +65,16 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
     cargo run --release --bin bindgen -- --language swift -p true
     ```
 
+### 编译Wasm版本
+建议Node版本使用20以上版本
+```shell
+ cargo install wasm-pack
+ cd crates/restsend-wasm
+ npm install --force
+ npm run build
+```
+
+
 ### 编译Android
 
 只有在m2的机器上测试通过,目前只支持arm的模拟器,x86_64的模拟器待定
