@@ -9,7 +9,7 @@ mod tests;
 
 pub use logger::enable_logging;
 
-use crate::callback::CallbackWasmWrap;
+use crate::callback::{CallbackWasmWrap, MessageCallbackWasmWrap};
 type CallbackFunction = Arc<Mutex<Option<js_sys::Function>>>;
 #[wasm_bindgen]
 pub struct Client {
@@ -21,11 +21,12 @@ pub struct Client {
     inner: Arc<restsend_sdk::client::Client>,
 }
 
+#[allow(non_snake_case)]
 #[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
-    pub fn new(endpoint: String, user_id: String, token: String) -> Self {
-        let info = AuthInfo::new(&endpoint, &user_id, &token);
+    pub fn new(endpoint: String, userId: String, token: String) -> Self {
+        let info = AuthInfo::new(&endpoint, &userId, &token);
         Client {
             cb_on_connected: Arc::new(Mutex::new(None)),
             cb_on_connecting: Arc::new(Mutex::new(None)),
@@ -43,7 +44,7 @@ impl Client {
 
     /// Set the callback when connection connected
     #[wasm_bindgen(setter)]
-    pub fn set_on_connected(&self, cb: JsValue) {
+    pub fn set_onconnected(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_connected
                 .lock()
@@ -53,7 +54,7 @@ impl Client {
     }
     /// Set the callback when connection connecting
     #[wasm_bindgen(setter)]
-    pub fn set_on_connecting(&self, cb: JsValue) {
+    pub fn set_onconnecting(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_connecting
                 .lock()
@@ -63,7 +64,7 @@ impl Client {
     }
     /// Set the callback when connection token expired
     #[wasm_bindgen(setter)]
-    pub fn set_on_token_expired(&self, cb: JsValue) {
+    pub fn set_ontokenexpired(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_token_expired
                 .lock()
@@ -73,7 +74,7 @@ impl Client {
     }
     /// Set the callback when connection broken
     #[wasm_bindgen(setter)]
-    pub fn set_on_net_broken(&self, cb: JsValue) {
+    pub fn set_onbroken(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_net_broken
                 .lock()
@@ -83,7 +84,7 @@ impl Client {
     }
     /// Set the callback when kickoff by other client
     #[wasm_bindgen(setter)]
-    pub fn set_on_kickoff_by_other_client(&self, cb: JsValue) {
+    pub fn set_onkickoff(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_kickoff_by_other_client
                 .lock()
@@ -104,12 +105,40 @@ impl Client {
             .await;
         Ok(())
     }
-
-    pub async fn do_send_text(&self, topic_id: String, text: String) -> Result<(), JsValue> {
-        struct TestCallbackImpl;
-        impl restsend_sdk::callback::Callback for TestCallbackImpl {}
+    /// Send text message
+    /// # Arguments
+    /// * `topicId` - The topic id
+    /// * `text` - The text message
+    /// * `mentions` - The mentions userid , optional
+    /// * `replyTo` - The reply message id, optional
+    /// * `cb` - The callback function, optional
+    /// # Example
+    /// ```javascript
+    /// const client = new Client(endpoint, userId, token);
+    /// await client.sendText(topicId, text, mentions, replyTo, {
+    ///     onsent:  () => {},
+    ///     onprogress:  (progress:Number, total:Number)  =>{},
+    ///     onack:  (req:ChatRequest)  => {},
+    ///     onfail:  (reason:String)  => {}
+    /// });
+    /// ```
+    ///
+    pub async fn doSendText(
+        &self,
+        topicId: String,
+        text: String,
+        mentions: Option<Vec<String>>,
+        replyTo: Option<String>,
+        cb: JsValue,
+    ) -> Result<(), JsValue> {
         self.inner
-            .do_send_text(topic_id, text, None, None, None)
+            .do_send_text(
+                topicId,
+                text,
+                mentions,
+                replyTo,
+                Some(Box::new(MessageCallbackWasmWrap::new(cb))),
+            )
             .await
             .ok();
         Ok(())

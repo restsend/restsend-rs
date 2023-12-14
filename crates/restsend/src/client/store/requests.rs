@@ -19,13 +19,13 @@ impl ClientStore {
         self.msg_tx.lock().unwrap().replace(msg_tx.clone());
 
         while let Some(req_id) = msg_rx.recv().await {
-            let mut outgoings = self.outgoings.lock().unwrap();
-            if let Some(pending) = outgoings.remove(&req_id) {
+            let outgoings = self.outgoings.lock().unwrap();
+            if let Some(pending) = outgoings.get(&req_id) {
                 if pending.is_expired() {
                     continue;
                 }
-                outgoing_tx.send(pending.req).ok();
-                pending.callback.map(|cb| cb.on_sent());
+                outgoing_tx.send(pending.req.clone()).ok();
+                pending.callback.as_ref().map(|cb| cb.on_sent());
             }
         }
     }

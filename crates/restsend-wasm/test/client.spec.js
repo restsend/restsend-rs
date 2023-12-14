@@ -63,9 +63,8 @@ describe('Websocket connection', function () {
         let info = await signin(endpoint, 'guido', 'guido:demo')
         let client = new Client(endpoint, 'guido', info.token)
         let is_connected = false
-        client.on_connected = () => {
+        client.onconnected = () => {
             is_connected = true
-            console.log('connected')
         }
         await client.connect()
         await waitUntil(() => client.connection_status === 'connected', 3000)
@@ -74,5 +73,27 @@ describe('Websocket connection', function () {
     it('#handshake', async () => {
         let guido = await authClient('guido', 'guido:demo', true)
         expect(guido.connection_status).toBe('connected')
+    })
+    it('#send text message', async () => {
+        let bob = await authClient('bob', 'bob:demo', true)
+        expect(bob.connection_status).toBe('connected')
+        let is_sent = false
+        let is_ack = false
+        let is_fail = false
+        bob.doSendText('bob:alice', 'hello', null, null, {
+            onsent: () => {
+                is_sent = true
+            },
+            onack: (req) => {
+                is_ack = true
+            },
+            onerror: (e) => {
+                is_fail = true
+            }
+        })
+        await waitUntil(() => is_ack, 3000)
+        expect(is_fail).toBe(false)
+        expect(is_ack).toBe(true)
+        expect(is_sent).toBe(true)
     })
 })
