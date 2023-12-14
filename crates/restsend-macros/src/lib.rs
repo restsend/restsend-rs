@@ -1,4 +1,5 @@
 extern crate proc_macro;
+
 use proc_macro::TokenStream;
 use quote::quote;
 
@@ -6,7 +7,10 @@ fn is_wasm_target() -> bool {
     let target = std::env::var("CARGO_CFG_TARGET_FAMILY").unwrap_or_default();
     match target.as_str() {
         "wasm" => true,
-        _ => std::env::var("_").unwrap_or_default().contains("wasm-pack"),
+        _ => {
+            let current =  std::env::var("_").unwrap_or_default();
+            current.contains("wasm-pack") || current.contains("npm")
+        },
     }
 }
 

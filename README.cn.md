@@ -3,6 +3,7 @@ restsend client sdk
 
 restsend的客户端SDK,基于rust编写, 提供android和ios的sdk实现, 需要对rust版本有要求, 如果版本低于 `1.72.0` 需要先 `rustup update` 更新到rust版本
 查看rustc版本:
+
 ```shell
 mpi@mpis-Mac-mini restsend-sdk % rustc --version
 rustc 1.72.0 (5680fa18f 2023-08-23)
@@ -37,22 +38,28 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
 ### 编译ios
 
 只在M2的机器上测试通过, 请使用M2的机器编译
+
 - 开发测试版本：模拟器
+
     ```ruby
     # 在xcode工程的Podfile引入
     pod 'restsendSdk', :path => '../restsend-rs'
     ```
+
     1. 先编译rust的库
+
     ```shell
     cargo build --target aarch64-apple-ios-sim
     # 如果是x86的mac机器
     cargo build  --target x86_64-apple-darwin 
     ```
+
     1. 编译swift的绑定代码
+
     ```shell
     cargo run --bin bindgen -- --language swift
     ```
-    
+
 - 正式版本(release)：
 
     ```shell
@@ -60,20 +67,31 @@ rustc 1.72.0 (5680fa18f 2023-08-23)
 
     cargo run --release --bin bindgen -- --language swift
     ```
+
     如果需要发布正式的pod版本
+
     ```shell
     cargo run --release --bin bindgen -- --language swift -p true
     ```
 
 ### 编译Wasm版本
+
 建议Node版本使用20以上版本
+
+需要先手工下载binaryen的wasm-opt工具,并放到PATH中, 下载地址: <https://github.com/WebAssembly/binaryen/releases/>
+解压后, 把wasm-opt放到PATH中, 比如放到`/usr/local/bin`目录中
+
 ```shell
- cargo install wasm-pack
+ cargo install wasm-pack wasm-bindgen-cli
  cd crates/restsend-wasm
  npm install --force
+ 
+ # Linux/WSL 需要先安装依赖
+ # npx playwright install-deps
+ 
+ npx playwright install webkit
  npm run build
 ```
-
 
 ### 编译Android
 
@@ -89,13 +107,17 @@ cargo ndk -t arm64-v8a -t x86_64 -o ./jniLibs build --release
 ### 如何测试
 
 - cargo开发阶段的测试, 是pc上的测试:
+
     ```shell
     cargo test
     ```
+
 - rust 版本的demo需要有GUI的环境,比如Windows/Mac才能运行
+
     ```shell
     cargo run -p demo
     ```
+
 ### Android的配置
 
 - 在`app/build.gradle` 增加jna的支持， 用aar，能把需要的.so自动编译进去
