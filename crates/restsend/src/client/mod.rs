@@ -76,12 +76,7 @@ impl Client {
             root_path: root_path.to_string(),
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
-            endpoint: info
-                .endpoint
-                .to_string()
-                .strip_suffix("/")
-                .unwrap_or_default()
-                .to_string(),
+            endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
             store: store_ref,
             state: Arc::new(ConnectState::new()),
         })

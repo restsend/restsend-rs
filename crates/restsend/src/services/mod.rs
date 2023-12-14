@@ -32,7 +32,7 @@ pub(super) fn make_get_request(
     auth_token: Option<String>,
     timeout: Option<Duration>,
 ) -> RequestBuilder {
-    let url = format!("{}{}", endpoint.strip_suffix("/").unwrap(), uri);
+    let url = format!("{}{}", endpoint.trim_end_matches("/"), uri);
     #[cfg(not(target_family = "wasm"))]
     let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
@@ -59,7 +59,7 @@ pub(super) fn make_post_request(
     body: Option<String>,
     timeout: Option<Duration>,
 ) -> RequestBuilder {
-    let url = format!("{}{}", endpoint.strip_suffix("/").unwrap(), uri);
+    let url = format!("{}{}", endpoint.trim_end_matches("/"), uri);
     #[cfg(not(target_family = "wasm"))]
     let req = ClientBuilder::new()
         .user_agent(USER_AGENT)

@@ -1,4 +1,5 @@
 use wasm_bindgen_test::*;
+//wasm_bindgen_test_configure!(run_in_worker);
 
 use crate::js;
 const ENDPOINT: &str = "https://chat.ruzhila.cn";
