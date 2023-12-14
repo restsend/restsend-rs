@@ -5,7 +5,7 @@ mod tests;
 #[cfg(not(target_family = "wasm"))]
 mod tokio_impl;
 
-#[cfg(target_family = "wasm")]
+#[allow(dead_code)]
 mod web_sys_impl;
 
 #[allow(unused)]

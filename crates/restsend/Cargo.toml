@@ -35,7 +35,7 @@ env_logger = "0.10.1"
 chrono = "0.4.31"
 md5 = "0.7.0"
 js-sys = "0.3.66"
-web-sys = { version = "0.3.50", features = [
+web-sys = { version = "0.3.66", features = [
     "BinaryType",
     "Blob",
     "ErrorEvent",
@@ -43,7 +43,11 @@ web-sys = { version = "0.3.50", features = [
     "MessageEvent",
     "ProgressEvent",
     "WebSocket",
+    "Location",
+    "Window",
+    "console",
 ] }
+urlencoding = "2.1.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.34.0", features = ["time", "sync", "macros"] }

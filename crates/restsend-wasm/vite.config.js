@@ -1,8 +1,8 @@
-const path = require('path')
+import { resolve } from 'path'
 const { defineConfig } = require('vite')
 import wasm from "vite-plugin-wasm";
 
-module.exports = defineConfig({
+export default defineConfig({
     plugins: [
         wasm(),
     ],
@@ -10,9 +10,19 @@ module.exports = defineConfig({
         target: 'esnext',
         assetInlineLimit: 5 * 1024 * 1024,
         lib: {
-            entry: path.resolve(__dirname, 'index.js'),
+            entry: resolve(__dirname, 'index.js'),
             name: 'restsend-sdk',
             fileName: (format) => `restsend-sdk.${format}.js`
         }
-    }
+    },
+    optimizeDeps: { exclude: ["fsevents"] },
+    test: {
+        browser: {
+            provider: 'playwright',
+            enabled: true,
+            headless: true,
+            name: 'webkit', // browser name is required
+        },
+        testTimeout: 20000, // 20 seconds
+    },
 });

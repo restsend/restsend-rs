@@ -2,7 +2,7 @@ use super::{WebSocketCallback, WebsocketOption};
 use crate::error::ClientError;
 use crate::utils::now_millis;
 use crate::Result;
-use log::debug;
+use log::{debug, warn};
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::select;
@@ -19,7 +19,7 @@ pub struct WebSocketImpl {
 }
 
 enum WSEvent {
-    Closed,
+    Closed(String),
     Opened,
     Message(String),
 }
@@ -43,30 +43,44 @@ impl WebSocketImpl {
         opt: &WebsocketOption,
         callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
-        let url = opt.url.replace("http", "ws");
+        let mut url = opt.url.replace("http", "ws");
         let st = now_millis();
         callback.on_connecting();
 
-        let ws = WebSocket::new(&url);
+        let current_host = match web_sys::window() {
+            Some(window) => window.location().host().unwrap_or_default(),
+            None => "".to_string(),
+        };
 
-        let ws = match ws {
+        let is_cross_domain = current_host.is_empty() || !url.contains(&current_host);
+
+        if is_cross_domain && !opt.token.is_empty() {
+            let token = urlencoding::encode(&opt.token);
+            url = match url.contains("?") {
+                true => format!("{}&token={}", url, token),
+                false => format!("{}?token={}", url, token),
+            };
+        }
+
+        let ws = match WebSocket::new(&url) {
             Ok(ws) => ws,
             Err(e) => {
-                let reason = e.as_string().unwrap_or("connect fail".to_string());
+                let reason = e.as_string().unwrap_or("WebSocket create fail".to_string());
                 callback.on_net_broken(reason.clone());
                 return Err(ClientError::HTTP(reason));
             }
         };
 
-        ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+        //ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
         let (tx, mut rx) = unbounded_channel::<WSEvent>();
         let tx = Arc::new(tx);
         let tx_ref = tx.clone();
 
         let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-            debug!("error event: {:?}", e);
-            tx_ref.send(WSEvent::Closed).ok();
+            let reason = e.error().as_string().unwrap_or("unknown".to_string());
+            warn!("error event error: {:?}", reason);
+            tx_ref.send(WSEvent::Closed(reason)).ok();
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
@@ -116,9 +130,9 @@ impl WebSocketImpl {
             loop {
                 let event = rx.recv().await;
                 match event {
-                    Some(WSEvent::Closed) => {
-                        debug!("websocket closed");
-                        return Err(ClientError::HTTP(format!("websocket close")));
+                    Some(WSEvent::Closed(reason)) => {
+                        debug!("websocket closed {}", reason);
+                        return Err(ClientError::HTTP(reason));
                     }
                     Some(WSEvent::Opened) => {
                         debug!("websocket opened");
@@ -165,11 +179,11 @@ impl WebSocketImpl {
 
         let r = select! {
             r = rx_loop => {
-                debug!("websocket rx_loop exit");
+                warn!("websocket rx_loop exit");
                 r
             },
             r = send_loop =>{
-                debug!("websocket send_loop exit");
+                warn!("websocket send_loop exit");
                 r
             },
         };

@@ -1,14 +1,13 @@
+use log::warn;
 use restsend_sdk::models::AuthInfo;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::spawn_local;
-
 mod js;
+mod logger;
 #[cfg(test)]
 mod tests;
 
-#[wasm_bindgen]
-pub struct Client(Arc<restsend_sdk::client::Client>);
+pub use logger::enable_logging;
 
 #[wasm_bindgen]
 pub async fn signin(
@@ -47,12 +46,17 @@ pub async fn signup(
 }
 
 #[wasm_bindgen]
+pub struct Client {
+    inner: Arc<restsend_sdk::client::Client>,
+}
+
+#[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
     pub fn new(endpoint: String, user_id: String, token: String) -> Self {
         let info = AuthInfo::new(&endpoint, &user_id, &token);
         Client {
-            0: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
+            inner: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
         }
     }
 
@@ -60,20 +64,23 @@ impl Client {
         struct TestCallbackImpl;
         impl restsend_sdk::callback::Callback for TestCallbackImpl {
             fn on_connected(&self) {
-                js::log("on_connected");
+                warn!("on_connected");
             }
             fn on_connecting(&self) {
-                js::log("on_connecting");
+                warn!("on_connecting");
+            }
+            fn on_net_broken(&self, reason: String) {
+                warn!("on_disconnected {}", reason);
             }
         }
-        self.0.connect(Box::new(TestCallbackImpl {})).await;
+        self.inner.connect(Box::new(TestCallbackImpl {})).await;
         Ok(())
     }
 
     pub async fn do_send_text(&self, topic_id: String, text: String) -> Result<(), JsValue> {
         struct TestCallbackImpl;
         impl restsend_sdk::callback::Callback for TestCallbackImpl {}
-        self.0
+        self.inner
             .do_send_text(topic_id, text, None, None, None)
             .await
             .ok();

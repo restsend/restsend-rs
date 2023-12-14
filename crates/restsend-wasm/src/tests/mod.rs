@@ -1,7 +1,7 @@
-use wasm_bindgen_test::*;
-//wasm_bindgen_test_configure!(run_in_worker);
-
 use crate::js;
+use wasm_bindgen_test::*;
+wasm_bindgen_test_configure!(run_in_browser);
+
 const ENDPOINT: &str = "https://chat.ruzhila.cn";
 #[wasm_bindgen_test]
 async fn test_sleep() {
@@ -15,7 +15,7 @@ async fn test_new_client() {
         "bob".to_string(),
         "bad_token".to_string(),
     );
-    assert_eq!(rs_client.0.endpoint, ENDPOINT);
+    assert_eq!(rs_client.inner.endpoint, ENDPOINT);
 }
 
 #[wasm_bindgen_test]
@@ -32,6 +32,7 @@ async fn test_auth() {
 
 #[wasm_bindgen_test]
 async fn test_connect() {
+    crate::enable_logging(Some("debug".to_string()));
     let info = restsend_sdk::services::auth::login_with_password(
         ENDPOINT.to_string(),
         "bob".to_string(),
