@@ -1,13 +1,10 @@
 {
-  "name": "resetsend-js",
+  "name": "resetsend-sdk",
   "version": "1.0.0",
   "description": "Restsend Javascript/Wasm SDK",
   "files": [
     "dist"
   ],
-  "dependencies": {
-    "lru-cache": "^9.1.2"
-  },
   "devDependencies": {
     "@playwright/test": "^1.39.0",
     "playwright": "^1.39.0",

@@ -190,9 +190,21 @@ impl Client {
     pub async fn connect(&self, callback: Box<dyn Callback>) {
         self.serve_connection(callback).await
     }
+    pub fn app_active(&self) {
+        self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
+    }
+
+    pub fn app_deactivate(&self) {
+        warn!("app_deactivate not implemented")
+    }
+
+    pub fn shutdown(&self) {
+        info!("shutdown websocket");
+        self.state.did_shutdown();
+        self.store.shutdown();
+    }
 }
 
-#[export_wasm_or_ffi]
 impl Client {
     async fn serve_connection(&self, callback: Box<dyn Callback>) {
         let url = WebsocketOption::url_from_endpoint(&self.endpoint);
@@ -314,19 +326,5 @@ impl Client {
                 } => {}
             };
         });
-    }
-
-    pub fn app_active(&self) {
-        self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
-    }
-
-    pub fn app_deactivate(&self) {
-        warn!("app_deactivate not implemented")
-    }
-
-    pub fn shutdown(&self) {
-        info!("shutdown websocket");
-        self.state.did_shutdown();
-        self.store.shutdown();
     }
 }
