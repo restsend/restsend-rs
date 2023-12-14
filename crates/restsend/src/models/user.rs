@@ -1,9 +1,11 @@
 use super::omit_empty;
 use crate::storage::StoreModel;
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Debug, Clone, Default)]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct AuthInfo {
     pub endpoint: String,
     pub user_id: String,
@@ -48,8 +50,9 @@ pub struct UserProfile {
     pub country: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct User {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]

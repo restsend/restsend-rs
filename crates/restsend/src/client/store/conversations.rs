@@ -46,15 +46,16 @@ impl ClientStore {
         }
     }
 
-    pub async fn set_conversation_read(&self, topic_id: &str) {
-        {
-            let t = self.message_storage.table::<Conversation>("conversations");
-            if let Some(mut conversation) = t.get("", topic_id) {
-                conversation.last_read_seq = conversation.last_seq;
-                t.set("", topic_id, Some(conversation));
-            }
+    pub fn set_conversation_read_local(&self, topic_id: &str) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        if let Some(mut conversation) = t.get("", topic_id) {
+            conversation.last_read_seq = conversation.last_seq;
+            t.set("", topic_id, Some(conversation));
         }
+    }
 
+    pub async fn set_conversation_read(&self, topic_id: &str) {
+        self.set_conversation_read_local(topic_id);
         match set_conversation_read(&self.endpoint, &self.token, &topic_id).await {
             Ok(_) => {}
             Err(e) => {

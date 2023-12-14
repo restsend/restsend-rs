@@ -1,3 +1,5 @@
+use restsend_macros::export_wasm_or_ffi;
+
 use crate::models::UserProfile;
 
 #[derive(serde::Deserialize)]
@@ -11,8 +13,9 @@ pub struct Login {
     pub profile: UserProfile,
 }
 
-#[derive(serde::Deserialize, Default, Clone, uniffi::Record)]
+#[derive(serde::Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Upload {
     pub path: String,
     pub file_name: String,
@@ -23,8 +26,9 @@ pub struct Upload {
     pub size: u64,
 }
 
-#[derive(serde::Deserialize, Default, Clone, Debug, uniffi::Record)]
+#[derive(serde::Deserialize, Default, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct APISendResponse {
     #[serde(default)]
     pub sender_id: String,

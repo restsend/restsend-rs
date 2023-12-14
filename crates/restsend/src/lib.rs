@@ -1,3 +1,4 @@
+#[cfg(not(target_family = "wasm"))]
 uniffi::setup_scaffolding!();
 pub mod account;
 pub mod callback;

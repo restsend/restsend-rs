@@ -1,5 +1,6 @@
 use super::omit_empty;
 use crate::{request::ChatRequest, storage::StoreModel, utils::now_millis};
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -101,7 +102,8 @@ impl From<String> for ContentType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Enum)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[export_wasm_or_ffi(#[derive(uniffi::Enum)])]
 pub enum AttachmentStatus {
     #[default]
     ToUpload,
@@ -113,7 +115,9 @@ pub enum AttachmentStatus {
     Failed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Attachment {
     pub thumbnail: String,
     pub file_name: String,
@@ -133,8 +137,9 @@ impl Attachment {
         }
     }
 }
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Content {
     pub r#type: String,
 
@@ -207,7 +212,8 @@ impl Content {
 }
 
 #[allow(dead_code)]
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, uniffi::Enum)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[export_wasm_or_ffi(#[derive(uniffi::Enum)])]
 pub enum ChatLogStatus {
     Uploading,
     #[default]
@@ -219,8 +225,9 @@ pub enum ChatLogStatus {
     SendFailed,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct ChatLog {
     pub topic_id: String,
     pub id: String,

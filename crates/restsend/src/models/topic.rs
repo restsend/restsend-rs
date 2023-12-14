@@ -1,8 +1,10 @@
 use super::omit_empty;
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct TopicNotice {
     pub text: String,
 
@@ -25,8 +27,9 @@ impl TopicNotice {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Topic {
     // 群id
     pub id: String,

@@ -1,5 +1,4 @@
-#[derive(Debug, thiserror::Error, uniffi::Error)]
-#[uniffi(flat_error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ClientError {
     #[error("auth: invalid password")]
     InvalidPassword(String),
@@ -37,35 +36,4 @@ pub enum ClientError {
     Storage(String),
     #[error("{0}")]
     Other(String),
-}
-
-impl From<reqwest::Error> for ClientError {
-    fn from(e: reqwest::Error) -> ClientError {
-        ClientError::HTTP(e.to_string())
-    }
-}
-
-impl From<std::num::ParseIntError> for ClientError {
-    fn from(e: std::num::ParseIntError) -> ClientError {
-        ClientError::StdError(e.to_string())
-    }
-}
-
-impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ClientError {
-    fn from(e: tokio::sync::mpsc::error::SendError<T>) -> ClientError {
-        ClientError::StdError(e.to_string())
-    }
-}
-
-impl From<std::io::Error> for ClientError {
-    fn from(e: std::io::Error) -> ClientError {
-        ClientError::StdError(format!("io error {}", e.to_string()))
-    }
-}
-
-#[cfg(target_family = "wasm")]
-impl From<ClientError> for wasm_bindgen::JsValue {
-    fn from(e: ClientError) -> wasm_bindgen::JsValue {
-        wasm_bindgen::JsValue::from_str(&e.to_string())
-    }
 }

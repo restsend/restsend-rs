@@ -24,8 +24,7 @@ mod store;
 #[cfg(test)]
 mod tests;
 mod topic;
-
-#[derive(uniffi::Object)]
+#[export_wasm_or_ffi(#[derive(uniffi::Object)])]
 pub struct Client {
     pub root_path: String,
     pub user_id: String,

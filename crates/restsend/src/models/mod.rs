@@ -1,3 +1,4 @@
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
 #[inline]
@@ -8,7 +9,8 @@ where
     return *value == T::default();
 }
 
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug)]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct GetChatLogsResult {
     pub has_more: bool,
     pub start_seq: i64,
@@ -16,14 +18,16 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Debug, uniffi::Record)]
+#[derive(Debug)]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct GetConversationsResult {
     pub updated_at: String,
     pub items: Vec<Conversation>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct ListUserResult {
     pub has_more: bool,
     pub updated_at: String,
@@ -50,8 +54,9 @@ pub struct ListChatLogResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct TopicKnock {
     pub created_at: String,
 

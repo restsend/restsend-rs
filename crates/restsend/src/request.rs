@@ -1,6 +1,7 @@
 use crate::models::Attachment;
 use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq)]
@@ -46,8 +47,9 @@ impl From<ChatRequestType> for String {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct ChatRequest {
     pub r#type: String,
 

@@ -430,6 +430,7 @@ public protocol ClientProtocol {
     func cancelSend(reqId: String)  
     func cleanHistory(topicId: String) async throws
     func connect(callback: Callback) async 
+    func connectionStatus()   -> String
     func createChat(userId: String) async  -> Conversation?
     func createTopic(icon: String, name: String, members: [String]) async throws -> Conversation
     func declineTopicJoin(topicId: String, userId: String, message: String?) async throws
@@ -464,7 +465,6 @@ public protocol ClientProtocol {
     func searchChatLog(topicId: String?, senderId: String?, keyword: String) async  -> GetChatLogsResult?
     func sendChatRequest(topicId: String, req: ChatRequest) async throws -> ApiSendResponse
     func sendChatRequestViaConnection(req: ChatRequest, callback: MessageCallback?) async throws -> String
-    func serveConnection(callback: Callback) async 
     func setAllowGuestChat(allow: Bool) async throws
     func setConversationMute(topicId: String, mute: Bool) async 
     func setConversationRead(topicId: String) async 
@@ -613,6 +613,17 @@ public class Client: ClientProtocol {
     }
 
     
+
+    public func connectionStatus()  -> String {
+        return try!  FfiConverterString.lift(
+            try! 
+    rustCall() {
+    
+    uniffi_restsend_sdk_fn_method_client_connection_status(self.pointer, $0
+    )
+}
+        )
+    }
 
     public func createChat(userId: String) async  -> Conversation? {
         return try!  await uniffiRustCallAsync(
@@ -1269,25 +1280,6 @@ public class Client: ClientProtocol {
             freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
             liftFunc: FfiConverterString.lift,
             errorHandler: FfiConverterTypeClientError.lift
-        )
-    }
-
-    
-
-    public func serveConnection(callback: Callback) async  {
-        return try!  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_restsend_sdk_fn_method_client_serve_connection(
-                    self.pointer,
-                    FfiConverterCallbackInterfaceCallback.lower(callback)
-                )
-            },
-            pollFunc: ffi_restsend_sdk_rust_future_poll_void,
-            completeFunc: ffi_restsend_sdk_rust_future_complete_void,
-            freeFunc: ffi_restsend_sdk_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: nil
-            
         )
     }
 
@@ -5446,6 +5438,25 @@ public func setCurrentUser(root: String, userId: String) throws {
 
 
 
+public func signup(endpoint: String, email: String, password: String) async throws -> AuthInfo {
+    return try  await uniffiRustCallAsync(
+        rustFutureFunc: {
+            uniffi_restsend_sdk_fn_func_signup(
+                FfiConverterString.lower(endpoint),
+                FfiConverterString.lower(email),
+                FfiConverterString.lower(password)
+            )
+        },
+        pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+        completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+        freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+        liftFunc: FfiConverterTypeAuthInfo.lift,
+        errorHandler: FfiConverterTypeClientError.lift
+    )
+}
+
+
+
 private enum InitializationResult {
     case ok
     case contractVersionMismatch
@@ -5479,6 +5490,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_func_set_current_user() != 58805) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_restsend_sdk_checksum_func_signup() != 45825) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_restsend_sdk_checksum_method_client_accept_topic_join() != 54875) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5498,6 +5512,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_connect() != 7997) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_connection_status() != 48399) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_create_chat() != 49536) {
@@ -5600,9 +5617,6 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_send_chat_request_via_connection() != 19356) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_restsend_sdk_checksum_method_client_serve_connection() != 19365) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat() != 18959) {

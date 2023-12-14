@@ -81,6 +81,8 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_history(void*_Nonnull 
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr, uint64_t callback
 );
+RustBuffer uniffi_restsend_sdk_fn_method_client_connection_status(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_chat(void*_Nonnull ptr, RustBuffer user_id
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_topic(void*_Nonnull ptr, RustBuffer icon, RustBuffer name, RustBuffer members
@@ -149,8 +151,6 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request(void*_Nonn
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request_via_connection(void*_Nonnull ptr, RustBuffer req, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_serve_connection(void*_Nonnull ptr, uint64_t callback
-);
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_allow_guest_chat(void*_Nonnull ptr, int8_t allow
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_mute(void*_Nonnull ptr, RustBuffer topic_id, int8_t mute
@@ -204,6 +204,8 @@ void* _Nonnull uniffi_restsend_sdk_fn_func_login_with_token(RustBuffer endpoint,
 void* _Nonnull uniffi_restsend_sdk_fn_func_logout(RustBuffer endpoint, RustBuffer token
 );
 void uniffi_restsend_sdk_fn_func_set_current_user(RustBuffer root, RustBuffer user_id, RustCallStatus *_Nonnull out_status
+);
+void* _Nonnull uniffi_restsend_sdk_fn_func_signup(RustBuffer endpoint, RustBuffer email, RustBuffer password
 );
 RustBuffer ffi_restsend_sdk_rustbuffer_alloc(int32_t size, RustCallStatus *_Nonnull out_status
 );
@@ -337,6 +339,9 @@ uint16_t uniffi_restsend_sdk_checksum_func_logout(void
 uint16_t uniffi_restsend_sdk_checksum_func_set_current_user(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_func_signup(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_accept_topic_join(void
     
 );
@@ -356,6 +361,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_clean_history(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_connect(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_connection_status(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_create_chat(void
@@ -458,9 +466,6 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request_via_connection(void
-    
-);
-uint16_t uniffi_restsend_sdk_checksum_method_client_serve_connection(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat(void

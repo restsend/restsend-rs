@@ -1,5 +1,5 @@
 import { describe, it, expect, assert } from 'vitest'
-const { Client, signup, signin } = await import('../pkg/restsend_wasm.js');
+const { Client, signup, signin, enable_logging } = await import('../pkg/restsend_wasm.js');
 
 const endpoint = 'https://chat.ruzhila.cn/'
 
@@ -15,6 +15,8 @@ async function waitUntil(fn, timeout) {
         await new Promise(resolve => setTimeout(resolve, 100))
     }
 }
+
+enable_logging('info')
 
 async function authClient(username, password, withWebSocket = false) {
     let info = await signin(endpoint, username, password)
@@ -57,6 +59,18 @@ describe('Client auth', function () {
 })
 
 describe('Websocket connection', function () {
+    it('#setup callback', async () => {
+        let info = await signin(endpoint, 'guido', 'guido:demo')
+        let client = new Client(endpoint, 'guido', info.token)
+        let is_connected = false
+        client.on_connected = () => {
+            is_connected = true
+            console.log('connected')
+        }
+        await client.connect()
+        await waitUntil(() => client.connection_status === 'connected', 3000)
+        expect(is_connected).toBe(true)
+    })
     it('#handshake', async () => {
         let guido = await authClient('guido', 'guido:demo', true)
         expect(guido.connection_status).toBe('connected')

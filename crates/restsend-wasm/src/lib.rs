@@ -1,52 +1,23 @@
-use log::warn;
 use restsend_sdk::models::AuthInfo;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
-mod js;
+mod account;
+mod callback;
 mod logger;
 #[cfg(test)]
 mod tests;
 
 pub use logger::enable_logging;
 
-#[wasm_bindgen]
-pub async fn signin(
-    endpoint: String,
-    user_id: String,
-    password: Option<String>,
-    token: Option<String>,
-) -> Result<JsValue, JsValue> {
-    let info = match password {
-        Some(password) => {
-            restsend_sdk::services::auth::login_with_password(endpoint, user_id, password).await
-        }
-        None => {
-            restsend_sdk::services::auth::login_with_token(
-                endpoint,
-                user_id,
-                token.unwrap_or_default(),
-            )
-            .await
-        }
-    }
-    .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
-}
-
-#[wasm_bindgen]
-pub async fn signup(
-    endpoint: String,
-    user_id: String,
-    password: String,
-) -> Result<JsValue, JsValue> {
-    let info = restsend_sdk::services::auth::signup(endpoint, user_id, password)
-        .await
-        .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
-}
-
+use crate::callback::CallbackWasmWrap;
+type CallbackFunction = Arc<Mutex<Option<js_sys::Function>>>;
 #[wasm_bindgen]
 pub struct Client {
+    cb_on_connected: CallbackFunction,
+    cb_on_connecting: CallbackFunction,
+    cb_on_token_expired: CallbackFunction,
+    cb_on_net_broken: CallbackFunction,
+    cb_on_kickoff_by_other_client: CallbackFunction,
     inner: Arc<restsend_sdk::client::Client>,
 }
 
@@ -56,6 +27,11 @@ impl Client {
     pub fn new(endpoint: String, user_id: String, token: String) -> Self {
         let info = AuthInfo::new(&endpoint, &user_id, &token);
         Client {
+            cb_on_connected: Arc::new(Mutex::new(None)),
+            cb_on_connecting: Arc::new(Mutex::new(None)),
+            cb_on_token_expired: Arc::new(Mutex::new(None)),
+            cb_on_net_broken: Arc::new(Mutex::new(None)),
+            cb_on_kickoff_by_other_client: Arc::new(Mutex::new(None)),
             inner: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
         }
     }
@@ -65,20 +41,67 @@ impl Client {
         self.inner.connection_status()
     }
 
-    pub async fn connect(&self) -> Result<(), JsValue> {
-        struct TestCallbackImpl;
-        impl restsend_sdk::callback::Callback for TestCallbackImpl {
-            fn on_connected(&self) {
-                warn!("on_connected");
-            }
-            fn on_connecting(&self) {
-                warn!("on_connecting");
-            }
-            fn on_net_broken(&self, reason: String) {
-                warn!("on_disconnected {}", reason);
-            }
+    /// Set the callback when connection connected
+    #[wasm_bindgen(setter)]
+    pub fn set_on_connected(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_connected
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
         }
-        self.inner.connect(Box::new(TestCallbackImpl {})).await;
+    }
+    /// Set the callback when connection connecting
+    #[wasm_bindgen(setter)]
+    pub fn set_on_connecting(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_connecting
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when connection token expired
+    #[wasm_bindgen(setter)]
+    pub fn set_on_token_expired(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_token_expired
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when connection broken
+    #[wasm_bindgen(setter)]
+    pub fn set_on_net_broken(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_net_broken
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when kickoff by other client
+    #[wasm_bindgen(setter)]
+    pub fn set_on_kickoff_by_other_client(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_kickoff_by_other_client
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+
+    pub async fn connect(&self) -> Result<(), JsValue> {
+        self.inner
+            .connect(Box::new(CallbackWasmWrap {
+                cb_on_connected: self.cb_on_connected.clone(),
+                cb_on_connecting: self.cb_on_connecting.clone(),
+                cb_on_token_expired: self.cb_on_token_expired.clone(),
+                cb_on_net_broken: self.cb_on_net_broken.clone(),
+                cb_on_kickoff_by_other_client: self.cb_on_kickoff_by_other_client.clone(),
+            }))
+            .await;
         Ok(())
     }
 

@@ -104,6 +104,7 @@ impl ClientStore {
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
+                self.set_conversation_read_local(&topic_id);
                 callback.on_topic_read(topic_id, req);
                 vec![resp]
             }

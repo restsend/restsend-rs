@@ -1,10 +1,12 @@
 use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, uniffi::Record)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Conversation {
     pub owner_id: String,
     pub topic_id: String,

@@ -1,3 +1,5 @@
+use restsend_macros::export_wasm_or_ffi;
+
 use crate::{
     models::{Conversation, GetChatLogsResult, GetConversationsResult},
     request::ChatRequest,
@@ -6,7 +8,7 @@ use crate::{
 };
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait Callback: Send + Sync {
     fn on_connected(&self) {}
     fn on_connecting(&self) {}
@@ -32,7 +34,7 @@ pub trait Callback: Send + Sync {
 }
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait UploadCallback: Send + Sync {
     fn on_progress(&self, progress: u64, total: u64) {}
     fn on_success(&self, result: Upload) {}
@@ -40,7 +42,7 @@ pub trait UploadCallback: Send + Sync {
 }
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait DownloadCallback: Send + Sync {
     fn on_progress(&self, progress: u64, total: u64) {}
     fn on_success(&self, url: String, file_name: String) {}
@@ -48,7 +50,7 @@ pub trait DownloadCallback: Send + Sync {
 }
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait MessageCallback: Send + Sync {
     fn on_sent(&self) {}
     fn on_progress(&self, progress: u64, total: u64) {}
@@ -57,14 +59,14 @@ pub trait MessageCallback: Send + Sync {
 }
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait SyncChatLogsCallback: Send + Sync {
     fn on_success(&self, r: GetChatLogsResult) {}
     fn on_fail(&self, e: Error) {}
 }
 
 #[allow(unused_variables)]
-#[uniffi::export(callback_interface)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait SyncConversationsCallback: Send + Sync {
     fn on_success(&self, r: GetConversationsResult) {}
     fn on_fail(&self, e: Error) {}
