@@ -60,6 +60,11 @@ impl Client {
         }
     }
 
+    #[wasm_bindgen(getter)]
+    pub fn connection_status(&self) -> String {
+        self.inner.connection_status()
+    }
+
     pub async fn connect(&self) -> Result<(), JsValue> {
         struct TestCallbackImpl;
         impl restsend_sdk::callback::Callback for TestCallbackImpl {

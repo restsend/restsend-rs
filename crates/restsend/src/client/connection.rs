@@ -24,12 +24,24 @@ use tokio::{
 };
 
 #[derive(Clone)]
-pub(super) enum ConnectionStatus {
+pub enum ConnectionStatus {
     Broken,
     ConnectNow,
     Connected,
     Connecting,
     Shutdown,
+}
+
+impl ToString for ConnectionStatus {
+    fn to_string(&self) -> String {
+        match self {
+            ConnectionStatus::Broken => "broken".to_string(),
+            ConnectionStatus::ConnectNow => "connect_now".to_string(),
+            ConnectionStatus::Connected => "connected".to_string(),
+            ConnectionStatus::Connecting => "connecting".to_string(),
+            ConnectionStatus::Shutdown => "shutdown".to_string(),
+        }
+    }
 }
 
 pub(super) struct ConnectState {
@@ -38,6 +50,7 @@ pub(super) struct ConnectState {
     last_broken_at: Mutex<Option<i64>>,
     last_alive_at: Mutex<i64>,
     state_tx: broadcast::Sender<ConnectionStatus>,
+    last_state: Mutex<ConnectionStatus>,
 }
 
 impl ConnectState {
@@ -49,11 +62,13 @@ impl ConnectState {
             last_broken_at: Mutex::new(None),
             last_alive_at: Mutex::new(crate::utils::now_millis()),
             state_tx,
+            last_state: Mutex::new(ConnectionStatus::Shutdown),
         }
     }
 
     pub fn did_shutdown(&self) {
         self.must_shutdown.store(true, Ordering::Relaxed);
+        *self.last_state.lock().unwrap() = ConnectionStatus::Shutdown;
         self.state_tx.send(ConnectionStatus::Shutdown).ok();
     }
 
@@ -63,6 +78,7 @@ impl ConnectState {
 
     pub fn did_connecting(&self) {
         *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
+        *self.last_state.lock().unwrap() = ConnectionStatus::Connecting;
         self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
 
@@ -70,6 +86,7 @@ impl ConnectState {
         self.broken_count.store(0, Ordering::Relaxed);
         self.last_broken_at.lock().unwrap().take();
         *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
+        *self.last_state.lock().unwrap() = ConnectionStatus::Connected;
         self.state_tx.send(ConnectionStatus::Connected).ok();
     }
 
@@ -80,6 +97,7 @@ impl ConnectState {
     pub fn did_broken(&self) {
         self.broken_count.fetch_add(1, Ordering::Relaxed);
         *self.last_broken_at.lock().unwrap() = Some(crate::utils::now_millis());
+        *self.last_state.lock().unwrap() = ConnectionStatus::Broken;
         self.state_tx.send(ConnectionStatus::Broken).ok();
     }
 
@@ -165,6 +183,10 @@ impl WebSocketCallback for ConnectionInner {
 
 #[export_wasm_or_ffi]
 impl Client {
+    pub fn connection_status(&self) -> String {
+        self.state.last_state.lock().unwrap().to_string()
+    }
+
     pub async fn connect(&self, callback: Box<dyn Callback>) {
         self.serve_connection(callback).await
     }
