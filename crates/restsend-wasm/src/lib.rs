@@ -23,6 +23,13 @@ pub struct Client {
     cb_on_token_expired: CallbackFunction,
     cb_on_net_broken: CallbackFunction,
     cb_on_kickoff_by_other_client: CallbackFunction,
+    cb_on_system_request: CallbackFunction,
+    cb_on_unknown_request: CallbackFunction,
+    cb_on_topic_typing: CallbackFunction,
+    cb_on_new_message: CallbackFunction,
+    cb_on_topic_read: CallbackFunction,
+    cb_on_conversations_updated: CallbackFunction,
+    cb_on_conversations_removed: CallbackFunction,
     inner: Arc<restsend_sdk::client::Client>,
 }
 
@@ -38,6 +45,13 @@ impl Client {
             cb_on_token_expired: Arc::new(Mutex::new(None)),
             cb_on_net_broken: Arc::new(Mutex::new(None)),
             cb_on_kickoff_by_other_client: Arc::new(Mutex::new(None)),
+            cb_on_system_request: Arc::new(Mutex::new(None)),
+            cb_on_unknown_request: Arc::new(Mutex::new(None)),
+            cb_on_topic_typing: Arc::new(Mutex::new(None)),
+            cb_on_new_message: Arc::new(Mutex::new(None)),
+            cb_on_topic_read: Arc::new(Mutex::new(None)),
+            cb_on_conversations_updated: Arc::new(Mutex::new(None)),
+            cb_on_conversations_removed: Arc::new(Mutex::new(None)),
             inner: restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info),
         }
     }
@@ -55,6 +69,13 @@ impl Client {
                 cb_on_token_expired: self.cb_on_token_expired.clone(),
                 cb_on_net_broken: self.cb_on_net_broken.clone(),
                 cb_on_kickoff_by_other_client: self.cb_on_kickoff_by_other_client.clone(),
+                cb_on_system_request: self.cb_on_system_request.clone(),
+                cb_on_unknown_request: self.cb_on_unknown_request.clone(),
+                cb_on_topic_typing: self.cb_on_topic_typing.clone(),
+                cb_on_new_message: self.cb_on_new_message.clone(),
+                cb_on_topic_read: self.cb_on_topic_read.clone(),
+                cb_on_conversations_updated: self.cb_on_conversations_updated.clone(),
+                cb_on_conversations_removed: self.cb_on_conversations_removed.clone(),
             }))
             .await;
         Ok(())

@@ -1,22 +1,25 @@
+use crate::CallbackFunction;
 use js_sys::JsString;
-use restsend_sdk::models::Attachment;
-use restsend_sdk::models::Content;
-use restsend_sdk::models::ContentType;
+use restsend_sdk::models::{Attachment, Content, ContentType};
+use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+
+pub fn get_function(cb: &JsValue, key: &str) -> CallbackFunction {
+    let property_key = JsValue::from_str(key);
+    let value = js_sys::Reflect::get(&cb, &property_key);
+    if let Ok(v) = value {
+        if let Ok(v) = v.dyn_into::<js_sys::Function>() {
+            return Arc::new(Mutex::new(Some(v)));
+        }
+    }
+    Arc::new(Mutex::new(None))
+}
 
 pub fn get_vec_strings(obj: &JsValue, key: &str) -> Option<Vec<String>> {
     let value = js_sys::Reflect::get(&obj, &JsValue::from_str(key));
     if let Ok(v) = value {
-        if let Ok(v) = v.dyn_into::<js_sys::Array>() {
-            let mut mentions = Vec::new();
-            for i in 0..v.length() {
-                if let Ok(v) = v.get(i).dyn_into::<JsString>() {
-                    mentions.push(v.as_string().unwrap_or_default());
-                }
-            }
-            return Some(mentions);
-        }
+        return serde_wasm_bindgen::from_value(v).ok();
     }
     None
 }
@@ -53,7 +56,7 @@ pub fn get_bool(obj: &JsValue, key: &str) -> bool {
 
 pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
     let url = get_string(obj, "url");
-    let is_private = get_bool(obj, "isPrivate");
+    let is_private = get_bool(obj, "private");
     match url {
         Some(v) => return Some(Attachment::from_url(&v, is_private)),
         None => {}
@@ -78,43 +81,18 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
     None
 }
 
-pub fn js_value_to_content(obj: &JsValue) -> Option<Content> {
-    let content_type = match get_string(obj, "type") {
-        Some(v) => match v.as_str() {
-            "text" => Some(ContentType::Text),
-            "image" => Some(ContentType::Image),
-            "video" => Some(ContentType::Video),
-            "file" => Some(ContentType::File),
-            _ => None,
-        },
-        None => None,
-    };
-
-    if content_type.is_none() {
-        return None;
-    }
-
-    let text = get_string(obj, "text");
-    let placeholder = get_string(obj, "placeholder");
-    let thumbnail = get_string(obj, "thumbnail");
-    let duration = get_string(obj, "duration");
-    let size = get_f64(obj, "size");
-    let width = get_f64(obj, "width");
-    let height = get_f64(obj, "height");
-    let mentions = get_vec_strings(obj, "mentions");
+pub fn js_value_to_content(obj: JsValue) -> Option<Content> {
     let attachment = js_sys::Reflect::get(&obj, &JsValue::from_str("attachment"))
         .map(|v| js_value_to_attachment(&v).unwrap_or_default())
         .ok();
 
-    let mut content = Content::new_text(content_type.unwrap(), &text.unwrap_or_default());
-    content.placeholder = placeholder.unwrap_or_default();
-    content.thumbnail = thumbnail.unwrap_or_default();
-    content.duration = duration.unwrap_or_default();
-    content.size = size as u64;
-    content.width = width as f32;
-    content.height = height as f32;
-    content.mentions = mentions.unwrap_or_default();
-    content.attachment = attachment;
+    let mut content = match serde_wasm_bindgen::from_value::<Content>(obj).ok() {
+        Some(v) => v,
+        None => return None,
+    };
 
+    if let Some(attachment) = attachment {
+        content.attachment = Some(attachment);
+    }
     Some(content)
 }

@@ -36,7 +36,7 @@ impl Client {
         content: JsValue,
         option: JsValue,
     ) -> Result<(), JsValue> {
-        let content = match js_value_to_content(&content) {
+        let content = match js_value_to_content(content) {
             Some(v) => v,
             None => return Err(JsValue::from_str("invalid content format")),
         };
