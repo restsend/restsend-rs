@@ -276,6 +276,15 @@ impl ChatRequest {
         }
     }
     pub fn attachment(&self, attachment: Attachment) -> Self {
+        if !attachment.url.is_empty() {
+            return ChatRequest {
+                content: Some(Content {
+                    text: attachment.url.clone(),
+                    ..self.content.clone().unwrap_or(Content::default())
+                }),
+                ..self.clone()
+            };
+        }
         ChatRequest {
             content: Some(Content {
                 attachment: Some(attachment),

@@ -177,6 +177,9 @@ impl AttachmentInner {
 
         barrier.wait().await;
 
+        #[cfg(target_family = "wasm")]
+        let _ = task_handle;
+
         let t = UploadPendingTask {
             task,
             #[cfg(not(target_family = "wasm"))]

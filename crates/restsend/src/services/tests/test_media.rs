@@ -161,7 +161,7 @@ async fn test_upload_file() {
     let file_name = f.path().to_str().unwrap().to_string();
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-    let attachment = crate::models::Attachment::local(&file_name, &file_name, false);
+    let attachment = crate::models::Attachment::from_local(&file_name, &file_name, false);
     let r = crate::media::upload_file(
         url.to_string(),
         None,

@@ -40,7 +40,39 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
 
 impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
-        todo!("not implement")
+        let data = self.data.lock().unwrap();
+        let mut items = Vec::<T>::new();
+        for (k, v) in data.iter() {
+            if !k.starts_with(partition) {
+                continue;
+            }
+            let v = match T::from_str(v) {
+                Ok(v) => v,
+                _ => continue,
+            };
+
+            if v.sort_key() < option.start_sort_value {
+                continue;
+            }
+
+            if let Some(keyword) = &option.keyword {
+                if !v.to_string().contains(keyword) {
+                    continue;
+                }
+            }
+            items.push(v);
+        }
+        items.sort_by_key(|v| v.sort_key());
+        items.reverse();
+        let total = items.len() as u32;
+        items.truncate(option.limit as usize);
+
+        QueryResult {
+            total,
+            start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
+            end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
+            items,
+        }
     }
     fn get(&self, partition: &str, key: &str) -> Option<T> {
         let key = format!("{}:{}", partition, key);
@@ -91,7 +123,7 @@ fn test_memory_table() {
 
 #[test]
 fn test_memory_storage() {
-    let storage = InMemoryStorage::new();
+    let storage = InMemoryStorage::new("");
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
     table.set("", "1", Some(1));

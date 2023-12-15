@@ -13,6 +13,7 @@ pub mod storage;
 pub mod utils;
 mod websocket;
 
+#[allow(unused)]
 const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
 const DB_SUFFIX: &str = ".sqlite3";
 

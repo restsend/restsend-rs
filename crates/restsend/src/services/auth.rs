@@ -89,9 +89,8 @@ async fn signin_or_signup(
     let status = resp.status();
 
     info!(
-        "auth url:{}{} email:{} status:{} usage: {:?}",
-        endpoint,
-        uri,
+        "auth url:{} email:{} status:{} usage: {:?}",
+        resp.url().to_string(),
         email,
         status,
         elapsed(st)

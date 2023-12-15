@@ -7,11 +7,11 @@ use crate::Result;
 use crate::{models::Content, request::ChatRequest};
 use log::warn;
 use restsend_macros::export_wasm_or_ffi;
-use std::io::Write;
-use wasm_bindgen::JsValue;
 
 #[cfg(not(target_family = "wasm"))]
 pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Result<Attachment> {
+    use std::io::Write;
+
     let file_path = Client::temp_path(root_path, Some("history_*.json".to_string()));
     let mut file = std::fs::File::create(&file_path)?;
     let file_data = data.as_bytes();
@@ -25,19 +25,23 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
         "save logs file_path:{} size:{} file:{:?}",
         file_path, file_size, file_path
     );
-    Ok(Attachment::local(file_name, &file_path, false))
+    Ok(Attachment::from_local(file_name, &file_path, false))
 }
 
 #[cfg(target_family = "wasm")]
 pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
+    use wasm_bindgen::JsValue;
     let file_size = data.len();
-    warn!("save logs  size:{}", file_size);
     let data = JsValue::from_str(&data);
     let file_stream = web_sys::Blob::new_with_str_sequence_and_options(
         &data,
         web_sys::BlobPropertyBag::new().type_("application/json"),
     )?;
-    Ok(Attachment::blob(file_name, file_stream, false))
+    Ok(Attachment::from_blob(
+        file_stream,
+        Some(file_name.to_string()),
+        false,
+    ))
 }
 
 #[export_wasm_or_ffi]

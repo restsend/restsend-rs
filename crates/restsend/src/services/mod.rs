@@ -19,11 +19,13 @@ pub mod topic;
 pub mod topic_admin;
 pub mod user;
 
+#[cfg(not(target_family = "wasm"))]
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute
 const API_PREFIX: &str = "/api";
 const LOGS_LIMIT: u32 = 100;
 const USERS_LIMIT: u32 = 100;
 
+#[allow(unused_variables)]
 pub(super) fn make_get_request(
     endpoint: &str,
     uri: &str,
@@ -35,6 +37,7 @@ pub(super) fn make_get_request(
     let req = ClientBuilder::new()
         .user_agent(USER_AGENT)
         .timeout(timeout.unwrap_or(Duration::from_secs(API_TIMEOUT_SECS)));
+
     #[cfg(target_family = "wasm")]
     let req = ClientBuilder::new();
 
@@ -49,6 +52,7 @@ pub(super) fn make_get_request(
     }
 }
 
+#[allow(unused_variables)]
 pub(super) fn make_post_request(
     endpoint: &str,
     uri: &str,
@@ -139,9 +143,8 @@ where
     let status = resp.status();
 
     info!(
-        "api url:{}{} status:{} usage: {:?}",
-        endpoint,
-        uri,
+        "api url:{} status:{} usage: {:?}",
+        resp.url().to_string(),
         status,
         elapsed(st)
     );

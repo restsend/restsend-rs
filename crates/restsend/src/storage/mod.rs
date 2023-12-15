@@ -1,5 +1,6 @@
 use crate::Result;
 use std::str::FromStr;
+
 #[cfg(target_family = "wasm")]
 mod memory;
 

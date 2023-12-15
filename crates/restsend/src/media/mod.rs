@@ -2,8 +2,7 @@ const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 
 #[cfg(not(target_family = "wasm"))]
 mod reqwest_impl;
-
-#[allow(dead_code)]
+#[cfg(target_family = "wasm")]
 mod web_sys_impl;
 
 #[cfg(not(target_family = "wasm"))]
@@ -42,7 +41,7 @@ pub(crate) fn build_upload_url(endpoint: &str, url: &str) -> String {
         return url.to_string();
     }
 
-    format!("{}/api/attachment/upload", endpoint)
+    format!("{}/api/attachment/upload", endpoint.trim_end_matches("/"))
 }
 
 pub(crate) fn build_download_url(endpoint: &str, url: &str) -> String {

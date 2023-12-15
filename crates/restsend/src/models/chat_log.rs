@@ -121,6 +121,8 @@ pub enum AttachmentStatus {
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Attachment {
+    /// if url is not empty, it means the attachment is from remote, without upload
+    pub url: String,
     pub thumbnail: String,
     pub file_name: String,
     pub file_path: String,
@@ -133,6 +135,7 @@ pub struct Attachment {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
+    pub url: String,
     pub thumbnail: String,
     pub file_name: String,
     pub file_path: String,
@@ -140,12 +143,43 @@ pub struct Attachment {
     pub is_private: bool,
     pub status: AttachmentStatus,
     #[serde(skip)]
-    pub file_stream: Option<web_sys::Blob>,
+    pub file: Option<web_sys::Blob>,
+}
+
+#[export_wasm_or_ffi]
+/// create attachment from url, without upload to server
+pub fn attachment_from_url(url: String, is_private: bool) -> Attachment {
+    Attachment::from_url(&url, is_private)
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[export_wasm_or_ffi]
+/// create attachment from local file, will upload to server when send message
+pub fn attachment_from_local(file_name: String, file_path: String, is_private: bool) -> Attachment {
+    Attachment::from_local(&file_name, &file_path, is_private)
 }
 
 impl Attachment {
+    pub fn from_url(url: &str, is_private: bool) -> Self {
+        let file_name = match url::Url::parse(url) {
+            Ok(u) => u
+                .path_segments()
+                .and_then(|segments| segments.last())
+                .unwrap_or_default()
+                .to_string(),
+            Err(_) => "".to_string(),
+        };
+
+        Attachment {
+            url: url.to_string(),
+            file_name,
+            is_private,
+            ..Default::default()
+        }
+    }
+
     #[cfg(not(target_family = "wasm"))]
-    pub fn local(file_name: &str, file_path: &str, is_private: bool) -> Self {
+    pub fn from_local(file_name: &str, file_path: &str, is_private: bool) -> Self {
         Attachment {
             file_name: String::from(file_name),
             file_path: String::from(file_path),
@@ -154,12 +188,21 @@ impl Attachment {
         }
     }
 
-    #[cfg(target_family = "wasm")]
-    pub fn blob(file_name: &str, file_stream: web_sys::Blob, is_private: bool) -> Self {
+    pub fn from_blob(
+        blob_stream: web_sys::Blob,
+        file_name: Option<String>,
+        is_private: bool,
+    ) -> Self {
+        #[cfg(target_family = "wasm")]
+        use wasm_bindgen::JsCast;
+
+        let file_name = file_name.unwrap_or("<blob>".to_string());
+
         Attachment {
-            file_name: String::from(file_name),
-            file_path: String::from(file_name),
-            file_stream: Some(file_stream),
+            file_name: file_name.clone(),
+            file_path: file_name,
+            #[cfg(target_family = "wasm")]
+            file: Some(blob_stream),
             is_private,
             ..Default::default()
         }
