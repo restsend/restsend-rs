@@ -1,4 +1,4 @@
-use crate::CallbackFunction;
+use crate::{CallbackFunction, Client};
 use restsend_sdk::request::ChatRequest;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
@@ -104,6 +104,61 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     fn on_fail(&self, reason: String) {
         if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason)).ok();
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+impl Client {
+    /// Set the callback when connection connected
+    #[wasm_bindgen(setter)]
+    pub fn set_onconnected(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_connected
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when connection connecting
+    #[wasm_bindgen(setter)]
+    pub fn set_onconnecting(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_connecting
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when connection token expired
+    #[wasm_bindgen(setter)]
+    pub fn set_ontokenexpired(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_token_expired
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when connection broken
+    #[wasm_bindgen(setter)]
+    pub fn set_onbroken(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_net_broken
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when kickoff by other client
+    #[wasm_bindgen(setter)]
+    pub fn set_onkickoff(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_kickoff_by_other_client
+                .lock()
+                .unwrap()
+                .replace(js_sys::Function::from(cb));
         }
     }
 }
