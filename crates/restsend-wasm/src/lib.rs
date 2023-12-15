@@ -1,15 +1,22 @@
+use log::warn;
 use restsend_sdk::models::AuthInfo;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
+
 mod account;
 mod callback;
+mod js_util;
 mod logger;
+
 #[cfg(test)]
 mod tests;
 
 pub use logger::enable_logging;
 
-use crate::callback::{CallbackWasmWrap, MessageCallbackWasmWrap};
+use crate::{
+    callback::{CallbackWasmWrap, MessageCallbackWasmWrap},
+    js_util::{get_string, get_vec_strings, js_value_to_attachment},
+};
 type CallbackFunction = Arc<Mutex<Option<js_sys::Function>>>;
 #[wasm_bindgen]
 pub struct Client {
@@ -109,13 +116,14 @@ impl Client {
     /// # Arguments
     /// * `topicId` - The topic id
     /// * `text` - The text message
-    /// * `mentions` - The mentions userid , optional
-    /// * `replyTo` - The reply message id, optional
-    /// * `cb` - The callback function, optional
+    /// * `option` - The send option
     /// # Example
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
+    /// await client.connect();
     /// await client.sendText(topicId, text, mentions, replyTo, {
+    ///     mentions: [] || undefined, // The mention user id list, optional
+    ///     replyTo: String || undefined, - The reply message id, optional
     ///     onsent:  () => {},
     ///     onprogress:  (progress:Number, total:Number)  =>{},
     ///     onack:  (req:ChatRequest)  => {},
@@ -127,17 +135,40 @@ impl Client {
         &self,
         topicId: String,
         text: String,
-        mentions: Option<Vec<String>>,
-        replyTo: Option<String>,
-        cb: JsValue,
+        option: JsValue,
     ) -> Result<(), JsValue> {
         self.inner
             .do_send_text(
                 topicId,
                 text,
-                mentions,
-                replyTo,
-                Some(Box::new(MessageCallbackWasmWrap::new(cb))),
+                get_vec_strings(&option, "mentions"),
+                get_string(&option, "replyTo"),
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
+            )
+            .await
+            .ok();
+        Ok(())
+    }
+    pub async fn doSendImage(
+        &self,
+        topicId: String,
+        attachment: JsValue,
+        option: JsValue,
+    ) -> Result<(), JsValue> {
+        let attachment = js_value_to_attachment(&attachment);
+        if attachment.is_none() {
+            return Err(JsValue::from_str("attachment is invalid"));
+        }
+
+        warn!("attachment: {:?}", attachment);
+
+        self.inner
+            .do_send_image(
+                topicId,
+                attachment.unwrap(),
+                get_vec_strings(&option, "mentions"),
+                get_string(&option, "replyTo"),
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
             .ok();

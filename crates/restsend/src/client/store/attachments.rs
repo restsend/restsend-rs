@@ -3,10 +3,8 @@ use crate::utils::{elapsed, spawn};
 use crate::Error;
 use crate::{
     callback::UploadCallback,
-    services::{
-        media::{build_upload_url, upload_file},
-        response::Upload,
-    },
+    media::{build_upload_url, upload_file},
+    services::response::Upload,
     utils::now_millis,
     MEDIA_PROGRESS_INTERVAL,
 };
@@ -90,6 +88,11 @@ struct UploadTaskCallback {
     task: Arc<UploadTask>,
 }
 
+#[cfg(target_family = "wasm")]
+unsafe impl Send for UploadTaskCallback {}
+#[cfg(target_family = "wasm")]
+unsafe impl Sync for UploadTaskCallback {}
+
 impl UploadCallback for UploadTaskCallback {
     fn on_progress(&self, progress: u64, total: u64) {
         self.task.on_progress(progress, total)
@@ -158,8 +161,7 @@ impl AttachmentInner {
             let r = upload_file(
                 uploader,
                 Some(&token),
-                attachment.file_path,
-                attachment.is_private,
+                attachment,
                 media_callback,
                 cancel_rx,
             )

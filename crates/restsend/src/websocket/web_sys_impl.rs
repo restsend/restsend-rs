@@ -55,11 +55,14 @@ impl WebSocketImpl {
         let is_cross_domain = current_host.is_empty() || !url.contains(&current_host);
 
         if is_cross_domain && !opt.token.is_empty() {
-            let token = urlencoding::encode(&opt.token);
-            url = match url.contains("?") {
-                true => format!("{}&token={}", url, token),
-                false => format!("{}?token={}", url, token),
-            };
+            // let token = opt.token.clone();
+            // url = match url.contains("?") {
+            //     true => format!("{}&token={}", url, token),
+            //     false => format!("{}?token={}", url, token),
+            // };
+            let mut u = url::Url::parse(&url).unwrap();
+            u.query_pairs_mut().append_pair("token", &opt.token);
+            url = u.to_string();
         }
 
         let ws = match WebSocket::new(&url) {

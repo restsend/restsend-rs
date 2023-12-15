@@ -8,6 +8,37 @@ use crate::{models::Content, request::ChatRequest};
 use log::warn;
 use restsend_macros::export_wasm_or_ffi;
 use std::io::Write;
+use wasm_bindgen::JsValue;
+
+#[cfg(not(target_family = "wasm"))]
+pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Result<Attachment> {
+    let file_path = Client::temp_path(root_path, Some("history_*.json".to_string()));
+    let mut file = std::fs::File::create(&file_path)?;
+    let file_data = data.as_bytes();
+    let file_size = file_data.len();
+    file.write_all(file_data)?;
+    file.sync_all()?;
+
+    drop(file);
+
+    warn!(
+        "save logs file_path:{} size:{} file:{:?}",
+        file_path, file_size, file_path
+    );
+    Ok(Attachment::local(file_name, &file_path, false))
+}
+
+#[cfg(target_family = "wasm")]
+pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
+    let file_size = data.len();
+    warn!("save logs  size:{}", file_size);
+    let data = JsValue::from_str(&data);
+    let file_stream = web_sys::Blob::new_with_str_sequence_and_options(
+        &data,
+        web_sys::BlobPropertyBag::new().type_("application/json"),
+    )?;
+    Ok(Attachment::blob(file_name, file_stream, false))
+}
 
 #[export_wasm_or_ffi]
 impl Client {
@@ -150,8 +181,6 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let file_name = "Chat history";
-        let file_path = Self::temp_path(&self.root_path, Some("history_*.json".to_string()));
-
         let mut items = Vec::new();
         for log_id in log_ids.iter() {
             if let Some(log) = self.store.get_chat_log(&topic_id, log_id) {
@@ -168,20 +197,11 @@ impl Client {
         })
         .to_string();
 
-        let mut file = std::fs::File::create(&file_path)?;
-        let file_data = data.as_bytes();
-        let file_size = file_data.len();
-        file.write_all(file_data)?;
-        file.sync_all()?;
+        #[cfg(not(target_family = "wasm"))]
+        let attachment = save_logs_to_file(&self.root_path, &file_name, data)?;
+        #[cfg(target_family = "wasm")]
+        let attachment = save_logs_to_blob(&file_name, data)?;
 
-        drop(file);
-
-        warn!(
-            "save logs, log_ids:{:?} size:{} file:{:?}",
-            log_ids, file_size, file_path
-        );
-
-        let attachment = Attachment::local(file_name, &file_path, false);
         let req = ChatRequest::new_logs(&topic_id, attachment).mentions(mentions);
         self.send_chat_request_via_connection(req, callback).await
     }

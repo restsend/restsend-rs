@@ -1,4 +1,4 @@
-use std::{io::Write, time::Duration};
+use std::time::Duration;
 
 use std::future::Future;
 #[cfg(not(target_family = "wasm"))]
@@ -93,6 +93,8 @@ pub async fn sleep(duration: Duration) {
 #[cfg(not(target_family = "wasm"))]
 #[uniffi::export]
 pub fn init_log(level: String, is_test: bool) {
+    use std::io::Write;
+
     let _ = env_logger::builder()
         .is_test(is_test)
         .format(|buf, record| {

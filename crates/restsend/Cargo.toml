@@ -38,6 +38,7 @@ js-sys = "0.3.66"
 web-sys = { version = "0.3.66", features = [
     "BinaryType",
     "Blob",
+    "BlobPropertyBag",
     "ErrorEvent",
     "FileReader",
     "MessageEvent",
@@ -46,8 +47,13 @@ web-sys = { version = "0.3.66", features = [
     "Location",
     "Window",
     "console",
+    "Request",
+    "RequestInit",
+    "ReadableStream",
+    "RequestMode",
+    "Response",
+    "Headers",
 ] }
-urlencoding = "2.1.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.34.0", features = ["time", "sync", "macros"] }

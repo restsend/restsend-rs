@@ -85,6 +85,7 @@ impl From<String> for ContentType {
             "contact" => ContentType::Contact,
             "link" => ContentType::Link,
             "invite" => ContentType::Invite,
+            "logs" => ContentType::Logs,
             "topic.create" => ContentType::TopicCreate,
             "topic.dismiss" => ContentType::TopicDismiss,
             "topic.quit" => ContentType::TopicQuit,
@@ -115,6 +116,7 @@ pub enum AttachmentStatus {
     Failed,
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
@@ -127,11 +129,37 @@ pub struct Attachment {
     pub status: AttachmentStatus,
 }
 
+#[cfg(target_family = "wasm")]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub thumbnail: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub url_or_data: String,
+    pub is_private: bool,
+    pub status: AttachmentStatus,
+    #[serde(skip)]
+    pub file_stream: Option<web_sys::Blob>,
+}
+
 impl Attachment {
+    #[cfg(not(target_family = "wasm"))]
     pub fn local(file_name: &str, file_path: &str, is_private: bool) -> Self {
         Attachment {
             file_name: String::from(file_name),
             file_path: String::from(file_path),
+            is_private,
+            ..Default::default()
+        }
+    }
+
+    #[cfg(target_family = "wasm")]
+    pub fn blob(file_name: &str, file_stream: web_sys::Blob, is_private: bool) -> Self {
+        Attachment {
+            file_name: String::from(file_name),
+            file_path: String::from(file_name),
+            file_stream: Some(file_stream),
             is_private,
             ..Default::default()
         }

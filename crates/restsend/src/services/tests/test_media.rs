@@ -67,7 +67,7 @@ async fn test_download_file() {
 
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-    let r = crate::services::media::download_file(
+    let r = crate::media::download_file(
         url.to_string(),
         None,
         file_name.to_string(),
@@ -161,11 +161,11 @@ async fn test_upload_file() {
     let file_name = f.path().to_str().unwrap().to_string();
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-    let r = crate::services::media::upload_file(
+    let attachment = crate::models::Attachment::local(&file_name, &file_name, false);
+    let r = crate::media::upload_file(
         url.to_string(),
         None,
-        file_name.to_string(),
-        false,
+        attachment,
         Box::new(TestUploadCallback {
             is_done: is_done.clone(),
         }),
@@ -214,7 +214,7 @@ async fn test_download_file_with_redirect() {
     let is_done = Arc::new(AtomicBool::new(false));
     let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
 
-    let r = crate::services::media::download_file(
+    let r = crate::media::download_file(
         url.to_string(),
         None,
         file_name.to_string(),

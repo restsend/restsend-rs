@@ -1,81 +1,28 @@
-use super::response::Upload;
 use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{StdError, UserCancel, HTTP};
+use crate::media::HumanReadable;
+use crate::models::Attachment;
+use crate::services::response::Upload;
+use crate::services::{handle_response, make_get_request, make_post_request};
 use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use futures_util::TryStreamExt;
 use log::info;
 use reqwest::multipart;
 use std::time::Duration;
-#[cfg(not(target_family = "wasm"))]
 use tokio::io::AsyncWriteExt;
 use tokio::select;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
 
-//implement human readable for u64
-pub trait HumanReadable {
-    fn human_readable(&self) -> String;
-}
-
-impl HumanReadable for u64 {
-    fn human_readable(&self) -> String {
-        let mut size = *self as f64;
-        let mut unit = "B";
-        if size > 1024.0 {
-            size /= 1024.0;
-            unit = "KB";
-        }
-        if size > 1024.0 {
-            size /= 1024.0;
-            unit = "MB";
-        }
-        if size > 1024.0 {
-            size /= 1024.0;
-            unit = "GB";
-        }
-        format!("{:.2}{}", size, unit)
-    }
-}
-
-pub(crate) fn build_upload_url(endpoint: &str, url: &str) -> String {
-    if url.starts_with("http") {
-        return url.to_string();
-    }
-
-    format!("{}/api/attachment/upload", endpoint)
-}
-
-pub(crate) fn build_download_url(endpoint: &str, url: &str) -> String {
-    if url.starts_with("http") {
-        return url.to_string();
-    }
-
-    format!("{}{}", endpoint, url)
-}
-
-#[cfg(target_family = "wasm")]
-pub(crate) async fn upload_file(
+pub async fn upload_file(
     uploader_url: String,
     token: Option<&str>,
-    file_path: String,
-    is_private: bool,
+    attachment: Attachment,
     callback: Box<dyn UploadCallback>,
     cancel: oneshot::Receiver<()>,
 ) -> Result<Option<Upload>> {
-    todo!()
-}
-
-#[cfg(not(target_family = "wasm"))]
-pub(crate) async fn upload_file(
-    uploader_url: String,
-    token: Option<&str>,
-    file_path: String,
-    is_private: bool,
-    callback: Box<dyn UploadCallback>,
-    cancel: oneshot::Receiver<()>,
-) -> Result<Option<Upload>> {
-    let file = tokio::fs::File::open(file_path.clone()).await?;
+    let file = tokio::fs::File::open(attachment.file_path.clone()).await?;
     let total = file.metadata().await?.len();
 
     let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
@@ -98,21 +45,21 @@ pub(crate) async fn upload_file(
         );
 
         let file_part = multipart::Part::stream(file_stream)
-            .file_name(file_path.clone())
+            .file_name(attachment.file_name.clone())
             .mime_str("application/octet-stream")?;
 
-        let private_part = multipart::Part::text(format!("{}", is_private as u32));
+        let private_part = multipart::Part::text(format!("{}", attachment.is_private as u32));
         let form = form.part("file", file_part).part("private", private_part);
 
         info!(
-            "upload url:{} filename:{} size:{} private:{}",
+            "upload url:{} file_path:{} size:{} private:{}",
             uploader_url,
-            file_path,
+            attachment.file_path,
             total.human_readable(),
-            is_private,
+            attachment.is_private,
         );
 
-        let req = super::make_post_request(
+        let req = make_post_request(
             "",
             &uploader_url,
             token,
@@ -123,7 +70,7 @@ pub(crate) async fn upload_file(
 
         let resp = req.multipart(form).send().await?;
         info!("upload {} response: {:?}", uploader_url, resp);
-        super::handle_response::<super::response::Upload>(resp).await
+        handle_response::<Upload>(resp).await
     };
 
     callback.on_progress(0, total);
@@ -159,19 +106,7 @@ pub(crate) async fn upload_file(
     }
 }
 
-#[cfg(target_family = "wasm")]
-pub(crate) async fn download_file(
-    download_url: String,
-    token: Option<String>,
-    save_file_name: String,
-    callback: Box<dyn DownloadCallback>,
-    cancel: oneshot::Receiver<()>,
-) -> Result<String> {
-    todo!()
-}
-
-#[cfg(not(target_family = "wasm"))]
-pub(crate) async fn download_file(
+pub async fn download_file(
     download_url: String,
     token: Option<String>,
     save_file_name: String,
@@ -179,7 +114,7 @@ pub(crate) async fn download_file(
     cancel: oneshot::Receiver<()>,
 ) -> Result<String> {
     let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
-    let req = super::make_get_request(
+    let req = make_get_request(
         "",
         &download_url,
         token,

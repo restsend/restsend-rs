@@ -12,7 +12,6 @@ use std::time::Duration;
 
 pub mod auth;
 pub mod conversation;
-pub mod media;
 pub mod response;
 #[cfg(test)]
 mod tests;
@@ -20,7 +19,6 @@ pub mod topic;
 pub mod topic_admin;
 pub mod user;
 
-const MEDIA_TIMEOUT_SECS: u64 = 300; // 5 minutes
 const API_TIMEOUT_SECS: u64 = 60; // 1 minute
 const API_PREFIX: &str = "/api";
 const LOGS_LIMIT: u32 = 100;

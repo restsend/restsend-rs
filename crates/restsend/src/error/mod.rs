@@ -33,9 +33,14 @@ impl From<std::io::Error> for ClientError {
     }
 }
 
-#[cfg(target_family = "wasm")]
 impl From<ClientError> for wasm_bindgen::JsValue {
     fn from(e: ClientError) -> wasm_bindgen::JsValue {
         wasm_bindgen::JsValue::from_str(&e.to_string())
+    }
+}
+
+impl From<wasm_bindgen::JsValue> for ClientError {
+    fn from(e: wasm_bindgen::JsValue) -> ClientError {
+        ClientError::StdError(e.as_string().unwrap_or_default())
     }
 }

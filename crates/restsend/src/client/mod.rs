@@ -5,11 +5,9 @@ use self::{
 use crate::{
     callback::DownloadCallback,
     error::ClientError,
+    media::{build_download_url, download_file},
     models::{AuthInfo, User},
-    services::{
-        media::{build_download_url, download_file},
-        user::set_allow_guest_chat,
-    },
+    services::user::set_allow_guest_chat,
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};

@@ -133,6 +133,11 @@ struct ConnectionInner {
     incoming_tx: UnboundedSender<ChatRequest>,
 }
 
+#[cfg(target_family = "wasm")]
+unsafe impl Send for ConnectionInner {}
+#[cfg(target_family = "wasm")]
+unsafe impl Sync for ConnectionInner {}
+
 impl WebSocketCallback for ConnectionInner {
     fn on_connected(&self, _usage: Duration) {
         self.connect_state_ref.did_connected();

@@ -5,6 +5,7 @@ pub mod callback;
 pub mod client;
 pub mod error;
 
+pub mod media;
 pub mod models;
 pub mod request;
 pub mod services;
