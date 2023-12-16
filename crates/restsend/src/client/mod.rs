@@ -1,5 +1,5 @@
 use self::{
-    connection::ConnectState,
+    connection::{ConnectState, ConnectStateRef},
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
@@ -29,7 +29,7 @@ pub struct Client {
     pub token: String,
     pub endpoint: String,
     store: ClientStoreRef,
-    state: Arc<ConnectState>,
+    state: ConnectStateRef,
 }
 
 impl Client {

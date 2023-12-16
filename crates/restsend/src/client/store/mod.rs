@@ -124,6 +124,7 @@ impl PendingRequest {
 type PendingRequests = Mutex<HashMap<String, PendingRequest>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
+pub(super) type CallbackRef = Arc<Box<dyn Callback>>;
 pub(super) struct ClientStore {
     user_id: String,
     endpoint: String,
@@ -284,7 +285,6 @@ impl ClientStore {
                                 .collect();
                             callback.on_conversations_updated(conversations);
                         }
-
                         StoreEvent::RemoveConversation(conversation_id) => {
                             callback.on_conversations_removed(conversation_id);
                         }

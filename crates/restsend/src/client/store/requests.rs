@@ -193,7 +193,7 @@ impl ClientStore {
             }
         }
     }
-    pub async fn flush_offline_requests(&self) {
+    pub fn flush_offline_requests(&self) {
         let mut tmps = self.tmps.lock().unwrap();
         let tx = self.msg_tx.lock().unwrap();
         match tx.as_ref() {

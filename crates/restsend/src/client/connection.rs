@@ -1,4 +1,7 @@
-use super::Client;
+use super::{
+    store::{CallbackRef, ClientStoreRef},
+    Client,
+};
 use crate::{
     callback::Callback,
     request::{ChatRequest, ChatRequestType},
@@ -52,6 +55,8 @@ pub(super) struct ConnectState {
     state_tx: broadcast::Sender<ConnectionStatus>,
     last_state: Mutex<ConnectionStatus>,
 }
+
+pub(super) type ConnectStateRef = Arc<ConnectState>;
 
 impl ConnectState {
     pub fn new() -> Self {
@@ -128,8 +133,9 @@ impl ConnectState {
 }
 
 struct ConnectionInner {
-    connect_state_ref: Arc<ConnectState>,
-    callback_ref: Arc<Box<dyn Callback>>,
+    connect_state_ref: ConnectStateRef,
+    store_ref: ClientStoreRef,
+    callback_ref: CallbackRef,
     incoming_tx: UnboundedSender<ChatRequest>,
 }
 
@@ -142,6 +148,7 @@ impl WebSocketCallback for ConnectionInner {
     fn on_connected(&self, _usage: Duration) {
         self.connect_state_ref.did_connected();
         self.callback_ref.on_connected();
+        self.store_ref.flush_offline_requests();
     }
 
     fn on_connecting(&self) {
@@ -193,8 +200,16 @@ impl Client {
     }
 
     pub async fn connect(&self, callback: Box<dyn Callback>) {
-        self.serve_connection(callback).await
+        serve_connection(
+            &self.endpoint,
+            &self.token,
+            self.store.clone(),
+            self.state.clone(),
+            callback,
+        )
+        .await;
     }
+
     pub fn app_active(&self) {
         self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
     }
@@ -210,126 +225,130 @@ impl Client {
     }
 }
 
-impl Client {
-    async fn serve_connection(&self, callback: Box<dyn Callback>) {
-        let url = WebsocketOption::url_from_endpoint(&self.endpoint);
-        let opt = WebsocketOption::new(&url, &self.token);
+async fn serve_connection(
+    endpoint: &str,
+    token: &str,
+    store: ClientStoreRef,
+    state: ConnectStateRef,
+    callback: Box<dyn Callback>,
+) {
+    let url = WebsocketOption::url_from_endpoint(endpoint);
+    let opt = WebsocketOption::new(&url, token);
 
-        let state = self.state.clone();
-        let callback = Arc::new(callback);
-        let callback_clone = callback.clone();
-        let store_ref = self.store.clone();
+    let state = state.clone();
+    let callback = Arc::new(callback);
+    let callback_clone = callback.clone();
+    let store_ref = store.clone();
 
-        info!("connect websocket url: {}", url);
-        let conn_state_ref = state.state_tx.clone();
+    info!("connect websocket url: {}", url);
+    let conn_state_ref = state.state_tx.clone();
 
-        spawn(async move {
-            let conn_loop = async {
-                while !state.is_must_shutdown() {
-                    state.wait_for_next_connect().await;
+    spawn(async move {
+        let conn_loop = async {
+            while !state.is_must_shutdown() {
+                state.wait_for_next_connect().await;
 
-                    let (incoming_tx, mut incoming_rx) = unbounded_channel();
+                let (incoming_tx, mut incoming_rx) = unbounded_channel();
 
-                    let conn_inner = ConnectionInner {
-                        connect_state_ref: state.clone(),
-                        callback_ref: callback.clone(),
-                        incoming_tx,
-                    };
+                let conn_inner = ConnectionInner {
+                    connect_state_ref: state.clone(),
+                    callback_ref: callback.clone(),
+                    store_ref: store_ref.clone(),
+                    incoming_tx,
+                };
 
-                    let conn = WebSocket::new();
-                    let (outgoing_tx, mut outgoing_rx) = unbounded_channel::<ChatRequest>();
+                let conn = WebSocket::new();
+                let (outgoing_tx, mut outgoing_rx) = unbounded_channel::<ChatRequest>();
 
-                    let sender_loop = async {
-                        while let Some(message) = outgoing_rx.recv().await {
-                            if let Err(_) = conn.send((&message).into()).await {
-                                store_ref.handle_send_fail(&message.id).await;
+                let sender_loop = async {
+                    while let Some(message) = outgoing_rx.recv().await {
+                        if let Err(_) = conn.send((&message).into()).await {
+                            store_ref.handle_send_fail(&message.id).await;
+                            break;
+                        }
+                        state.did_sent_or_recvived();
+                        store_ref.handle_send_success(&message.id).await;
+                    }
+                };
+
+                let keepalive_loop = async {
+                    while !state.is_must_shutdown() {
+                        sleep(Duration::from_secs(5 as u64)).await;
+                        if !state.need_send_keepalive() {
+                            continue;
+                        }
+                        if let Err(e) = conn.send(String::from(r#"{"type":"nop"}"#)).await {
+                            warn!("keepalive_runner send failed: {:?}", e);
+                            break;
+                        }
+                    }
+                };
+
+                let incoming_loop = async {
+                    while let Some(req) = incoming_rx.recv().await {
+                        let resps = match ChatRequestType::from(&req.r#type) {
+                            ChatRequestType::Nop => vec![],
+                            ChatRequestType::Unknown(_) => {
+                                vec![callback.on_unknown_request(req)]
+                            }
+                            ChatRequestType::System => vec![callback.on_system_request(req)],
+                            ChatRequestType::Typing => {
+                                callback.on_topic_typing(req.topic_id.clone(), req.message.clone());
+                                vec![]
+                            }
+                            ChatRequestType::Kickout => {
+                                let reason = req.message.unwrap_or_default();
+                                warn!("websocket kickout by other client: {}", reason);
+
+                                state.did_shutdown();
+                                callback.on_kickoff_by_other_client(reason);
                                 break;
                             }
-                            state.did_sent_or_recvived();
-                            store_ref.handle_send_success(&message.id).await;
-                        }
-                    };
+                            _ => store_ref.process_incoming(req, callback.clone()).await,
+                        };
 
-                    let keepalive_loop = async {
-                        while !state.is_must_shutdown() {
-                            sleep(Duration::from_secs(5 as u64)).await;
-                            if !state.need_send_keepalive() {
-                                continue;
-                            }
-                            if let Err(e) = conn.send(String::from(r#"{"type":"nop"}"#)).await {
-                                warn!("keepalive_runner send failed: {:?}", e);
-                                break;
-                            }
-                        }
-                    };
-
-                    let incoming_loop = async {
-                        while let Some(req) = incoming_rx.recv().await {
-                            let resps = match ChatRequestType::from(&req.r#type) {
-                                ChatRequestType::Nop => vec![],
-                                ChatRequestType::Unknown(_) => {
-                                    vec![callback.on_unknown_request(req)]
-                                }
-                                ChatRequestType::System => vec![callback.on_system_request(req)],
-                                ChatRequestType::Typing => {
-                                    callback
-                                        .on_topic_typing(req.topic_id.clone(), req.message.clone());
-                                    vec![]
-                                }
-                                ChatRequestType::Kickout => {
-                                    let reason = req.message.unwrap_or_default();
-                                    warn!("websocket kickout by other client: {}", reason);
-
-                                    state.did_shutdown();
-                                    callback.on_kickoff_by_other_client(reason);
+                        for resp in resps {
+                            if let Some(resp) = resp {
+                                if let Err(e) = conn.send((&resp).into()).await {
+                                    warn!("websocket send failed: {}", e);
                                     break;
                                 }
-                                _ => store_ref.process_incoming(req, callback.clone()).await,
-                            };
-
-                            for resp in resps {
-                                if let Some(resp) = resp {
-                                    if let Err(e) = conn.send((&resp).into()).await {
-                                        warn!("websocket send failed: {}", e);
-                                        break;
-                                    }
-                                }
                             }
                         }
-                    };
+                    }
+                };
 
-                    select! {
-                        _ = conn.serve(&opt, Box::new(conn_inner)) => {},
-                        _ = store_ref.handle_outgoing(outgoing_tx) => {
-                        },
-                        _ = sender_loop => {},
-                        _ = incoming_loop => {},
-                        _ = keepalive_loop => {}
+                select! {
+                    _ = conn.serve(&opt, Box::new(conn_inner)) => {},
+                    _ = store_ref.handle_outgoing(outgoing_tx) => {
+                    },
+                    _ = sender_loop => {},
+                    _ = incoming_loop => {},
+                    _ = keepalive_loop => {}
+                }
+            }
+        };
+
+        select! {
+            _ = store_ref.process(callback_clone) =>{}
+            _ = conn_loop => {
+                warn!("connect shutdown");
+            },
+            _ = async {
+                loop {
+                    let mut conn_state_rx = conn_state_ref.subscribe();
+                    let st = conn_state_rx.recv().await;
+                    match st {
+                        // Ok(ConnectionStatus::Connected) => {
+                        //     store_ref.flush_offline_requests().await;
+                        // }
+                        Ok(ConnectionStatus::Shutdown) | Err(_) => {
+                            break
+                        }
+                        _ => {}
                     }
                 }
-            };
-
-            select! {
-                _ = store_ref.process(callback_clone) =>{}
-                _ = conn_loop => {
-                    warn!("connect shutdown");
-                },
-                _ = async {
-                    loop {
-                        let mut conn_state_rx = conn_state_ref.subscribe();
-                        let st = conn_state_rx.recv().await;
-                        match st {
-                            Ok(ConnectionStatus::Connected) => {
-                                store_ref.flush_offline_requests().await;
-                            }
-                            Ok(ConnectionStatus::Shutdown) | Err(_) => {
-                                break
-                            }
-                            _ => {}
-                        }
-                    }
-                } => {}
-            };
-        });
-    }
+            } => {}
+        };
+    });
 }

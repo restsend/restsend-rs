@@ -35,13 +35,11 @@ pub fn get_string(obj: &JsValue, key: &str) -> Option<String> {
 }
 
 pub fn get_f64(obj: &JsValue, key: &str) -> f64 {
-    let value = js_sys::Reflect::get(&obj, &JsValue::from_str(key));
-    if let Ok(v) = value {
-        if let Ok(v) = v.dyn_into::<js_sys::Number>() {
-            return v.as_f64().unwrap_or_default();
-        }
-    }
-    0.0
+    js_sys::Reflect::get(&obj, &JsValue::from_str(key))
+        .map(|v| v.dyn_into::<js_sys::Number>())
+        .map(|v| v.map(|v| v.as_f64().unwrap_or_default()))
+        .unwrap()
+        .unwrap()
 }
 
 pub fn get_bool(obj: &JsValue, key: &str) -> bool {
