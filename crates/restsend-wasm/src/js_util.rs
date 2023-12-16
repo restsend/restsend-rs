@@ -1,6 +1,6 @@
 use crate::CallbackFunction;
 use js_sys::JsString;
-use restsend_sdk::models::{Attachment, Content, ContentType};
+use restsend_sdk::models::{Attachment, Content};
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

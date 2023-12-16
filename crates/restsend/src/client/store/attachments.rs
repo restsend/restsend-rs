@@ -1,4 +1,4 @@
-use super::{PendingRequest, StoreEvent};
+use super::{ClientStore, ClientStoreRef, PendingRequest};
 use crate::utils::{elapsed, spawn};
 use crate::Error;
 use crate::{
@@ -15,11 +15,11 @@ use std::{
         Arc, Mutex,
     },
 };
-use tokio::sync::{mpsc::UnboundedSender, oneshot, Barrier};
+use tokio::sync::{oneshot, Barrier};
 
 pub(super) struct UploadTask {
+    store_ref: ClientStoreRef,
     req: Mutex<Option<PendingRequest>>,
-    upload_result_tx: UnboundedSender<StoreEvent>,
     #[allow(unused)]
     cancel_tx: oneshot::Sender<()>,
     updated_at: AtomicI64,
@@ -28,14 +28,14 @@ pub(super) struct UploadTask {
 
 impl UploadTask {
     pub fn new(
-        upload_result_tx: UnboundedSender<StoreEvent>,
+        store_ref: ClientStoreRef,
         cancel_tx: oneshot::Sender<()>,
         req: PendingRequest,
     ) -> Self {
         Self {
-            req: Mutex::new(Some(req)),
             cancel_tx,
-            upload_result_tx,
+            store_ref,
+            req: Mutex::new(Some(req)),
             updated_at: AtomicI64::new(now_millis()),
             last_progress: Mutex::new(now_millis()),
         }
@@ -52,33 +52,17 @@ impl UploadTask {
             *last_progress = now_millis();
 
             req.callback.as_ref().unwrap().on_progress(progress, total);
-
-            let req_id = req.get_req_id();
-            let topic_id = req.get_topic_id();
-            let chat_id = req.get_chat_id();
-
-            self.upload_result_tx
-                .send(StoreEvent::UploadProgress(
-                    req_id, topic_id, chat_id, progress, total,
-                ))
-                .ok();
         }
     }
 
     pub fn on_success(&self, result: Upload) {
-        if let Some(req) = self.req.lock().unwrap().take() {
-            self.upload_result_tx
-                .send(StoreEvent::UploadSuccess(req, result))
-                .ok();
-        }
-
-        self.updated_at.store(now_millis(), Ordering::Relaxed)
+        self.updated_at.store(now_millis(), Ordering::Relaxed);
+        let pending = self.req.lock().unwrap().take().unwrap();
+        ClientStore::on_attachment_upload_success(self.store_ref.clone(), pending, result);
     }
     pub fn on_fail(&self, e: Error) {
         if let Some(req) = self.req.lock().unwrap().take() {
-            self.upload_result_tx
-                .send(StoreEvent::PendingErr(req, e))
-                .ok();
+            req.callback.map(|cb| cb.on_fail(e.to_string()));
         }
         self.updated_at.store(now_millis(), Ordering::Relaxed)
     }
@@ -99,7 +83,8 @@ impl UploadCallback for UploadTaskCallback {
     }
 
     fn on_success(&self, result: Upload) {
-        self.task.on_success(result)
+        self.task.on_success(result);
+        // clall store
     }
 
     fn on_fail(&self, e: Error) {

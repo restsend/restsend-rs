@@ -1,7 +1,5 @@
 use super::attachments::UploadTask;
-use super::{ClientStore, PendingRequest};
-use crate::callback::Callback;
-use crate::client::store::StoreEvent;
+use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::models::ChatLogStatus;
 use crate::{
     callback::MessageCallback,
@@ -33,7 +31,7 @@ impl ClientStore {
     pub async fn process_incoming(
         &self,
         req: ChatRequest,
-        callback: Arc<Box<dyn Callback>>,
+        callback: CallbackRef,
     ) -> Vec<Option<ChatRequest>> {
         info!("process_incoming: {:?}", req);
         let topic_id = req.topic_id.clone();
@@ -48,8 +46,18 @@ impl ClientStore {
                     ChatLogStatus::SendFailed
                 };
 
-                if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
-                    tx.send(StoreEvent::Ack(status.clone(), req)).ok();
+                if let Some(pending) = self.peek_pending_request(&req.id).await {
+                    match status {
+                        ChatLogStatus::Sent => {
+                            pending.callback.map(|cb| cb.on_ack(req));
+                        }
+                        ChatLogStatus::SendFailed => {
+                            let reason =
+                                req.message.unwrap_or(format!("send failed: {:?}", status));
+                            pending.callback.map(|cb| cb.on_fail(reason));
+                        }
+                        _ => {}
+                    }
                 }
 
                 self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
@@ -62,7 +70,11 @@ impl ClientStore {
                     Ok(_) => match self.update_conversation_from_chat(&req) {
                         Ok(conversation) => {
                             if !conversation.is_partial {
-                                callback.on_conversations_updated(vec![conversation]);
+                                callback
+                                    .lock()
+                                    .unwrap()
+                                    .as_ref()
+                                    .map(|cb| cb.on_conversations_updated(vec![conversation]));
                             } else {
                                 self.fetch_conversation(&topic_id);
                             }
@@ -89,23 +101,34 @@ impl ClientStore {
                 let topic_id = req.topic_id.clone();
                 let created_at = req.created_at.clone();
                 let resp = ChatRequest::new_response(&req, 200);
-                if callback.on_new_message(topic_id.clone(), req) {
-                    if let Err(e) = self.update_conversation_read(&topic_id, &created_at) {
-                        warn!(
-                            "update_conversation_read failed, topic_id:{} error: {:?}",
-                            topic_id, e
-                        );
+
+                let r = callback
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()));
+                match r {
+                    Some(true) => {
+                        if let Err(e) = self.update_conversation_read(&topic_id, &created_at) {
+                            warn!(
+                                "update_conversation_read failed, topic_id:{} error: {:?}",
+                                topic_id, e
+                            );
+                        }
+                        vec![resp, Some(ChatRequest::new_read(&topic_id))]
                     }
-                    vec![resp, Some(ChatRequest::new_read(&topic_id))]
-                } else {
-                    vec![resp]
+                    _ => vec![resp],
                 }
             }
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
                 self.set_conversation_read_local(&topic_id);
-                callback.on_topic_read(topic_id, req);
+                callback
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|cb| cb.on_topic_read(topic_id, req));
                 vec![resp]
             }
             _ => {
@@ -116,15 +139,25 @@ impl ClientStore {
     }
 
     pub async fn handle_send_fail(&self, req_id: &str) {
-        if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
-            tx.send(StoreEvent::SendFail(req_id.to_string())).ok();
+        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(req_id) {
+            pending.did_retry();
+            pending.is_expired()
+        } else {
+            false
+        };
+
+        if peek {
+            if let Some(pending) = self.peek_pending_request(&req_id).await {
+                pending
+                    .callback
+                    .map(|cb| cb.on_fail("request timeout".to_string()));
+            }
         }
     }
 
     pub async fn handle_send_success(&self, req_id: &str) {
-        if let Some(tx) = self.event_tx.lock().unwrap().as_ref() {
-            tx.send(StoreEvent::SendSuccess(req_id.to_string())).ok();
-        }
+        // TODO: update database status
+        info!("handle_send_success: {}", req_id);
     }
 
     pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
@@ -133,7 +166,7 @@ impl ClientStore {
     }
 
     pub async fn add_pending_request(
-        &self,
+        store: ClientStoreRef,
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
@@ -143,42 +176,30 @@ impl ClientStore {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
-                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
+                if let Err(e) = store.save_outgoing_chat_log(&pending_request.req) {
                     warn!("save_outgoing_chat_log failed: req_id:{} err:{}", req_id, e);
                 }
 
                 // process media
                 if pending_request.has_attachment() {
                     let (cancel_tx, cancel_rx) = oneshot::channel();
-                    let upload_result_tx = self.event_tx.lock().unwrap().clone();
 
-                    if upload_result_tx.is_none() {
-                        warn!("upload_result_tx is none");
-                        pending_request
-                            .callback
-                            .map(|cb| cb.on_fail(format!("upload_result_tx is none")));
-                        return;
-                    }
-
-                    let task = Arc::new(UploadTask::new(
-                        upload_result_tx.unwrap(),
-                        cancel_tx,
-                        pending_request,
-                    ));
-
-                    self.attachment_inner
-                        .submit_upload(&self.endpoint, &self.token, task.clone(), cancel_rx)
+                    let task = Arc::new(UploadTask::new(store.clone(), cancel_tx, pending_request));
+                    store
+                        .attachment_inner
+                        .submit_upload(&store.endpoint, &store.token, task.clone(), cancel_rx)
                         .await;
                     return;
                 }
 
-                self.outgoings
+                store
+                    .outgoings
                     .lock()
                     .unwrap()
                     .insert(req_id.clone(), pending_request);
             }
         }
-        self.try_send(req_id);
+        store.try_send(req_id);
     }
 
     pub(super) fn try_send(&self, req_id: String) {

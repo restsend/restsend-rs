@@ -1,3 +1,4 @@
+use super::store::ClientStore;
 use super::Client;
 use crate::callback::MessageCallback;
 use crate::models::chat_log::Attachment;
@@ -60,7 +61,7 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req_id = req.id.clone();
-        self.store.add_pending_request(req, callback).await;
+        ClientStore::add_pending_request(self.store.clone(), req, callback).await;
         Ok(req_id)
     }
 

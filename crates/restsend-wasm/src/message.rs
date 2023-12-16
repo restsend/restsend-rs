@@ -3,7 +3,6 @@ use crate::{
     js_util::{get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
     Client,
 };
-use restsend_sdk::{models::Content, request::ChatRequest};
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]

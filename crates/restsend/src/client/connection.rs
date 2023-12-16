@@ -147,23 +147,38 @@ unsafe impl Sync for ConnectionInner {}
 impl WebSocketCallback for ConnectionInner {
     fn on_connected(&self, _usage: Duration) {
         self.connect_state_ref.did_connected();
-        self.callback_ref.on_connected();
+        self.callback_ref
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|cb| cb.on_connected());
         self.store_ref.flush_offline_requests();
     }
 
     fn on_connecting(&self) {
-        self.callback_ref.on_connecting();
+        self.callback_ref
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|cb| cb.on_connecting());
         self.connect_state_ref.did_connecting();
     }
 
     fn on_unauthorized(&self) {
         self.callback_ref
-            .on_token_expired("unauthorized".to_string());
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|cb| cb.on_token_expired("unauthorized".to_string()));
     }
 
     fn on_net_broken(&self, reason: String) {
         self.connect_state_ref.did_broken();
-        self.callback_ref.on_net_broken(reason);
+        self.callback_ref
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|cb| cb.on_net_broken(reason));
     }
 
     fn on_message(&self, message: String) {
@@ -235,24 +250,25 @@ async fn serve_connection(
     let url = WebsocketOption::url_from_endpoint(endpoint);
     let opt = WebsocketOption::new(&url, token);
 
-    let state = state.clone();
-    let callback = Arc::new(callback);
-    let callback_clone = callback.clone();
+    store.callback.lock().unwrap().replace(callback);
+
+    let state_ref = state.clone();
     let store_ref = store.clone();
+    let callback_ref = store_ref.callback.clone();
 
     info!("connect websocket url: {}", url);
-    let conn_state_ref = state.state_tx.clone();
+    let conn_state_ref = state_ref.state_tx.clone();
 
     spawn(async move {
         let conn_loop = async {
-            while !state.is_must_shutdown() {
-                state.wait_for_next_connect().await;
+            while !state_ref.is_must_shutdown() {
+                state_ref.wait_for_next_connect().await;
 
                 let (incoming_tx, mut incoming_rx) = unbounded_channel();
 
                 let conn_inner = ConnectionInner {
-                    connect_state_ref: state.clone(),
-                    callback_ref: callback.clone(),
+                    connect_state_ref: state_ref.clone(),
+                    callback_ref: callback_ref.clone(),
                     store_ref: store_ref.clone(),
                     incoming_tx,
                 };
@@ -266,15 +282,15 @@ async fn serve_connection(
                             store_ref.handle_send_fail(&message.id).await;
                             break;
                         }
-                        state.did_sent_or_recvived();
+                        state_ref.did_sent_or_recvived();
                         store_ref.handle_send_success(&message.id).await;
                     }
                 };
 
                 let keepalive_loop = async {
-                    while !state.is_must_shutdown() {
+                    while !state_ref.is_must_shutdown() {
                         sleep(Duration::from_secs(5 as u64)).await;
-                        if !state.need_send_keepalive() {
+                        if !state_ref.need_send_keepalive() {
                             continue;
                         }
                         if let Err(e) = conn.send(String::from(r#"{"type":"nop"}"#)).await {
@@ -289,22 +305,37 @@ async fn serve_connection(
                         let resps = match ChatRequestType::from(&req.r#type) {
                             ChatRequestType::Nop => vec![],
                             ChatRequestType::Unknown(_) => {
-                                vec![callback.on_unknown_request(req)]
+                                let r = callback_ref
+                                    .lock()
+                                    .unwrap()
+                                    .as_ref()
+                                    .map(|cb| cb.on_unknown_request(req).unwrap_or_default());
+                                vec![r]
                             }
-                            ChatRequestType::System => vec![callback.on_system_request(req)],
+                            ChatRequestType::System => vec![callback_ref
+                                .lock()
+                                .unwrap()
+                                .as_ref()
+                                .map(|cb| cb.on_system_request(req).unwrap_or_default())],
                             ChatRequestType::Typing => {
-                                callback.on_topic_typing(req.topic_id.clone(), req.message.clone());
+                                callback_ref.lock().unwrap().as_ref().map(|cb| {
+                                    cb.on_topic_typing(req.topic_id.clone(), req.message.clone())
+                                });
                                 vec![]
                             }
                             ChatRequestType::Kickout => {
                                 let reason = req.message.unwrap_or_default();
                                 warn!("websocket kickout by other client: {}", reason);
 
-                                state.did_shutdown();
-                                callback.on_kickoff_by_other_client(reason);
+                                state_ref.did_shutdown();
+                                callback_ref
+                                    .lock()
+                                    .unwrap()
+                                    .as_ref()
+                                    .map(|cb| cb.on_kickoff_by_other_client(reason));
                                 break;
                             }
-                            _ => store_ref.process_incoming(req, callback.clone()).await,
+                            _ => store_ref.process_incoming(req, callback_ref.clone()).await,
                         };
 
                         for resp in resps {
@@ -330,7 +361,10 @@ async fn serve_connection(
         };
 
         select! {
-            _ = store_ref.process(callback_clone) =>{}
+            _ = async {
+                sleep(Duration::from_secs(1)).await;
+                store_ref.process_timeout_requests();
+            } =>{}
             _ = conn_loop => {
                 warn!("connect shutdown");
             },
@@ -339,9 +373,6 @@ async fn serve_connection(
                     let mut conn_state_rx = conn_state_ref.subscribe();
                     let st = conn_state_rx.recv().await;
                     match st {
-                        // Ok(ConnectionStatus::Connected) => {
-                        //     store_ref.flush_offline_requests().await;
-                        // }
                         Ok(ConnectionStatus::Shutdown) | Err(_) => {
                             break
                         }

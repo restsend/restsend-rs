@@ -1,18 +1,17 @@
 use self::attachments::AttachmentInner;
 use crate::callback::Callback;
-use crate::models::{Attachment, ChatLogStatus, Conversation, User};
+use crate::models::{Attachment, ChatLogStatus};
 use crate::services::response::Upload;
 use crate::storage::{prepare, Storage};
-use crate::utils::{elapsed, now_millis, sleep};
+use crate::utils::{elapsed, now_millis, spawn};
+use crate::Result;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use crate::{Error, Result};
 use log::{debug, info, warn};
 use std::sync::atomic::AtomicI64;
-use std::time::Duration;
 use std::{
     collections::{HashMap, VecDeque},
     sync::{
@@ -20,21 +19,7 @@ use std::{
         Arc, Mutex,
     },
 };
-use tokio::select;
-use tokio::sync::mpsc::{self, UnboundedSender};
-
-pub(super) enum StoreEvent {
-    UploadSuccess(PendingRequest, Upload),
-    UploadProgress(String, String, String, u64, u64), // req_id, topic_id, chat_id, progress, total
-    PendingErr(PendingRequest, Error),
-    Ack(ChatLogStatus, ChatRequest),
-    SendFail(String),    // req_id
-    SendSuccess(String), // req_id
-    ProcessRetry,
-    UpdateConversations(Vec<Conversation>),
-    RemoveConversation(String),
-    UpdateUser(Vec<User>),
-}
+use tokio::sync::mpsc::UnboundedSender;
 
 mod attachments;
 mod conversations;
@@ -113,18 +98,12 @@ impl PendingRequest {
     pub fn get_req_id(&self) -> String {
         self.req.id.clone()
     }
-    pub fn get_topic_id(&self) -> String {
-        self.req.topic_id.clone()
-    }
-    pub fn get_chat_id(&self) -> String {
-        self.req.chat_id.clone()
-    }
 }
 
-type PendingRequests = Mutex<HashMap<String, PendingRequest>>;
+type PendingRequests = Arc<Mutex<HashMap<String, PendingRequest>>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
-pub(super) type CallbackRef = Arc<Box<dyn Callback>>;
+pub(super) type CallbackRef = Arc<Mutex<Option<Box<dyn Callback>>>>;
 pub(super) struct ClientStore {
     user_id: String,
     endpoint: String,
@@ -132,9 +111,9 @@ pub(super) struct ClientStore {
     tmps: Mutex<VecDeque<String>>,
     outgoings: PendingRequests,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
-    event_tx: Mutex<Option<UnboundedSender<StoreEvent>>>,
-    message_storage: Storage,
+    message_storage: Arc<Storage>,
     attachment_inner: AttachmentInner,
+    pub(crate) callback: CallbackRef,
 }
 
 impl ClientStore {
@@ -150,11 +129,11 @@ impl ClientStore {
             endpoint: endpoint.to_string(),
             token: token.to_string(),
             tmps: Mutex::new(VecDeque::new()),
-            outgoings: Mutex::new(HashMap::new()),
+            outgoings: Arc::new(Mutex::new(HashMap::new())),
             msg_tx: Mutex::new(None),
-            message_storage: Storage::new(db_path),
+            message_storage: Arc::new(Storage::new(db_path)),
             attachment_inner: AttachmentInner::new(),
-            event_tx: Mutex::new(None),
+            callback: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -162,150 +141,66 @@ impl ClientStore {
         prepare(&self.message_storage)
     }
 
-    pub async fn process(&self, callback: Arc<Box<dyn Callback>>) {
-        let (response_tx, mut response_rx) = mpsc::unbounded_channel();
-        let response_tx_clone = response_tx.clone();
-        self.event_tx.lock().unwrap().replace(response_tx);
+    pub(super) fn on_attachment_upload_success(
+        store: ClientStoreRef,
+        mut pending: PendingRequest,
+        result: Upload,
+    ) {
+        info!(
+            "upload success: file:{} url:{}",
+            result.file_name, result.path
+        );
 
-        let upload_result_loop = async move {
-            loop {
-                while let Some(event) = response_rx.recv().await {
-                    match event {
-                        StoreEvent::UploadSuccess(mut pending, result) => {
-                            info!(
-                                "upload success: file:{} url:{}",
-                                result.file_name, result.path
-                            );
+        let content = pending.req.content.as_mut().unwrap();
+        content.attachment.take();
 
-                            let content = pending.req.content.as_mut().unwrap();
-                            content.attachment.take();
+        content.text = result.path;
+        content.size = result.size;
+        content.thumbnail = result.thumbnail;
+        content.placeholder = result.file_name;
 
-                            content.text = result.path;
-                            content.size = result.size;
-                            content.thumbnail = result.thumbnail;
-                            content.placeholder = result.file_name;
+        let topic_id = pending.req.topic_id.clone();
+        let chat_id = pending.req.chat_id.clone();
 
-                            let topic_id = pending.req.topic_id.clone();
-                            let chat_id = pending.req.chat_id.clone();
+        // update database status
+        if let Err(e) =
+            store.update_outoing_chat_log_state(&topic_id, &chat_id, ChatLogStatus::Sending, None)
+        {
+            warn!("update_message_content failed: {}", e);
+        }
+        // requeue to send
+        spawn(async move {
+            ClientStore::add_pending_request(store, pending.req, pending.callback).await;
+        });
+    }
 
-                            // update database status
-                            if let Err(e) = self.update_outoing_chat_log_state(
-                                &topic_id,
-                                &chat_id,
-                                ChatLogStatus::Sending,
-                                None,
-                            ) {
-                                warn!("update_message_content failed: {}", e);
-                            }
-                            // requeue to send
-                            self.add_pending_request(pending.req, pending.callback)
-                                .await;
-                        }
-                        StoreEvent::PendingErr(req, e) => {
-                            info!("upload failed: {}", e.to_string());
-                            req.callback.map(|cb| cb.on_fail(e.to_string()));
-                        }
-                        StoreEvent::UploadProgress(req_id, topic_id, chat_id, progress, total) => {
-                            debug!(
-                                "upload progress req_id: {} topic_id:{} chat_id:{} progress:{} total:{}",
-                                req_id, topic_id, chat_id, progress, total
-                            );
-                        }
-                        StoreEvent::Ack(status, req) => {
-                            if let Some(pending) = self.peek_pending_request(&req.id).await {
-                                match status {
-                                    ChatLogStatus::Sent => {
-                                        pending.callback.map(|cb| cb.on_ack(req));
-                                    }
-                                    ChatLogStatus::SendFailed => {
-                                        let reason = req
-                                            .message
-                                            .unwrap_or(format!("send failed: {:?}", status));
-                                        pending.callback.map(|cb| cb.on_fail(reason));
-                                    }
-                                    _ => {}
-                                }
-                            }
-                        }
-                        StoreEvent::SendFail(req_id) => {
-                            warn!("send fail: {}", req_id);
-                            let peek = if let Some(pending) =
-                                self.outgoings.lock().unwrap().get(&req_id)
-                            {
-                                pending.did_retry();
-                                pending.is_expired()
-                            } else {
-                                false
-                            };
+    pub(crate) fn process_timeout_requests(&self) {
+        if self.outgoings.lock().unwrap().len() == 0 {
+            return;
+        }
 
-                            if peek {
-                                if let Some(pending) = self.peek_pending_request(&req_id).await {
-                                    pending
-                                        .callback
-                                        .map(|cb| cb.on_fail("request timeout".to_string()));
-                                }
-                            }
-                        }
+        let outgoings_ref = self.outgoings.clone();
+        let mut outgoings = outgoings_ref.lock().unwrap();
+        let mut expired = Vec::new();
+        let now = now_millis();
 
-                        StoreEvent::SendSuccess(req_id) => {
-                            debug!("send success: {}", req_id);
-                        }
-
-                        StoreEvent::ProcessRetry => {
-                            let mut outgoings = self.outgoings.lock().unwrap();
-                            let mut expired = Vec::new();
-                            let now = now_millis();
-
-                            for (req_id, pending) in outgoings.iter() {
-                                if pending.is_expired() {
-                                    expired.push(req_id.clone());
-                                } else {
-                                    if pending.need_retry(now) {
-                                        debug!("retry send: {}", req_id);
-                                        self.try_send(req_id.clone());
-                                    }
-                                }
-                            }
-
-                            for req_id in expired {
-                                if let Some(pending) = outgoings.remove(&req_id) {
-                                    pending
-                                        .callback
-                                        .map(|cb| cb.on_fail("send expired".to_string()));
-                                }
-                            }
-                        }
-
-                        StoreEvent::UpdateConversations(conversations) => {
-                            let conversations = conversations
-                                .iter()
-                                .map(|it| {
-                                    self.update_conversation(it.clone()).unwrap_or(it.clone())
-                                })
-                                .collect();
-                            callback.on_conversations_updated(conversations);
-                        }
-                        StoreEvent::RemoveConversation(conversation_id) => {
-                            callback.on_conversations_removed(conversation_id);
-                        }
-                        StoreEvent::UpdateUser(users) => {
-                            users.iter().for_each(|it| {
-                                let _ = self.update_user(it.clone());
-                            });
-                        }
-                    }
+        for (req_id, pending) in outgoings.iter() {
+            if pending.is_expired() {
+                expired.push(req_id.clone());
+            } else {
+                if pending.need_retry(now) {
+                    debug!("retry send: {}", req_id);
+                    self.try_send(req_id.clone());
                 }
             }
-        };
+        }
 
-        select! {
-            _ = upload_result_loop => {},
-            _ = async {
-                loop {
-                    sleep(Duration::from_secs(1)).await;
-                    response_tx_clone.send(StoreEvent::ProcessRetry).ok();
-                }
-            } => {}
+        for req_id in expired {
+            if let Some(pending) = outgoings.remove(&req_id) {
+                pending
+                    .callback
+                    .map(|cb| cb.on_fail("send expired".to_string()));
+            }
         }
     }
     pub fn shutdown(&self) {}

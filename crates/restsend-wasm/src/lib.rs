@@ -1,7 +1,4 @@
-use crate::{
-    callback::{CallbackWasmWrap, MessageCallbackWasmWrap},
-    js_util::{get_string, get_vec_strings, js_value_to_attachment},
-};
+use crate::callback::CallbackWasmWrap;
 use restsend_sdk::models::AuthInfo;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;

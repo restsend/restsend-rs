@@ -1,15 +1,46 @@
+use std::sync::Arc;
+
 use super::{is_cache_expired, ClientStore};
 use crate::{
-    client::store::StoreEvent,
     models::{ChatLog, ChatLogStatus, Content, ContentType, Conversation},
     request::ChatRequest,
     services::conversation::*,
-    storage::{QueryOption, QueryResult},
+    storage::{QueryOption, QueryResult, Storage},
     utils::{now_millis, spawn},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
 use log::warn;
+
+pub(crate) fn update_conversation_with_storage(
+    message_storage: Arc<Storage>,
+    conversation: Conversation,
+) -> Result<Conversation> {
+    let t = message_storage.table::<Conversation>("conversations");
+
+    let topic_id = conversation.topic_id.clone();
+    let mut conversation = conversation;
+    if let Some(old_conversation) = t.get("", &topic_id) {
+        if old_conversation.last_seq <= conversation.last_seq {
+            conversation.last_read_seq = old_conversation.last_read_seq;
+            conversation.last_sender_id = old_conversation.last_sender_id.clone();
+            conversation.last_message_at = old_conversation.last_message_at.clone();
+            conversation.last_message = old_conversation.last_message.clone();
+
+            // TODO: update other fields
+            conversation.multiple = old_conversation.multiple;
+            conversation.mute = old_conversation.mute;
+            conversation.sticky = old_conversation.sticky;
+        }
+    }
+
+    conversation.is_partial = false;
+    conversation.cached_at = now_millis();
+    conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
+
+    t.set("", &topic_id, Some(conversation.clone()));
+    Ok(conversation)
+}
 
 impl ClientStore {
     pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
@@ -72,11 +103,11 @@ impl ClientStore {
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
             Ok(_) => {
-                if let Some(event_tx) = self.event_tx.lock().unwrap().clone() {
-                    event_tx
-                        .send(StoreEvent::RemoveConversation(topic_id.to_string()))
-                        .ok();
-                }
+                self.callback
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|cb| cb.on_conversations_removed(topic_id.to_string()));
             }
             Err(e) => {
                 warn!("remove_conversation failed: {:?}", e);
@@ -98,22 +129,32 @@ impl ClientStore {
     }
 
     pub(super) fn fetch_conversation(&self, topic_id: &str) {
-        if let Some(event_tx) = self.event_tx.lock().unwrap().clone() {
-            let endpoint = self.endpoint.clone();
-            let token = self.token.clone();
-            let topic_id = topic_id.to_string();
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let topic_id = topic_id.to_string();
+        let message_storage = self.message_storage.clone();
+        let callback = self.callback.clone();
 
-            spawn(async move {
-                let converstion = get_conversation(&endpoint, &token, &topic_id).await;
-                if let Ok(converstion) = converstion {
-                    event_tx
-                        .send(StoreEvent::UpdateConversations(vec![converstion]))
-                        .ok();
-                } else {
-                    warn!("fetch_conversation failed");
+        spawn(async move {
+            match get_conversation(&endpoint, &token, &topic_id).await {
+                Ok(conversation) => {
+                    let conversations = vec![update_conversation_with_storage(
+                        message_storage,
+                        conversation.clone(),
+                    )
+                    .unwrap_or(conversation)];
+
+                    callback
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .map(|cb| cb.on_conversations_updated(conversations));
                 }
-            });
-        }
+                Err(e) => {
+                    warn!("fetch_conversation failed id:{} err: {:?}", topic_id, e);
+                }
+            }
+        });
     }
 
     pub(crate) fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {

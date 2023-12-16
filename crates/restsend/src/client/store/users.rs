@@ -1,7 +1,8 @@
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
+use crate::storage::Storage;
 use crate::utils::spawn;
-use crate::{client::store::StoreEvent, models::User, services::user::get_user, utils::now_millis};
+use crate::{models::User, services::user::get_user, utils::now_millis};
 use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
 
@@ -48,15 +49,15 @@ impl ClientStore {
             let endpoint = self.endpoint.clone();
             let token = self.token.clone();
             let user_id = user_id.to_string();
-            let tx = self.event_tx.lock().unwrap().clone();
+            let message_storage = self.message_storage.clone();
             spawn(async move {
-                let user = get_user(&endpoint, &token, &user_id).await;
-                if let Ok(user) = user {
-                    if let Some(tx) = tx {
-                        tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
+                match get_user(&endpoint, &token, &user_id).await {
+                    Ok(user) => {
+                        update_user_with_storage(&message_storage, user).ok();
                     }
-                } else {
-                    warn!("get_user failed: {:?}", user_id);
+                    Err(e) => {
+                        warn!("get_user failed user_id:{} error:{:?}", user_id, e);
+                    }
                 }
             });
         }
@@ -70,16 +71,8 @@ impl ClientStore {
         };
 
         if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
-            let endpoint = self.endpoint.clone();
-            let token = self.token.clone();
-            let user_id = user_id.to_string();
-            let tx = self.event_tx.lock().unwrap().clone();
-
-            let user = get_user(&endpoint, &token, &user_id).await?;
-            if let Some(tx) = tx {
-                tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
-            }
-            return Ok(user);
+            let user = get_user(&self.endpoint, &self.token, &user_id).await?;
+            return self.update_user(user);
         }
         Ok(u)
     }
@@ -119,16 +112,16 @@ impl ClientStore {
                 let endpoint = self.endpoint.clone();
                 let token = self.token.clone();
                 let user_id = user_id.to_string();
-                let tx = self.event_tx.lock().unwrap().clone();
+                let message_storage = self.message_storage.clone();
 
                 spawn(async move {
-                    let user = get_user(&endpoint, &token, &user_id).await;
-                    if let Ok(user) = user {
-                        if let Some(tx) = tx {
-                            tx.send(StoreEvent::UpdateUser(vec![user.clone()])).ok();
+                    match get_user(&endpoint, &token, &user_id).await {
+                        Ok(user) => {
+                            update_user_with_storage(&message_storage, user).ok();
                         }
-                    } else {
-                        warn!("get_user failed: {:?}", user_id);
+                        Err(e) => {
+                            warn!("get_user failed user_id:{} error:{:?}", user_id, e);
+                        }
                     }
                 });
             }
@@ -136,18 +129,22 @@ impl ClientStore {
         Ok(())
     }
 
-    pub(super) fn update_user(&self, mut user: User) -> Result<User> {
-        let t = self.message_storage.table::<User>("users");
-
-        let user_id = user.user_id.clone();
-        if let Some(old_user) = t.get("", &user_id) {
-            user = old_user.merge(&user);
-        }
-
-        user.is_partial = false;
-        user.cached_at = now_millis();
-
-        t.set("", &user_id, Some(user.clone()));
-        Ok(user)
+    pub(super) fn update_user(&self, user: User) -> Result<User> {
+        update_user_with_storage(&self.message_storage, user)
     }
+}
+
+pub(super) fn update_user_with_storage(storage: &Storage, mut user: User) -> Result<User> {
+    let t = storage.table::<User>("users");
+
+    let user_id = user.user_id.clone();
+    if let Some(old_user) = t.get("", &user_id) {
+        user = old_user.merge(&user);
+    }
+
+    user.is_partial = false;
+    user.cached_at = now_millis();
+
+    t.set("", &user_id, Some(user.clone()));
+    Ok(user)
 }

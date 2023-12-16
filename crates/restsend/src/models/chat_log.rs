@@ -188,6 +188,7 @@ impl Attachment {
         }
     }
 
+    #[allow(unused_variables)]
     pub fn from_blob(
         blob_stream: web_sys::Blob,
         file_name: Option<String>,

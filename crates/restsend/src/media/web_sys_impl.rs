@@ -24,14 +24,14 @@ pub async fn upload_file(
     callback: Box<dyn UploadCallback>,
     cancel: oneshot::Receiver<()>,
 ) -> Result<Option<Upload>> {
-    let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
+    let (_, mut progress_rx) = unbounded_channel::<(u64, u64)>();
     let file_stream = attachment.file.unwrap();
     let total = file_stream.size() as u64;
 
     let upload_runner = async move {
         let form = multipart::Form::new();
-        let mut last_progress_time = now_millis();
-        let mut total_sent: u64 = 0;
+        //let mut last_progress_time = now_millis();
+        //let mut total_sent: u64 = 0;
 
         // read blob into bytes
         let data_stream = JsFuture::from(file_stream.array_buffer()).await?;

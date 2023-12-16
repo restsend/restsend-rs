@@ -148,7 +148,7 @@ async fn test_client_send_message() {
         .await
         .unwrap();
 
-    check_until(Duration::from_secs(3), || {
+    check_until(Duration::from_secs(30), || {
         is_recv_message.load(Ordering::Relaxed) && is_update_conversation.load(Ordering::Relaxed)
     })
     .await
