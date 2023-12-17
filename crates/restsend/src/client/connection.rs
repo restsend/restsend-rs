@@ -5,7 +5,7 @@ use super::{
 use crate::{
     callback::Callback,
     request::{ChatRequest, ChatRequestType},
-    utils::{sleep, spawn},
+    utils::{sleep, spwan_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
@@ -259,7 +259,7 @@ async fn serve_connection(
     info!("connect websocket url: {}", url);
     let conn_state_ref = state_ref.state_tx.clone();
 
-    spawn(async move {
+    spwan_task(async move {
         let conn_loop = async {
             while !state_ref.is_must_shutdown() {
                 state_ref.wait_for_next_connect().await;

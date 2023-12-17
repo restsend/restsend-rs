@@ -1,16 +1,15 @@
-use self::attachments::AttachmentInner;
+use self::attachments::UploadTask;
 use crate::callback::Callback;
-use crate::models::{Attachment, ChatLogStatus};
-use crate::services::response::Upload;
+use crate::models::Attachment;
 use crate::storage::{prepare, Storage};
-use crate::utils::{elapsed, now_millis, spawn};
+use crate::utils::{elapsed, now_millis};
 use crate::Result;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use log::{debug, info, warn};
+use log::debug;
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::{HashMap, VecDeque},
@@ -94,10 +93,6 @@ impl PendingRequest {
     pub fn get_attachment(&self) -> Option<Attachment> {
         self.req.content.as_ref().and_then(|c| c.attachment.clone())
     }
-
-    pub fn get_req_id(&self) -> String {
-        self.req.id.clone()
-    }
 }
 
 type PendingRequests = Arc<Mutex<HashMap<String, PendingRequest>>>;
@@ -110,9 +105,9 @@ pub(super) struct ClientStore {
     token: String,
     tmps: Mutex<VecDeque<String>>,
     outgoings: PendingRequests,
+    upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
     message_storage: Arc<Storage>,
-    attachment_inner: AttachmentInner,
     pub(crate) callback: CallbackRef,
 }
 
@@ -130,48 +125,15 @@ impl ClientStore {
             token: token.to_string(),
             tmps: Mutex::new(VecDeque::new()),
             outgoings: Arc::new(Mutex::new(HashMap::new())),
+            upload_tasks: Mutex::new(HashMap::new()),
             msg_tx: Mutex::new(None),
             message_storage: Arc::new(Storage::new(db_path)),
-            attachment_inner: AttachmentInner::new(),
             callback: Arc::new(Mutex::new(None)),
         }
     }
 
     pub(super) fn migrate(&self) -> Result<()> {
         prepare(&self.message_storage)
-    }
-
-    pub(super) fn on_attachment_upload_success(
-        store: ClientStoreRef,
-        mut pending: PendingRequest,
-        result: Upload,
-    ) {
-        info!(
-            "upload success: file:{} url:{}",
-            result.file_name, result.path
-        );
-
-        let content = pending.req.content.as_mut().unwrap();
-        content.attachment.take();
-
-        content.text = result.path;
-        content.size = result.size;
-        content.thumbnail = result.thumbnail;
-        content.placeholder = result.file_name;
-
-        let topic_id = pending.req.topic_id.clone();
-        let chat_id = pending.req.chat_id.clone();
-
-        // update database status
-        if let Err(e) =
-            store.update_outoing_chat_log_state(&topic_id, &chat_id, ChatLogStatus::Sending, None)
-        {
-            warn!("update_message_content failed: {}", e);
-        }
-        // requeue to send
-        spawn(async move {
-            ClientStore::add_pending_request(store, pending.req, pending.callback).await;
-        });
     }
 
     pub(crate) fn process_timeout_requests(&self) {

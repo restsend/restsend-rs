@@ -7,7 +7,7 @@ use crate::services::conversation::{
     clean_history, get_chat_logs_desc, get_conversations, remove_messages,
 };
 use crate::services::topic::create_chat;
-use crate::utils::{now_millis, spawn};
+use crate::utils::{now_millis, spwan_task};
 use crate::Result;
 use log::warn;
 use restsend_macros::export_wasm_or_ffi;
@@ -86,7 +86,7 @@ impl Client {
         let topic_id = topic_id.to_string();
         let store_ref = self.store.clone();
 
-        spawn(async move {
+        spwan_task(async move {
             let r = get_chat_logs_desc(&endpoint, &token, &topic_id, start_seq, limit)
                 .await
                 .map(|(mut lr, _)| {
@@ -156,7 +156,7 @@ impl Client {
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
 
-        spawn(async move {
+        spwan_task(async move {
             let r = get_conversations(&endpoint, &token, &updated_at, limit)
                 .await
                 .map(|lr| {

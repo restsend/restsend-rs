@@ -1,5 +1,5 @@
 mod test_media;
-use crate::utils::spawn;
+use crate::utils::spwan_task;
 use crate::Result;
 use futures_util::Future;
 use http_body_util::combinators::BoxBody;
@@ -45,7 +45,7 @@ where
 {
     let addr = addr.to_string();
     let (is_started_tx, is_started) = oneshot::channel();
-    spawn(async move {
+    spwan_task(async move {
         let listener = TcpListener::bind(addr.clone()).await.unwrap();
         println!("Listening on http://{}", addr);
         is_started_tx.send(()).unwrap();

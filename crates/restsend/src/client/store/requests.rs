@@ -1,4 +1,3 @@
-use super::attachments::UploadTask;
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::models::ChatLogStatus;
 use crate::{
@@ -7,9 +6,7 @@ use crate::{
 };
 use http::StatusCode;
 use log::{info, warn};
-use std::sync::Arc;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
-use tokio::sync::oneshot;
 
 impl ClientStore {
     pub async fn handle_outgoing(&self, outgoing_tx: UnboundedSender<ChatRequest>) {
@@ -166,7 +163,7 @@ impl ClientStore {
     }
 
     pub async fn add_pending_request(
-        store: ClientStoreRef,
+        self: ClientStoreRef,
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
@@ -176,30 +173,25 @@ impl ClientStore {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
-                if let Err(e) = store.save_outgoing_chat_log(&pending_request.req) {
+                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
                     warn!("save_outgoing_chat_log failed: req_id:{} err:{}", req_id, e);
                 }
-
-                // process media
-                if pending_request.has_attachment() {
-                    let (cancel_tx, cancel_rx) = oneshot::channel();
-
-                    let task = Arc::new(UploadTask::new(store.clone(), cancel_tx, pending_request));
-                    store
-                        .attachment_inner
-                        .submit_upload(&store.endpoint, &store.token, task.clone(), cancel_rx)
-                        .await;
-                    return;
-                }
-
-                store
-                    .outgoings
+                // process
+                let pending_request = match pending_request.has_attachment() {
+                    true => match self.submit_upload(pending_request).await {
+                        Ok(req) => req,
+                        Err(_) => return,
+                    },
+                    false => pending_request,
+                };
+                self.outgoings
                     .lock()
                     .unwrap()
                     .insert(req_id.clone(), pending_request);
+
+                self.try_send(req_id);
             }
         }
-        store.try_send(req_id);
     }
 
     pub(super) fn try_send(&self, req_id: String) {
@@ -214,6 +206,7 @@ impl ClientStore {
             }
         }
     }
+
     pub fn flush_offline_requests(&self) {
         let mut tmps = self.tmps.lock().unwrap();
         let tx = self.msg_tx.lock().unwrap();
@@ -230,10 +223,14 @@ impl ClientStore {
     pub fn cancel_send(&self, req_id: &str) {
         let mut outgoings = self.outgoings.lock().unwrap();
         if let Some(pending) = outgoings.remove(req_id) {
-            self.attachment_inner.cancel_send(&pending.req.id);
             pending
                 .callback
                 .map(|cb| cb.on_fail("cancel send".to_string()));
+        }
+
+        let mut uploadings = self.upload_tasks.lock().unwrap();
+        if let Some(task) = uploadings.remove(req_id) {
+            task.abort();
         }
     }
 }

@@ -1,11 +1,7 @@
-use std::time::Duration;
-
 use std::future::Future;
+use std::time::Duration;
 #[cfg(not(target_family = "wasm"))]
 use tokio::task::JoinHandle;
-
-#[cfg(target_family = "wasm")]
-use js_sys;
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
 
@@ -57,7 +53,7 @@ pub async fn sleep(duration: Duration) {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn spawn<F>(f: F) -> JoinHandle<F::Output>
+pub fn spwan_task<F>(f: F) -> JoinHandle<F::Output>
 where
     F: Future<Output = ()> + Send + 'static,
 {
@@ -65,20 +61,36 @@ where
 }
 
 #[cfg(target_family = "wasm")]
-pub fn spawn<F>(f: F)
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(js_name = setTimeout)]
+    pub fn set_timeout(closure: &wasm_bindgen::closure::Closure<dyn FnMut()>, time: u32);
+}
+
+#[cfg(target_family = "wasm")]
+pub fn spwan_task<F>(f: F)
 where
     F: Future<Output = ()> + 'static,
 {
+    // use wasm_bindgen_futures::spawn_local;
+    // let f = Arc::new(Mutex::new(Some(f)));
+    // let closure = Closure::wrap(Box::new(move || {
+    //     if let Some(f) = f.lock().unwrap().take() {
+    //         log::info!("spwan_task with timeout 0");
+    //         spawn_local(async {
+    //             log::info!("spwan_task with begin");
+    //             f.await;
+    //         });
+    //     }
+    // }) as Box<dyn FnMut()>);
+    // set_timeout(&closure, 0);
+    // closure.forget();
+
     wasm_bindgen_futures::spawn_local(f);
 }
 
 #[cfg(target_family = "wasm")]
 pub async fn sleep(duration: Duration) {
-    #[wasm_bindgen]
-    extern "C" {
-        #[wasm_bindgen(js_name = setTimeout)]
-        pub fn set_timeout(closure: &wasm_bindgen::closure::Closure<dyn FnMut()>, time: u32);
-    }
     let p = js_sys::Promise::new(&mut |resolve, _| {
         let closure = Closure::new(move || {
             let this = JsValue::null();

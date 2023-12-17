@@ -31,7 +31,6 @@ pub async fn upload_file(
         let form = multipart::Form::new();
         let mut last_progress_time = now_millis();
         let mut total_sent: u64 = 0;
-
         let file_stream = reqwest::Body::wrap_stream(
             tokio_util::io::ReaderStream::new(file).map_ok(move |buf| {
                 let sent = buf.len() as u64;

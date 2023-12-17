@@ -55,11 +55,6 @@ impl WebSocketImpl {
         let is_cross_domain = current_host.is_empty() || !url.contains(&current_host);
 
         if is_cross_domain && !opt.token.is_empty() {
-            // let token = opt.token.clone();
-            // url = match url.contains("?") {
-            //     true => format!("{}&token={}", url, token),
-            //     false => format!("{}?token={}", url, token),
-            // };
             let mut u = url::Url::parse(&url).unwrap();
             u.query_pairs_mut().append_pair("token", &opt.token);
             url = u.to_string();
@@ -74,7 +69,7 @@ impl WebSocketImpl {
             }
         };
 
-        //ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+        ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
         let (tx, mut rx) = unbounded_channel::<WSEvent>();
         let tx = Arc::new(tx);
@@ -91,7 +86,6 @@ impl WebSocketImpl {
         let cloned_ws = ws.clone();
         let tx_ref: Arc<UnboundedSender<WSEvent>> = tx.clone();
         let onopen_callback = Closure::<dyn FnMut()>::new(move || {
-            debug!("onopen_callback");
             tx_ref.send(WSEvent::Opened).ok();
         });
         cloned_ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));

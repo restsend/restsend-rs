@@ -1,7 +1,7 @@
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
 use crate::storage::Storage;
-use crate::utils::spawn;
+use crate::utils::spwan_task;
 use crate::{models::User, services::user::get_user, utils::now_millis};
 use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
@@ -50,7 +50,7 @@ impl ClientStore {
             let token = self.token.clone();
             let user_id = user_id.to_string();
             let message_storage = self.message_storage.clone();
-            spawn(async move {
+            spwan_task(async move {
                 match get_user(&endpoint, &token, &user_id).await {
                     Ok(user) => {
                         update_user_with_storage(&message_storage, user).ok();
@@ -114,7 +114,7 @@ impl ClientStore {
                 let user_id = user_id.to_string();
                 let message_storage = self.message_storage.clone();
 
-                spawn(async move {
+                spwan_task(async move {
                     match get_user(&endpoint, &token, &user_id).await {
                         Ok(user) => {
                             update_user_with_storage(&message_storage, user).ok();

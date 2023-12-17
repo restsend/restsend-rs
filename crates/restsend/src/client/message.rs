@@ -1,4 +1,3 @@
-use super::store::ClientStore;
 use super::Client;
 use crate::callback::MessageCallback;
 use crate::models::chat_log::Attachment;
@@ -6,7 +5,6 @@ use crate::services::conversation::send_request;
 use crate::services::response::APISendResponse;
 use crate::Result;
 use crate::{models::Content, request::ChatRequest};
-use log::warn;
 use restsend_macros::export_wasm_or_ffi;
 
 #[cfg(not(target_family = "wasm"))]
@@ -22,9 +20,11 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
 
     drop(file);
 
-    warn!(
+    log::warn!(
         "save logs file_path:{} size:{} file:{:?}",
-        file_path, file_size, file_path
+        file_path,
+        file_size,
+        file_path
     );
     Ok(Attachment::from_local(file_name, &file_path, false))
 }
@@ -61,7 +61,8 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req_id = req.id.clone();
-        ClientStore::add_pending_request(self.store.clone(), req, callback).await;
+        let store_ref = self.store.clone();
+        store_ref.add_pending_request(req, callback).await;
         Ok(req_id)
     }
 

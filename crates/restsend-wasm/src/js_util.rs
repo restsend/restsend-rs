@@ -34,6 +34,7 @@ pub fn get_string(obj: &JsValue, key: &str) -> Option<String> {
     None
 }
 
+#[allow(unused)]
 pub fn get_f64(obj: &JsValue, key: &str) -> f64 {
     js_sys::Reflect::get(&obj, &JsValue::from_str(key))
         .map(|v| v.dyn_into::<js_sys::Number>())

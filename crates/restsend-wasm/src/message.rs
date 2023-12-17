@@ -116,7 +116,6 @@ impl Client {
                 ))
             }
         };
-
         self.inner
             .do_send_image(
                 topicId,

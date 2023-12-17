@@ -6,11 +6,11 @@ use crate::{
     request::ChatRequest,
     services::conversation::*,
     storage::{QueryOption, QueryResult, Storage},
-    utils::{now_millis, spawn},
+    utils::{now_millis, spwan_task},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
-use log::warn;
+use log::{info, warn};
 
 pub(crate) fn update_conversation_with_storage(
     message_storage: Arc<Storage>,
@@ -135,7 +135,7 @@ impl ClientStore {
         let message_storage = self.message_storage.clone();
         let callback = self.callback.clone();
 
-        spawn(async move {
+        spwan_task(async move {
             match get_conversation(&endpoint, &token, &topic_id).await {
                 Ok(conversation) => {
                     let conversations = vec![update_conversation_with_storage(
@@ -234,7 +234,7 @@ impl ClientStore {
     ) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
 
-        warn!(
+        info!(
             "update_outoing_chat_log_state: topic_id: {} chat_id: {}, status: {:?} seq: {:?}",
             topic_id, chat_id, status, seq
         );
