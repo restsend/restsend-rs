@@ -34,7 +34,6 @@ pub fn random_text(count: usize) -> String {
     s
 }
 
-//#[uniffi::export]
 pub fn now_millis() -> i64 {
     chrono::Local::now().timestamp_millis()
 }
@@ -53,11 +52,27 @@ pub async fn sleep(duration: Duration) {
 }
 
 #[cfg(not(target_family = "wasm"))]
+lazy_static::lazy_static! {
+    static ref TOKIO_RT: tokio::runtime::Runtime = {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(crate::WORKER_THREADS)
+            .enable_all()
+            .build()
+            .unwrap()
+    };
+}
+
+#[cfg(not(target_family = "wasm"))]
 pub fn spwan_task<F>(f: F) -> JoinHandle<F::Output>
 where
     F: Future<Output = ()> + Send + 'static,
 {
-    tokio::spawn(f)
+    let current = tokio::runtime::Handle::try_current();
+    if current.is_ok() {
+        current.unwrap().spawn(f)
+    } else {
+        TOKIO_RT.spawn(f)
+    }
 }
 
 #[cfg(target_family = "wasm")]

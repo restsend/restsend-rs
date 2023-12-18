@@ -1,4 +1,6 @@
 use std::time::Duration;
+
+use crate::DEVICE;
 #[cfg(test)]
 mod tests;
 
@@ -26,7 +28,8 @@ pub struct WebsocketOption {
 
 impl WebsocketOption {
     pub fn url_from_endpoint(endpoint: &str) -> String {
-        format!("{}/api/connect", endpoint)
+        let nonce = crate::utils::random_text(4);
+        format!("{}/api/connect?device={}&nonce={}", endpoint, DEVICE, nonce)
     }
     pub fn new(url: &str, token: &str) -> Self {
         Self {

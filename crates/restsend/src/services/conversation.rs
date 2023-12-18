@@ -13,15 +13,16 @@ pub async fn get_conversations(
     updated_at: &str,
     limit: u32,
 ) -> Result<ListConversationResult> {
-    let data = serde_json::json!({
+    let mut data = serde_json::json!({
         "limit": limit,
-        "updatedAt": updated_at,
-    })
-    .to_string();
+    });
+    if !updated_at.is_empty() {
+        data["updatedAt"] = serde_json::json!(updated_at);
+    }
 
     let now = now_millis();
 
-    api_call(endpoint, "/chat/list", token, Some(data))
+    api_call(endpoint, "/chat/list", token, Some(data.to_string()))
         .await
         .map(|mut lr: ListConversationResult| {
             lr.items.iter_mut().for_each(|c| {

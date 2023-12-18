@@ -26,18 +26,19 @@ pub async fn get_topic_members(
     updated_at: &str,
     limit: u32,
 ) -> Result<ListUserResult> {
-    let data = serde_json::json!({
+    let mut data = serde_json::json!({
         "topicId": topic_id,
         "limit": limit.min(USERS_LIMIT),
-        "updatedAt":updated_at,
-    })
-    .to_string();
+    });
+    if !updated_at.is_empty() {
+        data["updatedAt"] = serde_json::json!(updated_at);
+    }
 
     api_call(
         endpoint,
         &format!("/topic/members/{}", topic_id),
         token,
-        Some(data),
+        Some(data.to_string()),
     )
     .await
     .map(|mut lr: ListUserResult| {

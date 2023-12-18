@@ -32,13 +32,16 @@ const MEDIA_PROGRESS_INTERVAL: u128 = 300; // 300ms to update progress
 const CONVERSATION_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds
 const USER_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds
 
+#[cfg(not(target_family = "wasm"))]
+const WORKER_THREADS: usize = 4;
+
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "apple")]
 pub const DEVICE: &str = "ios";
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "unknown")]
 pub const DEVICE: &str = "android";
-#[cfg(target_arch = "x86_64")]
+#[cfg(target_family = "wasm")]
 pub const DEVICE: &str = "web";
 
 pub type Error = error::ClientError;
