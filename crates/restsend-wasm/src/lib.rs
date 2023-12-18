@@ -9,6 +9,7 @@ mod js_util;
 mod logger;
 mod message;
 mod services;
+mod topics;
 mod users;
 
 #[cfg(test)]

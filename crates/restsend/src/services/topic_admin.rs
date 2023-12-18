@@ -94,7 +94,7 @@ pub async fn accept_topic_join(
     token: &str,
     topic_id: &str,
     user_id: &str,
-    memo: &str,
+    memo: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({ "memo": memo }).to_string();
     api_call(

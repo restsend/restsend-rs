@@ -11,11 +11,11 @@ impl Client {
     // Topic API
     pub async fn create_topic(
         &self,
-        icon: String,
-        name: String,
         members: Vec<String>,
+        icon: Option<String>,
+        name: Option<String>,
     ) -> Result<Conversation> {
-        create_topic(&self.endpoint, &self.token, &icon, &name, members)
+        create_topic(&self.endpoint, &self.token, members, icon, name)
             .await
             .map(|t| Conversation::from(&t))
     }
@@ -105,9 +105,9 @@ impl Client {
         &self,
         topic_id: String,
         user_id: String,
-        memo: String,
+        memo: Option<String>,
     ) -> Result<()> {
-        accept_topic_join(&self.endpoint, &self.token, &topic_id, &user_id, &memo).await
+        accept_topic_join(&self.endpoint, &self.token, &topic_id, &user_id, memo).await
     }
 
     pub async fn decline_topic_join(

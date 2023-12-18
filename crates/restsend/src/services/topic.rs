@@ -54,9 +54,9 @@ pub async fn get_topic_members(
 pub async fn create_topic(
     endpoint: &str,
     token: &str,
-    name: &str,
-    icon: &str,
     members: Vec<String>,
+    name: Option<String>,
+    icon: Option<String>,
 ) -> Result<Topic> {
     let data = serde_json::json!({
         "name": name,
