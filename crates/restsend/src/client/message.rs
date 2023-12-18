@@ -46,8 +46,7 @@ pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     ))
 }
 
-//#[export_wasm_or_ffi]
-#[uniffi::export(async_runtime = "tokio")]
+#[export_wasm_or_ffi]
 impl Client {
     pub async fn send_chat_request(
         &self,

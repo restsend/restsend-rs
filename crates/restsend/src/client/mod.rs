@@ -51,8 +51,7 @@ impl Client {
     }
 }
 
-//#[export_wasm_or_ffi]
-#[uniffi::export(async_runtime = "tokio")]
+#[export_wasm_or_ffi]
 impl Client {
     #[uniffi::constructor]
     pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {

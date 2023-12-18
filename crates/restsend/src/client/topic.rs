@@ -6,8 +6,7 @@ use crate::services::topic::{create_topic, get_topic, get_topic_members};
 use crate::services::topic_admin::*;
 use crate::Result;
 
-//#[export_wasm_or_ffi]
-#[uniffi::export(async_runtime = "tokio")]
+#[export_wasm_or_ffi]
 impl Client {
     // Topic API
     pub async fn create_topic(

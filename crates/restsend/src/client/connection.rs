@@ -208,8 +208,7 @@ impl WebSocketCallback for ConnectionInner {
     }
 }
 
-//#[export_wasm_or_ffi]
-#[uniffi::export(async_runtime = "tokio")]
+#[export_wasm_or_ffi]
 impl Client {
     pub fn connection_status(&self) -> String {
         self.state.last_state.lock().unwrap().to_string()
