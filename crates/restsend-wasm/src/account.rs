@@ -23,9 +23,10 @@ pub async fn signin(
             .await
         }
     }
-    .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
+    .map_err(|e| JsValue::from(e.to_string()))?;
+    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from(e.to_string()))
 }
+
 /// Signup with userId and password
 #[allow(non_snake_case)]
 #[wasm_bindgen]
@@ -36,6 +37,15 @@ pub async fn signup(
 ) -> Result<JsValue, JsValue> {
     let info = restsend_sdk::services::auth::signup(endpoint, userId, password)
         .await
-        .map_err(|e| JsValue::from_str(e.to_string().as_str()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from_str(e.to_string().as_str()))
+        .map_err(|e| JsValue::from(e.to_string()))?;
+    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from(e.to_string()))
+}
+
+/// Logout with token
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+pub async fn logout(endpoint: String, token: String) -> Result<(), JsValue> {
+    restsend_sdk::services::auth::logout(endpoint, token)
+        .await
+        .map_err(|e| JsValue::from(e.to_string()))
 }

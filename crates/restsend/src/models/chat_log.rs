@@ -123,6 +123,7 @@ pub enum AttachmentStatus {
 pub struct Attachment {
     /// if url is not empty, it means the attachment is from remote, without upload
     pub url: String,
+    pub size: i64,
     pub thumbnail: String,
     pub file_name: String,
     pub file_path: String,
@@ -136,6 +137,7 @@ pub struct Attachment {
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub url: String,
+    pub size: i64,
     pub thumbnail: String,
     pub file_name: String,
     pub file_path: String,
@@ -148,8 +150,8 @@ pub struct Attachment {
 
 #[export_wasm_or_ffi]
 /// create attachment from url, without upload to server
-pub fn attachment_from_url(url: String, is_private: bool) -> Attachment {
-    Attachment::from_url(&url, is_private)
+pub fn attachment_from_url(url: String, is_private: bool, size: i64) -> Attachment {
+    Attachment::from_url(&url, is_private, size)
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -160,7 +162,7 @@ pub fn attachment_from_local(file_name: String, file_path: String, is_private: b
 }
 
 impl Attachment {
-    pub fn from_url(url: &str, is_private: bool) -> Self {
+    pub fn from_url(url: &str, is_private: bool, size: i64) -> Self {
         let file_name = match url::Url::parse(url) {
             Ok(u) => u
                 .path_segments()
@@ -172,6 +174,7 @@ impl Attachment {
 
         Attachment {
             url: url.to_string(),
+            size,
             file_name,
             is_private,
             ..Default::default()
@@ -193,6 +196,7 @@ impl Attachment {
         blob_stream: web_sys::Blob,
         file_name: Option<String>,
         is_private: bool,
+        size: i64,
     ) -> Self {
         #[cfg(target_family = "wasm")]
         use wasm_bindgen::JsCast;
@@ -205,6 +209,7 @@ impl Attachment {
             #[cfg(target_family = "wasm")]
             file: Some(blob_stream),
             is_private,
+            size,
             ..Default::default()
         }
     }

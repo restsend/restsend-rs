@@ -9,7 +9,7 @@ where
     return *value == T::default();
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct GetChatLogsResult {
     pub has_more: bool,
@@ -18,7 +18,7 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct GetConversationsResult {
     pub updated_at: String,

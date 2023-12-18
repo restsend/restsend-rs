@@ -8,6 +8,9 @@ mod callback;
 mod js_util;
 mod logger;
 mod message;
+mod services;
+mod users;
+
 #[cfg(test)]
 mod tests;
 pub use logger::enable_logging;
@@ -53,9 +56,15 @@ impl Client {
         }
     }
 
+    /// get the current connection status
+    /// return: connecting, connected, net_broken, shutdown
     #[wasm_bindgen(getter)]
     pub fn connection_status(&self) -> String {
         self.inner.connection_status()
+    }
+
+    pub async fn shutdown(&self) {
+        self.inner.shutdown()
     }
 
     pub async fn connect(&self) -> Result<(), JsValue> {

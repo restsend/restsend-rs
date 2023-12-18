@@ -55,6 +55,72 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     }
 }
 
+pub(super) struct SyncChatLogsCallbackWasmWrap {
+    pub(super) cb_on_success: CallbackFunction,
+    pub(super) cb_on_fail: CallbackFunction,
+}
+
+unsafe impl Send for SyncChatLogsCallbackWasmWrap {}
+unsafe impl Sync for SyncChatLogsCallbackWasmWrap {}
+
+impl SyncChatLogsCallbackWasmWrap {
+    pub fn new(cb: JsValue) -> Self {
+        Self {
+            cb_on_success: get_function(&cb, "onsuccess"),
+            cb_on_fail: get_function(&cb, "onfail"),
+        }
+    }
+}
+
+impl restsend_sdk::callback::SyncChatLogsCallback for SyncChatLogsCallbackWasmWrap {
+    fn on_success(&self, r: restsend_sdk::models::GetChatLogsResult) {
+        if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
+            let r = serde_wasm_bindgen::to_value(&r).unwrap_or(JsValue::NULL);
+            cb.call1(&JsValue::NULL, &r).ok();
+        }
+    }
+
+    fn on_fail(&self, e: restsend_sdk::Error) {
+        if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
+            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::NULL);
+            cb.call1(&JsValue::NULL, &e).ok();
+        }
+    }
+}
+
+pub(super) struct SyncConversationsCallbackWasmWrap {
+    pub(super) cb_on_success: CallbackFunction,
+    pub(super) cb_on_fail: CallbackFunction,
+}
+
+unsafe impl Send for SyncConversationsCallbackWasmWrap {}
+unsafe impl Sync for SyncConversationsCallbackWasmWrap {}
+
+impl SyncConversationsCallbackWasmWrap {
+    pub fn new(cb: JsValue) -> Self {
+        Self {
+            cb_on_success: get_function(&cb, "onsuccess"),
+            cb_on_fail: get_function(&cb, "onfail"),
+        }
+    }
+}
+
+impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCallbackWasmWrap {
+    fn on_success(&self, r: restsend_sdk::models::GetConversationsResult) {
+        if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
+            let r = serde_wasm_bindgen::to_value(&r).unwrap_or(JsValue::NULL);
+            cb.call1(&JsValue::NULL, &r).ok();
+        }
+    }
+
+    fn on_fail(&self, e: restsend_sdk::Error) {
+        if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
+            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::NULL);
+            cb.call1(&JsValue::NULL, &e).ok();
+        }
+    }
+}
+
 pub(super) struct CallbackWasmWrap {
     pub(super) cb_on_connected: CallbackFunction,
     pub(super) cb_on_connecting: CallbackFunction,

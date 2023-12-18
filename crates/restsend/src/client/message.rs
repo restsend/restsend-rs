@@ -32,7 +32,7 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
 #[cfg(target_family = "wasm")]
 pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     use wasm_bindgen::JsValue;
-    let file_size = data.len();
+    let file_size = data.len() as i64;
     let data = JsValue::from_str(&data);
     let file_stream = web_sys::Blob::new_with_str_sequence_and_options(
         &data,
@@ -42,6 +42,7 @@ pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
         file_stream,
         Some(file_name.to_string()),
         false,
+        file_size,
     ))
 }
 
@@ -60,10 +61,10 @@ impl Client {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
-        let req_id = req.id.clone();
+        let chat_id = req.chat_id.clone();
         let store_ref = self.store.clone();
         store_ref.add_pending_request(req, callback).await;
-        Ok(req_id)
+        Ok(chat_id)
     }
 
     pub async fn do_send_text(

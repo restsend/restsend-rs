@@ -56,8 +56,10 @@ pub fn get_bool(obj: &JsValue, key: &str) -> bool {
 pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
     let url = get_string(obj, "url");
     let is_private = get_bool(obj, "private");
+    let size = get_f64(obj, "size") as i64;
+
     match url {
-        Some(v) => return Some(Attachment::from_url(&v, is_private)),
+        Some(v) => return Some(Attachment::from_url(&v, is_private, size)),
         None => {}
     }
     match js_sys::Reflect::get(&obj, &JsValue::from_str("file")) {
@@ -65,11 +67,19 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
             if v.is_instance_of::<web_sys::File>() {
                 let f = v.dyn_into::<web_sys::File>().unwrap();
                 let file_name = f.name();
-                return Some(Attachment::from_blob(f.into(), Some(file_name), is_private));
+                let file_size = f.size() as i64;
+
+                return Some(Attachment::from_blob(
+                    f.into(),
+                    Some(file_name),
+                    is_private,
+                    file_size,
+                ));
             } else {
                 match v.dyn_into::<web_sys::Blob>() {
                     Ok(b) => {
-                        return Some(Attachment::from_blob(b, None, is_private));
+                        let file_size = b.size() as i64;
+                        return Some(Attachment::from_blob(b, None, is_private, file_size));
                     }
                     Err(_) => {}
                 }
