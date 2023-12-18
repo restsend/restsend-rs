@@ -8,6 +8,59 @@ use wasm_bindgen::prelude::*;
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 impl Client {
+    ///
+    /// Send message with content
+    /// # Arguments
+    /// * `topicId` - The topic id
+    /// * `content` - The content Object
+    ///     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+    ///     * `text` String - The text message
+    ///     * `attachment` Object - The attachment object
+    ///     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    ///     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+    ///     * `size` Number - The size of the content, only for file, optional
+    ///     * `placeholder` String - The placeholder of the content, optional
+    ///     * `width` Number - The width of the content, only for image/video, optional
+    ///     * `height` Number - The height of the content, only for image/video, optional
+    /// * `option` - The send option
+    /// # Return
+    /// The message id
+    /// # Example
+    /// ```javascript
+    /// const client = new Client(endpoint, userId, token);
+    /// await client.connect();
+    /// await client.doSend(topicId, {
+    ///     type: 'wx.text',
+    ///     text: 'hello',
+    /// }, {
+    ///     mentions: undefined, // The mention user id list, optional
+    ///     reply:  undefined, // The reply message id, optional
+    ///     onsent:  () => {}, // The callback when message sent
+    ///     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+    ///     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+    ///     onfail:  (reason:String)  => {} // The callback when message failed
+    /// });
+    /// ```
+    pub async fn doSend(
+        &self,
+        topicId: String,
+        content: JsValue,
+        option: JsValue,
+    ) -> Result<String, JsValue> {
+        let content = match js_value_to_content(content) {
+            Some(v) => v,
+            None => return Err(JsValue::from_str("invalid content format")),
+        };
+
+        self.inner
+            .do_send(
+                topicId,
+                content,
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
+            )
+            .await
+            .map_err(|e| e.to_string().into())
+    }
     /// Send typing status
     /// # Arguments
     /// * `topicId` - The topic id    
@@ -230,49 +283,6 @@ impl Client {
             .await
             .map_err(|e| e.to_string().into())
     }
-    ///
-    /// Send message with content
-    /// # Arguments
-    /// * `topicId` - The topic id
-    /// * `content` - The content Object
-    ///     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-    ///     * `text` String - The text message
-    ///     * `attachment` Object - The attachment object
-    ///     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    ///     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-    ///     * `size` Number - The size of the content, only for file, optional
-    ///     * `placeholder` String - The placeholder of the content, optional
-    ///     * `width` Number - The width of the content, only for image/video, optional
-    ///     * `height` Number - The height of the content, only for image/video, optional
-    /// * `option` - The send option
-    /// # Return
-    /// The message id
-    /// # Example
-    /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
-    /// await client.connect();
-    /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, mentions, replyTo, {});
-    /// ```
-    pub async fn doSend(
-        &self,
-        topicId: String,
-        content: JsValue,
-        option: JsValue,
-    ) -> Result<String, JsValue> {
-        let content = match js_value_to_content(content) {
-            Some(v) => v,
-            None => return Err(JsValue::from_str("invalid content format")),
-        };
-
-        self.inner
-            .do_send(
-                topicId,
-                content,
-                Some(Box::new(MessageCallbackWasmWrap::new(option))),
-            )
-            .await
-            .map_err(|e| e.to_string().into())
-    }
 
     /// Send text message
     /// # Arguments
@@ -285,7 +295,7 @@ impl Client {
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
     /// await client.connect();
-    /// await client.sendText(topicId, text, mentions, replyTo, {
+    /// await client.sendText(topicId, text, {
     ///     mentions: [] || undefined, // The mention user id list, optional
     ///     reply: String || undefined, - The reply message id, optional
     ///     onsent:  () => {},
@@ -294,7 +304,6 @@ impl Client {
     ///     onfail:  (reason:String)  => {}
     /// });
     /// ```
-    ///
     pub async fn doSendText(
         &self,
         topicId: String,
@@ -324,7 +333,7 @@ impl Client {
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
     /// await client.connect();
-    /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, mentions, replyTo, {});
+    /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
     /// ```
     pub async fn doSendImage(
         &self,

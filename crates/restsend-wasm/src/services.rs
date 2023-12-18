@@ -60,7 +60,7 @@ impl Client {
     ///    * `updatedAt` String - updated_at optional
     ///    * `onsuccess` - onsuccess callback -> function (result: GetConversationsResult)
     ///    * `onerror` - onerror callback -> function (error: String)
-    pub async fn syncConversation(&self, option: JsValue) {
+    pub async fn syncConversations(&self, option: JsValue) {
         let limit = (js_util::get_f64(&option, "limit") as u32).max(100);
         self.inner.sync_conversations(
             get_string(&option, "updatedAt"),
@@ -98,14 +98,14 @@ impl Client {
     /// #Arguments
     /// * `topicId` - topic id
     /// * `mute` - mute
-    pub async fn set_conversation_mute(&self, topic_id: String, mute: bool) {
+    pub async fn setConversationMute(&self, topic_id: String, mute: bool) {
         self.inner.set_conversation_mute(topic_id, mute).await
     }
 
     /// Set conversation read by topicId
     /// #Arguments
     /// * `topicId` - topic id
-    pub async fn set_conversation_read(&self, topic_id: String) {
+    pub async fn setConversationRead(&self, topic_id: String) {
         self.inner.set_conversation_read(topic_id).await
     }
 }

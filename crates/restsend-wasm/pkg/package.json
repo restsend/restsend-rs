@@ -1,0 +1,16 @@
+{
+  "name": "restsend-wasm",
+  "version": "0.1.0",
+  "files": [
+    "restsend_wasm_bg.wasm",
+    "restsend_wasm.js",
+    "restsend_wasm_bg.js",
+    "restsend_wasm.d.ts"
+  ],
+  "module": "restsend_wasm.js",
+  "types": "restsend_wasm.d.ts",
+  "sideEffects": [
+    "./restsend_wasm.js",
+    "./snippets/*"
+  ]
+}
