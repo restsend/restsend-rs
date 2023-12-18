@@ -38,6 +38,7 @@ const WORKER_THREADS: usize = 4;
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "apple")]
 pub const DEVICE: &str = "ios";
+
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "unknown")]
 pub const DEVICE: &str = "android";
