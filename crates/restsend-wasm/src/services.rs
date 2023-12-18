@@ -53,12 +53,15 @@ impl Client {
             Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
         )
     }
+
     /// Sync conversations from server
     /// #Arguments
     /// * `option` - option
     ///    * `limit` - limit
     ///    * `updatedAt` String - updated_at optional
-    ///    * `onsuccess` - onsuccess callback -> function (result: GetConversationsResult)
+    ///    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
+    ///         - updated_at: last updated_at
+    ///         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
     ///    * `onerror` - onerror callback -> function (error: String)
     pub async fn syncConversations(&self, option: JsValue) {
         let limit = (js_util::get_f64(&option, "limit") as u32).max(100);

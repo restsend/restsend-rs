@@ -131,19 +131,25 @@ impl Client {
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let updated_at = updated_at.unwrap_or_default().clone();
+        let store_ref = self.store.clone();
 
         match self.store.get_conversations(&updated_at, limit) {
             Ok(r) => {
                 if r.items.len() == limit as usize {
-                    let r = GetConversationsResult {
-                        updated_at: r
-                            .items
-                            .last()
-                            .map(|c| c.updated_at.clone())
-                            .unwrap_or_default(),
-                        items: r.items,
-                    };
-                    callback.on_success(r);
+                    let updated_at = r
+                        .items
+                        .last()
+                        .map(|c| c.updated_at.clone())
+                        .unwrap_or_default();
+                    let count = r.items.len() as u32;
+
+                    store_ref
+                        .callback
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .map(|cb| cb.on_conversations_updated(r.items));
+                    callback.on_success(updated_at, count as u32);
                     return;
                 }
             }
@@ -152,7 +158,6 @@ impl Client {
             }
         }
 
-        let store_ref = self.store.clone();
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
 
@@ -169,15 +174,22 @@ impl Client {
                         })
                         .collect()
                 })
-                .map(|items: Vec<Conversation>| GetConversationsResult {
-                    updated_at: items
+                .map(|items: Vec<Conversation>| {
+                    let updated_at = items
                         .last()
                         .map(|c| c.updated_at.clone())
-                        .unwrap_or_default(),
-                    items,
+                        .unwrap_or_default();
+                    let count = items.len() as u32;
+                    store_ref
+                        .callback
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                        .map(|cb| cb.on_conversations_updated(items));
+                    (updated_at, count)
                 });
             match r {
-                Ok(r) => callback.on_success(r),
+                Ok(r) => callback.on_success(r.0, r.1),
                 Err(e) => callback.on_fail(e),
             }
         });

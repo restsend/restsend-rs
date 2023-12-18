@@ -106,10 +106,11 @@ impl SyncConversationsCallbackWasmWrap {
 }
 
 impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCallbackWasmWrap {
-    fn on_success(&self, r: restsend_sdk::models::GetConversationsResult) {
+    fn on_success(&self, updated_at: String, count: u32) {
         if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
-            let r = serde_wasm_bindgen::to_value(&r).unwrap_or(JsValue::NULL);
-            cb.call1(&JsValue::NULL, &r).ok();
+            let arg1 = JsValue::from_str(&updated_at);
+            let arg2 = JsValue::from_f64(count as f64);
+            cb.call2(&JsValue::NULL, &arg1, &arg2).ok();
         }
     }
 
