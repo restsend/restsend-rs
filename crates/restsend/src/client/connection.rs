@@ -194,10 +194,6 @@ impl WebSocketCallback for ConnectionInner {
         };
 
         match ChatRequestType::from(&req.r#type) {
-            ChatRequestType::Unknown(t) => {
-                warn!("websocket unknown message: {}", t);
-                return;
-            }
             ChatRequestType::Nop => {
                 return;
             }

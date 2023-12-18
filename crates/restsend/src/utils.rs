@@ -67,12 +67,9 @@ pub fn spwan_task<F>(f: F) -> JoinHandle<F::Output>
 where
     F: Future<Output = ()> + Send + 'static,
 {
-    let current = tokio::runtime::Handle::try_current();
-    if current.is_ok() {
-        current.unwrap().spawn(f)
-    } else {
-        TOKIO_RT.spawn(f)
-    }
+    tokio::runtime::Handle::try_current()
+        .unwrap_or(TOKIO_RT.handle().clone())
+        .spawn(f)
 }
 
 #[cfg(target_family = "wasm")]
