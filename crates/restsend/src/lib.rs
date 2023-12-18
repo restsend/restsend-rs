@@ -38,10 +38,12 @@ const WORKER_THREADS: usize = 4;
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "apple")]
 pub const DEVICE: &str = "ios";
+
 #[cfg(target_arch = "aarch64")]
 #[cfg(target_vendor = "unknown")]
 pub const DEVICE: &str = "android";
-#[cfg(target_family = "wasm")]
+
+#[cfg(target_arch = "x86_64")]
 pub const DEVICE: &str = "web";
 
 pub type Error = error::ClientError;
