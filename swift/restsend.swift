@@ -423,7 +423,7 @@ fileprivate struct FfiConverterString: FfiConverter {
 
 
 public protocol ClientProtocol {
-    func acceptTopicJoin(topicId: String, userId: String, memo: String) async throws
+    func acceptTopicJoin(topicId: String, userId: String, memo: String?) async throws
     func addTopicAdmin(topicId: String, userId: String) async throws
     func appActive()  
     func appDeactivate()  
@@ -432,7 +432,7 @@ public protocol ClientProtocol {
     func connect(callback: Callback) async 
     func connectionStatus()   -> String
     func createChat(userId: String) async  -> Conversation?
-    func createTopic(icon: String, name: String, members: [String]) async throws -> Conversation
+    func createTopic(members: [String], icon: String?, name: String?) async throws -> Conversation
     func declineTopicJoin(topicId: String, userId: String, message: String?) async throws
     func dismissTopic(topicId: String) async throws
     func doRead(topicId: String) async throws
@@ -510,14 +510,14 @@ public class Client: ClientProtocol {
     
     
 
-    public func acceptTopicJoin(topicId: String, userId: String, memo: String) async throws {
+    public func acceptTopicJoin(topicId: String, userId: String, memo: String?) async throws {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_accept_topic_join(
                     self.pointer,
                     FfiConverterString.lower(topicId),
                     FfiConverterString.lower(userId),
-                    FfiConverterString.lower(memo)
+                    FfiConverterOptionString.lower(memo)
                 )
             },
             pollFunc: ffi_restsend_sdk_rust_future_poll_void,
@@ -644,14 +644,14 @@ public class Client: ClientProtocol {
 
     
 
-    public func createTopic(icon: String, name: String, members: [String]) async throws -> Conversation {
+    public func createTopic(members: [String], icon: String?, name: String?) async throws -> Conversation {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_create_topic(
                     self.pointer,
-                    FfiConverterString.lower(icon),
-                    FfiConverterString.lower(name),
-                    FfiConverterSequenceString.lower(members)
+                    FfiConverterSequenceString.lower(members),
+                    FfiConverterOptionString.lower(icon),
+                    FfiConverterOptionString.lower(name)
                 )
             },
             pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
@@ -1695,6 +1695,8 @@ public func FfiConverterTypeAPISendResponse_lower(_ value: ApiSendResponse) -> R
 
 
 public struct Attachment {
+    public var url: String
+    public var size: Int64
     public var thumbnail: String
     public var fileName: String
     public var filePath: String
@@ -1704,7 +1706,9 @@ public struct Attachment {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(thumbnail: String, fileName: String, filePath: String, urlOrData: String, isPrivate: Bool, status: AttachmentStatus) {
+    public init(url: String, size: Int64, thumbnail: String, fileName: String, filePath: String, urlOrData: String, isPrivate: Bool, status: AttachmentStatus) {
+        self.url = url
+        self.size = size
         self.thumbnail = thumbnail
         self.fileName = fileName
         self.filePath = filePath
@@ -1717,6 +1721,12 @@ public struct Attachment {
 
 extension Attachment: Equatable, Hashable {
     public static func ==(lhs: Attachment, rhs: Attachment) -> Bool {
+        if lhs.url != rhs.url {
+            return false
+        }
+        if lhs.size != rhs.size {
+            return false
+        }
         if lhs.thumbnail != rhs.thumbnail {
             return false
         }
@@ -1739,6 +1749,8 @@ extension Attachment: Equatable, Hashable {
     }
 
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(url)
+        hasher.combine(size)
         hasher.combine(thumbnail)
         hasher.combine(fileName)
         hasher.combine(filePath)
@@ -1752,6 +1764,8 @@ extension Attachment: Equatable, Hashable {
 public struct FfiConverterTypeAttachment: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Attachment {
         return try Attachment(
+            url: FfiConverterString.read(from: &buf), 
+            size: FfiConverterInt64.read(from: &buf), 
             thumbnail: FfiConverterString.read(from: &buf), 
             fileName: FfiConverterString.read(from: &buf), 
             filePath: FfiConverterString.read(from: &buf), 
@@ -1762,6 +1776,8 @@ public struct FfiConverterTypeAttachment: FfiConverterRustBuffer {
     }
 
     public static func write(_ value: Attachment, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.url, into: &buf)
+        FfiConverterInt64.write(value.size, into: &buf)
         FfiConverterString.write(value.thumbnail, into: &buf)
         FfiConverterString.write(value.fileName, into: &buf)
         FfiConverterString.write(value.filePath, into: &buf)
@@ -5353,6 +5369,28 @@ fileprivate func uniffiInitContinuationCallback() {
     ffi_restsend_sdk_rust_future_continuation_callback_set(uniffiFutureContinuationCallback)
 }
 
+public func attachmentFromLocal(fileName: String, filePath: String, isPrivate: Bool)  -> Attachment {
+    return try!  FfiConverterTypeAttachment.lift(
+        try! rustCall() {
+    uniffi_restsend_sdk_fn_func_attachment_from_local(
+        FfiConverterString.lower(fileName),
+        FfiConverterString.lower(filePath),
+        FfiConverterBool.lower(isPrivate),$0)
+}
+    )
+}
+
+public func attachmentFromUrl(url: String, isPrivate: Bool, size: Int64)  -> Attachment {
+    return try!  FfiConverterTypeAttachment.lift(
+        try! rustCall() {
+    uniffi_restsend_sdk_fn_func_attachment_from_url(
+        FfiConverterString.lower(url),
+        FfiConverterBool.lower(isPrivate),
+        FfiConverterInt64.lower(size),$0)
+}
+    )
+}
+
 public func getCurrentUser(root: String)  -> AuthInfo? {
     return try!  FfiConverterOptionTypeAuthInfo.lift(
         try! rustCall() {
@@ -5472,6 +5510,12 @@ private var initializationResult: InitializationResult {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_restsend_sdk_checksum_func_attachment_from_local() != 11711) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_func_attachment_from_url() != 49991) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_restsend_sdk_checksum_func_get_current_user() != 58851) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5493,7 +5537,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_func_signup() != 45825) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_accept_topic_join() != 54875) {
+    if (uniffi_restsend_sdk_checksum_method_client_accept_topic_join() != 28191) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_add_topic_admin() != 42268) {
@@ -5520,7 +5564,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_create_chat() != 49536) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_create_topic() != 51088) {
+    if (uniffi_restsend_sdk_checksum_method_client_create_topic() != 39356) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_decline_topic_join() != 51375) {

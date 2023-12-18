@@ -6,7 +6,8 @@ use crate::Result;
 use log::info;
 use restsend_macros::export_wasm_or_ffi;
 
-#[export_wasm_or_ffi]
+//#[export_wasm_or_ffi]
+#[uniffi::export(async_runtime = "tokio")]
 pub async fn login_with_token(endpoint: String, email: String, token: String) -> Result<AuthInfo> {
     let data = serde_json::json!({
         "token": token,
@@ -15,7 +16,8 @@ pub async fn login_with_token(endpoint: String, email: String, token: String) ->
     signin_or_signup(&endpoint, "/auth/login", &email, data.to_string()).await
 }
 
-#[export_wasm_or_ffi]
+//#[export_wasm_or_ffi]
+#[uniffi::export(async_runtime = "tokio")]
 pub async fn login_with_password(
     endpoint: String,
     email: String,
@@ -29,7 +31,8 @@ pub async fn login_with_password(
     signin_or_signup(&endpoint, "/auth/login", &email, data.to_string()).await
 }
 
-#[export_wasm_or_ffi]
+//#[export_wasm_or_ffi]
+#[uniffi::export(async_runtime = "tokio")]
 pub async fn signup(endpoint: String, email: String, password: String) -> Result<AuthInfo> {
     let data = serde_json::json!({
         "email": email,
@@ -39,7 +42,8 @@ pub async fn signup(endpoint: String, email: String, password: String) -> Result
     signin_or_signup(&endpoint, "/auth/signup", &email, data.to_string()).await
 }
 
-#[export_wasm_or_ffi]
+//#[export_wasm_or_ffi]
+#[uniffi::export(async_runtime = "tokio")]
 pub async fn logout(endpoint: String, token: String) -> Result<()> {
     let st = now_millis();
     let uri = "/auth/logout";

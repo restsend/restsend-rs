@@ -12,7 +12,8 @@ use crate::Result;
 use log::warn;
 use restsend_macros::export_wasm_or_ffi;
 
-#[export_wasm_or_ffi]
+//#[export_wasm_or_ffi]
+#[uniffi::export(async_runtime = "tokio")]
 impl Client {
     pub async fn create_chat(&self, user_id: String) -> Option<Conversation> {
         create_chat(&self.endpoint, &self.token, &user_id)

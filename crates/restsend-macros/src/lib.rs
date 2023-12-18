@@ -8,9 +8,9 @@ fn is_wasm_target() -> bool {
     match target.as_str() {
         "wasm" => true,
         _ => {
-            let current =  std::env::var("_").unwrap_or_default();
+            let current = std::env::var("_").unwrap_or_default();
             current.contains("wasm-pack") || current.contains("npm")
-        },
+        }
     }
 }
 

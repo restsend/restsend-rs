@@ -12,7 +12,7 @@ impl Client {
     ///   name: String,
     ///  icon: String,
     /// #Return
-    /// * `Topic`
+    /// * `Topic` || `undefined`
     pub async fn createTopic(
         &self,
         members: Vec<String>,
@@ -29,7 +29,7 @@ impl Client {
     /// #Arguments
     /// * `topicId` - topic id
     /// #Return
-    /// * `Topic`
+    /// * `Topic` || `undefined`
     pub async fn getTopic(&self, topicId: String) -> JsValue {
         self.inner
             .get_topic(topicId)
@@ -41,7 +41,7 @@ impl Client {
     /// #Arguments
     /// * `topicId` - topic id
     /// #Return
-    /// * `Vec<User>`
+    /// * `Vec<User>` || `undefined`
     pub async fn getTopicAdmins(&self, topicId: String) -> JsValue {
         self.inner
             .get_topic_admins(topicId)
@@ -49,7 +49,11 @@ impl Client {
             .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_admins failed")))
             .unwrap_or(JsValue::UNDEFINED)
     }
-
+    /// Get topic owner
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// #Return
+    /// * `User` || `undefined`
     pub async fn getTopicOwner(&self, topicId: String) -> JsValue {
         self.inner
             .get_topic_owner(topicId)
@@ -57,7 +61,13 @@ impl Client {
             .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_owner failed")))
             .unwrap_or(JsValue::UNDEFINED)
     }
-
+    /// Get topic members
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `updatedAt` - updated_at
+    /// * `limit` - limit
+    /// #Return
+    /// * `ListUserResult` || `undefined`
     pub async fn getTopicMembers(&self, topicId: String, updatedAt: String, limit: u32) -> JsValue {
         self.inner
             .get_topic_members(topicId, updatedAt, limit)
@@ -65,7 +75,11 @@ impl Client {
             .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_members failed")))
             .unwrap_or(JsValue::UNDEFINED)
     }
-
+    /// Get topic knocks
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// #Return
+    /// * `Vec<TopicKnock>`
     pub async fn getTopicKnocks(&self, topicId: String) -> JsValue {
         self.inner
             .get_topic_knocks(topicId)

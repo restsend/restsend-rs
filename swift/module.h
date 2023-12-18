@@ -85,7 +85,7 @@ RustBuffer uniffi_restsend_sdk_fn_method_client_connection_status(void*_Nonnull 
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_chat(void*_Nonnull ptr, RustBuffer user_id
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_topic(void*_Nonnull ptr, RustBuffer icon, RustBuffer name, RustBuffer members
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_create_topic(void*_Nonnull ptr, RustBuffer members, RustBuffer icon, RustBuffer name
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_decline_topic_join(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer message
 );
@@ -192,6 +192,10 @@ void uniffi_restsend_sdk_fn_init_callback_syncchatlogscallback(ForeignCallback _
 void uniffi_restsend_sdk_fn_init_callback_syncconversationscallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
 );
 void uniffi_restsend_sdk_fn_init_callback_uploadcallback(ForeignCallback _Nonnull callback_stub, RustCallStatus *_Nonnull out_status
+);
+RustBuffer uniffi_restsend_sdk_fn_func_attachment_from_local(RustBuffer file_name, RustBuffer file_path, int8_t is_private, RustCallStatus *_Nonnull out_status
+);
+RustBuffer uniffi_restsend_sdk_fn_func_attachment_from_url(RustBuffer url, int8_t is_private, int64_t size, RustCallStatus *_Nonnull out_status
 );
 RustBuffer uniffi_restsend_sdk_fn_func_get_current_user(RustBuffer root, RustCallStatus *_Nonnull out_status
 );
@@ -320,6 +324,12 @@ void ffi_restsend_sdk_rust_future_cancel_void(void* _Nonnull handle
 void ffi_restsend_sdk_rust_future_free_void(void* _Nonnull handle
 );
 void ffi_restsend_sdk_rust_future_complete_void(void* _Nonnull handle, RustCallStatus *_Nonnull out_status
+);
+uint16_t uniffi_restsend_sdk_checksum_func_attachment_from_local(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_func_attachment_from_url(void
+    
 );
 uint16_t uniffi_restsend_sdk_checksum_func_get_current_user(void
     
