@@ -40,7 +40,7 @@ impl WebSocketImpl {
         opt: &WebsocketOption,
         callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
-        let url = opt.url.replace("http", "ws");
+        let url = opt.url.clone();
 
         let req = ClientBuilder::new()
             .add_header(

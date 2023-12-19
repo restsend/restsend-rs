@@ -29,8 +29,10 @@ pub struct WebsocketOption {
 impl WebsocketOption {
     pub fn url_from_endpoint(endpoint: &str) -> String {
         let nonce = crate::utils::random_text(4);
-        format!("{}/api/connect?device={}&nonce={}", endpoint, DEVICE, nonce)
+        let url = format!("{}/api/connect?device={}&nonce={}", endpoint, DEVICE, nonce);
+        url.replace("http", "ws")
     }
+
     pub fn new(url: &str, token: &str) -> Self {
         Self {
             url: url.to_string(),

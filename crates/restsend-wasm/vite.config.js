@@ -6,6 +6,7 @@ export default defineConfig({
     plugins: [
         wasm(),
     ],
+
     build: {
         target: 'esnext',
         assetInlineLimit: 5 * 1024 * 1024,
@@ -13,6 +14,23 @@ export default defineConfig({
             entry: resolve(__dirname, 'index.js'),
             name: 'restsend-sdk',
             fileName: (format) => `restsend-sdk.${format}.js`
+        }
+    },
+    server: {
+        proxy: {
+            '/api/connect': {
+                target: 'https://chat.ruzhila.cn',
+                changeOrigin: true,
+                ws: true,
+            },
+            '/auth': {
+                target: 'https://chat.ruzhila.cn',
+                changeOrigin: true,
+            },
+            '/api': {
+                target: 'https://chat.ruzhila.cn',
+                changeOrigin: true,
+            },
         }
     },
     optimizeDeps: { exclude: ["fsevents"] },

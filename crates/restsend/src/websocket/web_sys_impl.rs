@@ -24,10 +24,17 @@ impl WebSocketImpl {
 
     pub async fn send(&self, message: String) -> Result<()> {
         if let Some(ws) = self.ws.lock().unwrap().as_ref() {
-            ws.send_with_str(&message).map_err(|e| {
-                let reason = e.as_string().unwrap_or("unknown".to_string());
-                ClientError::HTTP(format!("websocket send failed: {}", reason))
-            })?;
+            match ws.send_with_str(&message) {
+                Ok(_) => {}
+                Err(e) => {
+                    // get error message from JsValue
+                    let reason = match e.dyn_into::<js_sys::Error>() {
+                        Ok(e) => e.message().as_string(),
+                        Err(e) => e.as_string(),
+                    };
+                    warn!("websocket send error: {:?}", reason);
+                }
+            }
         }
         Ok(())
     }
@@ -60,7 +67,12 @@ impl WebSocketImpl {
         let ws = match WebSocket::new(&url) {
             Ok(ws) => ws,
             Err(e) => {
-                let reason = e.as_string().unwrap_or("WebSocket create fail".to_string());
+                let reason = match e.dyn_into::<js_sys::Error>() {
+                    Ok(e) => e.message().to_string().as_string(),
+                    Err(e) => e.as_string(),
+                }
+                .unwrap_or("create Websocket fail".to_string());
+
                 callback_ref
                     .lock()
                     .unwrap()
@@ -69,10 +81,9 @@ impl WebSocketImpl {
                 return Err(ClientError::HTTP(reason));
             }
         };
-
+        log::warn!("websocket url: {}", url);
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
-        let cloned_ws = ws.clone();
         let callback_ref = callback.clone();
         let onopen_callback = Closure::<dyn FnMut()>::new(move || {
             callback_ref
@@ -81,7 +92,7 @@ impl WebSocketImpl {
                 .as_ref()
                 .on_connected(elapsed(st));
         });
-        cloned_ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
+        ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
         onopen_callback.forget();
 
         let callback_ref = callback.clone();
@@ -121,7 +132,7 @@ impl WebSocketImpl {
         let callback_ref = callback.clone();
         let close_tx = Mutex::new(Some(close_tx));
         let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-            let reason = e.error().as_string().unwrap_or("unknown".to_string());
+            let reason = e.message();
             warn!("error event error: {:?}", reason);
             callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
             if let Some(close_tx) = close_tx.lock().unwrap().take() {
@@ -130,7 +141,6 @@ impl WebSocketImpl {
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
-
         self.ws.lock().unwrap().replace(ws);
         close_rx.await.ok();
         Ok(())

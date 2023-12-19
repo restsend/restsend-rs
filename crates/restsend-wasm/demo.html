@@ -1,0 +1,53 @@
+<html>
+
+<head>
+    <title>RestSend Demo</title>
+
+<body>
+    <h1>RestSend Demo</h1>
+    <p>Click the button to send a request to the server.</p>
+    <button onclick="sendRequest()">Send Request</button>
+    <p id="response"></p>
+
+    <script>
+        var wasm = import("./pkg/restsend_wasm.js");
+        wasm.then(module => {
+            window.signin = module.signin;
+            window.Client = module.Client;
+            module.enable_logging('debug');
+        }).catch(console.error);
+    </script>
+    <script>
+        let client = undefined
+        function logText(text) {
+            let p = document.getElementById('response');
+            p.innerHTML += `<div>${text}</div>`
+        }
+        async function sendRequest() {
+            let endpoint = 'https://chat.ruzhila.cn'
+            let info = await signin(endpoint, 'bob', 'bob:demo');
+            client = new Client(endpoint, 'bob', info.token);
+            client.onconnected = () => {
+                logText(`connected`);
+                doTestMessage().then();
+            }
+            await client.connect();
+        }
+
+        async function doTestMessage() {
+            await client.doSendText('bob:alice', 'hello web demo', {
+                onack: function (req) {
+                    logText(`onack : ${JSON.stringify(req)}`);
+                },
+                onsent: function () {
+                    logText('onsent');
+                },
+                onfail: function () {
+                    logText('onfailed');
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

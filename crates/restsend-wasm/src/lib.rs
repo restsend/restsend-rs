@@ -1,4 +1,4 @@
-use crate::callback::CallbackWasmWrap;
+use crate::{callback::CallbackWasmWrap, js_util::get_endpoint};
 use restsend_sdk::models::AuthInfo;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
@@ -39,6 +39,8 @@ pub struct Client {
 impl Client {
     #[wasm_bindgen(constructor)]
     pub fn new(endpoint: String, userId: String, token: String) -> Self {
+        let endpoint = get_endpoint(endpoint);
+
         let info = AuthInfo::new(&endpoint, &userId, &token);
         let inner = restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info);
         let c = Client {
