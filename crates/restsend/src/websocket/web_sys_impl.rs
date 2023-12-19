@@ -23,7 +23,7 @@ impl WebSocketImpl {
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
-        log::warn!("websocket send: {:?}", message);
+        log::info!("websocket send: {:?}", message);
 
         if let Some(ws) = self.ws.lock().unwrap().as_ref() {
             match ws.send_with_str(&message) {

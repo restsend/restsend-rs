@@ -290,6 +290,7 @@ async fn serve_connection(
                             warn!("keepalive_runner send failed: {:?}", e);
                             break;
                         }
+                        state_ref.did_sent_or_recvived();
                     }
                 };
 
