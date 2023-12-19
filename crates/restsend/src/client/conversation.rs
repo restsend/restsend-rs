@@ -1,8 +1,6 @@
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
-use crate::models::{
-    ChatLog, ChatLogStatus, Conversation, GetChatLogsResult, GetConversationsResult,
-};
+use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::services::conversation::{
     clean_history, get_chat_logs_desc, get_conversations, remove_messages,
 };

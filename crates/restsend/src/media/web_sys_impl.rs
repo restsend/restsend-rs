@@ -1,5 +1,5 @@
 use crate::callback::{DownloadCallback, UploadCallback};
-use crate::error::ClientError::{StdError, UserCancel, HTTP};
+use crate::error::ClientError::{StdError, HTTP};
 use crate::media::HumanReadable;
 use crate::models::Attachment;
 use crate::services::response::Upload;
@@ -8,11 +8,8 @@ use crate::Result;
 use log::info;
 use reqwest::multipart;
 use std::time::Duration;
-use tokio::select;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
-use wasm_bindgen::JsCast;
-use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
 
 pub async fn upload_file(
@@ -20,7 +17,7 @@ pub async fn upload_file(
     token: Option<&str>,
     attachment: Attachment,
     callback: Box<dyn UploadCallback>,
-    cancel: oneshot::Receiver<()>,
+    _cancel: oneshot::Receiver<()>,
 ) -> Result<Option<Upload>> {
     let (_, mut progress_rx) = unbounded_channel::<(u64, u64)>();
     let file_stream = attachment.file.unwrap();

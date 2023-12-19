@@ -43,7 +43,7 @@ pub const DEVICE: &str = "ios";
 #[cfg(target_vendor = "unknown")]
 pub const DEVICE: &str = "android";
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(any(target_arch = "x86_64", target_family = "wasm"))]
 pub const DEVICE: &str = "web";
 
 pub type Error = error::ClientError;

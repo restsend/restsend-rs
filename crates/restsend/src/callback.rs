@@ -1,11 +1,10 @@
-use restsend_macros::export_wasm_or_ffi;
-
 use crate::{
-    models::{Conversation, GetChatLogsResult, GetConversationsResult},
+    models::{Conversation, GetChatLogsResult},
     request::ChatRequest,
     services::response::Upload,
     Error,
 };
+use restsend_macros::export_wasm_or_ffi;
 
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
