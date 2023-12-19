@@ -429,7 +429,7 @@ public protocol ClientProtocol {
     func appDeactivate()  
     func cancelSend(reqId: String)  
     func cleanHistory(topicId: String) async throws
-    func connect(callback: Callback) async 
+    func connect() async 
     func connectionStatus()   -> String
     func createChat(userId: String) async  -> Conversation?
     func createTopic(members: [String], icon: String?, name: String?) async throws -> Conversation
@@ -456,7 +456,8 @@ public protocol ClientProtocol {
     func getTopicKnocks(topicId: String) async  -> [TopicKnock]?
     func getTopicMembers(topicId: String, updatedAt: String, limit: UInt32) async  -> ListUserResult?
     func getTopicOwner(topicId: String) async  -> User?
-    func getUser(userId: String)   -> User?
+    func getUser(userId: String, blocking: Bool) async  -> User?
+    func getUsers(userIds: [String]) async  -> [User]
     func quitTopic(topicId: String) async throws
     func removeConversation(topicId: String) async 
     func removeMessages(topicId: String, chatIds: [String], syncToServer: Bool) async throws
@@ -466,6 +467,7 @@ public protocol ClientProtocol {
     func sendChatRequest(topicId: String, req: ChatRequest) async throws -> ApiSendResponse
     func sendChatRequestViaConnection(req: ChatRequest, callback: MessageCallback?) async throws -> String
     func setAllowGuestChat(allow: Bool) async throws
+    func setCallback(callback: Callback?)  
     func setConversationMute(topicId: String, mute: Bool) async 
     func setConversationRead(topicId: String) async 
     func setConversationSticky(topicId: String, sticky: Bool) async 
@@ -595,12 +597,11 @@ public class Client: ClientProtocol {
 
     
 
-    public func connect(callback: Callback) async  {
+    public func connect() async  {
         return try!  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_connect(
-                    self.pointer,
-                    FfiConverterCallbackInterfaceCallback.lower(callback)
+                    self.pointer
                 )
             },
             pollFunc: ffi_restsend_sdk_rust_future_poll_void,
@@ -1119,17 +1120,44 @@ public class Client: ClientProtocol {
 
     
 
-    public func getUser(userId: String)  -> User? {
-        return try!  FfiConverterOptionTypeUser.lift(
-            try! 
-    rustCall() {
-    
-    uniffi_restsend_sdk_fn_method_client_get_user(self.pointer, 
-        FfiConverterString.lower(userId),$0
-    )
-}
+    public func getUser(userId: String, blocking: Bool) async  -> User? {
+        return try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_get_user(
+                    self.pointer,
+                    FfiConverterString.lower(userId),
+                    FfiConverterBool.lower(blocking)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterOptionTypeUser.lift,
+            errorHandler: nil
+            
         )
     }
+
+    
+
+    public func getUsers(userIds: [String]) async  -> [User] {
+        return try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_get_users(
+                    self.pointer,
+                    FfiConverterSequenceString.lower(userIds)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterSequenceTypeUser.lift,
+            errorHandler: nil
+            
+        )
+    }
+
+    
 
     public func quitTopic(topicId: String) async throws {
         return try  await uniffiRustCallAsync(
@@ -1302,6 +1330,16 @@ public class Client: ClientProtocol {
     }
 
     
+
+    public func setCallback(callback: Callback?)  {
+        try! 
+    rustCall() {
+    
+    uniffi_restsend_sdk_fn_method_client_set_callback(self.pointer, 
+        FfiConverterOptionCallbackInterfaceCallback.lower(callback),$0
+    )
+}
+    }
 
     public func setConversationMute(topicId: String, mute: Bool) async  {
         return try!  await uniffiRustCallAsync(
@@ -3705,7 +3743,7 @@ public protocol Callback : AnyObject {
     func onNewMessage(topicId: String, message: ChatRequest)  -> Bool
     func onTopicRead(topicId: String, message: ChatRequest) 
     func onConversationsUpdated(conversations: [Conversation]) 
-    func onConversationsRemoved(conversatioId: String) 
+    func onConversationRemoved(conversatioId: String) 
     
 }
 
@@ -3843,10 +3881,10 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
         return try makeCall()
     }
 
-    func invokeOnConversationsRemoved(_ swiftCallbackInterface: Callback, _ argsData: UnsafePointer<UInt8>, _ argsLen: Int32, _ out_buf: UnsafeMutablePointer<RustBuffer>) throws -> Int32 {
+    func invokeOnConversationRemoved(_ swiftCallbackInterface: Callback, _ argsData: UnsafePointer<UInt8>, _ argsLen: Int32, _ out_buf: UnsafeMutablePointer<RustBuffer>) throws -> Int32 {
         var reader = createReader(data: Data(bytes: argsData, count: Int(argsLen)))
         func makeCall() throws -> Int32 {
-            try swiftCallbackInterface.onConversationsRemoved(
+            try swiftCallbackInterface.onConversationRemoved(
                     conversatioId:  try FfiConverterString.read(from: &reader)
                     )
             return UNIFFI_CALLBACK_SUCCESS
@@ -4024,7 +4062,7 @@ fileprivate let foreignCallbackCallbackInterfaceCallback : ForeignCallback =
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try invokeOnConversationsRemoved(cb, argsData, argsLen, out_buf)
+                return try invokeOnConversationRemoved(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
@@ -4573,7 +4611,7 @@ extension FfiConverterCallbackInterfaceSyncChatLogsCallback : FfiConverter {
 // Declaration and FfiConverters for SyncConversationsCallback Callback Interface
 
 public protocol SyncConversationsCallback : AnyObject {
-    func onSuccess(r: GetConversationsResult) 
+    func onSuccess(updatedAt: String, count: UInt32) 
     func onFail(e: ClientError) 
     
 }
@@ -4587,7 +4625,8 @@ fileprivate let foreignCallbackCallbackInterfaceSyncConversationsCallback : Fore
         var reader = createReader(data: Data(bytes: argsData, count: Int(argsLen)))
         func makeCall() throws -> Int32 {
             try swiftCallbackInterface.onSuccess(
-                    r:  try FfiConverterTypeGetConversationsResult.read(from: &reader)
+                    updatedAt:  try FfiConverterString.read(from: &reader), 
+                    count:  try FfiConverterUInt32.read(from: &reader)
                     )
             return UNIFFI_CALLBACK_SUCCESS
         }
@@ -5113,6 +5152,27 @@ fileprivate struct FfiConverterOptionTypeUser: FfiConverterRustBuffer {
     }
 }
 
+fileprivate struct FfiConverterOptionCallbackInterfaceCallback: FfiConverterRustBuffer {
+    typealias SwiftType = Callback?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterCallbackInterfaceCallback.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterCallbackInterfaceCallback.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionCallbackInterfaceMessageCallback: FfiConverterRustBuffer {
     typealias SwiftType = MessageCallback?
 
@@ -5555,7 +5615,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_clean_history() != 53268) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_connect() != 7997) {
+    if (uniffi_restsend_sdk_checksum_method_client_connect() != 55568) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_connection_status() != 48399) {
@@ -5636,7 +5696,10 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_get_topic_owner() != 43460) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_get_user() != 45050) {
+    if (uniffi_restsend_sdk_checksum_method_client_get_user() != 33462) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_get_users() != 63546) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_quit_topic() != 56845) {
@@ -5664,6 +5727,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat() != 18959) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_set_callback() != 27441) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_set_conversation_mute() != 15636) {
@@ -5744,7 +5810,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_callback_on_conversations_updated() != 37269) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_callback_on_conversations_removed() != 24921) {
+    if (uniffi_restsend_sdk_checksum_method_callback_on_conversation_removed() != 6271) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress() != 20970) {
@@ -5774,7 +5840,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_syncchatlogscallback_on_fail() != 48821) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_success() != 57444) {
+    if (uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_success() != 5994) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_fail() != 50976) {

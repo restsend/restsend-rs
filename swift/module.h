@@ -79,7 +79,7 @@ void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuf
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_history(void*_Nonnull ptr, RustBuffer topic_id
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr, uint64_t callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr
 );
 RustBuffer uniffi_restsend_sdk_fn_method_client_connection_status(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
@@ -133,7 +133,9 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_members(void*_Nonn
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_owner(void*_Nonnull ptr, RustBuffer topic_id
 );
-RustBuffer uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, int8_t blocking
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_users(void*_Nonnull ptr, RustBuffer user_ids
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_quit_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
@@ -152,6 +154,8 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request(void*_Nonn
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request_via_connection(void*_Nonnull ptr, RustBuffer req, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_allow_guest_chat(void*_Nonnull ptr, int8_t allow
+);
+void uniffi_restsend_sdk_fn_method_client_set_callback(void*_Nonnull ptr, RustBuffer callback, RustCallStatus *_Nonnull out_status
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_mute(void*_Nonnull ptr, RustBuffer topic_id, int8_t mute
 );
@@ -454,6 +458,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_owner(void
 uint16_t uniffi_restsend_sdk_checksum_method_client_get_user(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_users(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_quit_topic(void
     
 );
@@ -479,6 +486,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request_via_connec
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_callback(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_mute(void
@@ -559,7 +569,7 @@ uint16_t uniffi_restsend_sdk_checksum_method_callback_on_topic_read(void
 uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_updated(void
     
 );
-uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_removed(void
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversation_removed(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress(void
