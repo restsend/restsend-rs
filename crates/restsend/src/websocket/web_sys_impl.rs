@@ -23,6 +23,8 @@ impl WebSocketImpl {
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
+        log::warn!("websocket send: {:?}", message);
+
         if let Some(ws) = self.ws.lock().unwrap().as_ref() {
             match ws.send_with_str(&message) {
                 Ok(_) => {}
@@ -32,9 +34,14 @@ impl WebSocketImpl {
                         Ok(e) => e.message().as_string(),
                         Err(e) => e.as_string(),
                     };
-                    warn!("websocket send error: {:?}", reason);
+                    warn!(
+                        "websocket send error: {:?} discard message:{:?}",
+                        reason, message
+                    );
                 }
             }
+        } else {
+            warn!("websocket is not connected, discard message: {:?}", message);
         }
         Ok(())
     }
@@ -143,6 +150,7 @@ impl WebSocketImpl {
         onerror_callback.forget();
         self.ws.lock().unwrap().replace(ws);
         close_rx.await.ok();
+        log::warn!("websocket closed: lifetime:{:?}", elapsed(st));
         Ok(())
     }
 }

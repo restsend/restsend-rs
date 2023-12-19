@@ -47,6 +47,66 @@ export class Client {
 */
   connect(): Promise<void>;
 /**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
+/**
 *
 * Send message with content
 * # Arguments
@@ -256,100 +316,6 @@ export class Client {
 */
   doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
 /**
-* Create a new chat with userId
-* return: Conversation
-* @param {string} userId
-* @returns {Promise<any | undefined>}
-*/
-  createChat(userId: string): Promise<any | undefined>;
-/**
-* Clean history of a topic
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  cleanHistory(topicId: string): Promise<void>;
-/**
-* Remove messages from a topic
-* @param {string} topicId
-* @param {(string)[]} chatIds
-* @returns {Promise<void>}
-*/
-  removeMessages(topicId: string, chatIds: (string)[]): Promise<void>;
-/**
-* Sync chat logs from server
-* #Arguments
-* * `topicId` - topic id
-* * `lastSeq` - last seq
-* * `option` - option
-*     * `limit` - limit
-*     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
-*     * `onerror` - onerror callback -> function (error: String)
-* @param {string} topicId
-* @param {bigint} lastSeq
-* @param {any} option
-* @returns {Promise<void>}
-*/
-  syncChatLogs(topicId: string, lastSeq: bigint, option: any): Promise<void>;
-/**
-* Sync conversations from server
-* #Arguments
-* * `option` - option
-*    * `limit` - limit
-*    * `updatedAt` String - updated_at optional
-*    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
-*         - updated_at: last updated_at
-*         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
-*    * `onerror` - onerror callback -> function (error: String)
-* @param {any} option
-* @returns {Promise<void>}
-*/
-  syncConversations(option: any): Promise<void>;
-/**
-* Get conversation by topicId
-* #Arguments
-* * `topicId` - topic id
-* return: Conversation or null
-* @param {string} topicId
-* @returns {any}
-*/
-  getConversation(topicId: string): any;
-/**
-* Remove conversation by topicId
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  removeConversation(topicId: string): Promise<void>;
-/**
-* Set conversation sticky by topicId
-* #Arguments
-* * `topicId` - topic id
-* * `sticky` - sticky
-* @param {string} topicId
-* @param {boolean} sticky
-* @returns {Promise<void>}
-*/
-  setConversationSticky(topicId: string, sticky: boolean): Promise<void>;
-/**
-* Set conversation mute by topicId
-* #Arguments
-* * `topicId` - topic id
-* * `mute` - mute
-* @param {string} topic_id
-* @param {boolean} mute
-* @returns {Promise<void>}
-*/
-  setConversationMute(topic_id: string, mute: boolean): Promise<void>;
-/**
-* Set conversation read by topicId
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topic_id
-* @returns {Promise<void>}
-*/
-  setConversationRead(topic_id: string): Promise<void>;
-/**
 * Create a new topic
 * #Arguments
 *   name: String,
@@ -541,65 +507,99 @@ export class Client {
 */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
 /**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
+* Create a new chat with userId
+* return: Conversation
 * @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
+* @returns {Promise<any | undefined>}
 */
-  getUser(userId: string, blocking?: boolean): Promise<any>;
+  createChat(userId: string): Promise<any | undefined>;
 /**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
-*/
-  getUsers(userIds: (string)[]): Promise<any>;
-/**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
+* Clean history of a topic
+* @param {string} topicId
 * @returns {Promise<void>}
 */
-  setUserRemark(userId: string, remark: string): Promise<void>;
+  cleanHistory(topicId: string): Promise<void>;
 /**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
+* Remove messages from a topic
+* @param {string} topicId
+* @param {(string)[]} chatIds
 * @returns {Promise<void>}
 */
-  setUserStar(userId: string, star: boolean): Promise<void>;
+  removeMessages(topicId: string, chatIds: (string)[]): Promise<void>;
 /**
-* Set user block
+* Sync chat logs from server
 * #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
+* * `topicId` - topic id
+* * `lastSeq` - last seq
+* * `option` - option
+*     * `limit` - limit
+*     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
+*     * `onerror` - onerror callback -> function (error: String)
+* @param {string} topicId
+* @param {bigint} lastSeq
+* @param {any} option
 * @returns {Promise<void>}
 */
-  setUserBlock(userId: string, block: boolean): Promise<void>;
+  syncChatLogs(topicId: string, lastSeq: bigint, option: any): Promise<void>;
 /**
-* Set allow guest chat
+* Sync conversations from server
 * #Arguments
-* * `allow` - allow
-* @param {boolean} allow
+* * `option` - option
+*    * `limit` - limit
+*    * `updatedAt` String - updated_at optional
+*    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
+*         - updated_at: last updated_at
+*         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
+*    * `onerror` - onerror callback -> function (error: String)
+* @param {any} option
 * @returns {Promise<void>}
 */
-  setAllowGuestChat(allow: boolean): Promise<void>;
+  syncConversations(option: any): Promise<void>;
+/**
+* Get conversation by topicId
+* #Arguments
+* * `topicId` - topic id
+* return: Conversation or null
+* @param {string} topicId
+* @returns {any}
+*/
+  getConversation(topicId: string): any;
+/**
+* Remove conversation by topicId
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  removeConversation(topicId: string): Promise<void>;
+/**
+* Set conversation sticky by topicId
+* #Arguments
+* * `topicId` - topic id
+* * `sticky` - sticky
+* @param {string} topicId
+* @param {boolean} sticky
+* @returns {Promise<void>}
+*/
+  setConversationSticky(topicId: string, sticky: boolean): Promise<void>;
+/**
+* Set conversation mute by topicId
+* #Arguments
+* * `topicId` - topic id
+* * `mute` - mute
+* @param {string} topic_id
+* @param {boolean} mute
+* @returns {Promise<void>}
+*/
+  setConversationMute(topic_id: string, mute: boolean): Promise<void>;
+/**
+* Set conversation read by topicId
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topic_id
+* @returns {Promise<void>}
+*/
+  setConversationRead(topic_id: string): Promise<void>;
 /**
 * get the current connection status
 * return: connecting, connected, net_broken, shutdown

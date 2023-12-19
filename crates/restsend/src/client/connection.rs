@@ -352,11 +352,15 @@ async fn serve_connection(
 
         select! {
             _ = async {
-                sleep(Duration::from_secs(1)).await;
-                store_ref.process_timeout_requests();
-            } =>{}
+                loop {
+                    sleep(Duration::from_secs(1)).await;
+                    store_ref.process_timeout_requests();
+                };
+            } =>{
+                warn!("connection shutdown timeout");
+            }
             _ = conn_loop => {
-                warn!("connect shutdown");
+                warn!("connection shutdown conn_loop");
             },
             _ = async {
                 loop {
@@ -369,7 +373,9 @@ async fn serve_connection(
                         _ => {}
                     }
                 }
-            } => {}
+            } => {
+                warn!("connection shutdown conn_state_ref");
+            }
         };
     });
 }

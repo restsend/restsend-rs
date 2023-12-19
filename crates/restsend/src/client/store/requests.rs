@@ -167,6 +167,7 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
+        info!("add_pending_request: {:?}", req);
         let req_id = req.id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {
@@ -195,11 +196,13 @@ impl ClientStore {
     }
 
     pub(super) fn try_send(&self, req_id: String) {
-        let tx = self.msg_tx.lock().unwrap();
-        match tx.as_ref() {
-            Some(tx) => {
-                tx.send(req_id).unwrap();
-            }
+        match self.msg_tx.lock().unwrap().as_ref() {
+            Some(tx) => match tx.send(req_id.clone()) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("try_send failed: {:?} req_id:{}", e.to_string(), req_id);
+                }
+            },
             None => {
                 let mut tmps = self.tmps.lock().unwrap();
                 tmps.push_back(req_id);
@@ -213,7 +216,17 @@ impl ClientStore {
         match tx.as_ref() {
             Some(tx) => {
                 while let Some(req_id) = tmps.pop_front() {
-                    tx.send(req_id).unwrap();
+                    match tx.send(req_id.clone()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            warn!(
+                                "flush_offline_requests failed:  {:?} req_id:{}",
+                                e.to_string(),
+                                req_id
+                            );
+                            break;
+                        }
+                    }
                 }
             }
             None => {}

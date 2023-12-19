@@ -7,6 +7,7 @@
     <h1>RestSend Demo</h1>
     <p>Click the button to send a request to the server.</p>
     <button onclick="sendRequest()">Send Request</button>
+    <button id="btnSendTest" onclick="doTestMessage()" disabled>Send Message</button>
     <p id="response"></p>
 
     <script>
@@ -29,7 +30,7 @@
             client = new Client(endpoint, 'bob', info.token);
             client.onconnected = () => {
                 logText(`connected`);
-                doTestMessage().then();
+                document.getElementById('btnSendTest').disabled = false;
             }
             await client.connect();
         }
