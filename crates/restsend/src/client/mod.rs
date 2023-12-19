@@ -38,7 +38,14 @@ impl Client {
             // for unit test
             "".to_string()
         } else {
-            format!("{}/{}{}", root_path, db_name, DB_SUFFIX)
+            let root_path = if root_path.ends_with('/') {
+                root_path.to_string()
+            } else if !root_path.is_empty() {
+                format!("{}/", root_path)
+            } else {
+                "".to_string()
+            };
+            format!("{}{}{}", root_path, db_name, DB_SUFFIX)
         }
     }
 

@@ -1,5 +1,5 @@
 use super::{WebSocketCallback, WebsocketOption};
-use crate::error::ClientError::{TokenExpired, HTTP};
+use crate::error::ClientError::{self, TokenExpired, HTTP};
 use crate::utils::{elapsed, now_millis, sleep};
 use crate::Result;
 use futures_util::{SinkExt, StreamExt};
@@ -50,7 +50,7 @@ impl WebSocketImpl {
             .add_header(USER_AGENT, crate::USER_AGENT.parse().unwrap())
             .add_header(ACCEPT, "application/json".parse().unwrap())
             .uri(&url)
-            .unwrap();
+            .map_err(|e| ClientError::HTTP(format!("invalid url:{}", e.to_string())))?;
 
         let st = now_millis();
         callback.on_connecting();

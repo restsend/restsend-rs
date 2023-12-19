@@ -62,7 +62,8 @@ impl WebSocketImpl {
         let is_cross_domain = current_host.is_empty() || !url.contains(&current_host);
 
         if is_cross_domain && !opt.token.is_empty() {
-            let mut u = url::Url::parse(&url).unwrap();
+            let mut u = url::Url::parse(&url)
+                .map_err(|_| ClientError::HTTP(format!("url parse fail {}", url)))?;
             u.query_pairs_mut().append_pair("token", &opt.token);
             url = u.to_string();
         }

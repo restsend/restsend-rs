@@ -110,7 +110,12 @@ impl ClientStore {
     // upload or download media
     pub(super) async fn submit_upload(&self, req: PendingRequest) -> crate::Result<PendingRequest> {
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
-        let attachment = req.get_attachment().unwrap();
+        let attachment = match req.get_attachment() {
+            Some(a) => a,
+            None => {
+                return Err(Error::StdError("no attachment".to_string()));
+            }
+        };
 
         let task = Arc::new(UploadTask::new(req, cancel_tx));
         let task_callback = Box::new(UploadTaskCallback { task: task.clone() });

@@ -181,7 +181,10 @@ impl ClientStore {
                 let pending_request = match pending_request.has_attachment() {
                     true => match self.submit_upload(pending_request).await {
                         Ok(req) => req,
-                        Err(_) => return,
+                        Err(e) => {
+                            warn!("submit_upload failed: req_id:{} err:{}", req_id, e);
+                            return ();
+                        }
                     },
                     false => pending_request,
                 };

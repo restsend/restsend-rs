@@ -196,9 +196,12 @@ impl WebSocketCallback for ConnectionInner {
             ChatRequestType::Nop => {
                 return;
             }
-            _ => {
-                self.incoming_tx.send(req).unwrap();
-            }
+            _ => match self.incoming_tx.send(req) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("websocket send to incoming_tx failed: {}", e);
+                }
+            },
         }
     }
 }
