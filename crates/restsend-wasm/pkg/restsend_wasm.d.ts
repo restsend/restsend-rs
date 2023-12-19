@@ -33,196 +33,79 @@ export function enable_logging(level?: string): void;
 export class Client {
   free(): void;
 /**
-* Create a new topic
+* @param {string} endpoint
+* @param {string} userId
+* @param {string} token
+*/
+  constructor(endpoint: string, userId: string, token: string);
+/**
+* @returns {Promise<void>}
+*/
+  shutdown(): Promise<void>;
+/**
+* @returns {Promise<void>}
+*/
+  connect(): Promise<void>;
+/**
+* Get user info
 * #Arguments
-*   name: String,
-*  icon: String,
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
 * #Return
-* * `Topic` || `undefined`
-* @param {(string)[]} members
-* @param {string | undefined} [name]
-* @param {string | undefined} [icon]
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
 * @returns {Promise<any>}
 */
-  createTopic(members: (string)[], name?: string, icon?: string): Promise<any>;
+  getUser(userId: string, blocking?: boolean): Promise<any>;
 /**
-* Get topic info
+* Get multiple users info
 * #Arguments
-* * `topicId` - topic id
+* * `userIds` - Array of user id
 * #Return
-* * `Topic` || `undefined`
-* @param {string} topicId
+* Array of user info
+* @param {(string)[]} userIds
 * @returns {Promise<any>}
 */
-  getTopic(topicId: string): Promise<any>;
+  getUsers(userIds: (string)[]): Promise<any>;
 /**
-* Get topic admins
+* Set user remark name
 * #Arguments
-* * `topicId` - topic id
-* #Return
-* * `Vec<User>` || `undefined`
-* @param {string} topicId
-* @returns {Promise<any>}
-*/
-  getTopicAdmins(topicId: string): Promise<any>;
-/**
-* Get topic owner
-* #Arguments
-* * `topicId` - topic id
-* #Return
-* * `User` || `undefined`
-* @param {string} topicId
-* @returns {Promise<any>}
-*/
-  getTopicOwner(topicId: string): Promise<any>;
-/**
-* Get topic members
-* #Arguments
-* * `topicId` - topic id
-* * `updatedAt` - updated_at
-* * `limit` - limit
-* #Return
-* * `ListUserResult` || `undefined`
-* @param {string} topicId
-* @param {string} updatedAt
-* @param {number} limit
-* @returns {Promise<any>}
-*/
-  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
-/**
-* Get topic knocks
-* #Arguments
-* * `topicId` - topic id
-* #Return
-* * `Vec<TopicKnock>`
-* @param {string} topicId
-* @returns {Promise<any>}
-*/
-  getTopicKnocks(topicId: string): Promise<any>;
-/**
-* Update topic info
-* #Arguments
-* * `topicId` - topic id
-* * `option` - option
-*     * `name` - String
-*     * `icon` - String (url) or base64
-* @param {string} topicId
-* @param {any} option
-* @returns {Promise<void>}
-*/
-  updateTopic(topicId: string, option: any): Promise<void>;
-/**
-* Update topic notice
-* #Arguments
-* * `topicId` - topic id
-* * `text` - notice text
-* @param {string} topicId
-* @param {string} text
-* @returns {Promise<void>}
-*/
-  updateTopicNotice(topicId: string, text: string): Promise<void>;
-/**
-* Silence topic
-* #Arguments
-* * `topicId` - topic id
-* * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-* @param {string} topicId
-* @param {string | undefined} [duration]
-* @returns {Promise<void>}
-*/
-  silentTopic(topicId: string, duration?: string): Promise<void>;
-/**
-* Silent topic member
-* #Arguments
-* * `topicId` - topic id
 * * `userId` - user id
-* * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-* @param {string} topicId
+* * `remark` - remark name
 * @param {string} userId
-* @param {string | undefined} [duration]
+* @param {string} remark
 * @returns {Promise<void>}
 */
-  silentTopicMember(topicId: string, userId: string, duration?: string): Promise<void>;
+  setUserRemark(userId: string, remark: string): Promise<void>;
 /**
-* Add topic admin
+* Set user star
 * #Arguments
-* * `topicId` - topic id
 * * `userId` - user id
-* @param {string} topicId
+* * `star` - star
 * @param {string} userId
+* @param {boolean} star
 * @returns {Promise<void>}
 */
-  addTopicAdmin(topicId: string, userId: string): Promise<void>;
+  setUserStar(userId: string, star: boolean): Promise<void>;
 /**
-* Remove topic admin
+* Set user block
 * #Arguments
-* * `topicId` - topic id
 * * `userId` - user id
-* @param {string} topicId
+* * `block` - block
 * @param {string} userId
+* @param {boolean} block
 * @returns {Promise<void>}
 */
-  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
+  setUserBlock(userId: string, block: boolean): Promise<void>;
 /**
-* Transfer topic
+* Set allow guest chat
 * #Arguments
-* * `topicId` - topic id
-* * `userId` - user id to transfer, the user must be a topic member
-* @param {string} topicId
-* @param {string} userId
+* * `allow` - allow
+* @param {boolean} allow
 * @returns {Promise<void>}
 */
-  transferTopic(topicId: string, userId: string): Promise<void>;
-/**
-* Quit topic
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  quitTopic(topicId: string): Promise<void>;
-/**
-* Dismiss topic
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  dismissTopic(topicId: string): Promise<void>;
-/**
-* Accept topic join
-* #Arguments
-* * `topicId` - topic id
-* * `userId` - user id
-* * `memo` - accept memo
-* @param {string} topicId
-* @param {string} userId
-* @param {string | undefined} [memo]
-* @returns {Promise<void>}
-*/
-  acceptTopicJoin(topicId: string, userId: string, memo?: string): Promise<void>;
-/**
-* Decline topic join
-* #Arguments
-* * `topicId` - topic id
-* * `userId` - user id
-* * `message` - decline message
-* @param {string} topicId
-* @param {string} userId
-* @param {string | undefined} [message]
-* @returns {Promise<void>}
-*/
-  declineTopicJoin(topicId: string, userId: string, message?: string): Promise<void>;
-/**
-* Remove topic member
-* #Arguments
-* * `topicId` - topic id
-* * `userId` - user id
-* @param {string} topicId
-* @param {string} userId
-* @returns {Promise<void>}
-*/
-  removeTopicMember(topicId: string, userId: string): Promise<void>;
+  setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 *
 * Send message with content
@@ -527,63 +410,196 @@ export class Client {
 */
   setConversationRead(topic_id: string): Promise<void>;
 /**
-* Get user info
-* @param {string} userId
-* @returns {any}
-*/
-  getUser(userId: string): any;
-/**
-* Set user remark name
+* Create a new topic
 * #Arguments
+*   name: String,
+*  icon: String,
+* #Return
+* * `Topic` || `undefined`
+* @param {(string)[]} members
+* @param {string | undefined} [name]
+* @param {string | undefined} [icon]
+* @returns {Promise<any>}
+*/
+  createTopic(members: (string)[], name?: string, icon?: string): Promise<any>;
+/**
+* Get topic info
+* #Arguments
+* * `topicId` - topic id
+* #Return
+* * `Topic` || `undefined`
+* @param {string} topicId
+* @returns {Promise<any>}
+*/
+  getTopic(topicId: string): Promise<any>;
+/**
+* Get topic admins
+* #Arguments
+* * `topicId` - topic id
+* #Return
+* * `Vec<User>` || `undefined`
+* @param {string} topicId
+* @returns {Promise<any>}
+*/
+  getTopicAdmins(topicId: string): Promise<any>;
+/**
+* Get topic owner
+* #Arguments
+* * `topicId` - topic id
+* #Return
+* * `User` || `undefined`
+* @param {string} topicId
+* @returns {Promise<any>}
+*/
+  getTopicOwner(topicId: string): Promise<any>;
+/**
+* Get topic members
+* #Arguments
+* * `topicId` - topic id
+* * `updatedAt` - updated_at
+* * `limit` - limit
+* #Return
+* * `ListUserResult` || `undefined`
+* @param {string} topicId
+* @param {string} updatedAt
+* @param {number} limit
+* @returns {Promise<any>}
+*/
+  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
+/**
+* Get topic knocks
+* #Arguments
+* * `topicId` - topic id
+* #Return
+* * `Vec<TopicKnock>`
+* @param {string} topicId
+* @returns {Promise<any>}
+*/
+  getTopicKnocks(topicId: string): Promise<any>;
+/**
+* Update topic info
+* #Arguments
+* * `topicId` - topic id
+* * `option` - option
+*     * `name` - String
+*     * `icon` - String (url) or base64
+* @param {string} topicId
+* @param {any} option
+* @returns {Promise<void>}
+*/
+  updateTopic(topicId: string, option: any): Promise<void>;
+/**
+* Update topic notice
+* #Arguments
+* * `topicId` - topic id
+* * `text` - notice text
+* @param {string} topicId
+* @param {string} text
+* @returns {Promise<void>}
+*/
+  updateTopicNotice(topicId: string, text: string): Promise<void>;
+/**
+* Silence topic
+* #Arguments
+* * `topicId` - topic id
+* * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+* @param {string} topicId
+* @param {string | undefined} [duration]
+* @returns {Promise<void>}
+*/
+  silentTopic(topicId: string, duration?: string): Promise<void>;
+/**
+* Silent topic member
+* #Arguments
+* * `topicId` - topic id
 * * `userId` - user id
-* * `remark` - remark name
+* * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+* @param {string} topicId
 * @param {string} userId
-* @param {string} remark
+* @param {string | undefined} [duration]
 * @returns {Promise<void>}
 */
-  setUserRemark(userId: string, remark: string): Promise<void>;
+  silentTopicMember(topicId: string, userId: string, duration?: string): Promise<void>;
 /**
-* Set user star
+* Add topic admin
 * #Arguments
+* * `topicId` - topic id
 * * `userId` - user id
-* * `star` - star
+* @param {string} topicId
 * @param {string} userId
-* @param {boolean} star
 * @returns {Promise<void>}
 */
-  setUserStar(userId: string, star: boolean): Promise<void>;
+  addTopicAdmin(topicId: string, userId: string): Promise<void>;
 /**
-* Set user block
+* Remove topic admin
 * #Arguments
+* * `topicId` - topic id
 * * `userId` - user id
-* * `block` - block
+* @param {string} topicId
 * @param {string} userId
-* @param {boolean} block
 * @returns {Promise<void>}
 */
-  setUserBlock(userId: string, block: boolean): Promise<void>;
+  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
 /**
-* Set allow guest chat
+* Transfer topic
 * #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
-/**
-* @param {string} endpoint
+* * `topicId` - topic id
+* * `userId` - user id to transfer, the user must be a topic member
+* @param {string} topicId
 * @param {string} userId
-* @param {string} token
-*/
-  constructor(endpoint: string, userId: string, token: string);
-/**
 * @returns {Promise<void>}
 */
-  shutdown(): Promise<void>;
+  transferTopic(topicId: string, userId: string): Promise<void>;
 /**
+* Quit topic
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
 * @returns {Promise<void>}
 */
-  connect(): Promise<void>;
+  quitTopic(topicId: string): Promise<void>;
+/**
+* Dismiss topic
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  dismissTopic(topicId: string): Promise<void>;
+/**
+* Accept topic join
+* #Arguments
+* * `topicId` - topic id
+* * `userId` - user id
+* * `memo` - accept memo
+* @param {string} topicId
+* @param {string} userId
+* @param {string | undefined} [memo]
+* @returns {Promise<void>}
+*/
+  acceptTopicJoin(topicId: string, userId: string, memo?: string): Promise<void>;
+/**
+* Decline topic join
+* #Arguments
+* * `topicId` - topic id
+* * `userId` - user id
+* * `message` - decline message
+* @param {string} topicId
+* @param {string} userId
+* @param {string | undefined} [message]
+* @returns {Promise<void>}
+*/
+  declineTopicJoin(topicId: string, userId: string, message?: string): Promise<void>;
+/**
+* Remove topic member
+* #Arguments
+* * `topicId` - topic id
+* * `userId` - user id
+* @param {string} topicId
+* @param {string} userId
+* @returns {Promise<void>}
+*/
+  removeTopicMember(topicId: string, userId: string): Promise<void>;
 /**
 * get the current connection status
 * return: connecting, connected, net_broken, shutdown
@@ -654,24 +670,6 @@ export class Client {
 */
   onkickoff: any;
 /**
-* Set the callback when receive new message
-* # Arguments
-* * `topicId` String - The topic id
-* * `message` ChatRequest - The message
-* # Return
-* * `true` - If return true, will send `has read` to server
-* # Example
-* ```javascript
-* const client = new Client(endpoint, userId, token);
-* await client.connect();
-* client.onnewmessage = (topicId, message) => {
-* console.log(topicId, message);
-* return true;
-* }
-* ```
-*/
-  onnewmessage: any;
-/**
 * Set the callback when receive system request
 * # Arguments
 *  * `req` - The request object, the return value is the response object
@@ -679,7 +677,7 @@ export class Client {
 * ```javascript
 * const client = new Client(endpoint, userId, token);
 * await client.connect();
-* client.onSystemRequest = (req) => {
+* client.onsystemrequest = (req) => {
 *    if (req.type === 'get') {
 *       return {type:'resp', code: 200}
 *   }
@@ -691,6 +689,24 @@ export class Client {
 * Set the callback when connection token expired
 */
   ontokenexpired: any;
+/**
+* Set the callback when receive new message
+* # Arguments
+* * `topicId` String - The topic id
+* * `message` ChatRequest - The message
+* # Return
+* * `true` - If return true, will send `has read` to server
+* # Example
+* ```javascript
+* const client = new Client(endpoint, userId, token);
+* await client.connect();
+* client.ontopicmessage = (topicId, message) => {
+* console.log(topicId, message);
+* return true;
+* }
+* ```
+*/
+  ontopicmessage: any;
 /**
 * Set the callback when receive read event
 * # Arguments
@@ -715,7 +731,7 @@ export class Client {
 * ```javascript
 * const client = new Client(endpoint, userId, token);
 * await client.connect();
-* client.ontopictyping = (topicId, message) => {
+* client.ontyping = (topicId, message) => {
 *  console.log(topicId, message);
 * }
 * ```

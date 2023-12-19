@@ -5,11 +5,26 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 impl Client {
     /// Get user info
-    pub fn getUser(&self, userId: String) -> JsValue {
+    /// #Arguments
+    /// * `userId` - user id
+    /// * `blocking` - blocking fetch from server
+    /// #Return
+    /// User info
+    pub async fn getUser(&self, userId: String, blocking: Option<bool>) -> JsValue {
         self.inner
-            .get_user(userId)
+            .get_user(userId, blocking.unwrap_or_default())
+            .await
             .map(|v| serde_wasm_bindgen::to_value(&v).expect("get_user failed"))
             .unwrap_or(JsValue::UNDEFINED)
+    }
+    /// Get multiple users info
+    /// #Arguments
+    /// * `userIds` - Array of user id
+    /// #Return
+    /// Array of user info
+    pub async fn getUsers(&self, userIds: Vec<String>) -> JsValue {
+        let users = self.inner.get_users(userIds).await;
+        serde_wasm_bindgen::to_value(&users).expect("get_users failed")
     }
     /// Set user remark name
     /// #Arguments

@@ -3,7 +3,6 @@ use super::{
     Client,
 };
 use crate::{
-    callback::Callback,
     request::{ChatRequest, ChatRequestType},
     utils::{sleep, spwan_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
@@ -210,13 +209,12 @@ impl Client {
         self.state.last_state.lock().unwrap().to_string()
     }
 
-    pub async fn connect(&self, callback: Box<dyn Callback>) {
+    pub async fn connect(&self) {
         serve_connection(
             &self.endpoint,
             &self.token,
             self.store.clone(),
             self.state.clone(),
-            callback,
         )
         .await;
     }
@@ -241,13 +239,9 @@ async fn serve_connection(
     token: &str,
     store: ClientStoreRef,
     state: ConnectStateRef,
-    callback: Box<dyn Callback>,
 ) {
     let url = WebsocketOption::url_from_endpoint(endpoint);
     let opt = WebsocketOption::new(&url, token);
-
-    store.callback.lock().unwrap().replace(callback);
-
     let state_ref = state.clone();
     let store_ref = store.clone();
     let callback_ref = store_ref.callback.clone();

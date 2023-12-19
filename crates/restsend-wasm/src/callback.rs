@@ -131,10 +131,10 @@ pub(super) struct CallbackWasmWrap {
     pub(super) cb_on_system_request: CallbackFunction,
     pub(super) cb_on_unknown_request: CallbackFunction,
     pub(super) cb_on_topic_typing: CallbackFunction,
-    pub(super) cb_on_new_message: CallbackFunction,
+    pub(super) cb_on_topic_message: CallbackFunction,
     pub(super) cb_on_topic_read: CallbackFunction,
     pub(super) cb_on_conversations_updated: CallbackFunction,
-    pub(super) cb_on_conversations_removed: CallbackFunction,
+    pub(super) cb_on_conversation_removed: CallbackFunction,
 }
 unsafe impl Send for CallbackWasmWrap {}
 unsafe impl Sync for CallbackWasmWrap {}
@@ -211,7 +211,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
 
     // if return true, will send `has read` to server
     fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
-        if let Some(cb) = self.cb_on_new_message.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_topic_message.lock().unwrap().as_ref() {
             let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::NULL);
             let result = cb
                 .call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req)
@@ -240,8 +240,8 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
             cb.call1(&JsValue::NULL, &conversations).ok();
         }
     }
-    fn on_conversations_removed(&self, conversatio_id: String) {
-        if let Some(cb) = self.cb_on_conversations_removed.lock().unwrap().as_ref() {
+    fn on_conversation_removed(&self, conversatio_id: String) {
+        if let Some(cb) = self.cb_on_conversation_removed.lock().unwrap().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&conversatio_id))
                 .ok();
         }
@@ -328,7 +328,7 @@ impl Client {
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
     /// await client.connect();
-    /// client.onSystemRequest = (req) => {
+    /// client.onsystemrequest = (req) => {
     ///    if (req.type === 'get') {
     ///       return {type:'resp', code: 200}
     ///   }
@@ -374,7 +374,7 @@ impl Client {
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
     /// await client.connect();
-    /// client.ontopictyping = (topicId, message) => {
+    /// client.ontyping = (topicId, message) => {
     ///  console.log(topicId, message);
     /// }
     /// ```
@@ -397,15 +397,15 @@ impl Client {
     /// ```javascript
     /// const client = new Client(endpoint, userId, token);
     /// await client.connect();
-    /// client.onnewmessage = (topicId, message) => {
+    /// client.ontopicmessage = (topicId, message) => {
     /// console.log(topicId, message);
     /// return true;
     /// }
     /// ```
     #[wasm_bindgen(setter)]
-    pub fn set_onnewmessage(&self, cb: JsValue) {
+    pub fn set_ontopicmessage(&self, cb: JsValue) {
         if cb.is_function() {
-            self.cb_on_new_message
+            self.cb_on_topic_message
                 .lock()
                 .unwrap()
                 .replace(js_sys::Function::from(cb));
@@ -466,7 +466,7 @@ impl Client {
     #[wasm_bindgen(setter)]
     pub fn set_onconversationsremoved(&self, cb: JsValue) {
         if cb.is_function() {
-            self.cb_on_conversations_removed
+            self.cb_on_conversation_removed
                 .lock()
                 .unwrap()
                 .replace(js_sys::Function::from(cb));

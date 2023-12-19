@@ -198,11 +198,7 @@ impl Attachment {
         is_private: bool,
         size: i64,
     ) -> Self {
-        #[cfg(target_family = "wasm")]
-        use wasm_bindgen::JsCast;
-
         let file_name = file_name.unwrap_or("<blob>".to_string());
-
         Attachment {
             file_name: file_name.clone(),
             file_path: file_name,

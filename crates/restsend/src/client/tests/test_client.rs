@@ -86,7 +86,8 @@ async fn test_client_connected() {
         is_update_conversation: Arc::new(AtomicBool::new(false)),
     });
 
-    c.connect(callback).await;
+    c.set_callback(Some(callback));
+    c.connect().await;
 
     check_until(Duration::from_secs(3), || {
         is_connected.load(Ordering::Relaxed)
@@ -118,7 +119,8 @@ async fn test_client_send_message() {
         is_update_conversation: is_update_conversation.clone(),
     });
 
-    c.connect(callback).await;
+    c.set_callback(Some(callback));
+    c.connect().await;
     check_until(Duration::from_secs(3), || {
         is_connected.load(Ordering::Relaxed)
     })

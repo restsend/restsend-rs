@@ -51,7 +51,6 @@ impl Client {
             Some(v) => v,
             None => return Err(JsValue::from_str("invalid content format")),
         };
-
         self.inner
             .do_send(
                 topicId,

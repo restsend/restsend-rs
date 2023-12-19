@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
 use crate::storage::Storage;
@@ -42,26 +44,65 @@ impl ClientStore {
         set_user_block(&self.endpoint, &self.token, &user_id, block).await
     }
 
-    pub fn get_user(&self, user_id: &str) -> Option<User> {
-        let t = self.message_storage.table::<User>("users");
-        let u = t.get("", user_id).unwrap_or(User::new(user_id));
-        if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
-            let endpoint = self.endpoint.clone();
-            let token = self.token.clone();
-            let user_id = user_id.to_string();
-            let message_storage = self.message_storage.clone();
-            spwan_task(async move {
-                match get_user(&endpoint, &token, &user_id).await {
-                    Ok(user) => {
-                        update_user_with_storage(&message_storage, user).ok();
-                    }
-                    Err(e) => {
-                        warn!("get_user failed user_id:{} error:{:?}", user_id, e);
-                    }
-                }
-            });
+    pub async fn get_user(&self, user_id: &str, blocking: bool) -> Option<User> {
+        let u = {
+            let t = self.message_storage.table::<User>("users");
+            t.get("", user_id).unwrap_or(User::new(user_id))
+        };
+
+        if !(u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS)) {
+            return Some(u);
         }
-        Some(u)
+
+        let endpoint = self.endpoint.clone();
+        let token = self.token.clone();
+        let user_id = user_id.to_string();
+        let message_storage = self.message_storage.clone();
+        let runner = async move {
+            match get_user(&endpoint, &token, &user_id).await {
+                Ok(user) => update_user_with_storage(&message_storage, user).ok(),
+                Err(e) => {
+                    warn!("get_user failed user_id:{} error:{:?}", user_id, e);
+                    None
+                }
+            }
+        };
+
+        if blocking {
+            Some(runner.await.unwrap_or(u))
+        } else {
+            spwan_task(async {
+                runner.await;
+            });
+            Some(u)
+        }
+    }
+
+    pub async fn get_users(&self, user_ids: Vec<String>) -> Vec<User> {
+        let mut missing_ids = vec![];
+        let mut pending_users = HashMap::new();
+        {
+            let t = self.message_storage.table::<User>("users");
+            for user_id in user_ids {
+                let u = t.get("", &user_id).unwrap_or(User::new(&user_id));
+                if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+                    missing_ids.push(user_id.clone());
+                }
+                pending_users.insert(user_id, u);
+            }
+        }
+
+        match get_users(&self.endpoint, &self.token, missing_ids).await {
+            Ok(us) => {
+                for u in us {
+                    pending_users.insert(u.user_id.clone(), u);
+                }
+            }
+            Err(e) => {
+                warn!("get_users failed: {:?}", e);
+            }
+        }
+        pending_users.values().cloned().collect()
     }
 
     pub async fn fetch_user(&self, user_id: &str) -> Result<User> {

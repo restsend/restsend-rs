@@ -45,7 +45,7 @@ impl Client {
     ///     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
     ///     * `onerror` - onerror callback -> function (error: String)
     pub async fn syncChatLogs(&self, topicId: String, lastSeq: i64, option: JsValue) {
-        let limit = (js_util::get_f64(&option, "limit") as u32).max(100);
+        let limit = js_util::get_f64(&option, "limit") as u32;
         self.inner.sync_chat_logs(
             topicId,
             lastSeq,
@@ -64,7 +64,7 @@ impl Client {
     ///         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
     ///    * `onerror` - onerror callback -> function (error: String)
     pub async fn syncConversations(&self, option: JsValue) {
-        let limit = (js_util::get_f64(&option, "limit") as u32).max(100);
+        let limit = js_util::get_f64(&option, "limit") as u32;
         self.inner.sync_conversations(
             get_string(&option, "updatedAt"),
             limit,

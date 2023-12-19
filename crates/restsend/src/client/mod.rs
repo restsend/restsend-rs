@@ -3,7 +3,7 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::DownloadCallback,
+    callback::{Callback, DownloadCallback},
     error::ClientError,
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
@@ -79,8 +79,16 @@ impl Client {
         })
     }
 
-    pub fn get_user(&self, user_id: String) -> Option<User> {
-        self.store.get_user(&user_id)
+    pub fn set_callback(&self, callback: Option<Box<dyn Callback>>) {
+        *self.store.callback.lock().unwrap() = callback;
+    }
+
+    pub async fn get_user(&self, user_id: String, blocking: bool) -> Option<User> {
+        self.store.get_user(&user_id, blocking).await
+    }
+
+    pub async fn get_users(&self, user_ids: Vec<String>) -> Vec<User> {
+        self.store.get_users(user_ids).await
     }
 
     pub async fn set_user_remark(&self, user_id: String, remark: String) -> Result<()> {

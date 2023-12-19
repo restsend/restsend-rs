@@ -8,7 +8,7 @@ use crate::Result;
 use log::info;
 use reqwest::multipart;
 use std::time::Duration;
-use tokio::sync::mpsc::unbounded_channel;
+//use tokio::sync::mpsc::unbounded_channel;
 use tokio::sync::oneshot;
 use wasm_bindgen_futures::JsFuture;
 
@@ -19,7 +19,7 @@ pub async fn upload_file(
     callback: Box<dyn UploadCallback>,
     _cancel: oneshot::Receiver<()>,
 ) -> Result<Option<Upload>> {
-    let (_, mut progress_rx) = unbounded_channel::<(u64, u64)>();
+    // let (_, mut progress_rx) = unbounded_channel::<(u64, u64)>();
     let file_stream = attachment.file.unwrap();
     let total = file_stream.size() as u64;
 

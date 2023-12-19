@@ -22,11 +22,14 @@ const REQ_ID_LEN: usize = 12;
 const TEMP_FILENAME_LEN: usize = 12;
 
 const MAX_RECALL_SECS: i64 = 2 * 60; // 2 minutes
-#[allow(unused)]
-const MAX_ATTACHMENT_CONCURRENT: usize = 12;
+const MAX_CONVERSATION_LIMIT: u32 = 100;
+const MAX_LOGS_LIMIT: u32 = 100;
 const MAX_RETRIES: usize = 3;
 const MAX_SEND_IDLE_SECS: u64 = 120; // 2 minutes
 const MAX_CONNECT_INTERVAL_SECS: u64 = 5; // 5 seconds
+#[allow(unused)]
+const MAX_ATTACHMENT_CONCURRENT: usize = 12;
+
 const KEEPALIVE_INTERVAL_SECS: u64 = 50; // 50 seconds
 const MEDIA_PROGRESS_INTERVAL: u128 = 300; // 300ms to update progress
 const CONVERSATION_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds

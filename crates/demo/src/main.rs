@@ -38,6 +38,7 @@ async fn main() {
         is_connected: is_connected.clone(),
     });
 
-    c.connect(callback).await;
+    c.set_callback(Some(callback));
+    c.connect().await;
     is_connected.notified().await;
 }

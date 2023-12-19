@@ -16,7 +16,7 @@ pub async fn get_user(endpoint: &str, token: &str, user_id: &str) -> Result<User
 
 pub async fn get_users(endpoint: &str, token: &str, user_ids: Vec<String>) -> Result<Vec<User>> {
     let data = serde_json::json!({
-        "userIds": user_ids,
+        "ids": user_ids,
     })
     .to_string();
 

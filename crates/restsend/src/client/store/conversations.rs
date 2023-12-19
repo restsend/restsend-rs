@@ -107,7 +107,7 @@ impl ClientStore {
                     .lock()
                     .unwrap()
                     .as_ref()
-                    .map(|cb| cb.on_conversations_removed(topic_id.to_string()));
+                    .map(|cb| cb.on_conversation_removed(topic_id.to_string()));
             }
             Err(e) => {
                 warn!("remove_conversation failed: {:?}", e);

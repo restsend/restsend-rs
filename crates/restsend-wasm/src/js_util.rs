@@ -93,17 +93,16 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
 }
 
 pub fn js_value_to_content(obj: JsValue) -> Option<Content> {
-    let attachment = js_sys::Reflect::get(&obj, &JsValue::from_str("attachment"))
-        .map(|v| js_value_to_attachment(&v).unwrap_or_default())
-        .ok();
+    let attachment = match js_sys::Reflect::get(&obj, &JsValue::from_str("attachment")) {
+        Ok(v) => js_value_to_attachment(&v),
+        Err(_) => None,
+    };
 
     let mut content = match serde_wasm_bindgen::from_value::<Content>(obj).ok() {
         Some(v) => v,
         None => return None,
     };
 
-    if let Some(attachment) = attachment {
-        content.attachment = Some(attachment);
-    }
+    content.attachment = attachment;
     Some(content)
 }

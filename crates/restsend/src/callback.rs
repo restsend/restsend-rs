@@ -29,7 +29,7 @@ pub trait Callback: Send + Sync {
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
-    fn on_conversations_removed(&self, conversatio_id: String) {}
+    fn on_conversation_removed(&self, conversatio_id: String) {}
 }
 
 #[allow(unused_variables)]
