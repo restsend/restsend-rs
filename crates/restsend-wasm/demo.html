@@ -79,6 +79,7 @@
             },
 
             onConversationsUpdated: function (items) {
+                let hintCurrent = undefined
                 items.forEach((item) => {
                     let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
                     if (item.multiple) {
@@ -93,14 +94,18 @@
 
                         item.messageBlocks = prev.messageBlocks
                         item.msgs = prev.msgs
+
                         this.conversations.unshift(item)
                     } else {
                         this.conversations.push(item)
                     }
+                    if (this.conversation && this.conversation.topicId == item.topicId) {
+                        hintCurrent = item
+                    }
                 })
 
-                if (this.conversation) {
-                    this.onSelectConversation(this.conversation)
+                if (this.conversation && hintCurrent) {
+                    this.onSelectConversation(hintCurrent)
                 }
             },
 
@@ -116,7 +121,7 @@
             },
 
             onSelectConversation: function (conversation) {
-                this.conversation = conversation;
+                this.conversation = conversation
                 this.current.syncChatLogs(conversation.topicId, conversation.lastSeq, {
                     onsuccess: (r) => {
                         this.appendMessages(conversation, r.items);
