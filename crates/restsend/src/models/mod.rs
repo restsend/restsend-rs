@@ -11,6 +11,7 @@ where
 
 #[derive(Debug, Serialize)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+#[serde(rename_all = "camelCase")]
 pub struct GetChatLogsResult {
     pub has_more: bool,
     pub start_seq: i64,
@@ -20,6 +21,7 @@ pub struct GetChatLogsResult {
 
 #[derive(Debug, Serialize)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+#[serde(rename_all = "camelCase")]
 pub struct GetConversationsResult {
     pub updated_at: String,
     pub items: Vec<Conversation>,

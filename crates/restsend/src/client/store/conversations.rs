@@ -10,7 +10,7 @@ use crate::{
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
-use log::{info, warn};
+use log::{debug, warn};
 
 pub(crate) fn update_conversation_with_storage(
     message_storage: Arc<Storage>,
@@ -234,7 +234,7 @@ impl ClientStore {
     ) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
 
-        info!(
+        debug!(
             "update_outoing_chat_log_state: topic_id: {} chat_id: {}, status: {:?} seq: {:?}",
             topic_id, chat_id, status, seq
         );

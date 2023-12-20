@@ -1,6 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
+export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
+export function logout(a: number, b: number, c: number, d: number): number;
 export function client_createTopic(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function client_getTopic(a: number, b: number, c: number): number;
 export function client_getTopicAdmins(a: number, b: number, c: number): number;
@@ -19,9 +22,17 @@ export function client_dismissTopic(a: number, b: number, c: number): number;
 export function client_acceptTopicJoin(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function client_declineTopicJoin(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function client_removeTopicMember(a: number, b: number, c: number, d: number, e: number): number;
-export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
-export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
-export function logout(a: number, b: number, c: number, d: number): number;
+export function client_getUser(a: number, b: number, c: number, d: number): number;
+export function client_getUsers(a: number, b: number, c: number): number;
+export function client_setUserRemark(a: number, b: number, c: number, d: number, e: number): number;
+export function client_setUserStar(a: number, b: number, c: number, d: number): number;
+export function client_setUserBlock(a: number, b: number, c: number, d: number): number;
+export function client_setAllowGuestChat(a: number, b: number): number;
+export function __wbg_client_free(a: number): void;
+export function client_new(a: number): number;
+export function client_connectionStatus(a: number, b: number): void;
+export function client_shutdown(a: number): number;
+export function client_connect(a: number): number;
 export function client_set_onconnected(a: number, b: number): void;
 export function client_set_onconnecting(a: number, b: number): void;
 export function client_set_ontokenexpired(a: number, b: number): void;
@@ -45,17 +56,6 @@ export function client_setConversationSticky(a: number, b: number, c: number, d:
 export function client_setConversationMute(a: number, b: number, c: number, d: number): number;
 export function client_setConversationRead(a: number, b: number, c: number): number;
 export function setLogging(a: number, b: number): void;
-export function __wbg_client_free(a: number): void;
-export function client_new(a: number): number;
-export function client_connectionStatus(a: number, b: number): void;
-export function client_shutdown(a: number): number;
-export function client_connect(a: number): number;
-export function client_getUser(a: number, b: number, c: number, d: number): number;
-export function client_getUsers(a: number, b: number, c: number): number;
-export function client_setUserRemark(a: number, b: number, c: number, d: number, e: number): number;
-export function client_setUserStar(a: number, b: number, c: number, d: number): number;
-export function client_setUserBlock(a: number, b: number, c: number, d: number): number;
-export function client_setAllowGuestChat(a: number, b: number): number;
 export function client_doSend(a: number, b: number, c: number, d: number, e: number): number;
 export function client_doTyping(a: number, b: number, c: number): number;
 export function client_doRecall(a: number, b: number, c: number, d: number, e: number, f: number): number;

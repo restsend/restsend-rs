@@ -27,6 +27,9 @@ pub async fn get_conversations(
         .map(|mut lr: ListConversationResult| {
             lr.items.iter_mut().for_each(|c| {
                 c.cached_at = now;
+                if !c.icon.is_empty() && !c.icon.starts_with("http") {
+                    c.icon = format!("{}{}", endpoint.trim_end_matches('/'), c.icon);
+                }
             });
             lr
         })
@@ -37,6 +40,9 @@ pub async fn get_conversation(endpoint: &str, token: &str, topic_id: &str) -> Re
         .await
         .map(|mut c: Conversation| {
             c.cached_at = now_millis();
+            if !c.icon.is_empty() && !c.icon.starts_with("http") {
+                c.icon = format!("{}{}", endpoint.trim_end_matches('/'), c.icon);
+            }
             c
         })
 }

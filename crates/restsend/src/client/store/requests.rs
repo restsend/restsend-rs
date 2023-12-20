@@ -30,7 +30,11 @@ impl ClientStore {
         req: ChatRequest,
         callback: CallbackRef,
     ) -> Vec<Option<ChatRequest>> {
-        info!("process_incoming: {:?}", req);
+        info!(
+            "process_incoming, type:{} topic_id:{} seq:{} code:{}",
+            req.r#type, req.topic_id, req.seq, req.code
+        );
+
         let topic_id = req.topic_id.clone();
         let chat_id = req.chat_id.clone();
         let ack_seq = req.seq.clone();
@@ -154,9 +158,17 @@ impl ClientStore {
         }
     }
 
-    pub async fn handle_send_success(&self, req_id: &str) {
-        // TODO: update database status
-        debug!("handle_send_success: {}", req_id);
+    pub async fn handle_send_success(
+        &self,
+        req_id: &str,
+        topic_id: &str,
+        req_type: &str,
+        code: u32,
+    ) {
+        info!(
+            "handle_send_success type:{} topic_id:{} req_id:{} code:{}",
+            req_type, topic_id, req_id, code
+        );
     }
 
     pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
@@ -169,7 +181,7 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
-        info!("add_pending_request: {:?}", req);
+        debug!("add_pending_request: {:?}", req);
         let req_id = req.id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {

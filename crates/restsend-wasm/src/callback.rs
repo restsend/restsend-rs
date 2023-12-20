@@ -217,10 +217,8 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
                 .call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req)
                 .ok();
             if let Some(result) = result {
-                if let Ok(result) = result.dyn_into::<JsValue>() {
-                    if let Ok(result) = serde_wasm_bindgen::from_value(result) {
-                        return result;
-                    }
+                if let Ok(result) = serde_wasm_bindgen::from_value(result) {
+                    return result;
                 }
             }
         }

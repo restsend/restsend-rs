@@ -271,12 +271,20 @@ async fn serve_connection(
 
                 let sender_loop = async {
                     while let Some(message) = outgoing_rx.recv().await {
-                        if let Err(_) = conn.send((&message).into()).await {
+                        if let Err(e) = conn.send((&message).into()).await {
+                            warn!("send fail {:?}", e);
                             store_ref.handle_send_fail(&message.id).await;
                             break;
                         }
                         state_ref.did_sent_or_recvived();
-                        store_ref.handle_send_success(&message.id).await;
+                        store_ref
+                            .handle_send_success(
+                                &message.id,
+                                &message.topic_id,
+                                &message.r#type,
+                                message.code,
+                            )
+                            .await;
                     }
                 };
 
@@ -335,9 +343,17 @@ async fn serve_connection(
                         for resp in resps {
                             if let Some(resp) = resp {
                                 if let Err(e) = conn.send((&resp).into()).await {
-                                    warn!("websocket send failed: {}", e);
+                                    warn!("websocket send failed: {:?}", e);
                                     break;
                                 }
+                                store_ref
+                                    .handle_send_success(
+                                        &resp.id,
+                                        &resp.topic_id,
+                                        &resp.r#type,
+                                        resp.code,
+                                    )
+                                    .await;
                             }
                         }
                     }

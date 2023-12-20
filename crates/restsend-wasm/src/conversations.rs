@@ -1,9 +1,8 @@
+use super::Client;
 use crate::{
     callback::{SyncChatLogsCallbackWasmWrap, SyncConversationsCallbackWasmWrap},
     js_util::{self, get_string},
 };
-
-use super::Client;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -39,16 +38,16 @@ impl Client {
     /// Sync chat logs from server
     /// #Arguments
     /// * `topicId` - topic id
-    /// * `lastSeq` - last seq
+    /// * `lastSeq` - Number, last seq
     /// * `option` - option
     ///     * `limit` - limit
     ///     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
     ///     * `onerror` - onerror callback -> function (error: String)
-    pub async fn syncChatLogs(&self, topicId: String, lastSeq: i64, option: JsValue) {
+    pub async fn syncChatLogs(&self, topicId: String, lastSeq: JsValue, option: JsValue) {
         let limit = js_util::get_f64(&option, "limit") as u32;
         self.inner.sync_chat_logs(
             topicId,
-            lastSeq,
+            lastSeq.as_f64().unwrap_or_default() as i64,
             limit,
             Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
         )
@@ -101,14 +100,14 @@ impl Client {
     /// #Arguments
     /// * `topicId` - topic id
     /// * `mute` - mute
-    pub async fn setConversationMute(&self, topic_id: String, mute: bool) {
-        self.inner.set_conversation_mute(topic_id, mute).await
+    pub async fn setConversationMute(&self, topicId: String, mute: bool) {
+        self.inner.set_conversation_mute(topicId, mute).await
     }
 
     /// Set conversation read by topicId
     /// #Arguments
     /// * `topicId` - topic id
-    pub async fn setConversationRead(&self, topic_id: String) {
-        self.inner.set_conversation_read(topic_id).await
+    pub async fn setConversationRead(&self, topicId: String) {
+        self.inner.set_conversation_read(topicId).await
     }
 }

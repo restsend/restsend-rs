@@ -9,6 +9,7 @@ use restsend_macros::export_wasm_or_ffi;
 
 #[cfg(not(target_family = "wasm"))]
 pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Result<Attachment> {
+    use log::warn;
     use std::io::Write;
 
     let file_path = Client::temp_path(root_path, Some("history_*.json".to_string()));
@@ -20,11 +21,9 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
 
     drop(file);
 
-    log::warn!(
+    warn!(
         "save logs file_path:{} size:{} file:{:?}",
-        file_path,
-        file_size,
-        file_path
+        file_path, file_size, file_path
     );
     Ok(Attachment::from_local(file_name, &file_path, false))
 }

@@ -151,7 +151,7 @@ impl WebSocketImpl {
 
         self.ws.lock().unwrap().replace(ws);
         close_rx.await.ok();
-        log::warn!("websocket closed: lifetime:{:?}", elapsed(st));
+        warn!("websocket closed: lifetime:{:?}", elapsed(st));
         Ok(())
     }
 }

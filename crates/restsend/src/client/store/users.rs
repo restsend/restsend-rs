@@ -145,28 +145,10 @@ impl ClientStore {
         user_id: &str,
         profile: Option<User>,
     ) -> Result<()> {
-        match profile {
-            Some(profile) => {
-                self.update_user(profile).ok();
-            }
-            None => {
-                let endpoint = self.endpoint.clone();
-                let token = self.token.clone();
-                let user_id = user_id.to_string();
-                let message_storage = self.message_storage.clone();
-
-                spwan_task(async move {
-                    match get_user(&endpoint, &token, &user_id).await {
-                        Ok(user) => {
-                            update_user_with_storage(&message_storage, user).ok();
-                        }
-                        Err(e) => {
-                            warn!("get_user failed user_id:{} error:{:?}", user_id, e);
-                        }
-                    }
-                });
-            }
-        }
+        let _ = match profile {
+            Some(profile) => self.update_user(profile)?,
+            None => self.fetch_user(&user_id).await?,
+        };
         Ok(())
     }
 

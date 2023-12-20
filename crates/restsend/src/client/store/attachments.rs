@@ -8,6 +8,7 @@ use crate::{
     utils::now_millis,
     MEDIA_PROGRESS_INTERVAL,
 };
+use log::{info, warn};
 use std::sync::{
     atomic::{AtomicI64, Ordering},
     Arc, Mutex,
@@ -54,15 +55,13 @@ impl UploadTask {
         let mut pending = match pending {
             Some(p) => p,
             None => {
-                log::warn!("upload success but pending request is none");
+                warn!("upload success but pending request is none");
                 return;
             }
         };
-        log::info!(
+        info!(
             "upload success: file: {} size: {} url: {}",
-            result.file_name,
-            result.size,
-            result.path
+            result.file_name, result.size, result.path
         );
 
         let content = pending.req.content.as_mut().unwrap();

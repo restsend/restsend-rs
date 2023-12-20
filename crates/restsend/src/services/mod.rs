@@ -3,7 +3,7 @@ use crate::utils::{elapsed, now_millis};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
-use log::{info, warn};
+use log::{debug, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     ClientBuilder, RequestBuilder, Response,
@@ -139,7 +139,7 @@ where
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
     let status = resp.status();
 
-    info!(
+    debug!(
         "api url:{} status:{} usage: {:?}",
         resp.url().to_string(),
         status,

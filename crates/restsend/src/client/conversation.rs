@@ -58,7 +58,8 @@ impl Client {
         limit: u32,
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
-        let limit = limit.min(MAX_LOGS_LIMIT);
+        let limit = limit.max(MAX_LOGS_LIMIT);
+
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
                 if local_logs.items.len() == limit as usize {

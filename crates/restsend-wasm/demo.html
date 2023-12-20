@@ -6,8 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://unpkg.com/alpinejs" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
 
-<body class="h-full  bg-gray-100">
+<body class="bg-gray-100">
     <script>
         const demoApp = {
             endpoint: 'https://chat.ruzhila.cn',
@@ -16,12 +17,15 @@
             logs: [],
             current: null,
             conversations: [],
+            conversation: null,
+            message: '',
+            self: null,
             init: async function () {
                 var wasm = await import("./pkg/restsend_wasm.js");
                 window.signin = wasm.signin;
                 window.Client = wasm.Client;
 
-                wasm.setLogging('debug');
+                wasm.setLogging('info');
 
                 console.info = (text) => this.logText(text, 'info')
                 console.debug = (text) => this.logText(text, 'debug')
@@ -30,62 +34,184 @@
                 console.log('init wasm')
             },
 
+            getAvatar(userId) {
+                let endpoint = this.endpoint.trimEnd('/');
+                return `${endpoint}/api/avatar/${userId}`;
+            },
+
             logText: function (text) {
                 this.logs.push(text)
+            },
+            timeAgo: function (time) {
+                return moment(time).fromNow();
             },
             doSignin: async function () {
                 if (this.current) {
                     this.current.shutdown();
                     this.conversations = [];
+                    this.conversation = null;
                 }
 
-                let info = await signin(this.endpoint, this.userid, this.password);
+                let endpoint = this.endpoint.trimEnd('/');
+                let info = await signin(endpoint, this.userid, this.password);
+                this.self = info.userId
+
                 client = new Client(info);
-                client.onconnected = async () => {
+                client.onconnected = () => {
                     // syncs conversations
-                    await this.doSyncConversations()
+                    this.doSyncConversations().then()
                 }
-                client.onconversationsupdated = (items) => {
-                    console.log(`conversations updated: `, items)
-                    try {
-                        items.forEach((item) => {
-                            let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
-                            if (index >= 0) {
-                                this.conversations.splice(index, 1, item);
-                            }
-                            // push to the front 
-                            this.conversations.unshift(item);
-                        })
-                    } catch (e) {
-                        console.error(e)
-                    }
-                }
+
+                client.onconversationsupdated = this.onConversationsUpdated.bind(this)
+                client.ontopicmessage = this.onTopicMessage.bind(this)
                 await client.connect();
                 this.current = client;
             },
 
-            doSyncConversations: async function () {
+            onTopicMessage: function (topicId, req) {
+                if (this.conversation) {
+                    if (topicId == this.conversation.topicId) {
+                        // set read
+                        return true
+                    }
+                }
+                return false
+            },
+
+            onConversationsUpdated: function (items) {
+                items.forEach((item) => {
+                    let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
+                    if (item.multiple) {
+                        item.title = `${item.name || item.topicId}(${item.members})`
+                    } else {
+                        item.title = item.name || item.attendee
+                    }
+
+                    if (index >= 0) {
+                        let prev = this.conversations[index]
+                        this.conversations.splice(index, 1);
+
+                        item.messageBlocks = prev.messageBlocks
+                        item.msgs = prev.msgs
+                        this.conversations.unshift(item)
+                    } else {
+                        this.conversations.push(item)
+                    }
+                })
+
+                if (this.conversation) {
+                    this.onSelectConversation(this.conversation)
+                }
+            },
+
+            doSyncConversations: function () {
                 this.current.syncConversations({
                     onsuccess: (updatedAt, count) => {
-                        //this.conversations = conversations;
                         this.logText(`sync conversations success: ${count}`)
                     },
                     onfail: (reason) => {
                         this.logText(`sync conversations failed: ${reason}`)
                     }
-                });
+                }).then();
             },
 
-            doTestMessage: async function () {
-                await client.doSendText('bob:alice', 'hello web demo', {
+            onSelectConversation: function (conversation) {
+                this.conversation = conversation;
+                this.current.syncChatLogs(conversation.topicId, conversation.lastSeq, {
+                    onsuccess: (r) => {
+                        this.appendMessages(conversation, r.items);
+                        // scroll to bottom
+                        setTimeout(() => {
+                            const el = document.getElementById('messages')
+                            if (el) {
+                                el.scrollTop = el.scrollHeight
+                            }
+                        }, 0)
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync messages failed: ${reason}`)
+                    }
+                }).then();
+            },
+
+            appendMessages(conversation, items) {
+                if (!conversation.messageBlocks) {
+                    conversation.messageBlocks = [];
+                }
+                if (!conversation.msgs) {
+                    conversation.msgs = {}
+                }
+
+                let msgs = conversation.msgs
+                let blocks = conversation.messageBlocks;
+                let lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+                let lastItem = lastBlock ? lastBlock.items.length > 0 ? lastBlock.items[lastBlock.items.length - 1] : undefined : undefined
+                for (let idx = items.length - 1; idx >= 0; idx--) {
+                    const item = items[idx];
+                    if (msgs[item.id]) {
+                        continue
+                    }
+                    msgs[item.id] = item
+                    if (!lastBlock || lastBlock.senderId != item.senderId) {
+                        lastBlock = {
+                            title: item.senderId,
+                            avatar: this.getAvatar(item.senderId),
+                            isSelf: item.senderId == this.self,
+                            senderId: item.senderId,
+                            items: []
+                        };
+                        blocks.push(lastBlock);
+
+                    }
+                    if (lastItem) {
+                        lastItem.isLast = lastBlock.items.length == 0
+                    }
+
+                    lastItem = {
+                        type: item.content.type,
+                        content: this.renderContent(item.content),
+                        isLast: false,
+                    }
+                    lastBlock.items.push(lastItem)
+                }
+
+                if (lastItem) {
+                    lastItem.isLast = true
+                }
+            },
+
+            renderContent(content) {
+                if (content.type == 'image') {
+                    let url = content.thumbnail || content.text;
+                    return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
+                }
+                return content.text
+            },
+
+            getMessageClass(block, item) {
+                let classList = []
+                if (item.isLast === true) {
+                    classList.push(block.isSelf ? 'rounded-br-none' : 'rounded-bl-none')
+                }
+                if (block.isSelf) {
+                    classList.push(item.type == 'image' ? '' : 'bg-blue-600 text-white')
+                } else {
+                    classList.push(item.type == 'image' ? '' : 'bg-gray-300 text-gray-600')
+                }
+                return classList.join(' ')
+            },
+
+            doSendMessage: async function () {
+                if (!this.message || !this.conversation) {
+                    return
+                }
+                let thisPtr = this;
+                await client.doSendText(this.conversation.topicId, this.message, {
                     onack: function (req) {
-                        logText(`onack : ${JSON.stringify(req)}`);
+                        thisPtr.message = ''
                     },
-                    onsent: function () {
-                        logText('onsent');
-                    },
-                    onfail: function () {
-                        logText('onfailed');
+                    onfail: function (reason) {
+                        logText(`send message fail ${reason}`)
                     }
                 });
             }
@@ -114,6 +240,8 @@
                 }
             });
         }
+
+
     </script>
     <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
         <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->
@@ -148,37 +276,111 @@
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
                 <div
-                    class="border-b border-gray-200 px-4 py-6 sm:px-6 lg:pl-8 xl:w-64 xl:shrink-0 xl:border-b-0 xl:border-r xl:pl-6">
+                    class="border-b border-gray-200 px-2 py-6 sm:px-6 lg:pl-8 xl:w-72 xl:shrink-0 xl:border-b-0 xl:border-r xl:pl-6">
                     <template x-for="item in conversations">
-                        <li class="flex justify-between py-5">
+                        <li class="flex justify-between py-3 hover:bg-gray-200 rounded-md cursor-pointer"
+                            @click="onSelectConversation(item)">
                             <div class="flex min-w-0 items-center">
                                 <img class="h-8 w-8 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
                             </div>
                             <div class="hidden shrink-0 sm:flex sm:flex-col sm:items-end">
-                                <p class="text-sm leading-6 text-gray-900" x-text="item.topicId"></p>
+                                <p class="text-sm leading-6 text-gray-900" x-text="item.title"></p>
                                 <p class="mt-1 text-xs leading-5 text-gray-500"><time :datetime="item.updatedAt"
-                                        x-text="item.updatedAt"></time></p>
+                                        x-text="timeAgo(item.updatedAt)"></time></p>
                             </div>
                         </li>
                     </template>
                 </div>
 
-                <div class="px-4 py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
-                    <div class="overflow-hidden rounded-lg bg-white shadow">
-                        <div class="px-4 py-5 sm:p-6">
-                            <!-- Content goes here -->
+                <div class="h-screen px-4 py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
+                    <template x-if="conversation">
+                        <div class="overflow-hidden rounded-lg bg-white shadow">
+                            <div class="flex-1 p:2 sm:p-4 justify-between flex flex-col">
+                                <div class="flex sm:items-center justify-between border-b-2 border-gray-200">
+                                    <div class="relative flex items-center space-x-4">
+                                        <div class="relative">
+                                            <img :src="conversation.icon" alt=""
+                                                class="w-10 sm:w-10 h-10 sm:h-10 rounded-full">
+                                        </div>
+                                        <div class="flex flex-col leading-tight">
+                                            <div class="text-xl mt-1 flex items-center">
+                                                <span class="text-gray-700 mr-3" x-text="conversation.title"></span>
+                                            </div>
+                                            <span class="text text-gray-600" x-text="conversation.topicId"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="messages"
+                                    class="flex flex-col space-y-4 p-3 overflow-y-auto h-96 scrollbar-w-2 scrolling-touch">
+                                    <template x-for="block in conversation.messageBlocks">
+                                        <div class="chat-message">
+                                            <div class="flex items-end" :class="block.isSelf?'justify-end':''">
+                                                <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2"
+                                                    :class="block.isSelf?'order-1 items-end':'order-2 items-start'">
+                                                    <template x-for="item in block.items">
+                                                        <div>
+                                                            <span class="px-4 py-2 rounded-lg inline-block"
+                                                                :class="getMessageClass(block, item)"
+                                                                x-html="item.content">
+                                                            </span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                                <img :src="block.avatar" :alt="block.title" class="w-6 h-6 rounded-full"
+                                                    :class="block.isSelf?'order-2':'order-1'">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="border-t-2 border-gray-200 px-4 pt-4 mb-2 sm:mb-0">
+                                    <div class="relative flex">
+                                        <input type="text" placeholder="Write your message!" x-model="message"
+                                            class="w-full focus:outline-none focus:placeholder-gray-400 text-gray-600 placeholder-gray-600 pl-2 bg-gray-200 rounded-md py-3">
+                                        <div class="absolute right-0 items-center inset-y-0 hidden sm:flex">
+                                            <button type="button"
+                                                class="inline-flex items-center justify-center rounded-full h-10 w-10 transition duration-500 ease-in-out text-gray-500 hover:bg-gray-300 focus:outline-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke="currentColor" class="h-6 w-6 text-gray-600">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                            <button type="button"
+                                                class="inline-flex items-center justify-center rounded-full h-10 w-10 transition duration-500 ease-in-out text-gray-500 hover:bg-gray-300 focus:outline-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke="currentColor" class="h-6 w-6 text-gray-600">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2"
+                                                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
+                                                    </path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                </svg>
+                                            </button>
+                                            <button type="button" @click="doSendMessage"
+                                                class="inline-flex items-center justify-center rounded-lg px-4 py-3 transition duration-500 ease-in-out text-white bg-blue-500 hover:bg-blue-400 focus:outline-none">
+                                                <span class="font-bold">Send</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                    fill="currentColor" class="h-6 w-6 ml-2 transform rotate-90">
+                                                    <path
+                                                        d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="bg-gray-50 px-4 py-4 sm:px-6">
-                            <!-- Content goes here -->
-                            <!-- We use less vertical padding on card footers at all sizes than on headers or body sections -->
-                        </div>
-                    </div>
+                    </template>
                 </div>
             </div>
             <div
-                class="shrink-0 border-t border-gray-200 px-4 py-6 sm:px-6 lg:w-96 lg:border-l lg:border-t-0 lg:pr-8 xl:pr-6 ">
+                class="h-screen overflow-y-auto shrink-0 border-t border-gray-200 px-4 py-6 sm:px-6 lg:w-96 lg:border-l lg:border-t-0 lg:pr-8 xl:pr-6 ">
                 <div class="relative pb-8">
-                    <div class="flex items-start space-x-3 overflow-auto">
+                    <div class="flex items-start space-x-3">
                         <div class="flex-1 py-1.5 ">
                             <template x-for="item in logs">
                                 <div class="text-sm text-gray-500 hover:bg-gray-200">
