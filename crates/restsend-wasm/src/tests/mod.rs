@@ -9,16 +9,6 @@ async fn test_sleep() {
 }
 
 #[wasm_bindgen_test]
-async fn test_new_client() {
-    let rs_client = crate::Client::new(
-        ENDPOINT.to_string(),
-        "bob".to_string(),
-        "bad_token".to_string(),
-    );
-    assert_eq!(rs_client.inner.endpoint, ENDPOINT);
-}
-
-#[wasm_bindgen_test]
 async fn test_auth() {
     crate::account::signin(
         ENDPOINT.to_string(),
@@ -32,7 +22,7 @@ async fn test_auth() {
 
 #[wasm_bindgen_test]
 async fn test_connect() {
-    crate::enable_logging(Some("debug".to_string()));
+    crate::setLogging(Some("debug".to_string()));
     let info = restsend_sdk::services::auth::login_with_password(
         ENDPOINT.to_string(),
         "bob".to_string(),
@@ -41,6 +31,6 @@ async fn test_connect() {
     .await
     .expect("auth fail");
 
-    let rs_client = crate::Client::new(ENDPOINT.to_string(), "bob".to_string(), info.token);
+    let rs_client = crate::Client::new(serde_wasm_bindgen::to_value(&info).unwrap());
     rs_client.connect().await.expect("connect fail");
 }

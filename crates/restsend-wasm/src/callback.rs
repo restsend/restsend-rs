@@ -286,7 +286,7 @@ impl Client {
     /// * `reason` String - The reason of the connection broken
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onnetbroken = (reason) => {
     /// console.log(reason);
@@ -306,7 +306,7 @@ impl Client {
     /// * `reason` String - The reason of the kickoff
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onkickoff = (reason) => {
     /// console.log(reason);
@@ -326,7 +326,7 @@ impl Client {
     ///  * `req` - The request object, the return value is the response object
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onsystemrequest = (req) => {
     ///    if (req.type === 'get') {
@@ -349,7 +349,7 @@ impl Client {
     ///  * `req` - The request object, the return value is the response object
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onunknownrequest = (req) => {
     ///   if (req.type === 'get') {
@@ -372,7 +372,7 @@ impl Client {
     /// * `message` ChatRequest - The message
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.ontyping = (topicId, message) => {
     ///  console.log(topicId, message);
@@ -395,7 +395,7 @@ impl Client {
     /// * `true` - If return true, will send `has read` to server
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.ontopicmessage = (topicId, message) => {
     /// console.log(topicId, message);
@@ -417,7 +417,7 @@ impl Client {
     /// * `message` ChatRequest - The message
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.ontopicread = (topicId, message) => {
     /// console.log(topicId, message);
@@ -437,7 +437,7 @@ impl Client {
     /// * `conversations` - The conversation list
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onconversationsupdated = (conversations) => {
     /// console.log(conversations);
@@ -457,7 +457,7 @@ impl Client {
     /// * `conversationId` - The conversation id
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// client.onconversationsremoved = (conversationId) => {
     /// console.log(conversationId);

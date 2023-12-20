@@ -230,15 +230,15 @@ function makeMutClosure(arg0, arg1, dtor, f) {
 
     return real;
 }
-function __wbg_adapter_50(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures__invoke1_mut__h0b5c5ca9c49e6d2c(arg0, arg1, addHeapObject(arg2));
+function __wbg_adapter_52(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures__invoke0_mut__ha889253f048f7c0f(arg0, arg1);
 }
 
-function __wbg_adapter_53(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures__invoke0_mut__h8eb41cd11b66c100(arg0, arg1);
+function __wbg_adapter_55(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures__invoke1_mut__h3e938dd7c54ea8f4(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wbg_adapter_58(arg0, arg1, arg2) {
+function __wbg_adapter_60(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures__invoke1_mut__hebb5522d251d5b58(arg0, arg1, addHeapObject(arg2));
 }
 
@@ -317,10 +317,10 @@ export function logout(endpoint, token) {
 /**
 * @param {string | undefined} [level]
 */
-export function enable_logging(level) {
+export function setLogging(level) {
     var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
     var len0 = WASM_VECTOR_LEN;
-    wasm.enable_logging(ptr0, len0);
+    wasm.setLogging(ptr0, len0);
 }
 
 function handleError(f, args) {
@@ -330,7 +330,7 @@ function handleError(f, args) {
         wasm.__wbindgen_exn_store(addHeapObject(e));
     }
 }
-function __wbg_adapter_306(arg0, arg1, arg2, arg3) {
+function __wbg_adapter_310(arg0, arg1, arg2, arg3) {
     wasm.wasm_bindgen__convert__closures__invoke2_mut__h69279b9161a1265d(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
@@ -349,335 +349,6 @@ export class Client {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_client_free(ptr);
-    }
-    /**
-    * @param {string} endpoint
-    * @param {string} userId
-    * @param {string} token
-    */
-    constructor(endpoint, userId, token) {
-        const ptr0 = passStringToWasm0(endpoint, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(token, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_new(ptr0, len0, ptr1, len1, ptr2, len2);
-        this.__wbg_ptr = ret >>> 0;
-        return this;
-    }
-    /**
-    * get the current connection status
-    * return: connecting, connected, net_broken, shutdown
-    * @returns {string}
-    */
-    get connection_status() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.client_connection_status(retptr, this.__wbg_ptr);
-            var r0 = getInt32Memory0()[retptr / 4 + 0];
-            var r1 = getInt32Memory0()[retptr / 4 + 1];
-            deferred1_0 = r0;
-            deferred1_1 = r1;
-            return getStringFromWasm0(r0, r1);
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-    * @returns {Promise<void>}
-    */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-    /**
-    * @returns {Promise<void>}
-    */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-    /**
-    *
-    * Send message with content
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `content` - The content Object
-    *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-    *     * `text` String - The text message
-    *     * `attachment` Object - The attachment object
-    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-    *     * `size` Number - The size of the content, only for file, optional
-    *     * `placeholder` String - The placeholder of the content, optional
-    *     * `width` Number - The width of the content, only for image/video, optional
-    *     * `height` Number - The height of the content, only for image/video, optional
-    * * `option` - The send option
-    * # Return
-    * The message id
-    * # Example
-    * ```javascript
-    * const client = new Client(endpoint, userId, token);
-    * await client.connect();
-    * await client.doSend(topicId, {
-    *     type: 'wx.text',
-    *     text: 'hello',
-    * }, {
-    *     mentions: undefined, // The mention user id list, optional
-    *     reply:  undefined, // The reply message id, optional
-    *     onsent:  () => {}, // The callback when message sent
-    *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-    *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-    *     onfail:  (reason:String)  => {} // The callback when message failed
-    * });
-    * ```
-    * @param {string} topicId
-    * @param {any} content
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSend(topicId, content, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, addHeapObject(content), addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send typing status
-    * # Arguments
-    * * `topicId` - The topic id
-    * @param {string} topicId
-    * @returns {Promise<void>}
-    */
-    doTyping(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Recall message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `messageId` - The message id
-    * @param {string} topicId
-    * @param {string} messageId
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doRecall(topicId, messageId, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send voice message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *     * `mentions` Array - The mention user id list, optional
-    *     * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendVoice(topicId, attachment, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send video message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *    * `mentions` Array - The mention user id list, optional
-    *    * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendVideo(topicId, attachment, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send file message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *    * `size` Number - The size of the content, only for file, optional
-    *    * `mentions` Array - The mention user id list, optional
-    *    * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendFile(topicId, attachment, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendFile(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send location message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `latitude` - The latitude
-    * * `longitude` - The longitude
-    * * `address` - The address
-    * * `option` - The send option
-    *   * `mentions` Array - The mention user id list, optional
-    *   * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {string} latitude
-    * @param {string} longitude
-    * @param {string} address
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendLocation(topicId, latitude, longitude, address, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send link message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `url` - The url
-    * * `option` - The send option
-    *  * `placeholder` String - The placeholder of the content, optional
-    *  * `mentions` Array - The mention user id list, optional
-    *  * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {string} url
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendLink(topicId, url, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLink(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send invite message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `logIds` Array - The log id list
-    * * `option` - The send option
-    * # Return
-    * The message id
-    * @param {string} topicId
-    * @param {(string)[]} logIds
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendLogs(topicId, logIds, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passArrayJsValueToWasm0(logIds, wasm.__wbindgen_malloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLogs(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    * Send text message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `text` - The text message
-    * * `option` - The send option
-    * # Return
-    * The message id
-    * # Example
-    * ```javascript
-    * const client = new Client(endpoint, userId, token);
-    * await client.connect();
-    * await client.sendText(topicId, text, {
-    *     mentions: [] || undefined, // The mention user id list, optional
-    *     reply: String || undefined, - The reply message id, optional
-    *     onsent:  () => {},
-    *     onprogress:  (progress:Number, total:Number)  =>{},
-    *     onack:  (req:ChatRequest)  => {},
-    *     onfail:  (reason:String)  => {}
-    * });
-    * ```
-    * @param {string} topicId
-    * @param {string} text
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendText(topicId, text, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendText(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
-        return takeObject(ret);
-    }
-    /**
-    *
-    * Send image message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    *     * `file` File - The file object
-    *     * `url` String  - The file name
-    * * `option` - The send option
-    * # Example
-    * ```javascript
-    * const client = new Client(endpoint, userId, token);
-    * await client.connect();
-    * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-    * ```
-    * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
-    */
-    doSendImage(topicId, attachment, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendImage(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
-        return takeObject(ret);
     }
     /**
     * Create a new topic
@@ -1017,7 +688,7 @@ export class Client {
     * * `reason` String - The reason of the connection broken
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onnetbroken = (reason) => {
     * console.log(reason);
@@ -1034,7 +705,7 @@ export class Client {
     * * `reason` String - The reason of the kickoff
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onkickoff = (reason) => {
     * console.log(reason);
@@ -1051,7 +722,7 @@ export class Client {
     *  * `req` - The request object, the return value is the response object
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onsystemrequest = (req) => {
     *    if (req.type === 'get') {
@@ -1070,7 +741,7 @@ export class Client {
     *  * `req` - The request object, the return value is the response object
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onunknownrequest = (req) => {
     *   if (req.type === 'get') {
@@ -1089,7 +760,7 @@ export class Client {
     * * `message` ChatRequest - The message
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.ontyping = (topicId, message) => {
     *  console.log(topicId, message);
@@ -1109,7 +780,7 @@ export class Client {
     * * `true` - If return true, will send `has read` to server
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.ontopicmessage = (topicId, message) => {
     * console.log(topicId, message);
@@ -1128,7 +799,7 @@ export class Client {
     * * `message` ChatRequest - The message
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.ontopicread = (topicId, message) => {
     * console.log(topicId, message);
@@ -1145,7 +816,7 @@ export class Client {
     * * `conversations` - The conversation list
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onconversationsupdated = (conversations) => {
     * console.log(conversations);
@@ -1162,7 +833,7 @@ export class Client {
     * * `conversationId` - The conversation id
     * # Example
     * ```javascript
-    * const client = new Client(endpoint, userId, token);
+    * const client = new Client(info);
     * await client.connect();
     * client.onconversationsremoved = (conversationId) => {
     * console.log(conversationId);
@@ -1318,6 +989,49 @@ export class Client {
         return takeObject(ret);
     }
     /**
+    * @param {any} info
+    */
+    constructor(info) {
+        const ret = wasm.client_new(addHeapObject(info));
+        this.__wbg_ptr = ret >>> 0;
+        return this;
+    }
+    /**
+    * get the current connection status
+    * return: connecting, connected, net_broken, shutdown
+    * @returns {string}
+    */
+    get connectionStatus() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.client_connectionStatus(retptr, this.__wbg_ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            deferred1_0 = r0;
+            deferred1_1 = r1;
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
     * Get user info
     * #Arguments
     * * `userId` - user id
@@ -1405,6 +1119,284 @@ export class Client {
     */
     setAllowGuestChat(allow) {
         const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
+        return takeObject(ret);
+    }
+    /**
+    *
+    * Send message with content
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `content` - The content Object
+    *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+    *     * `text` String - The text message
+    *     * `attachment` Object - The attachment object
+    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+    *     * `size` Number - The size of the content, only for file, optional
+    *     * `placeholder` String - The placeholder of the content, optional
+    *     * `width` Number - The width of the content, only for image/video, optional
+    *     * `height` Number - The height of the content, only for image/video, optional
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.doSend(topicId, {
+    *     type: 'wx.text',
+    *     text: 'hello',
+    * }, {
+    *     mentions: undefined, // The mention user id list, optional
+    *     reply:  undefined, // The reply message id, optional
+    *     onsent:  () => {}, // The callback when message sent
+    *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+    *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+    *     onfail:  (reason:String)  => {} // The callback when message failed
+    * });
+    * ```
+    * @param {string} topicId
+    * @param {any} content
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSend(topicId, content, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, addHeapObject(content), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send typing status
+    * # Arguments
+    * * `topicId` - The topic id
+    * @param {string} topicId
+    * @returns {Promise<void>}
+    */
+    doTyping(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+    * Recall message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `messageId` - The message id
+    * @param {string} topicId
+    * @param {string} messageId
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doRecall(topicId, messageId, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send voice message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *     * `mentions` Array - The mention user id list, optional
+    *     * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendVoice(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send video message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *    * `mentions` Array - The mention user id list, optional
+    *    * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendVideo(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send file message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *    * `size` Number - The size of the content, only for file, optional
+    *    * `mentions` Array - The mention user id list, optional
+    *    * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendFile(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendFile(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send location message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `latitude` - The latitude
+    * * `longitude` - The longitude
+    * * `address` - The address
+    * * `option` - The send option
+    *   * `mentions` Array - The mention user id list, optional
+    *   * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {string} latitude
+    * @param {string} longitude
+    * @param {string} address
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLocation(topicId, latitude, longitude, address, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send link message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `url` - The url
+    * * `option` - The send option
+    *  * `placeholder` String - The placeholder of the content, optional
+    *  * `mentions` Array - The mention user id list, optional
+    *  * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {string} url
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLink(topicId, url, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLink(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send invite message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `logIds` Array - The log id list
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {(string)[]} logIds
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLogs(topicId, logIds, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passArrayJsValueToWasm0(logIds, wasm.__wbindgen_malloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLogs(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send text message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `text` - The text message
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.sendText(topicId, text, {
+    *     mentions: [] || undefined, // The mention user id list, optional
+    *     reply: String || undefined, - The reply message id, optional
+    *     onsent:  () => {},
+    *     onprogress:  (progress:Number, total:Number)  =>{},
+    *     onack:  (req:ChatRequest)  => {},
+    *     onfail:  (reason:String)  => {}
+    * });
+    * ```
+    * @param {string} topicId
+    * @param {string} text
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendText(topicId, text, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendText(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    *
+    * Send image message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    *     * `file` File - The file object
+    *     * `url` String  - The file name
+    * * `option` - The send option
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+    * ```
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendImage(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendImage(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
         return takeObject(ret);
     }
 }
@@ -1657,37 +1649,9 @@ export function __wbindgen_object_clone_ref(arg0) {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_is_function(arg0) {
-    const ret = typeof(getObject(arg0)) === 'function';
-    return ret;
-};
-
 export function __wbindgen_is_string(arg0) {
     const ret = typeof(getObject(arg0)) === 'string';
     return ret;
-};
-
-export function __wbindgen_cb_drop(arg0) {
-    const obj = takeObject(arg0).original;
-    if (obj.cnt-- == 1) {
-        obj.a = 0;
-        return true;
-    }
-    const ret = false;
-    return ret;
-};
-
-export function __wbindgen_boolean_get(arg0) {
-    const v = getObject(arg0);
-    const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
-    return ret;
-};
-
-export function __wbindgen_number_get(arg0, arg1) {
-    const obj = getObject(arg1);
-    const ret = typeof(obj) === 'number' ? obj : undefined;
-    getFloat64Memory0()[arg0 / 8 + 1] = isLikeNone(ret) ? 0 : ret;
-    getInt32Memory0()[arg0 / 4 + 0] = !isLikeNone(ret);
 };
 
 export function __wbindgen_is_bigint(arg0) {
@@ -1702,6 +1666,12 @@ export function __wbindgen_bigint_from_i64(arg0) {
 
 export function __wbindgen_jsval_eq(arg0, arg1) {
     const ret = getObject(arg0) === getObject(arg1);
+    return ret;
+};
+
+export function __wbindgen_boolean_get(arg0) {
+    const v = getObject(arg0);
+    const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
     return ret;
 };
 
@@ -1726,6 +1696,18 @@ export function __wbindgen_bigint_from_u64(arg0) {
     return addHeapObject(ret);
 };
 
+export function __wbindgen_number_get(arg0, arg1) {
+    const obj = getObject(arg1);
+    const ret = typeof(obj) === 'number' ? obj : undefined;
+    getFloat64Memory0()[arg0 / 8 + 1] = isLikeNone(ret) ? 0 : ret;
+    getInt32Memory0()[arg0 / 4 + 0] = !isLikeNone(ret);
+};
+
+export function __wbindgen_is_function(arg0) {
+    const ret = typeof(getObject(arg0)) === 'function';
+    return ret;
+};
+
 export function __wbindgen_error_new(arg0, arg1) {
     const ret = new Error(getStringFromWasm0(arg0, arg1));
     return addHeapObject(ret);
@@ -1734,6 +1716,21 @@ export function __wbindgen_error_new(arg0, arg1) {
 export function __wbindgen_number_new(arg0) {
     const ret = arg0;
     return addHeapObject(ret);
+};
+
+export function __wbindgen_is_null(arg0) {
+    const ret = getObject(arg0) === null;
+    return ret;
+};
+
+export function __wbindgen_cb_drop(arg0) {
+    const obj = takeObject(arg0).original;
+    if (obj.cnt-- == 1) {
+        obj.a = 0;
+        return true;
+    }
+    const ret = false;
+    return ret;
 };
 
 export function __wbindgen_jsval_loose_eq(arg0, arg1) {
@@ -2208,6 +2205,17 @@ export function __wbg_new0_622c21a64f3d83ea() {
     return addHeapObject(ret);
 };
 
+export function __wbg_instanceof_Object_702c4990f4c3db8d(arg0) {
+    let result;
+    try {
+        result = getObject(arg0) instanceof Object;
+    } catch (_) {
+        result = false;
+    }
+    const ret = result;
+    return ret;
+};
+
 export function __wbg_entries_9e2e2aa45aa5094a(arg0) {
     const ret = Object.entries(getObject(arg0));
     return addHeapObject(ret);
@@ -2225,7 +2233,7 @@ export function __wbg_new_60f57089c7563e81(arg0, arg1) {
             const a = state0.a;
             state0.a = 0;
             try {
-                return __wbg_adapter_306(a, state0.b, arg0, arg1);
+                return __wbg_adapter_310(a, state0.b, arg0, arg1);
             } finally {
                 state0.a = a;
             }
@@ -2294,6 +2302,11 @@ export function __wbg_byteLength_af7bdd61ff8ad011(arg0) {
 
 export const __wbg_random_5f4d7bf63216a9ad = typeof Math.random == 'function' ? Math.random : notDefined('Math.random');
 
+export function __wbg_deleteProperty_8c212ef4944e69d8() { return handleError(function (arg0, arg1) {
+    const ret = Reflect.deleteProperty(getObject(arg0), getObject(arg1));
+    return ret;
+}, arguments) };
+
 export function __wbg_has_9c711aafa4b444a2() { return handleError(function (arg0, arg1) {
     const ret = Reflect.has(getObject(arg0), getObject(arg1));
     return ret;
@@ -2333,23 +2346,23 @@ export function __wbindgen_memory() {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper734(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 330, __wbg_adapter_50);
+export function __wbindgen_closure_wrapper966(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 395, __wbg_adapter_52);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper735(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 330, __wbg_adapter_53);
+export function __wbindgen_closure_wrapper967(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 395, __wbg_adapter_55);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper736(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 330, __wbg_adapter_50);
+export function __wbindgen_closure_wrapper968(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 395, __wbg_adapter_55);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper1968(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 663, __wbg_adapter_58);
+export function __wbindgen_closure_wrapper1984(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 667, __wbg_adapter_60);
     return addHeapObject(ret);
 };
 

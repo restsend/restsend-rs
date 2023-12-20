@@ -23,8 +23,6 @@ impl WebSocketImpl {
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
-        log::info!("websocket send: {:?}", message);
-
         if let Some(ws) = self.ws.lock().unwrap().as_ref() {
             match ws.send_with_str(&message) {
                 Ok(_) => {}
@@ -34,10 +32,10 @@ impl WebSocketImpl {
                         Ok(e) => e.message().as_string(),
                         Err(e) => e.as_string(),
                     };
-                    warn!(
-                        "websocket send error: {:?} discard message:{:?}",
-                        reason, message
-                    );
+                    return Err(ClientError::HTTP(format!(
+                        "websocket send error: {:?}",
+                        reason
+                    )));
                 }
             }
         } else {
@@ -89,7 +87,8 @@ impl WebSocketImpl {
                 return Err(ClientError::HTTP(reason));
             }
         };
-        log::warn!("websocket url: {}", url);
+
+        debug!("websocket url: {}", url);
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
         let callback_ref = callback.clone();
@@ -149,6 +148,7 @@ impl WebSocketImpl {
         });
         ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
         onerror_callback.forget();
+
         self.ws.lock().unwrap().replace(ws);
         close_rx.await.ok();
         log::warn!("websocket closed: lifetime:{:?}", elapsed(st));

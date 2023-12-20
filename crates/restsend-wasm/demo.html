@@ -15,21 +15,28 @@
         wasm.then(module => {
             window.signin = module.signin;
             window.Client = module.Client;
-            module.enable_logging('debug');
+            module.setLogging('debug');
+
+            console.log = (text) => logText(text, 'info')
+            console.error = (text) => logText(text, 'error')
+            console.info = (text) => logText(text, 'info')
+            console.warn = (text) => logText(text, 'warn')
         }).catch(console.error);
     </script>
     <script>
-        let client = undefined
-        function logText(text) {
+        function logText(text, level = 'info') {
             let p = document.getElementById('response');
-            p.innerHTML += `<div>${text}</div>`
+            let item = document.createElement('div');
+            item.innerText = text;
+            p.appendChild(item);
         }
+
         async function sendRequest() {
             let endpoint = 'https://chat.ruzhila.cn'
             let info = await signin(endpoint, 'bob', 'bob:demo');
-            client = new Client(endpoint, 'bob', info.token);
+            client = new Client(info);
             client.onconnected = () => {
-                logText(`connected`);
+                logText(`client connected`);
                 document.getElementById('btnSendTest').disabled = false;
             }
             await client.connect();

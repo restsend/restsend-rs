@@ -1,4 +1,4 @@
-use crate::{callback::CallbackWasmWrap, js_util::get_endpoint};
+use crate::callback::CallbackWasmWrap;
 use restsend_sdk::models::AuthInfo;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
@@ -14,7 +14,7 @@ mod users;
 
 #[cfg(test)]
 mod tests;
-pub use logger::enable_logging;
+pub use logger::setLogging;
 
 type CallbackFunction = Arc<Mutex<Option<js_sys::Function>>>;
 #[wasm_bindgen]
@@ -38,10 +38,11 @@ pub struct Client {
 #[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
-    pub fn new(endpoint: String, userId: String, token: String) -> Self {
-        let endpoint = get_endpoint(endpoint);
-
-        let info = AuthInfo::new(&endpoint, &userId, &token);
+    pub fn new(info: JsValue) -> Self {
+        let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info) {
+            Ok(v) => v,
+            Err(_) => AuthInfo::default(),
+        };
         let inner = restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info);
         let c = Client {
             cb_on_connected: Arc::new(Mutex::new(None)),
@@ -80,7 +81,7 @@ impl Client {
     /// get the current connection status
     /// return: connecting, connected, net_broken, shutdown
     #[wasm_bindgen(getter)]
-    pub fn connection_status(&self) -> String {
+    pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()
     }
 

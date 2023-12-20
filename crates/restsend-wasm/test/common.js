@@ -16,11 +16,11 @@ export async function waitUntil(fn, timeout) {
 
 export async function authClient(username, password, withWebSocket = false) {
     let info = await signin(endpoint, username, password)
-    let client = new Client(endpoint, username, info.token)
+    let client = new Client(info)
 
     if (withWebSocket) {
         await client.connect()
-        await waitUntil(() => client.connection_status === 'connected', 3000)
+        await waitUntil(() => client.connectionStatus === 'connected', 3000)
     }
     return client
 }

@@ -31,7 +31,11 @@ impl WebSocketImpl {
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
-        self.inner.sender_tx.lock().unwrap().send(message)?;
+        let r = self.inner.sender_tx.lock().unwrap().send(message);
+        if let Err(e) = r {
+            warn!("websocket send failed: {}", e);
+            return Err(HTTP(format!("websocket send failed: {}", e)).into());
+        }
         Ok(())
     }
 

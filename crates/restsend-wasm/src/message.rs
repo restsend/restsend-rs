@@ -27,7 +27,7 @@ impl Client {
     /// The message id
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.doSend(topicId, {
     ///     type: 'wx.text',
@@ -47,10 +47,7 @@ impl Client {
         content: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let content = match js_value_to_content(content) {
-            Some(v) => v,
-            None => return Err(JsValue::from_str("invalid content format")),
-        };
+        let content = js_value_to_content(content)?;
         self.inner
             .do_send(
                 topicId,
@@ -104,18 +101,10 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_voice(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
@@ -141,18 +130,10 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_video(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
@@ -178,18 +159,10 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_file(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
@@ -292,7 +265,7 @@ impl Client {
     /// The message id
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.sendText(topicId, text, {
     ///     mentions: [] || undefined, // The mention user id list, optional
@@ -330,7 +303,7 @@ impl Client {
     /// * `option` - The send option
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
     /// ```
@@ -340,18 +313,10 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_image(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),

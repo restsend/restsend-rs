@@ -42,6 +42,11 @@ fn main() {
 
     match lang {
         TargetLanguage::Swift => {
+            // only mac support xcframework
+            if std::env::consts::OS != "macos" {
+                println!("Only macos support xcframework build");
+                return;
+            }
             build_xcframework(crate_name, mode.clone());
             if publish {
                 if mode == "release" {

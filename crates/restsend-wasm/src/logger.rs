@@ -70,8 +70,9 @@ impl Log for WasmLogger {
     fn flush(&self) {}
 }
 
+#[allow(non_snake_case)]
 #[wasm_bindgen]
-pub fn enable_logging(level: Option<String>) {
+pub fn setLogging(level: Option<String>) {
     let max_level = match level {
         Some(level) => match level.as_str() {
             "trace" => Level::Trace,

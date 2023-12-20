@@ -4,17 +4,22 @@ import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
     plugins: [
-        wasm(),
+        wasm()
     ],
 
     build: {
         target: 'esnext',
-        assetInlineLimit: 5 * 1024 * 1024,
-        lib: {
-            entry: resolve(__dirname, 'index.js'),
-            name: 'restsend-sdk',
-            fileName: (format) => `restsend-sdk.${format}.js`
-        }
+        outDir: '../../js',
+        rollupOptions: {
+            input: {
+                "restsend_wasm": resolve(__dirname, 'pkg/restsend_wasm.js'),
+            },
+            output: {
+                entryFileNames: '[name].js',
+                chunkFileNames: '[name].js',
+                assetFileNames: '[name].[ext]',
+            },
+        },
     },
     server: {
         proxy: {
@@ -35,6 +40,7 @@ export default defineConfig({
     },
     optimizeDeps: { exclude: ["fsevents"] },
     test: {
+        
         browser: {
             provider: 'playwright',
             enabled: true,

@@ -47,7 +47,7 @@ pub(super) fn make_get_request(
     );
 
     match auth_token {
-        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
+        Some(token) => req.header(AUTHORIZATION, format!("Bearer {}", token)),
         None => req,
     }
 }
@@ -73,15 +73,12 @@ pub(super) fn make_post_request(
     let req = req.build().unwrap().post(&url);
 
     let req = match content_type {
-        Some(content_type) => req.header(
-            CONTENT_TYPE,
-            HeaderValue::from_bytes(content_type.as_bytes()).unwrap(),
-        ),
+        Some(content_type) => req.header(CONTENT_TYPE, content_type),
         None => req,
     };
 
     let req = match auth_token {
-        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
+        Some(token) => req.header(AUTHORIZATION, format!("Bearer {}", token)),
         None => req,
     };
     match body {

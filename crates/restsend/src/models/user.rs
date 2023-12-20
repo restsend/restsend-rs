@@ -4,8 +4,9 @@ use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+#[serde(rename_all = "camelCase")]
 pub struct AuthInfo {
     pub endpoint: String,
     pub user_id: String,

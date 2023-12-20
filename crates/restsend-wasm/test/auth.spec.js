@@ -5,7 +5,9 @@ import { endpoint } from './common.js'
 describe('Client auth', function () {
     describe('#constructor', function () {
         it('should create a client instance', function () {
-            var client = new Client('endpoint_value', 'user_id_value', 'token_value')
+            var client = new Client({
+                endpoint: 'endpoint_value', userId: 'user_id_value', token: 'token_value'
+            })
             assert.ok(client)
         })
     });

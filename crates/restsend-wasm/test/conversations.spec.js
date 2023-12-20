@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-const { Client, signin, enable_logging } = await import('../pkg/restsend_wasm.js')
+const { Client, signin, setLogging } = await import('../pkg/restsend_wasm.js')
 import { waitUntil, authClient, endpoint } from './common.js'
 
 describe('Messages', function () {

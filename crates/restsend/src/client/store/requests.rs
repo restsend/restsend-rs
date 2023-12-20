@@ -5,7 +5,7 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
 };
 use http::StatusCode;
-use log::{info, warn};
+use log::{debug, info, warn};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 impl ClientStore {
@@ -154,7 +154,7 @@ impl ClientStore {
 
     pub async fn handle_send_success(&self, req_id: &str) {
         // TODO: update database status
-        info!("handle_send_success: {}", req_id);
+        debug!("handle_send_success: {}", req_id);
     }
 
     pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
