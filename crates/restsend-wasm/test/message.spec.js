@@ -7,13 +7,13 @@ describe('Messages', async function () {
     it('#setup callback', async () => {
         let info = await signin(endpoint, 'guido', 'guido:demo')
         let client = new Client(info)
-        let is_connected = false
+        let isConnected = false
         client.onconnected = () => {
-            is_connected = true
+            isConnected = true
         }
         await client.connect()
         await waitUntil(() => client.connectionStatus === 'connected', 3000)
-        expect(is_connected).toBe(true)
+        expect(isConnected).toBe(true)
     })
     let bob = await authClient('bob', 'bob:demo', true)
     it('#websocket handshake', async () => {
@@ -25,53 +25,51 @@ describe('Messages', async function () {
     }
 
     it('#send text message', async () => {
-        let is_sent = false
-        let is_ack = false
-        let is_fail = false
+        let isSent = false
+        let isAck = false
+        let isFail = false
         bob.doSendText('bob:alice', 'hello', {
             onsent: () => {
-                is_sent = true
+                isSent = true
             },
             onack: (req) => {
-                is_ack = true
+                isAck = true
             },
             onerror: (e) => {
-                is_fail = true
+                isFail = true
             }
         })
-        await waitUntil(() => is_ack, 3000)
-        expect(is_fail).toBe(false)
-        expect(is_ack).toBe(true)
-        expect(is_sent).toBe(true)
+        await waitUntil(() => isAck, 3000)
+        expect(isFail).toBe(false)
+        expect(isAck).toBe(true)
+        expect(isSent).toBe(true)
     })
 
     it('#send image message', async () => {
-        let is_ack = false
+        let isAck = false
         bob.doSendImage('bob:alice', {
             'url': 'https://avatars1.githubusercontent.com/u/1016365?s=460&v=4',
         }, {
             onack: (req) => {
-                is_ack = true
+                isAck = true
             },
         })
-        await waitUntil(() => is_ack, 3000)
+        await waitUntil(() => isAck, 3000)
     })
 
     it('#send image message with upload', async () => {
-        let is_ack = false
-        is_ack = false
+        let isAck = false
         bob.doSendImage('bob:alice', {
             'file': new File(['xxx'], 'hello_restsend.png', { type: 'image/png' }),
         }, {
             onack: (req) => {
-                is_ack = true
+                isAck = true
             },
         })
-        await waitUntil(() => is_ack, 3000)
+        await waitUntil(() => isAck, 3000)
     })
     it('#send custom content', async () => {
-        let is_ack = false
-        is_ack = false
+        let isAck = false
         await bob.doSend(
             'bob:alice',
             {
@@ -83,30 +81,35 @@ describe('Messages', async function () {
             },
             {
                 onack: (req) => {
-                    is_ack = true
+                    isAck = true
                 },
             });
-        await waitUntil(() => is_ack, 3000)
-        expect(is_ack).toBe(true)
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
     })
-    // it('#send custom content with upload', async () => {
-    //     let is_ack = false
-    //     is_ack = false
-    //     await bob.doSend(
-    //         'bob:alice',
-    //         {
-    //             type: 'custom.image',
-    //             attachment:
-    //             {
-    //                 'file': new File(['custom image'], 'hello_custom.png', { type: 'image/png' }),
-    //             },
-    //         },
-    //         {
-    //             onack: (req) => {
-    //                 is_ack = true
-    //             },
-    //         });
-    //     await waitUntil(() => is_ack, 3000)
-    //     expect(is_ack).toBe(true)
-    // })
+    it('#send custom content with upload', async () => {
+        let isAck = false
+        let sentContent = undefined
+
+        await bob.doSend(
+            'bob:alice',
+            {
+                type: 'custom.image',
+                attachment:
+                {
+                    'file': new File(['custom image'], 'hello_custom.png', { type: 'image/png' }),
+                },
+            },
+            {
+                onack: (req) => {
+                    isAck = true
+                    sentContent = req.content
+                },
+            });
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        expect(sentContent).toHaveProperty('text')
+        expect(sentContent.placeholder).toBe('hello_custom.png')
+        expect(sentContent.size).toBe(12)
+    })
 })

@@ -46,6 +46,8 @@ impl ClientStore {
                 if let Some(pending) = self.peek_pending_request(&req.id).await {
                     match status {
                         ChatLogStatus::Sent => {
+                            let mut req = req;
+                            req.content = pending.req.content.clone();
                             pending.callback.map(|cb| cb.on_ack(req));
                         }
                         ChatLogStatus::SendFailed => {

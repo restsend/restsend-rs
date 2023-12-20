@@ -2,37 +2,96 @@
 
 <head>
     <title>RestSend Demo</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
 
-<body>
-    <h1>RestSend Demo</h1>
-    <p>Click the button to send a request to the server.</p>
-    <button onclick="sendRequest()">Send Request</button>
-    <button id="btnSendTest" onclick="doTestMessage()" disabled>Send Message</button>
-    <p id="response"></p>
-
+<body class="h-full  bg-gray-100">
     <script>
-        var wasm = import("./pkg/restsend_wasm.js");
-        wasm.then(module => {
-            window.signin = module.signin;
-            window.Client = module.Client;
-            module.setLogging('debug');
+        const demoApp = {
+            endpoint: 'https://chat.ruzhila.cn',
+            userid: 'bob',
+            password: 'bob:demo',
+            logs: [],
+            current: null,
+            conversations: [],
+            init: async function () {
+                var wasm = await import("./pkg/restsend_wasm.js");
+                window.signin = wasm.signin;
+                window.Client = wasm.Client;
 
-            console.log = (text) => logText(text, 'info')
-            console.error = (text) => logText(text, 'error')
-            console.info = (text) => logText(text, 'info')
-            console.warn = (text) => logText(text, 'warn')
-        }).catch(console.error);
-    </script>
-    <script>
-        function logText(text, level = 'info') {
-            let p = document.getElementById('response');
-            let item = document.createElement('div');
-            item.innerText = text;
-            p.appendChild(item);
+                wasm.setLogging('debug');
+
+                console.info = (text) => this.logText(text, 'info')
+                console.debug = (text) => this.logText(text, 'debug')
+                console.warn = (text) => this.logText(text, 'warn')
+                console.error = (text) => this.logText(text, 'error')
+                console.log('init wasm')
+            },
+
+            logText: function (text) {
+                this.logs.push(text)
+            },
+            doSignin: async function () {
+                if (this.current) {
+                    this.current.shutdown();
+                    this.conversations = [];
+                }
+
+                let info = await signin(this.endpoint, this.userid, this.password);
+                client = new Client(info);
+                client.onconnected = async () => {
+                    // syncs conversations
+                    await this.doSyncConversations()
+                }
+                client.onconversationsupdated = (items) => {
+                    console.log(`conversations updated: `, items)
+                    try {
+                        items.forEach((item) => {
+                            let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
+                            if (index >= 0) {
+                                this.conversations.splice(index, 1, item);
+                            }
+                            // push to the front 
+                            this.conversations.unshift(item);
+                        })
+                    } catch (e) {
+                        console.error(e)
+                    }
+                }
+                await client.connect();
+                this.current = client;
+            },
+
+            doSyncConversations: async function () {
+                this.current.syncConversations({
+                    onsuccess: (updatedAt, count) => {
+                        //this.conversations = conversations;
+                        this.logText(`sync conversations success: ${count}`)
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync conversations failed: ${reason}`)
+                    }
+                });
+            },
+
+            doTestMessage: async function () {
+                await client.doSendText('bob:alice', 'hello web demo', {
+                    onack: function (req) {
+                        logText(`onack : ${JSON.stringify(req)}`);
+                    },
+                    onsent: function () {
+                        logText('onsent');
+                    },
+                    onfail: function () {
+                        logText('onfailed');
+                    }
+                });
+            }
         }
 
         async function sendRequest() {
-            let endpoint = 'https://chat.ruzhila.cn'
             let info = await signin(endpoint, 'bob', 'bob:demo');
             client = new Client(info);
             client.onconnected = () => {
@@ -56,6 +115,82 @@
             });
         }
     </script>
+    <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
+        <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->
+        <div class="flex gap-x-2">
+            <div>
+                <label for="endpoint" class="block text-sm font-medium leading-6 text-gray-900">Endpoint</label>
+                <div class="mt-2">
+                    <input id="endpoint" name="endpoint" type="text" required x-model="endpoint"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                </div>
+            </div>
+            <div>
+                <label for="userid" class="block text-sm font-medium leading-6 text-gray-900">User ID</label>
+                <div class="mt-2">
+                    <input id="userid" name="userid" type="text" required x-model="userid"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                </div>
+            </div>
+            <div>
+                <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+                <div class="mt-2 flex gap-x-2">
+                    <input id="password" name="password" type="text" required x-model="password"
+                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+
+                    <button type="button" @click="doSignin()"
+                        class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign
+                        in</button>
+                </div>
+            </div>
+        </div>
+        <div class="mx-auto w-full max-w-7xl grow lg:flex xl:px-2">
+            <!-- Left sidebar & main wrapper -->
+            <div class="flex-1 xl:flex">
+                <div
+                    class="border-b border-gray-200 px-4 py-6 sm:px-6 lg:pl-8 xl:w-64 xl:shrink-0 xl:border-b-0 xl:border-r xl:pl-6">
+                    <template x-for="item in conversations">
+                        <li class="flex justify-between py-5">
+                            <div class="flex min-w-0 items-center">
+                                <img class="h-8 w-8 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
+                            </div>
+                            <div class="hidden shrink-0 sm:flex sm:flex-col sm:items-end">
+                                <p class="text-sm leading-6 text-gray-900" x-text="item.topicId"></p>
+                                <p class="mt-1 text-xs leading-5 text-gray-500"><time :datetime="item.updatedAt"
+                                        x-text="item.updatedAt"></time></p>
+                            </div>
+                        </li>
+                    </template>
+                </div>
+
+                <div class="px-4 py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
+                    <div class="overflow-hidden rounded-lg bg-white shadow">
+                        <div class="px-4 py-5 sm:p-6">
+                            <!-- Content goes here -->
+                        </div>
+                        <div class="bg-gray-50 px-4 py-4 sm:px-6">
+                            <!-- Content goes here -->
+                            <!-- We use less vertical padding on card footers at all sizes than on headers or body sections -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div
+                class="shrink-0 border-t border-gray-200 px-4 py-6 sm:px-6 lg:w-96 lg:border-l lg:border-t-0 lg:pr-8 xl:pr-6 ">
+                <div class="relative pb-8">
+                    <div class="flex items-start space-x-3 overflow-auto">
+                        <div class="flex-1 py-1.5 ">
+                            <template x-for="item in logs">
+                                <div class="text-sm text-gray-500 hover:bg-gray-200">
+                                    <span x-text="item"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
