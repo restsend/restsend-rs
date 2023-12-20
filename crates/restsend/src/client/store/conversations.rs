@@ -21,6 +21,10 @@ pub(crate) fn update_conversation_with_storage(
     let topic_id = conversation.topic_id.clone();
     let mut conversation = conversation;
     if let Some(old_conversation) = t.get("", &topic_id) {
+        warn!(
+            " old_conversation.last_seq:{} conversation.last_seq:{}",
+            old_conversation.last_seq, conversation.last_seq
+        );
         if old_conversation.last_seq <= conversation.last_seq {
             conversation.last_read_seq = old_conversation.last_read_seq;
             conversation.last_sender_id = old_conversation.last_sender_id.clone();

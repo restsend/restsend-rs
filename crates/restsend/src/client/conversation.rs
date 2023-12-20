@@ -7,7 +7,7 @@ use crate::services::conversation::{
 use crate::services::topic::create_chat;
 use crate::utils::{now_millis, spwan_task};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
-use log::warn;
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
@@ -59,7 +59,10 @@ impl Client {
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
         let limit = limit.max(MAX_LOGS_LIMIT);
-
+        info!(
+            "try sync logs topic_id: {} last_seq: {}",
+            topic_id, last_seq
+        );
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
                 if local_logs.items.len() == limit as usize {
@@ -81,13 +84,12 @@ impl Client {
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
 
-        let start_seq = (last_seq - limit as i64).max(0);
         let current_user_id = self.user_id.clone();
         let topic_id = topic_id.to_string();
         let store_ref = self.store.clone();
 
         spwan_task(async move {
-            let r = get_chat_logs_desc(&endpoint, &token, &topic_id, start_seq, limit)
+            let r = get_chat_logs_desc(&endpoint, &token, &topic_id, last_seq, limit)
                 .await
                 .map(|(mut lr, _)| {
                     let now = now_millis();
