@@ -243,7 +243,7 @@
 
 
     </script>
-    <div class="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
+    <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
         <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->
         <div class="flex gap-x-2">
             <div>
@@ -272,7 +272,7 @@
                 </div>
             </div>
         </div>
-        <div class="mx-auto w-full max-w-7xl grow lg:flex xl:px-2">
+        <div class="mx-auto h-auto w-full max-w-7xl  lg:flex xl:px-2">
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
                 <div
@@ -292,10 +292,10 @@
                     </template>
                 </div>
 
-                <div class="h-screen px-4 py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
+                <div class="px-4 h-full py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
                     <template x-if="conversation">
                         <div class="overflow-hidden rounded-lg bg-white shadow">
-                            <div class="flex-1 p:2 sm:p-4 justify-between flex flex-col">
+                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col">
                                 <div class="flex sm:items-center justify-between border-b-2 border-gray-200">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
@@ -311,7 +311,7 @@
                                     </div>
                                 </div>
                                 <div id="messages"
-                                    class="flex flex-col space-y-4 p-3 overflow-y-auto h-96 scrollbar-w-2 scrolling-touch">
+                                    class="flex flex-col space-y-4 p-3 overflow-y-auto  h-[calc(100vh-22rem)] scrollbar-w-2 scrolling-touch">
                                     <template x-for="block in conversation.messageBlocks">
                                         <div class="chat-message">
                                             <div class="flex items-end" :class="block.isSelf?'justify-end':''">
@@ -332,15 +332,17 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="border-t-2 border-gray-200 px-4 pt-4 mb-2 sm:mb-0">
-                                    <div class="relative flex">
+                                <div class="border-t-2 border-gray-200 px-4 pt-2 mb-2 sm:mb-0">
+                                    <div class="relative rounded-md py-2">
                                         <input type="text" placeholder="Write your message!" x-model="message"
-                                            class="w-full focus:outline-none focus:placeholder-gray-400 text-gray-600 placeholder-gray-600 pl-2 bg-gray-200 rounded-md py-3">
-                                        <div class="absolute right-0 items-center inset-y-0 hidden sm:flex">
-                                            <button type="button"
-                                                class="inline-flex items-center justify-center rounded-full h-10 w-10 transition duration-500 ease-in-out text-gray-500 hover:bg-gray-300 focus:outline-none">
+                                            class="w-full focus:outline-none border-none focus:ring-0  focus:placeholder-gray-400 text-gray-600 placeholder-gray-600 pl-2 bg-gray-50 rounded-md py-3">
+                                        <div class=" mt-2 w-full justify-between bottom-0 items-center hidden sm:flex">
+                                           
+                                           <div class="flex items-center space-x-3">
+                                                <button type="button"
+                                                class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500 focus:outline-none">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                    stroke="currentColor" class="h-6 w-6 text-gray-600">
+                                                    stroke="currentColor" class="h-6 w-6 text-gray-600 hover:text-gray-400">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         stroke-width="2"
                                                         d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
@@ -348,9 +350,9 @@
                                                 </svg>
                                             </button>
                                             <button type="button"
-                                                class="inline-flex items-center justify-center rounded-full h-10 w-10 transition duration-500 ease-in-out text-gray-500 hover:bg-gray-300 focus:outline-none">
+                                                class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                    stroke="currentColor" class="h-6 w-6 text-gray-600">
+                                                    stroke="currentColor" class="h-6 w-6 text-gray-600 hover:text-gray-400">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         stroke-width="2"
                                                         d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
@@ -359,8 +361,10 @@
                                                         stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                                 </svg>
                                             </button>
+                                           </div>
+
                                             <button type="button" @click="doSendMessage"
-                                                class="inline-flex items-center justify-center rounded-lg px-4 py-3 transition duration-500 ease-in-out text-white bg-blue-500 hover:bg-blue-400 focus:outline-none">
+                                                class="inline-flex items-center justify-center text-sm rounded-lg px-4 py-1.5 mr-1 transition duration-500 ease-in-out text-blue-500 bg-blue-100 hover:bg-blue-200 focus:outline-none">
                                                 <span class="font-bold">Send</span>
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
                                                     fill="currentColor" class="h-6 w-6 ml-2 transform rotate-90">
@@ -377,8 +381,9 @@
                     </template>
                 </div>
             </div>
+            <!-- logs h-screen -->
             <div
-                class="h-screen overflow-y-auto shrink-0 border-t border-gray-200 px-4 py-6 sm:px-6 lg:w-96 lg:border-l lg:border-t-0 lg:pr-8 xl:pr-6 ">
+                class="overflow-y-auto h-[calc(100vh-8rem)] shrink-0 border-t border-gray-200 px-4 py-6 sm:px-6 lg:w-96 lg:border-l lg:border-t-0 lg:pr-8 xl:pr-6 ">
                 <div class="relative pb-8">
                     <div class="flex items-start space-x-3">
                         <div class="flex-1 py-1.5 ">
