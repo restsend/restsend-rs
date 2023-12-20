@@ -1,5 +1,3 @@
-use log::warn;
-
 use super::{QueryOption, QueryResult, StoreModel};
 use std::{
     collections::HashMap,
@@ -70,7 +68,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
                 _ => continue,
             };
 
-            if v.sort_key() < option.start_sort_value {
+            if v.sort_key() <= option.start_sort_value {
                 continue;
             }
 

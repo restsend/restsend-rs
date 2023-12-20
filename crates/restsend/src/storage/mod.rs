@@ -1,7 +1,7 @@
 use crate::Result;
 use std::str::FromStr;
 
-#[cfg(target_family = "wasm")]
+#[allow(unused)]
 mod memory;
 
 #[cfg(not(target_family = "wasm"))]
@@ -10,7 +10,7 @@ mod sqlite;
 pub trait StoreModel: ToString + FromStr {
     fn sort_key(&self) -> i64;
 }
-
+#[derive(Debug)]
 pub struct QueryOption {
     pub keyword: Option<String>,
     pub start_sort_value: i64,
