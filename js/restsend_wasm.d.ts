@@ -46,6 +46,18 @@ export class Client {
 */
   createTopic(members: (string)[], name?: string, icon?: string): Promise<any>;
 /**
+* Join a topic
+* #Arguments
+* * `topicId` - topic id
+* * `message` - message
+* * `source` - source
+* @param {string} topicId
+* @param {string | undefined} [message]
+* @param {string | undefined} [source]
+* @returns {Promise<any>}
+*/
+  joinTopic(topicId: string, message?: string, source?: string): Promise<any>;
+/**
 * Get topic info
 * #Arguments
 * * `topicId` - topic id
@@ -224,78 +236,6 @@ export class Client {
 */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
 /**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
-* @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
-*/
-  getUser(userId: string, blocking?: boolean): Promise<any>;
-/**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
-*/
-  getUsers(userIds: (string)[]): Promise<any>;
-/**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
-* @returns {Promise<void>}
-*/
-  setUserRemark(userId: string, remark: string): Promise<void>;
-/**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
-* @returns {Promise<void>}
-*/
-  setUserStar(userId: string, star: boolean): Promise<void>;
-/**
-* Set user block
-* #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
-* @returns {Promise<void>}
-*/
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-/**
-* Set allow guest chat
-* #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
-/**
-* @param {any} info
-*/
-  constructor(info: any);
-/**
-* @returns {Promise<void>}
-*/
-  shutdown(): Promise<void>;
-/**
-* @returns {Promise<void>}
-*/
-  connect(): Promise<void>;
-/**
 * Create a new chat with userId
 * return: Conversation
 * @param {string} userId
@@ -389,6 +329,28 @@ export class Client {
 * @returns {Promise<void>}
 */
   setConversationRead(topicId: string): Promise<void>;
+/**
+* Set conversation tags
+* #Arguments
+* * `topicId` - topic id
+* * `tags` - tags is array of Tag:
+*     - id - string
+*     - type - string
+*     - label - string
+* @param {string} topicId
+* @param {any} tags
+* @returns {Promise<void>}
+*/
+  setConversationTags(topicId: string, tags: any): Promise<void>;
+/**
+* Set conversation extra
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
+* @param {any} extra
+* @returns {Promise<void>}
+*/
+  setConversationExtra(topicId: string, extra: any): Promise<void>;
 /**
 *
 * Send message with content
@@ -598,6 +560,78 @@ export class Client {
 * @returns {Promise<string>}
 */
   doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+/**
+* @param {any} info
+*/
+  constructor(info: any);
+/**
+* @returns {Promise<void>}
+*/
+  shutdown(): Promise<void>;
+/**
+* @returns {Promise<void>}
+*/
+  connect(): Promise<void>;
+/**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 * get the current connection status
 * return: connecting, connected, net_broken, shutdown

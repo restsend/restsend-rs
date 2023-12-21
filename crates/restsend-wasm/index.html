@@ -98,6 +98,7 @@
 
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
+                console.log('conversations updated', items)
                 items.forEach((item) => {
                     let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
                     if (item.multiple) {
@@ -107,8 +108,12 @@
                     }
 
                     if (index >= 0) {
-                        this.conversations.splice(index, 1);
-                        this.conversations.unshift(item)
+                        if (this.conversations[index].updatedAt != item.updatedAt) {
+                            this.conversations.splice(index, 1);
+                            this.conversations.unshift(item)
+                        } else {
+                            this.conversations[index] = item
+                        }
                     } else {
                         this.conversations.push(item)
                     }
@@ -136,11 +141,15 @@
                 this.messageBlocks = []
                 this.msgs = {}
                 this.updateConversation(conversation);
+
+                // set read when conversation is selected
+                // via http api
+                this.current.setConversationRead(conversation.topicId).then();
             },
 
             updateConversation: function (conversation) {
                 this.conversation = conversation
-                console.log('select conversation', conversation)
+                console.log(conversation)
                 this.current.syncChatLogs(conversation.topicId, conversation.lastSeq, {
                     onsuccess: (r) => {
                         this.appendMessages(r.items);
@@ -267,9 +276,7 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('reference message',message,block)
                 this.reference = message.content || ''
-                console.log('reference message',message)
             },
             doReCall: async function (messageId) {
                 if (!this.conversation) {

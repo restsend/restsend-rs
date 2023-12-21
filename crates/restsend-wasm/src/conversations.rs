@@ -3,6 +3,7 @@ use crate::{
     callback::{SyncChatLogsCallbackWasmWrap, SyncConversationsCallbackWasmWrap},
     js_util::{self, get_string},
 };
+use restsend_sdk::models::conversation::{Extra, Tags};
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -24,6 +25,7 @@ impl Client {
             .await
             .map_err(|e| JsValue::from(e.to_string()))
     }
+
     /// Remove messages from a topic
     pub async fn removeMessages(
         &self,
@@ -35,6 +37,7 @@ impl Client {
             .await
             .map_err(|e| JsValue::from(e.to_string()))
     }
+
     /// Sync chat logs from server
     /// #Arguments
     /// * `topicId` - topic id
@@ -109,5 +112,25 @@ impl Client {
     /// * `topicId` - topic id
     pub async fn setConversationRead(&self, topicId: String) {
         self.inner.set_conversation_read(topicId).await
+    }
+
+    /// Set conversation tags
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `tags` - tags is array of Tag:
+    ///     - id - string
+    ///     - type - string
+    ///     - label - string
+    pub async fn setConversationTags(&self, topicId: String, tags: JsValue) {
+        let tags = serde_wasm_bindgen::from_value::<Tags>(tags).ok();
+        self.inner.set_conversation_tags(topicId, tags).await
+    }
+
+    /// Set conversation extra
+    /// #Arguments
+    /// * `topicId` - topic id
+    pub async fn setConversationExtra(&self, topicId: String, extra: JsValue) {
+        let extra = serde_wasm_bindgen::from_value::<Extra>(extra).ok();
+        self.inner.set_conversation_extra(topicId, extra).await
     }
 }

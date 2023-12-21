@@ -73,44 +73,10 @@ impl<T: StoreModel> SqliteTable<T> {
             _phantom: std::marker::PhantomData,
         }
     }
-
-    fn get_total(&self, partition: &str) -> u32 {
-        let db = self.session.clone();
-        let mut conn = db.lock().unwrap();
-        let conn = conn.as_mut().unwrap();
-
-        let stmt = format!("SELECT COUNT(*) FROM {} WHERE partition = ?", self.name);
-        let mut stmt = conn.prepare(&stmt).unwrap();
-        let rows = stmt.query(&[&partition]);
-
-        let mut rows = match rows {
-            Err(e) => {
-                debug!("{} query {} failed: {}", self.name, partition, e);
-                return 0;
-            }
-            Ok(rows) => rows,
-        };
-
-        match rows.next() {
-            Ok(rows) => match rows {
-                Some(row) => {
-                    let value: u32 = row.get(0).unwrap();
-                    value
-                }
-                None => 0,
-            },
-            Err(e) => {
-                debug!("{} get {} failed: {}", self.name, partition, e);
-                0
-            }
-        }
-    }
 }
 
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
-        let total: u32 = self.get_total(partition);
-
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -131,7 +97,6 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(e) => {
                 debug!("{} query {} failed: {}", self.name, partition, e);
                 return QueryResult {
-                    total: 0,
                     start_sort_value: option.start_sort_value,
                     end_sort_value: 0,
                     items: vec![],
@@ -165,7 +130,6 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         };
 
         QueryResult {
-            total,
             start_sort_value,
             end_sort_value,
             items,
@@ -255,6 +219,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             }
         }
     }
+
     fn clear(&self) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();

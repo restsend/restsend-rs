@@ -18,7 +18,6 @@ pub struct QueryOption {
 }
 #[derive(Debug)]
 pub struct QueryResult<T: StoreModel> {
-    pub total: u32,
     pub start_sort_value: i64,
     pub end_sort_value: i64,
     pub items: Vec<T>,

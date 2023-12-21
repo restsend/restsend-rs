@@ -1,5 +1,6 @@
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
+use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::services::conversation::{
     clean_history, get_chat_logs_desc, get_conversations, remove_messages,
@@ -146,13 +147,7 @@ impl Client {
                         .unwrap_or_default();
                     let count = r.items.len() as u32;
 
-                    store_ref
-                        .callback
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .map(|cb| cb.on_conversations_updated(r.items));
-
+                    store_ref.emit_conversations_update(r.items);
                     callback.on_success(updated_at, count as u32);
                     return;
                 }
@@ -184,12 +179,7 @@ impl Client {
                         .map(|c| c.updated_at.clone())
                         .unwrap_or_default();
                     let count = items.len() as u32;
-                    store_ref
-                        .callback
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .map(|cb| cb.on_conversations_updated(items));
+                    store_ref.emit_conversations_update(items);
                     (updated_at, count)
                 });
             match r {
@@ -217,5 +207,13 @@ impl Client {
 
     pub async fn set_conversation_read(&self, topic_id: String) {
         self.store.set_conversation_read(&topic_id).await
+    }
+
+    pub async fn set_conversation_tags(&self, topic_id: String, tags: Option<Tags>) {
+        self.store.set_conversation_tags(&topic_id, tags).await
+    }
+
+    pub async fn set_conversation_extra(&self, topic_id: String, extra: Option<Extra>) {
+        self.store.set_conversation_extra(&topic_id, extra).await
     }
 }

@@ -2,7 +2,7 @@ use restsend_macros::export_wasm_or_ffi;
 
 use super::Client;
 use crate::models::{Conversation, ListUserResult, Topic, TopicKnock, User};
-use crate::services::topic::{create_topic, get_topic, get_topic_members};
+use crate::services::topic::{create_topic, get_topic, get_topic_members, join_topic};
 use crate::services::topic_admin::*;
 use crate::Result;
 
@@ -18,6 +18,22 @@ impl Client {
         create_topic(&self.endpoint, &self.token, members, icon, name)
             .await
             .map(|t| Conversation::from(&t))
+    }
+
+    pub async fn join_topic(
+        &self,
+        topic_id: String,
+        message: Option<String>,
+        source: Option<String>,
+    ) -> Result<()> {
+        join_topic(
+            &self.endpoint,
+            &self.token,
+            &topic_id,
+            &message.unwrap_or_default(),
+            &source.unwrap_or_default(),
+        )
+        .await
     }
 
     pub async fn get_topic(&self, topic_id: String) -> Option<Topic> {

@@ -25,6 +25,25 @@ impl Client {
             .map(|v| serde_wasm_bindgen::to_value(&v).expect("create_topic failed"))
             .unwrap_or(JsValue::UNDEFINED)
     }
+
+    /// Join a topic
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `message` - message
+    /// * `source` - source
+    pub async fn joinTopic(
+        &self,
+        topicId: String,
+        message: Option<String>,
+        source: Option<String>,
+    ) -> JsValue {
+        self.inner
+            .join_topic(topicId, message, source)
+            .await
+            .map(|_| JsValue::UNDEFINED)
+            .unwrap_or(JsValue::UNDEFINED)
+    }
+
     /// Get topic info
     /// #Arguments
     /// * `topicId` - topic id

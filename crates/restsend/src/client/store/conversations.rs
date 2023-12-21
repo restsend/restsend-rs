@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use super::{is_cache_expired, ClientStore};
 use crate::{
-    models::{ChatLog, ChatLogStatus, Content, ContentType, Conversation},
+    models::{
+        conversation::{Extra, Tags},
+        ChatLog, ChatLogStatus, Content, ContentType, Conversation,
+    },
     request::ChatRequest,
     services::conversation::*,
     storage::{QueryOption, QueryResult, Storage},
@@ -47,6 +50,26 @@ pub(crate) fn update_conversation_with_storage(
 }
 
 impl ClientStore {
+    pub fn emit_conversation_update(&self, topic_id: &str) {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        if let Some(conversation) = t.get("", topic_id) {
+            self.emit_conversations_update(vec![conversation]);
+        }
+    }
+
+    pub fn emit_conversations_update(&self, conversations: Vec<Conversation>) {
+        let mut conversations = conversations;
+        conversations.iter_mut().for_each(|c| {
+            c.unread = (c.last_seq - c.last_read_seq).max(0);
+        });
+
+        self.callback
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|cb| cb.on_conversations_updated(conversations));
+    }
+
     pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
@@ -57,7 +80,7 @@ impl ClientStore {
         }
 
         match set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky).await {
-            Ok(_) => {}
+            Ok(_) => self.emit_conversation_update(topic_id),
             Err(e) => {
                 warn!("set_conversation_sticky failed: {:?}", e);
             }
@@ -74,7 +97,7 @@ impl ClientStore {
         }
 
         match set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute).await {
-            Ok(_) => {}
+            Ok(_) => self.emit_conversation_update(topic_id),
             Err(e) => {
                 warn!("set_conversation_sticky failed: {:?}", e);
             }
@@ -92,9 +115,51 @@ impl ClientStore {
     pub async fn set_conversation_read(&self, topic_id: &str) {
         self.set_conversation_read_local(topic_id);
         match set_conversation_read(&self.endpoint, &self.token, &topic_id).await {
-            Ok(_) => {}
+            Ok(_) => self.emit_conversation_update(topic_id),
             Err(e) => {
                 warn!("set_conversation_read failed: {:?}", e);
+            }
+        }
+    }
+
+    pub async fn set_conversation_tags(&self, topic_id: &str, tags: Option<Tags>) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.tags = tags.clone();
+                t.set("", topic_id, Some(conversation));
+            }
+        }
+
+        let values = serde_json::json!({
+            "tags": tags.unwrap_or_default(),
+        });
+
+        match update_conversation(&self.endpoint, &self.token, &topic_id, &values).await {
+            Ok(_) => self.emit_conversation_update(topic_id),
+            Err(e) => {
+                warn!("set_conversation_tags failed: {:?}", e);
+            }
+        }
+    }
+
+    pub async fn set_conversation_extra(&self, topic_id: &str, extra: Option<Extra>) {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.extra = extra.clone();
+                t.set("", topic_id, Some(conversation));
+            }
+        }
+
+        let values = serde_json::json!({
+            "extra": extra.unwrap_or_default(),
+        });
+
+        match update_conversation(&self.endpoint, &self.token, &topic_id, &values).await {
+            Ok(_) => self.emit_conversation_update(topic_id),
+            Err(e) => {
+                warn!("set_conversation_extra failed: {:?}", e);
             }
         }
     }
@@ -194,7 +259,7 @@ impl ClientStore {
 
         let mut conversation = t.get("", &topic_id).unwrap_or(Conversation::from(req));
 
-        if req.seq >= conversation.last_seq {
+        if req.seq > 0 && req.seq >= conversation.last_seq {
             conversation.last_seq = req.seq;
             conversation.last_sender_id = req.attendee.clone();
             conversation.last_message_at = req.created_at.clone();
@@ -261,7 +326,7 @@ impl ClientStore {
         let mut new_status = ChatLogStatus::Received;
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
             if req.r#type == "recall" {
-                if now - old_log.cached_at > MAX_RECALL_SECS {
+                if MAX_RECALL_SECS > 0 && now - old_log.cached_at > MAX_RECALL_SECS {
                     return Err(Error::Other("[recall] timeout".to_string()));
                 }
 
@@ -271,7 +336,7 @@ impl ClientStore {
                 }
 
                 if req.attendee != old_log.sender_id {
-                    return Err(Error::Other("[recall] invalid  owner".to_string()));
+                    return Err(Error::Other("[recall] invalid owner".to_string()));
                 }
 
                 let mut log = old_log.clone();

@@ -2,7 +2,27 @@ use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+pub struct Tag {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub id: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub r#type: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub label: String,
+}
+
+pub type Tags = Vec<Tag>;
+pub type Extra = HashMap<String, String>;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -72,7 +92,16 @@ pub struct Conversation {
     pub last_message_at: String,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Extra>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Tags>,
+
+    #[serde(default)]
     pub cached_at: i64,
+
     #[serde(default)]
     pub is_partial: bool,
 }
