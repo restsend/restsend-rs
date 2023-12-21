@@ -225,32 +225,6 @@
                 });
             }
         }
-
-        async function sendRequest() {
-            let info = await signin(endpoint, 'bob', 'bob:demo');
-            client = new Client(info);
-            client.onconnected = () => {
-                logText(`client connected`);
-                document.getElementById('btnSendTest').disabled = false;
-            }
-            await client.connect();
-        }
-
-        async function doTestMessage() {
-            await client.doSendText('bob:alice', 'hello web demo', {
-                onack: function (req) {
-                    logText(`onack : ${JSON.stringify(req)}`);
-                },
-                onsent: function () {
-                    logText('onsent');
-                },
-                onfail: function () {
-                    logText('onfailed');
-                }
-            });
-        }
-
-
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
         <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->

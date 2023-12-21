@@ -60,7 +60,10 @@ async fn test_client_fetch_logs() {
 
     let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();
     assert_eq!(local_logs.items.len(), 10);
-
+    println!(
+        "r.end_seq: {}, local_logs.end_sort_value:{}",
+        r.end_seq, local_logs.end_sort_value
+    );
     assert_eq!(r.start_seq, local_logs.start_sort_value);
     assert_eq!(r.end_seq, local_logs.end_sort_value);
 }

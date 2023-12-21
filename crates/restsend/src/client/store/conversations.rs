@@ -238,17 +238,16 @@ impl ClientStore {
     ) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
 
-        debug!(
-            "update_outoing_chat_log_state: topic_id: {} chat_id: {}, status: {:?} seq: {:?}",
-            topic_id, chat_id, status, seq
-        );
-
         if let Some(log) = t.get(topic_id, chat_id) {
             let mut log = log.clone();
             log.status = status;
             if let Some(seq) = seq {
                 log.seq = seq;
             }
+            debug!(
+                "update_outoing_chat_log_state: topic_id: {} chat_id: {} status: {:?} seq: {:?}",
+                topic_id, chat_id, log.status, seq
+            );
             t.set(topic_id, chat_id, Some(log));
         }
         Ok(())
@@ -259,7 +258,7 @@ impl ClientStore {
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
         let now = now_millis();
-
+        let mut new_status = ChatLogStatus::Received;
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
             if req.r#type == "recall" {
                 if now - old_log.cached_at > MAX_RECALL_SECS {
@@ -280,14 +279,20 @@ impl ClientStore {
                 log.content = Content::new(ContentType::Recall);
                 t.set(&topic_id, &chat_id, Some(log));
             }
-            return Ok(());
+            match old_log.status {
+                ChatLogStatus::Sending => new_status = ChatLogStatus::Sent,
+                _ => return Ok(()),
+            }
         }
 
         let mut log = ChatLog::from(req);
-        log.status = ChatLogStatus::Received;
+        log.status = new_status;
         log.cached_at = now;
 
-        // TODO: download attachment
+        debug!(
+            "save_incoming_chat_log: topic_id: {} chat_id: {} seq: {}",
+            topic_id, chat_id, req.seq,
+        );
         t.set(&log.topic_id, &log.id, Some(log.clone()));
         Ok(())
     }
