@@ -20,6 +20,8 @@
             conversation: null,
             message: '',
             self: null,
+            msgs: {},
+            messageBlocks: [],
             init: async function () {
                 var wasm = await import("./pkg/restsend_wasm.js");
                 window.signin = wasm.signin;
@@ -47,7 +49,7 @@
             },
 
             onClearLogs: function () {
-                this.logs.splice(1)
+                this.logs = []
             },
             doSignin: async function () {
                 if (this.current) {
@@ -93,12 +95,7 @@
                     }
 
                     if (index >= 0) {
-                        let prev = this.conversations[index]
                         this.conversations.splice(index, 1);
-
-                        item.messageBlocks = prev.messageBlocks
-                        item.msgs = prev.msgs
-
                         this.conversations.unshift(item)
                     } else {
                         this.conversations.push(item)
@@ -107,9 +104,8 @@
                         hintCurrent = item
                     }
                 })
-
-                if (this.conversation && hintCurrent) {
-                    this.onSelectConversation(hintCurrent)
+                if (hintCurrent) {
+                    this.updateConversation(hintCurrent);
                 }
             },
 
@@ -125,10 +121,16 @@
             },
 
             onSelectConversation: function (conversation) {
+                this.messageBlocks = []
+                this.msgs = {}
+                this.updateConversation(conversation);
+            },
+
+            updateConversation: function (conversation) {
                 this.conversation = conversation
                 this.current.syncChatLogs(conversation.topicId, conversation.lastSeq, {
                     onsuccess: (r) => {
-                        this.appendMessages(conversation, r.items);
+                        this.appendMessages(r.items);
                         // scroll to bottom
                         setTimeout(() => {
                             const el = document.getElementById('messages')
@@ -143,25 +145,32 @@
                 }).then();
             },
 
-            appendMessages(conversation, items) {
-                if (!conversation.messageBlocks) {
-                    conversation.messageBlocks = [];
-                }
-                if (!conversation.msgs) {
-                    conversation.msgs = {}
-                }
-
-                let msgs = conversation.msgs
-                let blocks = conversation.messageBlocks;
+            appendMessages(items) {
+                let msgs = this.msgs
+                let blocks = this.messageBlocks;
                 let lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
                 let lastItem = lastBlock ? lastBlock.items.length > 0 ? lastBlock.items[lastBlock.items.length - 1] : undefined : undefined
                 for (let idx = items.length - 1; idx >= 0; idx--) {
                     const item = items[idx];
-                    if (msgs[item.id]) {
+                    if (msgs[item.id] === item.id) {
                         continue
                     }
-                    msgs[item.id] = item
+                    msgs[item.id] = item.id
+                    let createBlock = false
                     if (!lastBlock || lastBlock.senderId != item.senderId) {
+                        createBlock = true
+                    }
+
+                    if (lastBlock && lastBlock.items.length > 0 && lastItem) {
+                        let lastItemCreatedAt = new Date(lastItem.createdAt).getTime()
+                        let itemCreatedAt = new Date(item.createdAt).getTime()
+
+                        if (itemCreatedAt - lastItemCreatedAt > 5 * 60 * 1000) { // 5 mins
+                            createBlock = true
+                        }
+                    }
+
+                    if (createBlock) {
                         lastBlock = {
                             title: item.senderId,
                             avatar: this.getAvatar(item.senderId),
@@ -170,8 +179,8 @@
                             items: []
                         };
                         blocks.push(lastBlock);
-
                     }
+
                     if (lastItem) {
                         lastItem.isLast = lastBlock.items.length == 0
                     }
@@ -180,6 +189,7 @@
                         type: item.content.type,
                         content: this.renderContent(item.content),
                         isLast: false,
+                        createdAt: item.createdAt,
                     }
                     lastBlock.items.push(lastItem)
                 }
@@ -258,8 +268,7 @@
         <div class="mx-auto h-auto w-full max-w-7xl  lg:flex xl:px-2">
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
-                <div
-                    class="border-b border-gray-200 px-2 py-5 sm:px-6  xl:w-72 xl:shrink-0  xl:border-b-0 xl:border-r">
+                <div class="border-b border-gray-200 px-2 py-5 sm:px-6  xl:w-72 xl:shrink-0  xl:border-b-0 xl:border-r">
                     <template x-for="item in conversations">
                         <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer"
                             @click="onSelectConversation(item)">
@@ -267,7 +276,8 @@
                                 <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
                             </div>
                             <div class="hidden shrink-0 sm:flex sm:flex-col pl-2">
-                                <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap" x-text="item.title"></p>
+                                <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
+                                    x-text="item.title"></p>
                                 <p class="mt-1 text-xs leading-5 text-gray-500">
                                     <time :datetime="item.updatedAt" x-text="timeAgo(item.updatedAt)"></time>
                                 </p>
@@ -283,20 +293,21 @@
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
-                                            <img :src="conversation.icon" alt=""
-                                                class="w-10 h-10 rounded-full">
+                                            <img :src="conversation.icon" alt="" class="w-10 h-10 rounded-full">
                                         </div>
                                         <div class="flex flex-col leading-tight">
                                             <div class="text-xl flex items-center">
-                                                <span class="text-gray-700 text-lg font-semibold" x-text="conversation.title"></span>
+                                                <span class="text-gray-700 text-lg font-semibold"
+                                                    x-text="conversation.title"></span>
                                             </div>
-                                            <span class="text-sm mt-1 text-gray-400" x-text="conversation.topicId"></span>
+                                            <span class="text-sm mt-1 text-gray-400"
+                                                x-text="conversation.topicId"></span>
                                         </div>
                                     </div>
                                 </div>
                                 <div id="messages"
                                     class="flex flex-col space-y-4 p-3 overflow-y-auto  h-[calc(100vh-22rem)] scrollbar-w-2 scrolling-touch">
-                                    <template x-for="block in conversation.messageBlocks">
+                                    <template x-for="block in messageBlocks">
                                         <div class="chat-message">
                                             <div class="flex items-end" :class="block.isSelf?'justify-end':''">
                                                 <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2"
