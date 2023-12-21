@@ -281,7 +281,7 @@
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
                 <div
-                    class="border-b border-gray-200 px-2 py-5 sm:px-6  xl:w-72 xl:shrink-0  xl:border-b-0 xl:border-r">
+                    class="border-b h-[calc(100vh-8rem)] overflow-y-auto border-gray-200 px-2 py-5 sm:px-6  xl:w-72 xl:shrink-0  xl:border-b-0 xl:border-r">
                     <template x-for="item in conversations">
                         <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer"
                             @click="onSelectConversation(item)">
