@@ -241,15 +241,15 @@
                     return
                 }
                 let thisPtr = this;
-                await client.doSendText(this.conversation.topicId, this.message,{
+                await client.doSendText(this.conversation.topicId, this.message, {
                     onack: function (req) {
                         thisPtr.message = ''
-                        // thisPtr.reference = ''
                     },
                     onfail: function (reason) {
                         logText(`send message fail ${reason}`)
                     }
                 });
+                this.reference = '' // clear reference
             },
             doDeleteMessage: async function (messageId) {
                 if (!this.conversation) {
@@ -263,20 +263,34 @@
                 }
                 console.log('forward message', block)
             },
-            doReferenceMessage: async function (message) {
+            doReferenceMessage: async function (message,block) {
                 if (!this.conversation) {
                     return
                 }
-                
-                this.reference = this.renderContent(message.content) || ''
-                console.log('reference message',this.reference)
-                // console.log('reference message',message)
+                console.log('reference message',message,block)
+                this.reference = message.content || ''
+                console.log('reference message',message)
             },
             doReCall: async function (messageId) {
                 if (!this.conversation) {
                     return
                 }
                 console.log('recall message')
+            },
+            timeoutId: null,
+            startTimer() {
+                this.timeoutId = setTimeout(() => {
+                    console.log('长按事件触发');
+                    // 在这里添加长按事件的逻辑
+                    this.$dispatch('longPress');
+                }, 2000);
+            },
+            cancelTimer() {
+                clearTimeout(this.timeoutId);
+                console.log('长按事件取消');
+            },
+            modalClass() {
+
             }
         };
     </script>
@@ -356,7 +370,7 @@
                 <div class="px-4 h-full py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
                     <template x-if="conversation">
                         <div class="overflow-hidden rounded-lg bg-white shadow">
-                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col">
+                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)]">
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
@@ -389,8 +403,9 @@
                                         </div>
                                     </button>
                                 </div>
+                                <!-- h-[calc(100vh-22rem)] -->
                                 <div id="messages"
-                                    class="flex flex-col space-y-4 p-3 overflow-y-auto  h-[calc(100vh-22rem)] scrollbar-w-2 scrolling-touch">
+                                    class="flex  flex-col space-y-4 p-3 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
                                     <template x-for="block in messageBlocks">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
@@ -472,11 +487,11 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="border-t border-gray-200 mb-2 sm:mb-0">
+                                <div class="border-t border-gray-200 mb-2 sm:mb-0 shrink-0 ">
                                     <div class="relative rounded-md py-2">
                                         <template x-if="reference">
                                             <div class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs">
-                                                <p class="text-overflow-ellipsis" x-text="reference"></p>
+                                                <p class="text-overflow-ellipsis" x-html="reference"></p>
                                             </div>
                                         </template>
                                         <input type="text" placeholder="Write your message!" x-model="message"
