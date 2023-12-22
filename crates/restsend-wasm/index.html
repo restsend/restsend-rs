@@ -29,7 +29,7 @@
             conversation: null,
             message: '',
             self: null,
-            reference: '',
+            reference: null,
             msgs: {},
             showCheckbox: false,
             messageBlocks: [],
@@ -236,6 +236,16 @@
                     let url = content.thumbnail || content.text;
                     return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
                 }
+                if (content.type == 'link') {
+                    return `<a href="${content.text}" target="_blank" class="underline text-gray-300">${content.text}</a>`
+                }
+                if (content.type == 'file') {
+                    return `<a href="${content.text}" target="_blank" class="flex w-32 h-20 rounded-md border shadow justify0between">
+                    <p> ${content.text}</p>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-16 h-16 text-gray-500">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+</a>`
+                }
                 return content.text
             },
 
@@ -250,10 +260,9 @@
                     classList.push(item.type == 'image' ? '' : 'bg-gray-300 text-gray-600')
                 }
 
-                if(item.type == 'recall' || item.type == '') {
+                if (item.type == 'recall' || item.type == '') {
                     classList.push('hidden')
                 }
-                // classList.push(item.type == 'image' ? 'w-32 h-32 rounded-md shadow' : 'px-4 py-2 rounded-lg whitespace-wrap break-all inline-block')
                 return classList.join(' ')
             },
             doSendMessage: async function () {
@@ -261,9 +270,8 @@
                     return
                 }
                 let thisPtr = this;
-                console.log('send message', thisPtr)
                 await client.doSendText(this.conversation.topicId, this.message, {
-                    // reply:'909000000',
+                    replyId: this.reference ? this.reference.id : undefined,
                     onack: function (req) {
                         thisPtr.message = ''
                     },
@@ -271,7 +279,29 @@
                         logText(`send message fail ${reason}`)
                     }
                 });
-                this.reference = ''
+                this.reference = null
+            },
+            // uploadImage: function (imageUrl) {
+
+            // },
+            doSendImages: async function () {
+                if (!this.conversation) {
+                    return
+                }
+                client.doSendImage(this.conversation.topicId, {
+                    file: select.file[0]
+                });
+            },
+
+            doSendLink: async function (link) {
+                if (!this.conversation || !link) {
+                    return
+                }
+                console.log('send link', link)
+                await client.doSendLink(this.conversation.topicId, link, {
+                    placeholder: 'link',
+                    reply: '1234567'
+                });
             },
             doDeleteMessage: async function (message) {
                 console.log('delete message', message)
@@ -299,7 +329,9 @@
                 if (!this.conversation) {
                     return
                 }
-                this.reference = message.content || ''
+                this.reference = message
+                console.log('reference message', this.reference)
+
             },
             doReCallMessage: async function (message) {
                 if (!this.conversation) {
@@ -316,7 +348,16 @@
                     }
                 });
                 // this.updateConversation(this.conversation);
-            }
+            },
+            cleanHistory: async function () {
+                if (!this.conversation) {
+                    return
+                }
+                console.log('clean history', this.conversation)
+                let thisPtr = this;
+                await client.cleanHistory(this.conversation.topicId);
+                this.updateConversation(this.conversation);
+            },
         };
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
@@ -419,10 +460,11 @@
                                         </svg>
 
                                         <div
-                                            class="absolute top-6 z-10 -left-36 bg-white hidden group-hover:block w-44 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
+                                            class="absolute top-6 z-10 -left-32 bg-white hidden group-hover:block w-40 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
                                             <p class="bg-white space-y-2">
 
-                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100">Clear Messages</a>
+                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100"
+                                                    @click="cleanHistory">Clean History</a>
                                             </p>
                                         </div>
                                     </button>
@@ -531,8 +573,10 @@
                                     <div class="relative rounded-md py-2">
                                         <template x-if="reference">
                                             <div
-                                                class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs">
-                                                <p class="text-overflow-ellipsis" x-html="reference"></p>
+                                                class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs relative">
+                                                <p class="text-overflow-ellipsis pr-3" x-html="reference.content"></p>
+                                                <p class="absolute right-0 top-0 px-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300 text-gray-800 cursor-pointer"
+                                                    @click="reference=null">X</p>
                                             </div>
                                         </template>
                                         <input type="text" placeholder="Write your message!" x-model="message"
@@ -541,7 +585,7 @@
                                         <div class="mt-2 w-full justify-between bottom-0 items-center hidden sm:flex">
 
                                             <div class="flex items-center space-x-3">
-                                                <button type="button"
+                                                <button type="button" @click="doSendLink('https://www.google.com')"
                                                     class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500 focus:outline-none">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
                                                         viewBox="0 0 24 24" stroke="currentColor"
@@ -552,19 +596,37 @@
                                                         </path>
                                                     </svg>
                                                 </button>
-                                                <button type="button"
-                                                    class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
+                                                <button type="button" @click="doSendImages"
+                                                    class="inline-flex items-center relative justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
                                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                        viewBox="0 0 24 24" stroke="currentColor"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        data-slot="icon"
                                                         class="h-6 w-6 text-gray-600 hover:text-gray-400">
                                                         <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z">
-                                                        </path>
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z">
-                                                        </path>
+                                                            d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                                     </svg>
+
+                                                    <input type="file" class="w-6 h-6 absolute top-0 cursor-pointer">
+                                                </button>
+
+                                                <button type="button" @click="doSendMemes"
+                                                    class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="h-6 w-6 text-gray-600 hover:text-gray-400">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
+                                                    </svg>
+                                                </button>
+                                                <button type="button" @click="doSendFiles"
+                                                    class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="h-6 w-6 text-gray-600 hover:text-gray-400">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                                                    </svg>
+
                                                 </button>
                                             </div>
 
