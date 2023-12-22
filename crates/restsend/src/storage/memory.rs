@@ -82,6 +82,27 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
+    fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T> {
+        let mut data = self.data.lock().unwrap();
+        let mut table = data.get_mut(partition);
+        let mut table = match table {
+            Some(table) => table,
+            None => return vec![],
+        };
+        let mut items = Vec::<T>::new();
+        for (_, v) in table.data.iter() {
+            let v = match T::from_str(v) {
+                Ok(v) => v,
+                _ => continue,
+            };
+            match predicate(v) {
+                Some(v) => items.push(v),
+                None => {}
+            }
+        }
+        items
+    }
+
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
         let mut data = self.data.lock().unwrap();
         let mut items = Vec::<T>::new();

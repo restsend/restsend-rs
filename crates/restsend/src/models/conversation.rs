@@ -93,6 +93,10 @@ pub struct Conversation {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub extra: Option<Extra>,
 
     #[serde(default)]
@@ -115,6 +119,7 @@ impl Conversation {
         }
     }
 }
+
 impl FromStr for Conversation {
     type Err = serde_json::Error;
 

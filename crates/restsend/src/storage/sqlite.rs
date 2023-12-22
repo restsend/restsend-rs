@@ -76,6 +76,42 @@ impl<T: StoreModel> SqliteTable<T> {
 }
 
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
+    fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T> {
+        let db = self.session.clone();
+        let mut conn = db.lock().unwrap();
+        let conn = conn.as_mut().unwrap();
+
+        let stmt = format!("SELECT value FROM {} WHERE partition = ?", self.name);
+        let mut stmt = conn.prepare(&stmt).unwrap();
+        let rows = stmt.query(&[&partition]);
+        let mut rows = match rows {
+            Err(e) => {
+                debug!("{} query {} failed: {}", self.name, partition, e);
+                return vec![];
+            }
+            Ok(rows) => rows,
+        };
+
+        let mut items: Vec<T> = vec![];
+
+        while let Ok(rows) = rows.next() {
+            match rows {
+                Some(row) => {
+                    let value: String = row.get(0).unwrap();
+                    match T::from_str(&value) {
+                        Ok(v) => match predicate(v) {
+                            Some(v) => items.push(v),
+                            None => {}
+                        },
+                        _ => {}
+                    };
+                }
+                None => break,
+            }
+        }
+
+        items
+    }
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();

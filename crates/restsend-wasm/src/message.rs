@@ -22,6 +22,9 @@ impl Client {
     ///     * `placeholder` String - The placeholder of the content, optional
     ///     * `width` Number - The width of the content, only for image/video, optional
     ///     * `height` Number - The height of the content, only for image/video, optional
+    ///     * `reply` String - The reply message id, optional
+    ///     * `mentions` Array - Mention to users, optional
+    ///     * `mentionsAll` Boolean - Mention to all users, optional
     /// * `option` - The send option
     /// # Return
     /// The message id
@@ -34,6 +37,7 @@ impl Client {
     ///     text: 'hello',
     /// }, {
     ///     mentions: undefined, // The mention user id list, optional
+    ///     mentionAll:  false, // Mention all users, optional
     ///     reply:  undefined, // The reply message id, optional
     ///     onsent:  () => {}, // The callback when message sent
     ///     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
@@ -92,6 +96,7 @@ impl Client {
     /// * `option` - The send option
     ///     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
     ///     * `mentions` Array - The mention user id list, optional
+    ///     * `mentionAll` boolean, // Mention all users, optional
     ///     * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -121,6 +126,7 @@ impl Client {
     /// * `option` - The send option
     ///    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
     ///    * `mentions` Array - The mention user id list, optional
+    ///    * `mentionAll` boolean, // Mention all users, optional
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -150,6 +156,7 @@ impl Client {
     /// * `option` - The send option
     ///    * `size` Number - The size of the content, only for file, optional
     ///    * `mentions` Array - The mention user id list, optional
+    ///    * `mentionAll` boolean, // Mention all users, optional
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -179,6 +186,7 @@ impl Client {
     /// * `address` - The address
     /// * `option` - The send option
     ///   * `mentions` Array - The mention user id list, optional
+    ///   * `mentionAll` boolean, // Mention all users, optional
     ///   * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -210,6 +218,7 @@ impl Client {
     /// * `option` - The send option
     ///  * `placeholder` String - The placeholder of the content, optional
     ///  * `mentions` Array - The mention user id list, optional
+    ///  * `mentionAll` boolean, // Mention all users, optional
     ///  * `reply` String - The reply message id, optional
     /// # Return
     /// The message id

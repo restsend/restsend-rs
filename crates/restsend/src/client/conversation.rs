@@ -3,7 +3,7 @@ use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::services::conversation::{
-    clean_history, get_chat_logs_desc, get_conversations, remove_messages,
+    clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
 use crate::services::topic::create_chat;
 use crate::utils::{now_millis, spwan_task};
@@ -19,8 +19,8 @@ impl Client {
             .ok()
     }
 
-    pub async fn clean_history(&self, topic_id: String) -> Result<()> {
-        clean_history(&self.endpoint, &self.token, &topic_id).await
+    pub async fn clean_messages(&self, topic_id: String) -> Result<()> {
+        clean_messages(&self.endpoint, &self.token, &topic_id).await
     }
 
     pub async fn remove_messages(
@@ -197,11 +197,27 @@ impl Client {
         self.store.remove_conversation(&topic_id).await
     }
 
-    pub async fn set_conversation_sticky(&self, topic_id: String, sticky: bool) {
+    pub async fn set_conversation_remark(
+        &self,
+        topic_id: String,
+        remark: Option<String>,
+    ) -> Result<Conversation> {
+        self.store.set_conversation_remark(&topic_id, remark).await
+    }
+
+    pub async fn set_conversation_sticky(
+        &self,
+        topic_id: String,
+        sticky: bool,
+    ) -> Result<Conversation> {
         self.store.set_conversation_sticky(&topic_id, sticky).await
     }
 
-    pub async fn set_conversation_mute(&self, topic_id: String, mute: bool) {
+    pub async fn set_conversation_mute(
+        &self,
+        topic_id: String,
+        mute: bool,
+    ) -> Result<Conversation> {
         self.store.set_conversation_mute(&topic_id, mute).await
     }
 
@@ -209,11 +225,28 @@ impl Client {
         self.store.set_conversation_read(&topic_id).await
     }
 
-    pub async fn set_conversation_tags(&self, topic_id: String, tags: Option<Tags>) {
+    pub async fn set_conversation_tags(
+        &self,
+        topic_id: String,
+        tags: Option<Tags>,
+    ) -> Result<Conversation> {
         self.store.set_conversation_tags(&topic_id, tags).await
     }
 
-    pub async fn set_conversation_extra(&self, topic_id: String, extra: Option<Extra>) {
+    pub async fn set_conversation_extra(
+        &self,
+        topic_id: String,
+        extra: Option<Extra>,
+    ) -> Result<Conversation> {
         self.store.set_conversation_extra(&topic_id, extra).await
+    }
+}
+
+impl Client {
+    pub fn filter_conversation(
+        &self,
+        predicate: Box<dyn Fn(Conversation) -> Option<Conversation>>,
+    ) -> Vec<Conversation> {
+        self.store.filter_conversation(predicate)
     }
 }

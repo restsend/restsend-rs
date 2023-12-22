@@ -3,6 +3,7 @@ use crate::{
     callback::{SyncChatLogsCallbackWasmWrap, SyncConversationsCallbackWasmWrap},
     js_util::{self, get_string},
 };
+
 use restsend_sdk::models::conversation::{Extra, Tags};
 use wasm_bindgen::prelude::*;
 
@@ -11,22 +12,23 @@ use wasm_bindgen::prelude::*;
 impl Client {
     /// Create a new chat with userId
     /// return: Conversation
-    pub async fn createChat(&self, userId: String) -> Option<JsValue> {
+    pub async fn createChat(&self, userId: String) -> JsValue {
         self.inner
             .create_chat(userId)
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("create_chat failed"))
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
 
-    /// Clean history of a topic
-    pub async fn cleanHistory(&self, topicId: String) -> Result<(), JsValue> {
+    /// Clean history of a conversation
+    pub async fn cleanMessages(&self, topicId: String) -> Result<(), JsValue> {
         self.inner
-            .clean_history(topicId)
+            .clean_messages(topicId)
             .await
             .map_err(|e| JsValue::from(e.to_string()))
     }
 
-    /// Remove messages from a topic
+    /// Remove messages from a conversation
     pub async fn removeMessages(
         &self,
         topicId: String,
@@ -91,20 +93,52 @@ impl Client {
         self.inner.remove_conversation(topicId).await
     }
 
+    /// Set conversation remark
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `remark` - remark
+    pub async fn setConversationRemark(
+        &self,
+        topicId: String,
+        remark: Option<String>,
+    ) -> Result<JsValue, JsValue> {
+        self.inner
+            .set_conversation_remark(topicId, remark)
+            .await
+            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
     /// Set conversation sticky by topicId
     /// #Arguments
     /// * `topicId` - topic id
     /// * `sticky` - sticky
-    pub async fn setConversationSticky(&self, topicId: String, sticky: bool) {
-        self.inner.set_conversation_sticky(topicId, sticky).await
+    pub async fn setConversationSticky(
+        &self,
+        topicId: String,
+        sticky: bool,
+    ) -> Result<JsValue, JsValue> {
+        self.inner
+            .set_conversation_sticky(topicId, sticky)
+            .await
+            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Set conversation mute by topicId
     /// #Arguments
     /// * `topicId` - topic id
     /// * `mute` - mute
-    pub async fn setConversationMute(&self, topicId: String, mute: bool) {
-        self.inner.set_conversation_mute(topicId, mute).await
+    pub async fn setConversationMute(
+        &self,
+        topicId: String,
+        mute: bool,
+    ) -> Result<JsValue, JsValue> {
+        self.inner
+            .set_conversation_mute(topicId, mute)
+            .await
+            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Set conversation read by topicId
@@ -121,16 +155,70 @@ impl Client {
     ///     - id - string
     ///     - type - string
     ///     - label - string
-    pub async fn setConversationTags(&self, topicId: String, tags: JsValue) {
+    pub async fn setConversationTags(
+        &self,
+        topicId: String,
+        tags: JsValue,
+    ) -> Result<JsValue, JsValue> {
         let tags = serde_wasm_bindgen::from_value::<Tags>(tags).ok();
-        self.inner.set_conversation_tags(topicId, tags).await
+        self.inner
+            .set_conversation_tags(topicId, tags)
+            .await
+            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Set conversation extra
     /// #Arguments
     /// * `topicId` - topic id
-    pub async fn setConversationExtra(&self, topicId: String, extra: JsValue) {
+    /// # `extra` - extra
+    /// # Return: Conversation
+    pub async fn setConversationExtra(
+        &self,
+        topicId: String,
+        extra: JsValue,
+    ) -> Result<JsValue, JsValue> {
         let extra = serde_wasm_bindgen::from_value::<Extra>(extra).ok();
-        self.inner.set_conversation_extra(topicId, extra).await
+        self.inner
+            .set_conversation_extra(topicId, extra)
+            .await
+            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    /// Filter conversation with options
+    /// #Arguments
+    /// * `predicate` - filter predicate
+    ///     -> return true to keep the conversation
+    /// #Return Array of Conversation
+    /// #Example
+    /// ```js
+    /// const conversations = client.filterConversation((c) => {
+    ///    return c.remark === 'hello'
+    /// })
+    /// ```
+    /// #Example
+    /// ```js
+    /// const conversations = client.filterConversation((c) => {
+    ///   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
+    /// })
+    ///
+    pub async fn filterConversation(&self, predicate: JsValue) -> JsValue {
+        let predicate = predicate.dyn_into::<js_sys::Function>().ok();
+        let items = self.inner.filter_conversation(Box::new(move |c| {
+            let keep = match predicate.as_ref().and_then(|f| {
+                f.call1(&JsValue::NULL, &serde_wasm_bindgen::to_value(&c).unwrap())
+                    .ok()
+            }) {
+                Some(v) => v.as_bool().unwrap_or(false),
+                None => false,
+            };
+            if keep {
+                Some(c)
+            } else {
+                None
+            }
+        }));
+        serde_wasm_bindgen::to_value(&items).unwrap_or(JsValue::UNDEFINED)
     }
 }

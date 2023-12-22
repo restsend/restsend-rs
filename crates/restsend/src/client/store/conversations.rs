@@ -70,7 +70,32 @@ impl ClientStore {
             .map(|cb| cb.on_conversations_updated(conversations));
     }
 
-    pub async fn set_conversation_sticky(&self, topic_id: &str, sticky: bool) {
+    pub async fn set_conversation_remark(
+        &self,
+        topic_id: &str,
+        remark: Option<String>,
+    ) -> Result<Conversation> {
+        {
+            let t = self.message_storage.table::<Conversation>("conversations");
+            if let Some(mut conversation) = t.get("", topic_id) {
+                conversation.remark = remark.clone();
+                t.set("", topic_id, Some(conversation));
+            }
+        }
+
+        set_conversation_remark(&self.endpoint, &self.token, &topic_id, remark)
+            .await
+            .and_then(|c| {
+                self.emit_conversation_update(topic_id);
+                Ok(c)
+            })
+    }
+
+    pub async fn set_conversation_sticky(
+        &self,
+        topic_id: &str,
+        sticky: bool,
+    ) -> Result<Conversation> {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
@@ -79,15 +104,15 @@ impl ClientStore {
             }
         }
 
-        match set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky).await {
-            Ok(_) => self.emit_conversation_update(topic_id),
-            Err(e) => {
-                warn!("set_conversation_sticky failed: {:?}", e);
-            }
-        }
+        set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky)
+            .await
+            .and_then(|c| {
+                self.emit_conversation_update(topic_id);
+                Ok(c)
+            })
     }
 
-    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) {
+    pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) -> Result<Conversation> {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
@@ -96,12 +121,12 @@ impl ClientStore {
             }
         }
 
-        match set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute).await {
-            Ok(_) => self.emit_conversation_update(topic_id),
-            Err(e) => {
-                warn!("set_conversation_sticky failed: {:?}", e);
-            }
-        }
+        set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute)
+            .await
+            .and_then(|c| {
+                self.emit_conversation_update(topic_id);
+                Ok(c)
+            })
     }
 
     pub fn set_conversation_read_local(&self, topic_id: &str) {
@@ -122,7 +147,11 @@ impl ClientStore {
         }
     }
 
-    pub async fn set_conversation_tags(&self, topic_id: &str, tags: Option<Tags>) {
+    pub async fn set_conversation_tags(
+        &self,
+        topic_id: &str,
+        tags: Option<Tags>,
+    ) -> Result<Conversation> {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
@@ -135,15 +164,19 @@ impl ClientStore {
             "tags": tags.unwrap_or_default(),
         });
 
-        match update_conversation(&self.endpoint, &self.token, &topic_id, &values).await {
-            Ok(_) => self.emit_conversation_update(topic_id),
-            Err(e) => {
-                warn!("set_conversation_tags failed: {:?}", e);
-            }
-        }
+        update_conversation(&self.endpoint, &self.token, &topic_id, &values)
+            .await
+            .and_then(|c| {
+                self.emit_conversation_update(topic_id);
+                Ok(c)
+            })
     }
 
-    pub async fn set_conversation_extra(&self, topic_id: &str, extra: Option<Extra>) {
+    pub async fn set_conversation_extra(
+        &self,
+        topic_id: &str,
+        extra: Option<Extra>,
+    ) -> Result<Conversation> {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
@@ -156,12 +189,12 @@ impl ClientStore {
             "extra": extra.unwrap_or_default(),
         });
 
-        match update_conversation(&self.endpoint, &self.token, &topic_id, &values).await {
-            Ok(_) => self.emit_conversation_update(topic_id),
-            Err(e) => {
-                warn!("set_conversation_extra failed: {:?}", e);
-            }
-        }
+        update_conversation(&self.endpoint, &self.token, &topic_id, &values)
+            .await
+            .and_then(|c| {
+                self.emit_conversation_update(topic_id);
+                Ok(c)
+            })
     }
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
@@ -237,8 +270,6 @@ impl ClientStore {
                 conversation.last_sender_id = old_conversation.last_sender_id.clone();
                 conversation.last_message_at = old_conversation.last_message_at.clone();
                 conversation.last_message = old_conversation.last_message.clone();
-
-                // TODO: update other fields
                 conversation.multiple = old_conversation.multiple;
                 conversation.mute = old_conversation.mute;
                 conversation.sticky = old_conversation.sticky;
@@ -424,5 +455,20 @@ impl ClientStore {
             limit,
         };
         Ok(t.query("", &option))
+    }
+
+    pub fn filter_conversation(
+        &self,
+        predicate: Box<dyn Fn(Conversation) -> Option<Conversation>>,
+    ) -> Vec<Conversation> {
+        let t = self.message_storage.table("conversations");
+        t.filter(
+            "",
+            Box::new(move |c| {
+                let mut c = c;
+                c.unread = (c.last_seq - c.last_read_seq).max(0);
+                predicate(c)
+            }),
+        )
     }
 }
