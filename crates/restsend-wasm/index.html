@@ -174,10 +174,14 @@
                 let lastItem = lastBlock ? lastBlock.items.length > 0 ? lastBlock.items[lastBlock.items.length - 1] : undefined : undefined
                 for (let idx = items.length - 1; idx >= 0; idx--) {
                     const item = items[idx];
+
                     if (msgs[item.id] === item.id) {
+                        console.log('skip duplicated message', item)
+                        if (item.content.type == 'recall' || item.content.type == '') {
+                            msgs[item.id] = item
+                        }
                         continue
                     }
-                    msgs[item.id] = item.id
                     let createBlock = false
                     if (!lastBlock || lastBlock.senderId != item.senderId) {
                         createBlock = true
@@ -218,6 +222,8 @@
                         createdAt: item.createdAt,
                     }
                     lastBlock.items.push(lastItem)
+                    msgs[item.id] = lastItem
+
                 }
 
                 if (lastItem) {
@@ -243,6 +249,11 @@
                 } else {
                     classList.push(item.type == 'image' ? '' : 'bg-gray-300 text-gray-600')
                 }
+
+                if(item.type == 'recall' || item.type == '') {
+                    classList.push('hidden')
+                }
+                // classList.push(item.type == 'image' ? 'w-32 h-32 rounded-md shadow' : 'px-4 py-2 rounded-lg whitespace-wrap break-all inline-block')
                 return classList.join(' ')
             },
             doSendMessage: async function () {
@@ -250,7 +261,9 @@
                     return
                 }
                 let thisPtr = this;
+                console.log('send message', thisPtr)
                 await client.doSendText(this.conversation.topicId, this.message, {
+                    // reply:'909000000',
                     onack: function (req) {
                         thisPtr.message = ''
                     },
@@ -258,46 +271,51 @@
                         logText(`send message fail ${reason}`)
                     }
                 });
-                this.reference = '' // clear reference
+                this.reference = ''
             },
-            doDeleteMessage: async function (messageId) {
+            doDeleteMessage: async function (message) {
+                console.log('delete message', message)
                 if (!this.conversation) {
                     return
                 }
-                console.log('delete message')
+                let thisPtr = this;
+                await client.removeMessages(this.conversation.topicId, [message.id], {
+                    onack: function (req) {
+                        thisPtr.message = ''
+                    },
+                    onfail: function (reason) {
+                        logText(`delete message fail ${reason}`)
+                    }
+                });
+                this.updateConversation(this.conversation);
             },
-            doForwardMessage: async function (block, item) {
+            doForwardMessage: async function (message) {
                 if (!this.conversation) {
                     return
                 }
-                console.log('forward message', block)
+                console.log('forward message', item)
             },
-            doReferenceMessage: async function (message,block) {
+            doReferenceMessage: async function (message, block) {
                 if (!this.conversation) {
                     return
                 }
                 this.reference = message.content || ''
             },
-            doReCall: async function (messageId) {
+            doReCallMessage: async function (message) {
                 if (!this.conversation) {
                     return
                 }
-                console.log('recall message')
-            },
-            timeoutId: null,
-            startTimer() {
-                this.timeoutId = setTimeout(() => {
-                    console.log('长按事件触发');
-                    // 在这里添加长按事件的逻辑
-                    this.$dispatch('longPress');
-                }, 2000);
-            },
-            cancelTimer() {
-                clearTimeout(this.timeoutId);
-                console.log('长按事件取消');
-            },
-            modalClass() {
-
+                console.log('recall message', message)
+                let thisPtr = this;
+                await client.doRecall(this.conversation.topicId, message.id, {
+                    onack: function (req) {
+                        thisPtr.message = ''
+                    },
+                    onfail: function (reason) {
+                        logText(`recall message fail ${reason}`)
+                    }
+                });
+                // this.updateConversation(this.conversation);
             }
         };
     </script>
@@ -403,8 +421,7 @@
                                         <div
                                             class="absolute top-6 z-10 -left-36 bg-white hidden group-hover:block w-44 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
                                             <p class="bg-white space-y-2">
-                                                <!-- <a href="#" class="block px-4 py-2 hover:bg-gray-100">Profile</a>
-                                                <a href="#" class="block px-4 py-2 hover:bg-gray-100">Settings</a> -->
+
                                                 <a href="#" class="block px-2 py-2 hover:bg-gray-100">Clear Messages</a>
                                             </p>
                                         </div>
@@ -426,66 +443,82 @@
                                                 <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2 w-full"
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items">
-
-                                                        <div class="flex items-end mt-2 space-x-3 group">
-                                                            <template x-if="showCheckbox">
-                                                                <input type="checkbox"
-                                                                    class="w-4 h-4 text-gray-400 -mt-2 absolute left-0" />
+                                                        <div>
+                                                            <template x-if="item.type==='recall'">
+                                                                <div
+                                                                    class="text-gray-400 text-xs text-center flex items-center w-full">
+                                                                    <template x-if="block.isSelf">
+                                                                        <p>You recalled a message</p>
+                                                                    </template>
+                                                                    <template x-if="!block.isSelf">
+                                                                        <p>The other party recalled a message</p>
+                                                                    </template>
+                                                                </div>
                                                             </template>
+                                                            <template x-if="item.content">
+                                                                <div class="flex items-end mt-2 space-x-3 group">
+                                                                    <template x-if="showCheckbox">
+                                                                        <input type="checkbox"
+                                                                            class="w-4 h-4 text-gray-400 -mt-2 absolute left-0" />
+                                                                    </template>
 
-                                                            <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
-                                                                :class="block.isSelf? '':'order-2'">
+                                                                    <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
+                                                                        :class="block.isSelf? '':'order-2'">
 
-                                                                <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                    @click="doForwardMessage(block,item)">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                                                        viewBox="0 0 16 16">
-                                                                        <path fill="none" stroke="currentColor"
-                                                                            stroke-linecap="round"
-                                                                            stroke-linejoin="round" stroke-width="1.5"
-                                                                            d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                    @click="doReferenceMessage(item)">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg"
-                                                                        viewBox="0 0 16 16">
-                                                                        <g fill="currentColor">
-                                                                            <path
-                                                                                d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
-                                                                            <path
-                                                                                d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
-                                                                        </g>
-                                                                    </svg>
-                                                                </div>
-                                                                <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                    @click="doReCall(block,item)">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                                        viewBox="0 0 24 24" stroke-width="1.5"
-                                                                        stroke="currentColor" data-slot="icon">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round"
-                                                                            d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                                                                    </svg>
-                                                                </div>
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doForwardMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <path fill="none" stroke="currentColor"
+                                                                                    stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    stroke-width="1.5"
+                                                                                    d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReferenceMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <g fill="currentColor">
+                                                                                    <path
+                                                                                        d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
+                                                                                    <path
+                                                                                        d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
+                                                                                </g>
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReCallMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                                                                            </svg>
+                                                                        </div>
 
-                                                                <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                    @click="doDeleteMessage(item)">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                                        viewBox="0 0 24 24" stroke-width="1.5"
-                                                                        stroke="currentColor" data-slot="icon">
-                                                                        <path stroke-linecap="round"
-                                                                            stroke-linejoin="round"
-                                                                            d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                                    </svg>
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doDeleteMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="px-4 py-2 rounded-lg whitespace-wrap break-all inline-block"
+                                                                        :class="getMessageClass(block, item)"
+                                                                        x-html="item.content">
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div class="px-4 py-2 rounded-lg whitespace-wrap break-all inline-block"
-                                                                :class="getMessageClass(block, item)"
-                                                                x-html="item.content">
-                                                            </div>
+                                                            </template>
                                                         </div>
-                                                        <!-- </div> -->
                                                     </template>
                                                 </div>
                                                 <img :src="block.avatar" :alt="block.title" class="w-6 h-6 rounded-full"
@@ -497,7 +530,8 @@
                                 <div class="border-t border-gray-200 mb-2 sm:mb-0 shrink-0 ">
                                     <div class="relative rounded-md py-2">
                                         <template x-if="reference">
-                                            <div class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs">
+                                            <div
+                                                class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs">
                                                 <p class="text-overflow-ellipsis" x-html="reference"></p>
                                             </div>
                                         </template>
