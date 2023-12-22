@@ -33,7 +33,7 @@ pub trait Table<T: StoreModel> {
     fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T>;
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T>;
     fn get(&self, partition: &str, key: &str) -> Option<T>;
-    fn set(&self, partition: &str, key: &str, value: Option<T>);
+    fn set(&self, partition: &str, key: &str, value: Option<&T>);
     fn remove(&self, partition: &str, key: &str);
     fn clear(&self);
 }

@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use super::{is_cache_expired, ClientStore};
 use crate::{
     models::{
@@ -14,60 +12,89 @@ use crate::{
 };
 use crate::{Error, Result};
 use log::{debug, warn};
+use std::sync::Arc;
 
-pub(crate) fn update_conversation_with_storage(
+pub(crate) fn merge_conversation(
     message_storage: Arc<Storage>,
     conversation: Conversation,
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>("conversations");
-
-    let topic_id = conversation.topic_id.clone();
     let mut conversation = conversation;
-    if let Some(old_conversation) = t.get("", &topic_id) {
-        warn!(
-            " old_conversation.last_seq:{} conversation.last_seq:{}",
-            old_conversation.last_seq, conversation.last_seq
-        );
-        if old_conversation.last_seq <= conversation.last_seq {
-            conversation.last_read_seq = old_conversation.last_read_seq;
-            conversation.last_sender_id = old_conversation.last_sender_id.clone();
-            conversation.last_message_at = old_conversation.last_message_at.clone();
-            conversation.last_message = old_conversation.last_message.clone();
 
-            // TODO: update other fields
-            conversation.multiple = old_conversation.multiple;
-            conversation.mute = old_conversation.mute;
-            conversation.sticky = old_conversation.sticky;
-        }
+    if let Some(old_conversation) = t.get("", &conversation.topic_id) {
+        conversation.last_read_seq = old_conversation.last_read_seq;
+        conversation.last_sender_id = old_conversation.last_sender_id;
+        conversation.last_message_at = old_conversation.last_message_at;
+        conversation.last_message = old_conversation.last_message;
+        conversation.unread = old_conversation.unread;
     }
 
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
-    conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
+    t.set("", &conversation.topic_id, Some(&conversation));
+    Ok(conversation)
+}
 
-    t.set("", &topic_id, Some(conversation.clone()));
+pub(super) fn merge_conversation_from_chat(
+    message_storage: Arc<Storage>,
+    req: &ChatRequest,
+) -> Result<Conversation> {
+    let t = message_storage.table::<Conversation>("conversations");
+    let mut conversation = Conversation::from(req);
+
+    if let Some(old_conversation) = t.get("", &conversation.topic_id) {
+        conversation.last_read_seq = old_conversation.last_read_seq;
+        conversation.last_sender_id = old_conversation.last_sender_id;
+        conversation.last_message_at = old_conversation.last_message_at;
+        conversation.last_message = old_conversation.last_message;
+        conversation.unread = old_conversation.unread;
+        conversation.is_partial = old_conversation.is_partial;
+    }
+
+    if let Some(content) = req.content.as_ref() {
+        match ContentType::from(content.r#type.clone()) {
+            ContentType::None | ContentType::Recall => {}
+            _ => {
+                if req.seq > conversation.last_read_seq {
+                    conversation.unread += 1;
+                    conversation.last_sender_id = req.attendee.clone();
+                    conversation.last_message_at = req.created_at.clone();
+                    conversation.last_message = req.content.clone();
+                }
+            }
+        }
+    }
+
+    conversation.cached_at = now_millis();
+    t.set("", &conversation.topic_id, Some(&conversation));
     Ok(conversation)
 }
 
 impl ClientStore {
-    pub fn emit_conversation_update(&self, topic_id: &str) {
-        let t = self.message_storage.table::<Conversation>("conversations");
-        if let Some(conversation) = t.get("", topic_id) {
-            self.emit_conversations_update(vec![conversation]);
+    pub(crate) fn merge_conversations(
+        &self,
+        conversations: Vec<Conversation>,
+    ) -> Vec<Conversation> {
+        let mut result = vec![];
+        for conversation in conversations {
+            let conversation = match merge_conversation(self.message_storage.clone(), conversation)
+            {
+                Ok(c) => c,
+                Err(e) => {
+                    warn!("merge_conversation failed: {:?}", e);
+                    continue;
+                }
+            };
+            result.push(conversation);
         }
+        result
     }
 
-    pub fn emit_conversations_update(&self, conversations: Vec<Conversation>) {
-        let mut conversations = conversations;
-        conversations.iter_mut().for_each(|c| {
-            c.unread = (c.last_seq - c.last_read_seq).max(0);
-        });
-
-        self.callback
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|cb| cb.on_conversations_updated(conversations));
+    pub fn emit_conversation_update(&self, conversation: Conversation) -> Result<Conversation> {
+        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+            cb.on_conversations_updated(vec![conversation.clone()]);
+        }
+        Ok(conversation)
     }
 
     pub async fn set_conversation_remark(
@@ -79,16 +106,14 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
                 conversation.remark = remark.clone();
-                t.set("", topic_id, Some(conversation));
+                t.set("", topic_id, Some(&conversation));
             }
         }
 
         set_conversation_remark(&self.endpoint, &self.token, &topic_id, remark)
             .await
-            .and_then(|c| {
-                self.emit_conversation_update(topic_id);
-                Ok(c)
-            })
+            .and_then(|c| merge_conversation(self.message_storage.clone(), c))
+            .and_then(|c| self.emit_conversation_update(c))
     }
 
     pub async fn set_conversation_sticky(
@@ -100,16 +125,14 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
                 conversation.sticky = sticky;
-                t.set("", topic_id, Some(conversation));
+                t.set("", topic_id, Some(&conversation));
             }
         }
 
         set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky)
             .await
-            .and_then(|c| {
-                self.emit_conversation_update(topic_id);
-                Ok(c)
-            })
+            .and_then(|c| merge_conversation(self.message_storage.clone(), c))
+            .and_then(|c| self.emit_conversation_update(c))
     }
 
     pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) -> Result<Conversation> {
@@ -117,34 +140,41 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
                 conversation.mute = mute;
-                t.set("", topic_id, Some(conversation));
+                t.set("", topic_id, Some(&conversation));
             }
         }
 
         set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute)
             .await
-            .and_then(|c| {
-                self.emit_conversation_update(topic_id);
-                Ok(c)
-            })
+            .and_then(|c| merge_conversation(self.message_storage.clone(), c))
+            .and_then(|c| self.emit_conversation_update(c))
     }
 
-    pub fn set_conversation_read_local(&self, topic_id: &str) {
+    pub fn set_conversation_read_local(&self, topic_id: &str) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>("conversations");
-        if let Some(mut conversation) = t.get("", topic_id) {
-            conversation.last_read_seq = conversation.last_seq;
-            t.set("", topic_id, Some(conversation));
+        match t.get("", topic_id) {
+            Some(mut conversation) => {
+                conversation.last_read_seq = conversation.last_seq;
+                conversation.unread = 0;
+                t.set("", topic_id, Some(&conversation));
+                Some(conversation)
+            }
+            _ => None,
         }
     }
 
     pub async fn set_conversation_read(&self, topic_id: &str) {
-        self.set_conversation_read_local(topic_id);
+        let conversation = self.set_conversation_read_local(topic_id);
         match set_conversation_read(&self.endpoint, &self.token, &topic_id).await {
-            Ok(_) => self.emit_conversation_update(topic_id),
+            Ok(_) => match conversation {
+                Some(conversation) => self.emit_conversation_update(conversation).ok(),
+                None => None,
+            },
             Err(e) => {
                 warn!("set_conversation_read failed: {:?}", e);
+                None
             }
-        }
+        };
     }
 
     pub async fn set_conversation_tags(
@@ -156,7 +186,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
                 conversation.tags = tags.clone();
-                t.set("", topic_id, Some(conversation));
+                t.set("", topic_id, Some(&conversation));
             }
         }
 
@@ -166,10 +196,8 @@ impl ClientStore {
 
         update_conversation(&self.endpoint, &self.token, &topic_id, &values)
             .await
-            .and_then(|c| {
-                self.emit_conversation_update(topic_id);
-                Ok(c)
-            })
+            .and_then(|c| merge_conversation(self.message_storage.clone(), c))
+            .and_then(|c| self.emit_conversation_update(c))
     }
 
     pub async fn set_conversation_extra(
@@ -181,7 +209,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id) {
                 conversation.extra = extra.clone();
-                t.set("", topic_id, Some(conversation));
+                t.set("", topic_id, Some(&conversation));
             }
         }
 
@@ -191,10 +219,8 @@ impl ClientStore {
 
         update_conversation(&self.endpoint, &self.token, &topic_id, &values)
             .await
-            .and_then(|c| {
-                self.emit_conversation_update(topic_id);
-                Ok(c)
-            })
+            .and_then(|c| merge_conversation(self.message_storage.clone(), c))
+            .and_then(|c| self.emit_conversation_update(c))
     }
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
@@ -205,11 +231,9 @@ impl ClientStore {
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
             Ok(_) => {
-                self.callback
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .map(|cb| cb.on_conversation_removed(topic_id.to_string()));
+                if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+                    cb.on_conversation_removed(topic_id.to_string());
+                }
             }
             Err(e) => {
                 warn!("remove_conversation failed: {:?}", e);
@@ -219,14 +243,13 @@ impl ClientStore {
 
     pub(crate) fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>("conversations");
-        let mut conversation = t.get("", topic_id).unwrap_or(Conversation::new(topic_id));
+        let conversation = t.get("", topic_id).unwrap_or(Conversation::new(topic_id));
 
         if conversation.is_partial
             || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
         {
             self.fetch_conversation(topic_id);
         }
-        conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
         Some(conversation)
     }
 
@@ -239,68 +262,24 @@ impl ClientStore {
 
         spwan_task(async move {
             match get_conversation(&endpoint, &token, &topic_id).await {
-                Ok(conversation) => {
-                    let conversations = vec![update_conversation_with_storage(
-                        message_storage,
-                        conversation.clone(),
-                    )
-                    .unwrap_or(conversation)];
-
-                    callback
-                        .lock()
-                        .unwrap()
-                        .as_ref()
-                        .map(|cb| cb.on_conversations_updated(conversations));
+                Ok(c) => {
+                    let c = match merge_conversation(message_storage, c) {
+                        Ok(c) => c,
+                        Err(e) => {
+                            warn!("update_conversation_with_storage failed: {:?}", e);
+                            return;
+                        }
+                    };
+                    if let Some(cb) = callback.lock().unwrap().as_ref() {
+                        cb.on_conversations_updated(vec![c]);
+                    };
                 }
                 Err(e) => {
-                    warn!("fetch_conversation failed id:{} err: {:?}", topic_id, e);
+                    warn!("get_conversation failed: {:?}", e);
+                    return;
                 }
-            }
+            };
         });
-    }
-
-    pub(crate) fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
-        let t = self.message_storage.table::<Conversation>("conversations");
-
-        let topic_id = conversation.topic_id.clone();
-        let mut conversation = conversation;
-        if let Some(old_conversation) = t.get("", &topic_id) {
-            if old_conversation.last_seq <= conversation.last_seq {
-                conversation.last_read_seq = old_conversation.last_read_seq;
-                conversation.last_sender_id = old_conversation.last_sender_id.clone();
-                conversation.last_message_at = old_conversation.last_message_at.clone();
-                conversation.last_message = old_conversation.last_message.clone();
-                conversation.multiple = old_conversation.multiple;
-                conversation.mute = old_conversation.mute;
-                conversation.sticky = old_conversation.sticky;
-            }
-        }
-
-        conversation.is_partial = false;
-        conversation.cached_at = now_millis();
-        conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
-
-        t.set("", &topic_id, Some(conversation.clone()));
-        Ok(conversation)
-    }
-
-    pub(super) fn update_conversation_from_chat(&self, req: &ChatRequest) -> Result<Conversation> {
-        let topic_id = &req.topic_id;
-        let t = self.message_storage.table::<Conversation>("conversations");
-
-        let mut conversation = t.get("", &topic_id).unwrap_or(Conversation::from(req));
-
-        if req.seq > 0 && req.seq >= conversation.last_seq {
-            conversation.last_seq = req.seq;
-            conversation.last_sender_id = req.attendee.clone();
-            conversation.last_message_at = req.created_at.clone();
-            conversation.last_message = req.content.clone();
-            conversation.cached_at = now_millis();
-            conversation.unread = (conversation.last_seq - conversation.last_read_seq).max(0);
-            conversation.updated_at = req.created_at.clone();
-        }
-
-        Ok(conversation)
     }
 
     pub(super) fn update_conversation_read(&self, topic_id: &str, updated_at: &str) -> Result<()> {
@@ -309,7 +288,7 @@ impl ClientStore {
         if let Some(mut conversation) = t.get("", topic_id) {
             conversation.last_read_seq = conversation.last_seq;
             conversation.updated_at = updated_at.to_string();
-            t.set("", topic_id, Some(conversation));
+            t.set("", topic_id, Some(&conversation));
         }
         Ok(())
     }
@@ -320,7 +299,7 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.status = ChatLogStatus::Sending;
         log.sender_id = self.user_id.clone();
-        t.set(&log.topic_id, &log.id, Some(log.clone()));
+        t.set(&log.topic_id, &log.id, Some(&log));
 
         Ok(())
     }
@@ -344,7 +323,7 @@ impl ClientStore {
                 "update_outoing_chat_log_state: topic_id: {} chat_id: {} status: {:?} seq: {:?}",
                 topic_id, chat_id, log.status, seq
             );
-            t.set(topic_id, chat_id, Some(log));
+            t.set(topic_id, chat_id, Some(&log));
         }
         Ok(())
     }
@@ -373,7 +352,7 @@ impl ClientStore {
                 let mut log = old_log.clone();
                 log.recall = true;
                 log.content = Content::new(ContentType::Recall);
-                t.set(&topic_id, &chat_id, Some(log));
+                t.set(&topic_id, &chat_id, Some(&log));
             }
             match old_log.status {
                 ChatLogStatus::Sending => new_status = ChatLogStatus::Sent,
@@ -389,7 +368,7 @@ impl ClientStore {
             "save_incoming_chat_log: topic_id: {} chat_id: {} seq: {}",
             topic_id, chat_id, req.seq,
         );
-        t.set(&log.topic_id, &log.id, Some(log.clone()));
+        t.set(&log.topic_id, &log.id, Some(&log));
         Ok(())
     }
 
@@ -402,7 +381,7 @@ impl ClientStore {
 
         let item = match ContentType::from(chat_log.content.r#type.to_string()) {
             ContentType::None => None, // remove local log
-            _ => Some(chat_log.clone()),
+            _ => Some(chat_log),
         };
 
         t.set(&chat_log.topic_id, &chat_log.id, item);

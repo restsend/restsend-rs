@@ -173,7 +173,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         None
     }
 
-    fn set(&self, partition: &str, key: &str, value: Option<T>) {
+    fn set(&self, partition: &str, key: &str, value: Option<&T>) {
         match value {
             Some(v) => {
                 let mut data = self.data.lock().unwrap();
@@ -225,9 +225,9 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
 fn test_memory_table() {
     let t = Table::default();
     let table = MemoryTable::from(t);
-    table.set("", "1", Some(1));
-    table.set("", "2", Some(2));
-    table.set("", "3", Some(3));
+    table.set("", "1", Some(&1));
+    table.set("", "2", Some(&2));
+    table.set("", "3", Some(&3));
     let v = table.get("", "1").expect("must value");
     assert_eq!(v, 1);
     table.remove("", "1");
@@ -243,9 +243,9 @@ fn test_memory_storage() {
     let storage = InMemoryStorage::new("");
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
-    table.set("", "1", Some(1));
-    table.set("", "2", Some(2));
-    table.set("", "3", Some(3));
+    table.set("", "1", Some(&1));
+    table.set("", "2", Some(&2));
+    table.set("", "3", Some(&3));
     let v = table.get("", "1");
     assert_eq!(v, Some(1));
     table.remove("", "1");

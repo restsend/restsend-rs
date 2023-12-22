@@ -1,4 +1,5 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
+use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::models::ChatLogStatus;
 use crate::{
     callback::MessageCallback,
@@ -70,14 +71,13 @@ impl ClientStore {
             ChatRequestType::Chat => {
                 let r = self.save_incoming_chat_log(&req);
                 match r {
-                    Ok(_) => match self.update_conversation_from_chat(&req) {
+                    Ok(_) => match merge_conversation_from_chat(self.message_storage.clone(), &req)
+                    {
                         Ok(conversation) => {
                             if !conversation.is_partial {
-                                callback
-                                    .lock()
-                                    .unwrap()
-                                    .as_ref()
-                                    .map(|cb| cb.on_conversations_updated(vec![conversation]));
+                                if let Some(cb) = callback.lock().unwrap().as_ref() {
+                                    cb.on_conversations_updated(vec![conversation]);
+                                }
                             } else {
                                 self.fetch_conversation(&topic_id);
                             }

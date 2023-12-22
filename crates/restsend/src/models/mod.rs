@@ -19,14 +19,6 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
-#[derive(Debug, Serialize)]
-#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
-#[serde(rename_all = "camelCase")]
-pub struct GetConversationsResult {
-    pub updated_at: String,
-    pub items: Vec<Conversation>,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
@@ -40,6 +32,7 @@ pub struct ListUserResult {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ListConversationResult {
+    pub total: i64,
     pub has_more: bool,
     pub updated_at: String,
     #[serde(default)]

@@ -44,6 +44,16 @@ impl Client {
             .unwrap_or(JsValue::UNDEFINED)
     }
 
+    /// Add user into topic
+    /// #Arguments
+    pub async fn addMember(&self, topicId: String, userId: String) -> JsValue {
+        self.inner
+            .add_topic_member(topicId, userId)
+            .await
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
+    }
+
     /// Get topic info
     /// #Arguments
     /// * `topicId` - topic id
@@ -53,8 +63,8 @@ impl Client {
         self.inner
             .get_topic(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Get topic admins
     /// #Arguments
@@ -65,8 +75,8 @@ impl Client {
         self.inner
             .get_topic_admins(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_admins failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Get topic owner
     /// #Arguments
@@ -77,8 +87,8 @@ impl Client {
         self.inner
             .get_topic_owner(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_owner failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Get topic members
     /// #Arguments
@@ -91,8 +101,8 @@ impl Client {
         self.inner
             .get_topic_members(topicId, updatedAt, limit)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_members failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Get topic knocks
     /// #Arguments
@@ -103,8 +113,8 @@ impl Client {
         self.inner
             .get_topic_knocks(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_knocks failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Update topic info
     /// #Arguments
@@ -120,7 +130,7 @@ impl Client {
                 get_string(&option, "icon"),
             )
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Update topic notice
     /// #Arguments
@@ -130,7 +140,7 @@ impl Client {
         self.inner
             .update_topic_notice(topicId, text)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Silence topic
@@ -145,7 +155,7 @@ impl Client {
         self.inner
             .silent_topic(topicId, duration)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Silent topic member
@@ -162,7 +172,7 @@ impl Client {
         self.inner
             .silent_topic_member(topicId, userId, duration)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Add topic admin
@@ -173,7 +183,7 @@ impl Client {
         self.inner
             .add_topic_admin(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Remove topic admin
@@ -184,7 +194,7 @@ impl Client {
         self.inner
             .remove_topic_admin(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Transfer topic
@@ -195,17 +205,14 @@ impl Client {
         self.inner
             .transfer_topic(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Quit topic
     /// #Arguments
     /// * `topicId` - topic id
     pub async fn quitTopic(&self, topicId: String) -> Result<(), JsValue> {
-        self.inner
-            .quit_topic(topicId)
-            .await
-            .map_err(|e| JsValue::from(e.to_string()))
+        self.inner.quit_topic(topicId).await.map_err(|e| e.into())
     }
 
     /// Dismiss topic
@@ -215,7 +222,7 @@ impl Client {
         self.inner
             .dismiss_topic(topicId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Accept topic join
@@ -232,7 +239,7 @@ impl Client {
         self.inner
             .accept_topic_join(topicId, userId, memo)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Decline topic join
@@ -249,7 +256,7 @@ impl Client {
         self.inner
             .decline_topic_join(topicId, userId, message)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Remove topic member
@@ -260,6 +267,6 @@ impl Client {
         self.inner
             .remove_topic_member(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 }

@@ -1,7 +1,6 @@
+use crate::js_util::get_endpoint;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
-
-use crate::js_util::get_endpoint;
 
 /// Signin with userId and password or token
 #[allow(non_snake_case)]
@@ -14,7 +13,7 @@ pub async fn signin(
 ) -> Result<JsValue, JsValue> {
     let endpoint = get_endpoint(endpoint);
 
-    let info = match password {
+    match password {
         Some(password) => {
             restsend_sdk::services::auth::login_with_password(endpoint, userId, password).await
         }
@@ -27,8 +26,8 @@ pub async fn signin(
             .await
         }
     }
-    .map_err(|e| JsValue::from(e.to_string()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from(e.to_string()))
+    .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+    .map_err(|e| e.into())
 }
 
 /// Signup with userId and password
@@ -40,10 +39,10 @@ pub async fn signup(
     password: String,
 ) -> Result<JsValue, JsValue> {
     let endpoint = get_endpoint(endpoint);
-    let info = restsend_sdk::services::auth::signup(endpoint, userId, password)
+    restsend_sdk::services::auth::signup(endpoint, userId, password)
         .await
-        .map_err(|e| JsValue::from(e.to_string()))?;
-    serde_wasm_bindgen::to_value(&info).map_err(|e| JsValue::from(e.to_string()))
+        .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+        .map_err(|e| e.into())
 }
 
 /// Logout with token
@@ -53,5 +52,5 @@ pub async fn logout(endpoint: String, token: String) -> Result<(), JsValue> {
     let endpoint = get_endpoint(endpoint);
     restsend_sdk::services::auth::logout(endpoint, token)
         .await
-        .map_err(|e| JsValue::from(e.to_string()))
+        .map_err(|e| e.into())
 }

@@ -14,7 +14,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id) {
                 u.remark = remark.to_string();
-                t.set("", user_id, Some(u));
+                t.set("", user_id, Some(&u));
             }
         }
 
@@ -26,7 +26,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id) {
                 u.is_star = star;
-                t.set("", user_id, Some(u));
+                t.set("", user_id, Some(&u));
             }
         }
 
@@ -38,7 +38,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id) {
                 u.is_blocked = block;
-                t.set("", user_id, Some(u));
+                t.set("", user_id, Some(&u));
             }
         }
         set_user_block(&self.endpoint, &self.token, &user_id, block).await
@@ -168,6 +168,6 @@ pub(super) fn update_user_with_storage(storage: &Storage, mut user: User) -> Res
     user.is_partial = false;
     user.cached_at = now_millis();
 
-    t.set("", &user_id, Some(user.clone()));
+    t.set("", &user_id, Some(&user));
     Ok(user)
 }

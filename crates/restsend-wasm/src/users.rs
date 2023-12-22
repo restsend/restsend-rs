@@ -14,8 +14,8 @@ impl Client {
         self.inner
             .get_user(userId, blocking.unwrap_or_default())
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("get_user failed"))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
     /// Get multiple users info
     /// #Arguments
@@ -24,7 +24,7 @@ impl Client {
     /// Array of user info
     pub async fn getUsers(&self, userIds: Vec<String>) -> JsValue {
         let users = self.inner.get_users(userIds).await;
-        serde_wasm_bindgen::to_value(&users).expect("get_users failed")
+        serde_wasm_bindgen::to_value(&users).unwrap_or(JsValue::UNDEFINED)
     }
     /// Set user remark name
     /// #Arguments
@@ -34,7 +34,7 @@ impl Client {
         self.inner
             .set_user_remark(userId, remark)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Set user star
     /// #Arguments
@@ -44,7 +44,7 @@ impl Client {
         self.inner
             .set_user_star(userId, star)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Set user block
     /// #Arguments
@@ -54,7 +54,7 @@ impl Client {
         self.inner
             .set_user_block(userId, block)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set allow guest chat
@@ -64,6 +64,6 @@ impl Client {
         self.inner
             .set_allow_guest_chat(allow)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 }

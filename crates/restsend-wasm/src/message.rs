@@ -59,16 +59,13 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send typing status
     /// # Arguments
     /// * `topicId` - The topic id    
     pub async fn doTyping(&self, topicId: String) -> Result<(), JsValue> {
-        self.inner
-            .do_typing(topicId)
-            .await
-            .map_err(|e| e.to_string().into())
+        self.inner.do_typing(topicId).await.map_err(|e| e.into())
     }
     /// Recall message
     /// # Arguments
@@ -87,7 +84,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send voice message
     /// # Arguments
@@ -116,7 +113,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send video message
@@ -146,7 +143,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send file message
@@ -175,7 +172,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send location message
@@ -209,7 +206,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send link message
     /// # Arguments
@@ -238,7 +235,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send invite message
@@ -262,7 +259,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send text message
@@ -300,7 +297,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     ///
     /// Send image message
@@ -331,6 +328,6 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 }

@@ -209,7 +209,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn set(&self, partition: &str, key: &str, value: Option<T>) {
+    fn set(&self, partition: &str, key: &str, value: Option<&T>) {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -300,8 +300,8 @@ pub fn test_store_i32() {
     storage.make_table("tests").unwrap();
 
     let t = storage.table::<i32>("tests");
-    t.set("", "1", Some(1));
-    t.set("", "2", Some(2));
+    t.set("", "1", Some(&1));
+    t.set("", "2", Some(&2));
 
     let not_exist_3 = t.get("", "3");
     assert_eq!(not_exist_3, None);

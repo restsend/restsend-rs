@@ -25,7 +25,7 @@ impl Client {
         self.inner
             .clean_messages(topicId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Remove messages from a conversation
@@ -37,7 +37,7 @@ impl Client {
         self.inner
             .remove_messages(topicId, chatIds, true)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Sync chat logs from server
@@ -82,8 +82,8 @@ impl Client {
     pub fn getConversation(&self, topicId: String) -> JsValue {
         self.inner
             .get_conversation(topicId)
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("get_conversation failed"))
-            .unwrap_or(JsValue::UNDEFINED)
+            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .unwrap()
     }
 
     /// Remove conversation by topicId
@@ -106,7 +106,7 @@ impl Client {
             .set_conversation_remark(topicId, remark)
             .await
             .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set conversation sticky by topicId
@@ -122,7 +122,7 @@ impl Client {
             .set_conversation_sticky(topicId, sticky)
             .await
             .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set conversation mute by topicId
@@ -138,7 +138,7 @@ impl Client {
             .set_conversation_mute(topicId, mute)
             .await
             .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set conversation read by topicId
@@ -165,7 +165,7 @@ impl Client {
             .set_conversation_tags(topicId, tags)
             .await
             .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set conversation extra
@@ -183,7 +183,7 @@ impl Client {
             .set_conversation_extra(topicId, extra)
             .await
             .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Filter conversation with options

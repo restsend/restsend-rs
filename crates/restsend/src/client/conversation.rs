@@ -147,7 +147,9 @@ impl Client {
                         .unwrap_or_default();
                     let count = r.items.len() as u32;
 
-                    store_ref.emit_conversations_update(r.items);
+                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                        cb.on_conversations_updated(r.items);
+                    }
                     callback.on_success(updated_at, count as u32);
                     return;
                 }
@@ -163,23 +165,17 @@ impl Client {
         spwan_task(async move {
             let r = get_conversations(&endpoint, &token, &updated_at, limit)
                 .await
-                .map(|lr| {
-                    lr.items
-                        .iter()
-                        .map(|c| {
-                            store_ref
-                                .update_conversation(c.clone())
-                                .unwrap_or(c.clone())
-                        })
-                        .collect()
-                })
+                .map(|lr| store_ref.merge_conversations(lr.items))
                 .map(|items: Vec<Conversation>| {
                     let updated_at = items
                         .last()
                         .map(|c| c.updated_at.clone())
                         .unwrap_or_default();
                     let count = items.len() as u32;
-                    store_ref.emit_conversations_update(items);
+
+                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                        cb.on_conversations_updated(items);
+                    }
                     (updated_at, count)
                 });
             match r {

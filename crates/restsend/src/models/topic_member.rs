@@ -1,23 +1,37 @@
+use super::conversation::Extra;
+use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct TopicMember {
     pub topic_id: String,
     pub user_id: String,
+
     #[serde(default)]
-    pub is_owner: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub name: String,
+
     #[serde(default)]
-    pub is_admin: bool,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub source: String,
+
     #[serde(default)]
-    pub remark: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub silence_at: Option<String>,
+
     #[serde(default)]
-    pub silent: bool,
-    #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub joined_at: String,
 
-    #[serde(skip)]
-    pub cached_at: i64,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub updated_at: String,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Extra>,
 }
 
 impl TopicMember {

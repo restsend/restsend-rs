@@ -107,7 +107,7 @@ pub(super) struct ClientStore {
     outgoings: PendingRequests,
     upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
-    message_storage: Arc<Storage>,
+    pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
 }
 
