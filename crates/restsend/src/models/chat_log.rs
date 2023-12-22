@@ -255,6 +255,10 @@ pub struct Content {
     #[serde(default)]
     pub mentions: Vec<String>,
 
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub mention_all: bool,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub reply: String,

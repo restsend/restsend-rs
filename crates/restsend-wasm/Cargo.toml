@@ -25,6 +25,7 @@ wasm-bindgen-test = "0.3.39"
 [profile.release]
 lto = true
 opt-level = "s"
+strip = true
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = true

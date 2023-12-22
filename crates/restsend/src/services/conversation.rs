@@ -58,7 +58,7 @@ pub async fn update_conversation(
     token: &str,
     topic_id: &str,
     data: &serde_json::Value,
-) -> Result<()> {
+) -> Result<Conversation> {
     api_call(
         endpoint,
         &format!("/chat/update/{}", topic_id),
@@ -66,7 +66,18 @@ pub async fn update_conversation(
         Some(data.to_string()),
     )
     .await
-    .map(|_: bool| ())
+}
+
+pub async fn set_conversation_remark(
+    endpoint: &str,
+    token: &str,
+    topic_id: &str,
+    remark: Option<String>,
+) -> Result<Conversation> {
+    let data = serde_json::json!({
+        "remark": remark,
+    });
+    update_conversation(endpoint, token, topic_id, &data).await
 }
 
 pub async fn set_conversation_sticky(
@@ -74,7 +85,7 @@ pub async fn set_conversation_sticky(
     token: &str,
     topic_id: &str,
     sticky: bool,
-) -> Result<()> {
+) -> Result<Conversation> {
     let data = serde_json::json!({
         "sticky": sticky,
     });
@@ -86,7 +97,7 @@ pub async fn set_conversation_mute(
     token: &str,
     topic_id: &str,
     mute: bool,
-) -> Result<()> {
+) -> Result<Conversation> {
     let data = serde_json::json!({
         "mute": mute,
     });
@@ -99,7 +110,7 @@ pub async fn set_conversation_read(endpoint: &str, token: &str, topic_id: &str) 
         .map(|_: bool| ())
 }
 
-pub async fn clean_history(endpoint: &str, token: &str, topic_id: &str) -> Result<()> {
+pub async fn clean_messages(endpoint: &str, token: &str, topic_id: &str) -> Result<()> {
     api_call(
         endpoint,
         &format!("/chat/clear_messages/{}", topic_id),

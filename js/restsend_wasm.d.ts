@@ -1,6 +1,10 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @param {string | undefined} [level]
+*/
+export function setLogging(level?: string): void;
+/**
 * Signin with userId and password or token
 * @param {string} endpoint
 * @param {string} userId
@@ -25,13 +29,287 @@ export function signup(endpoint: string, userId: string, password: string): Prom
 */
 export function logout(endpoint: string, token: string): Promise<void>;
 /**
-* @param {string | undefined} [level]
-*/
-export function setLogging(level?: string): void;
-/**
 */
 export class Client {
   free(): void;
+/**
+*
+* Send message with content
+* # Arguments
+* * `topicId` - The topic id
+* * `content` - The content Object
+*     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+*     * `text` String - The text message
+*     * `attachment` Object - The attachment object
+*     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+*     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+*     * `size` Number - The size of the content, only for file, optional
+*     * `placeholder` String - The placeholder of the content, optional
+*     * `width` Number - The width of the content, only for image/video, optional
+*     * `height` Number - The height of the content, only for image/video, optional
+*     * `reply` String - The reply message id, optional
+*     * `mentions` Array - Mention to users, optional
+*     * `mentionsAll` Boolean - Mention to all users, optional
+* * `option` - The send option
+* # Return
+* The message id
+* # Example
+* ```javascript
+* const client = new Client(info);
+* await client.connect();
+* await client.doSend(topicId, {
+*     type: 'wx.text',
+*     text: 'hello',
+* }, {
+*     mentions: undefined, // The mention user id list, optional
+*     mentionAll:  false, // Mention all users, optional
+*     reply:  undefined, // The reply message id, optional
+*     onsent:  () => {}, // The callback when message sent
+*     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+*     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+*     onfail:  (reason:String)  => {} // The callback when message failed
+* });
+* ```
+* @param {string} topicId
+* @param {any} content
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSend(topicId: string, content: any, option: any): Promise<string>;
+/**
+* Send typing status
+* # Arguments
+* * `topicId` - The topic id    
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  doTyping(topicId: string): Promise<void>;
+/**
+* Recall message
+* # Arguments
+* * `topicId` - The topic id
+* * `messageId` - The message id
+* @param {string} topicId
+* @param {string} messageId
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
+/**
+* Send voice message
+* # Arguments
+* * `topicId` - The topic id
+* * `attachment` - The attachment object
+* * `option` - The send option
+*     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+*     * `mentions` Array - The mention user id list, optional
+*     * `mentionAll` boolean, // Mention all users, optional
+*     * `reply` String - The reply message id, optional
+* # Return
+* The message id
+* @param {string} topicId
+* @param {any} attachment
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
+/**
+* Send video message
+* # Arguments
+* * `topicId` - The topic id
+* * `attachment` - The attachment object
+* * `option` - The send option
+*    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+*    * `mentions` Array - The mention user id list, optional
+*    * `mentionAll` boolean, // Mention all users, optional
+*    * `reply` String - The reply message id, optional
+* # Return
+* The message id
+* @param {string} topicId
+* @param {any} attachment
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
+/**
+* Send file message
+* # Arguments
+* * `topicId` - The topic id
+* * `attachment` - The attachment object
+* * `option` - The send option
+*    * `size` Number - The size of the content, only for file, optional
+*    * `mentions` Array - The mention user id list, optional
+*    * `mentionAll` boolean, // Mention all users, optional
+*    * `reply` String - The reply message id, optional
+* # Return
+* The message id
+* @param {string} topicId
+* @param {any} attachment
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
+/**
+* Send location message
+* # Arguments
+* * `topicId` - The topic id
+* * `latitude` - The latitude
+* * `longitude` - The longitude
+* * `address` - The address
+* * `option` - The send option
+*   * `mentions` Array - The mention user id list, optional
+*   * `mentionAll` boolean, // Mention all users, optional
+*   * `reply` String - The reply message id, optional
+* # Return
+* The message id
+* @param {string} topicId
+* @param {string} latitude
+* @param {string} longitude
+* @param {string} address
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
+/**
+* Send link message
+* # Arguments
+* * `topicId` - The topic id
+* * `url` - The url
+* * `option` - The send option
+*  * `placeholder` String - The placeholder of the content, optional
+*  * `mentions` Array - The mention user id list, optional
+*  * `mentionAll` boolean, // Mention all users, optional
+*  * `reply` String - The reply message id, optional
+* # Return
+* The message id
+* @param {string} topicId
+* @param {string} url
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendLink(topicId: string, url: string, option: any): Promise<string>;
+/**
+* Send invite message
+* # Arguments
+* * `topicId` - The topic id
+* * `logIds` Array - The log id list
+* * `option` - The send option
+* # Return    
+* The message id
+* @param {string} topicId
+* @param {(string)[]} logIds
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendLogs(topicId: string, logIds: (string)[], option: any): Promise<string>;
+/**
+* Send text message
+* # Arguments
+* * `topicId` - The topic id
+* * `text` - The text message
+* * `option` - The send option
+* # Return
+* The message id
+* # Example
+* ```javascript
+* const client = new Client(info);
+* await client.connect();
+* await client.sendText(topicId, text, {
+*     mentions: [] || undefined, // The mention user id list, optional
+*     reply: String || undefined, - The reply message id, optional
+*     onsent:  () => {},
+*     onprogress:  (progress:Number, total:Number)  =>{},
+*     onack:  (req:ChatRequest)  => {},
+*     onfail:  (reason:String)  => {}
+* });
+* ```
+* @param {string} topicId
+* @param {string} text
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendText(topicId: string, text: string, option: any): Promise<string>;
+/**
+*
+* Send image message
+* # Arguments
+* * `topicId` - The topic id
+* * `attachment` - The attachment object
+*     * `file` File - The file object
+*     * `url` String  - The file name
+* * `option` - The send option
+* # Example
+* ```javascript
+* const client = new Client(info);
+* await client.connect();
+* await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+* ```
+* @param {string} topicId
+* @param {any} attachment
+* @param {any} option
+* @returns {Promise<string>}
+*/
+  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+/**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 * Create a new topic
 * #Arguments
@@ -239,17 +517,17 @@ export class Client {
 * Create a new chat with userId
 * return: Conversation
 * @param {string} userId
-* @returns {Promise<any | undefined>}
+* @returns {Promise<any>}
 */
-  createChat(userId: string): Promise<any | undefined>;
+  createChat(userId: string): Promise<any>;
 /**
-* Clean history of a topic
+* Clean history of a conversation
 * @param {string} topicId
 * @returns {Promise<void>}
 */
-  cleanHistory(topicId: string): Promise<void>;
+  cleanMessages(topicId: string): Promise<void>;
 /**
-* Remove messages from a topic
+* Remove messages from a conversation
 * @param {string} topicId
 * @param {(string)[]} chatIds
 * @returns {Promise<void>}
@@ -302,15 +580,25 @@ export class Client {
 */
   removeConversation(topicId: string): Promise<void>;
 /**
+* Set conversation remark
+* #Arguments
+* * `topicId` - topic id
+* * `remark` - remark
+* @param {string} topicId
+* @param {string | undefined} [remark]
+* @returns {Promise<any>}
+*/
+  setConversationRemark(topicId: string, remark?: string): Promise<any>;
+/**
 * Set conversation sticky by topicId
 * #Arguments
 * * `topicId` - topic id
 * * `sticky` - sticky
 * @param {string} topicId
 * @param {boolean} sticky
-* @returns {Promise<void>}
+* @returns {Promise<any>}
 */
-  setConversationSticky(topicId: string, sticky: boolean): Promise<void>;
+  setConversationSticky(topicId: string, sticky: boolean): Promise<any>;
 /**
 * Set conversation mute by topicId
 * #Arguments
@@ -318,9 +606,9 @@ export class Client {
 * * `mute` - mute
 * @param {string} topicId
 * @param {boolean} mute
-* @returns {Promise<void>}
+* @returns {Promise<any>}
 */
-  setConversationMute(topicId: string, mute: boolean): Promise<void>;
+  setConversationMute(topicId: string, mute: boolean): Promise<any>;
 /**
 * Set conversation read by topicId
 * #Arguments
@@ -339,227 +627,41 @@ export class Client {
 *     - label - string
 * @param {string} topicId
 * @param {any} tags
-* @returns {Promise<void>}
+* @returns {Promise<any>}
 */
-  setConversationTags(topicId: string, tags: any): Promise<void>;
+  setConversationTags(topicId: string, tags: any): Promise<any>;
 /**
 * Set conversation extra
 * #Arguments
 * * `topicId` - topic id
+* # `extra` - extra
+* # Return: Conversation
 * @param {string} topicId
 * @param {any} extra
-* @returns {Promise<void>}
+* @returns {Promise<any>}
 */
-  setConversationExtra(topicId: string, extra: any): Promise<void>;
+  setConversationExtra(topicId: string, extra: any): Promise<any>;
 /**
-*
-* Send message with content
-* # Arguments
-* * `topicId` - The topic id
-* * `content` - The content Object
-*     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-*     * `text` String - The text message
-*     * `attachment` Object - The attachment object
-*     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-*     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-*     * `size` Number - The size of the content, only for file, optional
-*     * `placeholder` String - The placeholder of the content, optional
-*     * `width` Number - The width of the content, only for image/video, optional
-*     * `height` Number - The height of the content, only for image/video, optional
-* * `option` - The send option
-* # Return
-* The message id
-* # Example
-* ```javascript
-* const client = new Client(info);
-* await client.connect();
-* await client.doSend(topicId, {
-*     type: 'wx.text',
-*     text: 'hello',
-* }, {
-*     mentions: undefined, // The mention user id list, optional
-*     reply:  undefined, // The reply message id, optional
-*     onsent:  () => {}, // The callback when message sent
-*     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-*     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-*     onfail:  (reason:String)  => {} // The callback when message failed
-* });
+* Filter conversation with options
+* #Arguments
+* * `predicate` - filter predicate
+*     -> return true to keep the conversation
+* #Return Array of Conversation
+* #Example
+* ```js
+* const conversations = client.filterConversation((c) => {
+*    return c.remark === 'hello'
+* })
 * ```
-* @param {string} topicId
-* @param {any} content
-* @param {any} option
-* @returns {Promise<string>}
+* #Example
+* ```js
+* const conversations = client.filterConversation((c) => {
+*   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
+* })
+* @param {any} predicate
+* @returns {Promise<any>}
 */
-  doSend(topicId: string, content: any, option: any): Promise<string>;
-/**
-* Send typing status
-* # Arguments
-* * `topicId` - The topic id    
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  doTyping(topicId: string): Promise<void>;
-/**
-* Recall message
-* # Arguments
-* * `topicId` - The topic id
-* * `messageId` - The message id
-* @param {string} topicId
-* @param {string} messageId
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
-/**
-* Send voice message
-* # Arguments
-* * `topicId` - The topic id
-* * `attachment` - The attachment object
-* * `option` - The send option
-*     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-*     * `mentions` Array - The mention user id list, optional
-*     * `reply` String - The reply message id, optional
-* # Return
-* The message id
-* @param {string} topicId
-* @param {any} attachment
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
-/**
-* Send video message
-* # Arguments
-* * `topicId` - The topic id
-* * `attachment` - The attachment object
-* * `option` - The send option
-*    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-*    * `mentions` Array - The mention user id list, optional
-*    * `reply` String - The reply message id, optional
-* # Return
-* The message id
-* @param {string} topicId
-* @param {any} attachment
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
-/**
-* Send file message
-* # Arguments
-* * `topicId` - The topic id
-* * `attachment` - The attachment object
-* * `option` - The send option
-*    * `size` Number - The size of the content, only for file, optional
-*    * `mentions` Array - The mention user id list, optional
-*    * `reply` String - The reply message id, optional
-* # Return
-* The message id
-* @param {string} topicId
-* @param {any} attachment
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
-/**
-* Send location message
-* # Arguments
-* * `topicId` - The topic id
-* * `latitude` - The latitude
-* * `longitude` - The longitude
-* * `address` - The address
-* * `option` - The send option
-*   * `mentions` Array - The mention user id list, optional
-*   * `reply` String - The reply message id, optional
-* # Return
-* The message id
-* @param {string} topicId
-* @param {string} latitude
-* @param {string} longitude
-* @param {string} address
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
-/**
-* Send link message
-* # Arguments
-* * `topicId` - The topic id
-* * `url` - The url
-* * `option` - The send option
-*  * `placeholder` String - The placeholder of the content, optional
-*  * `mentions` Array - The mention user id list, optional
-*  * `reply` String - The reply message id, optional
-* # Return
-* The message id
-* @param {string} topicId
-* @param {string} url
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendLink(topicId: string, url: string, option: any): Promise<string>;
-/**
-* Send invite message
-* # Arguments
-* * `topicId` - The topic id
-* * `logIds` Array - The log id list
-* * `option` - The send option
-* # Return    
-* The message id
-* @param {string} topicId
-* @param {(string)[]} logIds
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendLogs(topicId: string, logIds: (string)[], option: any): Promise<string>;
-/**
-* Send text message
-* # Arguments
-* * `topicId` - The topic id
-* * `text` - The text message
-* * `option` - The send option
-* # Return
-* The message id
-* # Example
-* ```javascript
-* const client = new Client(info);
-* await client.connect();
-* await client.sendText(topicId, text, {
-*     mentions: [] || undefined, // The mention user id list, optional
-*     reply: String || undefined, - The reply message id, optional
-*     onsent:  () => {},
-*     onprogress:  (progress:Number, total:Number)  =>{},
-*     onack:  (req:ChatRequest)  => {},
-*     onfail:  (reason:String)  => {}
-* });
-* ```
-* @param {string} topicId
-* @param {string} text
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendText(topicId: string, text: string, option: any): Promise<string>;
-/**
-*
-* Send image message
-* # Arguments
-* * `topicId` - The topic id
-* * `attachment` - The attachment object
-*     * `file` File - The file object
-*     * `url` String  - The file name
-* * `option` - The send option
-* # Example
-* ```javascript
-* const client = new Client(info);
-* await client.connect();
-* await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-* ```
-* @param {string} topicId
-* @param {any} attachment
-* @param {any} option
-* @returns {Promise<string>}
-*/
-  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+  filterConversation(predicate: any): Promise<any>;
 /**
 * @param {any} info
 */
@@ -572,66 +674,6 @@ export class Client {
 * @returns {Promise<void>}
 */
   connect(): Promise<void>;
-/**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
-* @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
-*/
-  getUser(userId: string, blocking?: boolean): Promise<any>;
-/**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
-*/
-  getUsers(userIds: (string)[]): Promise<any>;
-/**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
-* @returns {Promise<void>}
-*/
-  setUserRemark(userId: string, remark: string): Promise<void>;
-/**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
-* @returns {Promise<void>}
-*/
-  setUserStar(userId: string, star: boolean): Promise<void>;
-/**
-* Set user block
-* #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
-* @returns {Promise<void>}
-*/
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-/**
-* Set allow guest chat
-* #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 * get the current connection status
 * return: connecting, connected, net_broken, shutdown
