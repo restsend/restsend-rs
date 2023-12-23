@@ -31,9 +31,10 @@ impl WebSocketImpl {
                     let reason = match e.dyn_into::<js_sys::Error>() {
                         Ok(e) => e.message().as_string(),
                         Err(e) => e.as_string(),
-                    };
+                    }
+                    .unwrap_or("send error".to_string());
                     return Err(ClientError::HTTP(format!(
-                        "websocket send error: {:?}",
+                        "websocket send error: {}",
                         reason
                     )));
                 }

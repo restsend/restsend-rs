@@ -19,6 +19,155 @@
     </style>
 
     <script>
+        class MessageBlocks {
+            constructor(endpoint, self) {
+                this.self = self
+                this.endpoint = endpoint
+                this.msgs = {}
+                this.blocks = []
+            }
+
+            getAvatar(userId) {
+                return `${this.endpoint}/api/avatar/${userId}`;
+            }
+            get firstItemSeq() {
+                if (this.blocks.length == 0 || this.blocks[0].items.length == 0) {
+                    return 0
+                }
+                return this.blocks[0].items[0].seq
+            }
+
+            updateItem(chatId, { type, content }) {
+                for (let idx = 0; idx < this.blocks.length; idx++) {
+                    const block = this.blocks[idx];
+                    let found = block.items.findIndex((item) => item.id == chatId)
+
+                    if (found !== -1) {
+                        if (!type) {
+                            block.items.splice(found, 1)
+                            console.log('remove item', block.items.length, found)
+                            if (block.items.length == 0) {
+                                this.blocks.splice(idx, 1)
+                            }
+                        } else {
+                            block.items[found].type = type
+                            block.items[found].content = content
+                        }
+                        break
+                    }
+                }
+            }
+
+            renderContent(content) {
+                if (content.type == 'image') {
+                    let url = content.thumbnail || content.text;
+                    return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
+                }
+                if (content.type == 'link') {
+                    return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
+                }
+                if (content.type == 'file') {
+                    return `<a href="${content.text}" target="_blank" class="flex w-32 h-20 rounded-md border shadow justify0between">
+                    <p> ${content.text}</p>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-16 h-16 text-gray-500">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+</a>`
+                }
+                return content.text
+            }
+
+            getOrCreateBlock(item) {
+                let firstBlock = this.blocks.length > 0 ? this.blocks[0] : null;
+                let lastBlock = this.blocks.length > 0 ? this.blocks[this.blocks.length - 1] : null;
+                let itemTime = new Date(item.createdAt).getTime()
+
+                if (firstBlock) {
+                    let blockTime = new Date(firstBlock.createdAt).getTime()
+                    if (itemTime < blockTime) {
+                        if (itemTime + 5 * 60 * 1000 < blockTime) {
+                            // create new block
+                            firstBlock = {
+                                title: item.senderId,
+                                avatar: this.getAvatar(item.senderId),
+                                isSelf: item.senderId == this.self,
+                                senderId: item.senderId,
+                                items: [],
+                                id: item.id,
+                                seq: item.seq,
+                                createdAt: item.createdAt,
+                            };
+                            this.blocks.unshift(firstBlock);
+                        }
+                        if (firstBlock.senderId == item.senderId) {
+                            return firstBlock
+                        }
+                    }
+                }
+
+                if (lastBlock) {
+                    let blockTime = new Date(firstBlock.createdAt).getTime()
+                    if (blockTime - itemTime < 5 * 60 * 1000) {
+                        if (lastBlock.senderId == item.senderId) {
+                            return lastBlock
+                        }
+                    }
+                }
+
+                lastBlock = {
+                    title: item.senderId,
+                    avatar: this.getAvatar(item.senderId),
+                    isSelf: item.senderId == this.self,
+                    senderId: item.senderId,
+                    items: [],
+                    id: item.id,
+                    seq: item.seq,
+                    createdAt: item.createdAt,
+                };
+                this.blocks.push(lastBlock);
+                return lastBlock
+            }
+
+            appendMessageWithBlock(block, item) {
+                let lastItem = block.items.length > 0 ? block.items[block.items.length - 1] : undefined
+                if (lastItem) {
+                    lastItem.isLast = false
+                }
+                let idx = block.items.findIndex((i) => {
+                    item.createdAt > i.createdAt
+                })
+                if (idx >= 0) {
+                    block.items.splice(idx, 0, item)
+                } else {
+                    item.isLast = true
+                    block.items.push(item)
+                }
+            }
+
+            appendMessages(items) {
+                for (var idx = 0; idx < items.length; idx++) {
+                    let item = {
+                        type: items[idx].content.type,
+                        content: this.renderContent(items[idx].content),
+                        isLast: false,
+                        id: items[idx].id,
+                        senderId: items[idx].senderId,
+                        createdAt: new Date(items[idx].createdAt),
+                    }
+
+                    if (this.msgs[items[idx].id]) {
+                        this.updateItem(items[idx].id, {
+                            type: item.content.type,
+                            content: this.renderContent(item.content)
+                        })
+                        continue
+                    }
+                    this.msgs[item.id] = item
+                    let block = this.getOrCreateBlock(item)
+                    this.appendMessageWithBlock(block, item)
+                }
+            }
+        };
+
         const demoApp = {
             endpoint: 'https://chat.ruzhila.cn',
             userid: 'bob',
@@ -30,12 +179,11 @@
             message: '',
             self: null,
             reference: null,
-            msgs: {},
             showCheckbox: false,
-            messageBlocks: [],
+            messageBlocks: null,
 
             init: async function () {
-                var wasm = await import("./pkg/restsend_wasm.js");
+                var wasm = await import("./pkg/restsend_wasm.js")
                 window.signin = wasm.signin;
                 window.Client = wasm.Client;
 
@@ -44,12 +192,6 @@
                 console.info = (text) => this.logText(text, 'info')
                 console.debug = (text) => this.logText(text, 'debug')
                 console.warn = (text) => this.logText(text, 'warn')
-                console.error = (text) => this.logText(text, 'error')
-            },
-
-            getAvatar(userId) {
-                let endpoint = this.endpoint.trimEnd('/');
-                return `${endpoint}/api/avatar/${userId}`;
             },
 
             logText: function (text) {
@@ -63,20 +205,21 @@
                 this.logs = []
             },
             doSignin: async function () {
+                let endpoint = this.endpoint.trimEnd('/')
                 if (this.current) {
-                    this.current.shutdown();
-                    this.conversations = [];
-                    this.conversation = null;
+                    this.current.shutdown()
+                    this.conversations = []
+                    this.conversation = null
                 }
 
-                let endpoint = this.endpoint.trimEnd('/');
-                let info = await signin(endpoint, this.userid, this.password);
+                let info = await signin(endpoint, this.userid, this.password)
                 this.self = info.userId
+                this.messageBlocks = new MessageBlocks(endpoint, this.self)
 
                 client = new Client(info);
                 client.onconnected = () => {
                     // syncs conversations
-                    this.doSyncConversations().then()
+                    this.doSyncConversations()
                 }
 
                 client.onconversationsupdated = this.onConversationsUpdated.bind(this)
@@ -119,6 +262,7 @@
                     } else {
                         this.conversations.push(item)
                     }
+
                     if (this.conversation && this.conversation.topicId == item.topicId) {
                         hintCurrent = item
                     }
@@ -140,8 +284,7 @@
             },
 
             onSelectConversation: function (conversation) {
-                this.messageBlocks = []
-                this.msgs = {}
+                this.messageBlocks = new MessageBlocks(this.endpoint.trimEnd('/'), this.self);
                 this.updateConversation(conversation);
                 // set read when conversation is selected
                 // via http api
@@ -158,16 +301,49 @@
                 if (limit === 0) { //the messages are not changed
                     return
                 }
+
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
-                        this.appendMessages(r.items);
+                        const el = document.getElementById('messages')
+                        let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
+                        this.messageBlocks.appendMessages(r.items)
+
                         // scroll to bottom
+                        if (scrollToEnd) {
+                            setTimeout(() => {
+                                const el = document.getElementById('messages')
+                                if (el) {
+                                    el.scrollTop = el.scrollHeight
+                                }
+                            }, 0)
+                        }
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync messages failed: ${reason}`)
+                    }
+                }).then();
+            },
+
+            onScrollMessages(event) {
+                if (event.target.scrollTop > 0) {
+                    return
+                }
+
+                let firstItemSeq = this.messageBlocks.firstItemSeq
+                if (firstItemSeq == 0) {
+                    return
+                }
+
+                // sync older messages
+                this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
+                    onsuccess: (r) => {
+                        this.messageBlocks.appendMessages(r.items)
                         setTimeout(() => {
                             const el = document.getElementById('messages')
-                            if (el) {
-                                el.scrollTop = el.scrollHeight
-                            }
+                            // if (el) {
+                            //     el.scrollTop = el.scrollHeight / 2
+                            // }
                         }, 0)
                     },
                     onfail: (reason) => {
@@ -176,86 +352,6 @@
                 }).then();
             },
 
-            appendMessages(items) {
-                let msgs = this.msgs
-                let blocks = this.messageBlocks;
-                let lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
-                let lastItem = lastBlock ? lastBlock.items.length > 0 ? lastBlock.items[lastBlock.items.length - 1] : undefined : undefined
-                for (let idx = items.length - 1; idx >= 0; idx--) {
-                    const item = items[idx];
-
-                    if (msgs[item.id] === item.id) {
-                        if (item.content.type == 'recall' || item.content.type == '') {
-                            msgs[item.id] = item
-                        }
-                        continue
-                    }
-                    let createBlock = false
-                    if (!lastBlock || lastBlock.senderId != item.senderId) {
-                        createBlock = true
-                    }
-                    let showBlockTime = false
-                    if (lastBlock && lastBlock.items.length > 0 && lastItem) {
-                        let lastItemCreatedAt = new Date(lastItem.createdAt).getTime()
-                        let itemCreatedAt = new Date(item.createdAt).getTime()
-
-                        if (itemCreatedAt - lastItemCreatedAt > 5 * 60 * 1000) { // 5 mins
-                            createBlock = true
-                            showBlockTime = true
-                        }
-                    }
-
-                    if (createBlock) {
-                        lastBlock = {
-                            title: item.senderId,
-                            avatar: this.getAvatar(item.senderId),
-                            isSelf: item.senderId == this.self,
-                            senderId: item.senderId,
-                            items: [],
-                            id: item.id,
-                            createdAt: showBlockTime ? item.createdAt : undefined,
-                        };
-                        blocks.push(lastBlock);
-                    }
-
-                    if (lastItem) {
-                        lastItem.isLast = lastBlock.items.length == 0
-                    }
-
-                    lastItem = {
-                        type: item.content.type,
-                        content: this.renderContent(item.content),
-                        isLast: false,
-                        id: item.id,
-                        createdAt: item.createdAt,
-                    }
-                    lastBlock.items.push(lastItem)
-                    msgs[item.id] = lastItem
-
-                }
-
-                if (lastItem) {
-                    lastItem.isLast = true
-                }
-            },
-
-            renderContent(content) {
-                if (content.type == 'image') {
-                    let url = content.thumbnail || content.text;
-                    return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
-                }
-                if (content.type == 'link') {
-                    return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
-                }
-                if (content.type == 'file') {
-                    return `<a href="${content.text}" target="_blank" class="flex w-32 h-20 rounded-md border shadow justify0between">
-                    <p> ${content.text}</p>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-16 h-16 text-gray-500">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
-</a>`
-                }
-                return content.text
-            },
 
             getMessageClass(block, item) {
                 let classList = []
@@ -273,6 +369,7 @@
                 }
                 return classList.join(' ')
             },
+
             doSendMessage: async function () {
                 if (!this.message || !this.conversation) {
                     return
@@ -312,33 +409,12 @@
                 if (!this.conversation) {
                     return
                 }
-                let thisPtr = this;
-                await client.removeMessages(this.conversation.topicId, [message.id], {
-                    onack: function (req) {
-                        thisPtr.message = ''
-                    },
-                    onfail: function (reason) {
-                        logText(`delete message fail ${reason}`)
-                    },
-                });
-                this.messageBlocks.forEach((b) => {
-                    if (b.id == block.id) {
-                        let index = b.items.findIndex((i) => i.id == message.id)
-                        if (index >= 0) {
-                            b.items[index].type = ''
-                            b.items[index].content = ''
-                        } else {
-                            console.log('not found message', message)
-                        }
-
-                        // if (b.items.findIndex((i) => i.content != '') < 0) {
-                        //     b.avatar = null
-                        // }
-
-                    }
-
+                await client.removeMessages(this.conversation.topicId, [message.id]);
+                this.message = ''
+                this.messageBlocks.updateItem(message.id, {
+                    type: '',
+                    content: ''
                 })
-
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
@@ -352,6 +428,7 @@
                 this.reference = message
                 console.log('reference message', this.reference)
             },
+
             doReCallMessage: async function (block, message) {
                 if (!this.conversation) {
                     return
@@ -360,23 +437,15 @@
                 await client.doRecall(this.conversation.topicId, message.id, {
                     onack: function (req) {
                         thisPtr.message = ''
+                        this.messageBlocks.updateItem(id, {
+                            type: 'recall',
+                            content: ''
+                        })
                     },
                     onfail: function (reason) {
                         logText(`recall message fail ${reason}`)
                     }
                 });
-
-                this.messageBlocks.forEach((b) => {
-                    if (b.id == block.id) {
-                        let index = b.items.findIndex((i) => i.id == message.id)
-                        if (index >= 0) {
-                            b.items[index].type = 'recall'
-                            b.items[index].content = ''
-                        } else {
-                            console.log('not found message', message)
-                        }
-                    }
-                })
             },
             cleanHistory: async function () {
                 if (!this.conversation) {
@@ -443,7 +512,7 @@
                                     <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
                                         x-text="item.title"></p>
                                     <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
-                                            <!-- <button class="hover:text-gray-600">
+                                        <!-- <button class="hover:text-gray-600">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                                     viewBox="0 0 24 24">
                                                     <path fill="currentColor" d="M5 4v2h14V4zm0 10h4v6h6v-6h4l-7-7z" />
@@ -457,14 +526,14 @@
                                                         d="M20.8 22.7L15 16.9V20H9v-6H5l3.6-3.6L1.1 3l1.3-1.3l19.7 19.7zM19 6V4H7.2l2 2zm-1.8 8H19l-7-7l-.9.9z" />
                                                 </svg>
                                             </button> -->
-                                            <button class="hover:text-gray-600" :class="item.mute?'visible':'invisible'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                    stroke-width="1.5" stroke="currentColor" data-slot="icon"
-                                                    class="w-5 h-5 text-gray-500" @click="doMute(item)">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
-                                                </svg>
-                                            </button>
+                                        <button class="hover:text-gray-600" :class="item.mute?'visible':'invisible'">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" data-slot="icon"
+                                                class="w-5 h-5 text-gray-500" @click="doMute(item)">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </div>
                                 <p class="mt-1 text-xs leading-5 text-gray-500">
@@ -546,9 +615,9 @@
                                     </button>
                                 </div>
                                 <!-- h-[calc(100vh-22rem)] -->
-                                <div id="messages"
+                                <div id="messages" @scrollend="onScrollMessages($event)"
                                     class="flex  flex-col space-y-4 p-3 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
-                                    <template x-for="block in messageBlocks">
+                                    <template x-for="block in messageBlocks.blocks">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
                                                 <p class="text-xs text-gray-400 shrink-0 text-center">
@@ -569,7 +638,7 @@
                                                                         <p>You recalled a message</p>
                                                                     </template>
                                                                     <template x-if="!block.isSelf">
-                                                                        <p>The other party recalled a message</p>
+                                                                        <p>The sender recalled a message</p>
                                                                     </template>
                                                                 </div>
                                                             </template>
