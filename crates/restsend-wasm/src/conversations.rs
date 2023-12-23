@@ -3,7 +3,6 @@ use crate::{
     callback::{SyncChatLogsCallbackWasmWrap, SyncConversationsCallbackWasmWrap},
     js_util::{self, get_string},
 };
-
 use restsend_sdk::models::conversation::{Extra, Tags};
 use wasm_bindgen::prelude::*;
 
@@ -12,12 +11,12 @@ use wasm_bindgen::prelude::*;
 impl Client {
     /// Create a new chat with userId
     /// return: Conversation
-    pub async fn createChat(&self, userId: String) -> JsValue {
+    pub async fn createChat(&self, userId: String) -> Result<JsValue, JsValue> {
         self.inner
             .create_chat(userId)
             .await
             .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .map_err(|e| e.into())
     }
 
     /// Clean history of a conversation
@@ -82,8 +81,8 @@ impl Client {
     pub fn getConversation(&self, topicId: String) -> JsValue {
         self.inner
             .get_conversation(topicId)
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .and_then(|v| serde_wasm_bindgen::to_value(&v).ok())
+            .unwrap_or(JsValue::UNDEFINED)
     }
 
     /// Remove conversation by topicId
@@ -102,11 +101,8 @@ impl Client {
         topicId: String,
         remark: Option<String>,
     ) -> Result<JsValue, JsValue> {
-        self.inner
-            .set_conversation_remark(topicId, remark)
-            .await
-            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| e.into())
+        let r = self.inner.set_conversation_remark(topicId, remark).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Set conversation sticky by topicId
@@ -118,11 +114,8 @@ impl Client {
         topicId: String,
         sticky: bool,
     ) -> Result<JsValue, JsValue> {
-        self.inner
-            .set_conversation_sticky(topicId, sticky)
-            .await
-            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| e.into())
+        let r = self.inner.set_conversation_sticky(topicId, sticky).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Set conversation mute by topicId
@@ -134,11 +127,8 @@ impl Client {
         topicId: String,
         mute: bool,
     ) -> Result<JsValue, JsValue> {
-        self.inner
-            .set_conversation_mute(topicId, mute)
-            .await
-            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| e.into())
+        let r = self.inner.set_conversation_mute(topicId, mute).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Set conversation read by topicId
@@ -161,11 +151,8 @@ impl Client {
         tags: JsValue,
     ) -> Result<JsValue, JsValue> {
         let tags = serde_wasm_bindgen::from_value::<Tags>(tags).ok();
-        self.inner
-            .set_conversation_tags(topicId, tags)
-            .await
-            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| e.into())
+        let r = self.inner.set_conversation_tags(topicId, tags).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Set conversation extra
@@ -179,11 +166,8 @@ impl Client {
         extra: JsValue,
     ) -> Result<JsValue, JsValue> {
         let extra = serde_wasm_bindgen::from_value::<Extra>(extra).ok();
-        self.inner
-            .set_conversation_extra(topicId, extra)
-            .await
-            .map(|c| serde_wasm_bindgen::to_value(&c).unwrap_or(JsValue::UNDEFINED))
-            .map_err(|e| e.into())
+        let r = self.inner.set_conversation_extra(topicId, extra).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Filter conversation with options
@@ -207,8 +191,13 @@ impl Client {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
         let items = self.inner.filter_conversation(Box::new(move |c| {
             let keep = match predicate.as_ref().and_then(|f| {
-                f.call1(&JsValue::NULL, &serde_wasm_bindgen::to_value(&c).unwrap())
-                    .ok()
+                match f.call1(&JsValue::NULL, &serde_wasm_bindgen::to_value(&c).unwrap()) {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        web_sys::console::error_1(&e);
+                        None
+                    }
+                }
             }) {
                 Some(v) => v.as_bool().unwrap_or(false),
                 None => false,

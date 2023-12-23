@@ -425,13 +425,14 @@ fileprivate struct FfiConverterString: FfiConverter {
 public protocol ClientProtocol {
     func acceptTopicJoin(topicId: String, userId: String, memo: String?) async throws
     func addTopicAdmin(topicId: String, userId: String) async throws
+    func addTopicMember(topicId: String, userId: String) async throws -> TopicMember
     func appActive()  
     func appDeactivate()  
     func cancelSend(reqId: String)  
-    func cleanHistory(topicId: String) async throws
+    func cleanMessages(topicId: String) async throws
     func connect() async 
     func connectionStatus()   -> String
-    func createChat(userId: String) async  -> Conversation?
+    func createChat(userId: String) async throws -> Conversation
     func createTopic(members: [String], icon: String?, name: String?) async throws -> Conversation
     func declineTopicJoin(topicId: String, userId: String, message: String?) async throws
     func dismissTopic(topicId: String) async throws
@@ -451,13 +452,14 @@ public protocol ClientProtocol {
     func downloadFile(fileUrl: String, callback: DownloadCallback) async throws -> String
     func getChatLog(topicId: String, chatId: String)   -> ChatLog?
     func getConversation(topicId: String)   -> Conversation?
-    func getTopic(topicId: String) async  -> Topic?
+    func getTopic(topicId: String) async throws -> Topic
     func getTopicAdmins(topicId: String) async  -> [User]?
     func getTopicKnocks(topicId: String) async  -> [TopicKnock]?
-    func getTopicMembers(topicId: String, updatedAt: String, limit: UInt32) async  -> ListUserResult?
+    func getTopicMembers(topicId: String, updatedAt: String, limit: UInt32) async throws -> ListUserResult
     func getTopicOwner(topicId: String) async  -> User?
     func getUser(userId: String, blocking: Bool) async  -> User?
     func getUsers(userIds: [String]) async  -> [User]
+    func joinTopic(topicId: String, message: String?, source: String?) async throws
     func quitTopic(topicId: String) async throws
     func removeConversation(topicId: String) async 
     func removeMessages(topicId: String, chatIds: [String], syncToServer: Bool) async throws
@@ -468,9 +470,12 @@ public protocol ClientProtocol {
     func sendChatRequestViaConnection(req: ChatRequest, callback: MessageCallback?) async throws -> String
     func setAllowGuestChat(allow: Bool) async throws
     func setCallback(callback: Callback?)  
-    func setConversationMute(topicId: String, mute: Bool) async 
+    func setConversationExtra(topicId: String, extra: [String: String]?) async throws -> Conversation
+    func setConversationMute(topicId: String, mute: Bool) async throws -> Conversation
     func setConversationRead(topicId: String) async 
-    func setConversationSticky(topicId: String, sticky: Bool) async 
+    func setConversationRemark(topicId: String, remark: String?) async throws -> Conversation
+    func setConversationSticky(topicId: String, sticky: Bool) async throws -> Conversation
+    func setConversationTags(topicId: String, tags: [Tag]?) async throws -> Conversation
     func setUserBlock(userId: String, block: Bool) async throws
     func setUserRemark(userId: String, remark: String) async throws
     func setUserStar(userId: String, star: Bool) async throws
@@ -551,6 +556,25 @@ public class Client: ClientProtocol {
 
     
 
+    public func addTopicMember(topicId: String, userId: String) async throws -> TopicMember {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_add_topic_member(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterString.lower(userId)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeTopicMember.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+    }
+
+    
+
     public func appActive()  {
         try! 
     rustCall() {
@@ -579,10 +603,10 @@ public class Client: ClientProtocol {
 }
     }
 
-    public func cleanHistory(topicId: String) async throws {
+    public func cleanMessages(topicId: String) async throws {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_restsend_sdk_fn_method_client_clean_history(
+                uniffi_restsend_sdk_fn_method_client_clean_messages(
                     self.pointer,
                     FfiConverterString.lower(topicId)
                 )
@@ -626,8 +650,8 @@ public class Client: ClientProtocol {
         )
     }
 
-    public func createChat(userId: String) async  -> Conversation? {
-        return try!  await uniffiRustCallAsync(
+    public func createChat(userId: String) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_create_chat(
                     self.pointer,
@@ -637,9 +661,8 @@ public class Client: ClientProtocol {
             pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
             completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
             freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeConversation.lift,
-            errorHandler: nil
-            
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -1023,8 +1046,8 @@ public class Client: ClientProtocol {
         )
     }
 
-    public func getTopic(topicId: String) async  -> Topic? {
-        return try!  await uniffiRustCallAsync(
+    public func getTopic(topicId: String) async throws -> Topic {
+        return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_get_topic(
                     self.pointer,
@@ -1034,9 +1057,8 @@ public class Client: ClientProtocol {
             pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
             completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
             freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeTopic.lift,
-            errorHandler: nil
-            
+            liftFunc: FfiConverterTypeTopic.lift,
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -1080,8 +1102,8 @@ public class Client: ClientProtocol {
 
     
 
-    public func getTopicMembers(topicId: String, updatedAt: String, limit: UInt32) async  -> ListUserResult? {
-        return try!  await uniffiRustCallAsync(
+    public func getTopicMembers(topicId: String, updatedAt: String, limit: UInt32) async throws -> ListUserResult {
+        return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_get_topic_members(
                     self.pointer,
@@ -1093,9 +1115,8 @@ public class Client: ClientProtocol {
             pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
             completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
             freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeListUserResult.lift,
-            errorHandler: nil
-            
+            liftFunc: FfiConverterTypeListUserResult.lift,
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -1154,6 +1175,26 @@ public class Client: ClientProtocol {
             liftFunc: FfiConverterSequenceTypeUser.lift,
             errorHandler: nil
             
+        )
+    }
+
+    
+
+    public func joinTopic(topicId: String, message: String?, source: String?) async throws {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_join_topic(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterOptionString.lower(message),
+                    FfiConverterOptionString.lower(source)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_void,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_void,
+            freeFunc: ffi_restsend_sdk_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -1341,8 +1382,27 @@ public class Client: ClientProtocol {
 }
     }
 
-    public func setConversationMute(topicId: String, mute: Bool) async  {
-        return try!  await uniffiRustCallAsync(
+    public func setConversationExtra(topicId: String, extra: [String: String]?) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_set_conversation_extra(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterOptionDictionaryStringString.lower(extra)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+    }
+
+    
+
+    public func setConversationMute(topicId: String, mute: Bool) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_set_conversation_mute(
                     self.pointer,
@@ -1350,12 +1410,11 @@ public class Client: ClientProtocol {
                     FfiConverterBool.lower(mute)
                 )
             },
-            pollFunc: ffi_restsend_sdk_rust_future_poll_void,
-            completeFunc: ffi_restsend_sdk_rust_future_complete_void,
-            freeFunc: ffi_restsend_sdk_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: nil
-            
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -1380,8 +1439,27 @@ public class Client: ClientProtocol {
 
     
 
-    public func setConversationSticky(topicId: String, sticky: Bool) async  {
-        return try!  await uniffiRustCallAsync(
+    public func setConversationRemark(topicId: String, remark: String?) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_set_conversation_remark(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterOptionString.lower(remark)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+    }
+
+    
+
+    public func setConversationSticky(topicId: String, sticky: Bool) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_set_conversation_sticky(
                     self.pointer,
@@ -1389,12 +1467,30 @@ public class Client: ClientProtocol {
                     FfiConverterBool.lower(sticky)
                 )
             },
-            pollFunc: ffi_restsend_sdk_rust_future_poll_void,
-            completeFunc: ffi_restsend_sdk_rust_future_complete_void,
-            freeFunc: ffi_restsend_sdk_rust_future_free_void,
-            liftFunc: { $0 },
-            errorHandler: nil
-            
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+    }
+
+    
+
+    public func setConversationTags(topicId: String, tags: [Tag]?) async throws -> Conversation {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_set_conversation_tags(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterOptionSequenceTypeTag.lower(tags)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterTypeConversation.lift,
+            errorHandler: FfiConverterTypeClientError.lift
         )
     }
 
@@ -2047,10 +2143,11 @@ public struct ChatRequest {
     public var e2eContent: String?
     public var message: String?
     public var source: String?
+    public var unreadable: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(type: String, id: String, code: UInt32, topicId: String, seq: Int64, attendee: String, attendeeProfile: User?, chatId: String, createdAt: String, content: Content?, e2eContent: String?, message: String?, source: String?) {
+    public init(type: String, id: String, code: UInt32, topicId: String, seq: Int64, attendee: String, attendeeProfile: User?, chatId: String, createdAt: String, content: Content?, e2eContent: String?, message: String?, source: String?, unreadable: Bool) {
         self.type = type
         self.id = id
         self.code = code
@@ -2064,6 +2161,7 @@ public struct ChatRequest {
         self.e2eContent = e2eContent
         self.message = message
         self.source = source
+        self.unreadable = unreadable
     }
 }
 
@@ -2109,6 +2207,9 @@ extension ChatRequest: Equatable, Hashable {
         if lhs.source != rhs.source {
             return false
         }
+        if lhs.unreadable != rhs.unreadable {
+            return false
+        }
         return true
     }
 
@@ -2126,6 +2227,7 @@ extension ChatRequest: Equatable, Hashable {
         hasher.combine(e2eContent)
         hasher.combine(message)
         hasher.combine(source)
+        hasher.combine(unreadable)
     }
 }
 
@@ -2145,7 +2247,8 @@ public struct FfiConverterTypeChatRequest: FfiConverterRustBuffer {
             content: FfiConverterOptionTypeContent.read(from: &buf), 
             e2eContent: FfiConverterOptionString.read(from: &buf), 
             message: FfiConverterOptionString.read(from: &buf), 
-            source: FfiConverterOptionString.read(from: &buf)
+            source: FfiConverterOptionString.read(from: &buf), 
+            unreadable: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -2163,6 +2266,7 @@ public struct FfiConverterTypeChatRequest: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.e2eContent, into: &buf)
         FfiConverterOptionString.write(value.message, into: &buf)
         FfiConverterOptionString.write(value.source, into: &buf)
+        FfiConverterBool.write(value.unreadable, into: &buf)
     }
 }
 
@@ -2188,13 +2292,14 @@ public struct Content {
     public var width: Float
     public var height: Float
     public var mentions: [String]
+    public var mentionAll: Bool
     public var reply: String
     public var createdAt: String
     public var attachment: Attachment?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(type: String, encrypted: Bool, checksum: UInt32, text: String, placeholder: String, thumbnail: String, duration: String, size: UInt64, width: Float, height: Float, mentions: [String], reply: String, createdAt: String, attachment: Attachment?) {
+    public init(type: String, encrypted: Bool, checksum: UInt32, text: String, placeholder: String, thumbnail: String, duration: String, size: UInt64, width: Float, height: Float, mentions: [String], mentionAll: Bool, reply: String, createdAt: String, attachment: Attachment?) {
         self.type = type
         self.encrypted = encrypted
         self.checksum = checksum
@@ -2206,6 +2311,7 @@ public struct Content {
         self.width = width
         self.height = height
         self.mentions = mentions
+        self.mentionAll = mentionAll
         self.reply = reply
         self.createdAt = createdAt
         self.attachment = attachment
@@ -2248,6 +2354,9 @@ extension Content: Equatable, Hashable {
         if lhs.mentions != rhs.mentions {
             return false
         }
+        if lhs.mentionAll != rhs.mentionAll {
+            return false
+        }
         if lhs.reply != rhs.reply {
             return false
         }
@@ -2272,6 +2381,7 @@ extension Content: Equatable, Hashable {
         hasher.combine(width)
         hasher.combine(height)
         hasher.combine(mentions)
+        hasher.combine(mentionAll)
         hasher.combine(reply)
         hasher.combine(createdAt)
         hasher.combine(attachment)
@@ -2293,6 +2403,7 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
             width: FfiConverterFloat.read(from: &buf), 
             height: FfiConverterFloat.read(from: &buf), 
             mentions: FfiConverterSequenceString.read(from: &buf), 
+            mentionAll: FfiConverterBool.read(from: &buf), 
             reply: FfiConverterString.read(from: &buf), 
             createdAt: FfiConverterString.read(from: &buf), 
             attachment: FfiConverterOptionTypeAttachment.read(from: &buf)
@@ -2311,6 +2422,7 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
         FfiConverterFloat.write(value.width, into: &buf)
         FfiConverterFloat.write(value.height, into: &buf)
         FfiConverterSequenceString.write(value.mentions, into: &buf)
+        FfiConverterBool.write(value.mentionAll, into: &buf)
         FfiConverterString.write(value.reply, into: &buf)
         FfiConverterString.write(value.createdAt, into: &buf)
         FfiConverterOptionTypeAttachment.write(value.attachment, into: &buf)
@@ -2335,6 +2447,7 @@ public struct Conversation {
     public var lastReadSeq: Int64
     public var multiple: Bool
     public var attendee: String
+    public var members: Int64
     public var name: String
     public var icon: String
     public var sticky: Bool
@@ -2344,12 +2457,15 @@ public struct Conversation {
     public var lastSenderId: String
     public var lastMessage: Content?
     public var lastMessageAt: String
+    public var remark: String?
+    public var extra: [String: String]?
+    public var tags: [Tag]?
     public var cachedAt: Int64
     public var isPartial: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(ownerId: String, topicId: String, updatedAt: String, lastSeq: Int64, lastReadSeq: Int64, multiple: Bool, attendee: String, name: String, icon: String, sticky: Bool, mute: Bool, source: String, unread: Int64, lastSenderId: String, lastMessage: Content?, lastMessageAt: String, cachedAt: Int64, isPartial: Bool) {
+    public init(ownerId: String, topicId: String, updatedAt: String, lastSeq: Int64, lastReadSeq: Int64, multiple: Bool, attendee: String, members: Int64, name: String, icon: String, sticky: Bool, mute: Bool, source: String, unread: Int64, lastSenderId: String, lastMessage: Content?, lastMessageAt: String, remark: String?, extra: [String: String]?, tags: [Tag]?, cachedAt: Int64, isPartial: Bool) {
         self.ownerId = ownerId
         self.topicId = topicId
         self.updatedAt = updatedAt
@@ -2357,6 +2473,7 @@ public struct Conversation {
         self.lastReadSeq = lastReadSeq
         self.multiple = multiple
         self.attendee = attendee
+        self.members = members
         self.name = name
         self.icon = icon
         self.sticky = sticky
@@ -2366,6 +2483,9 @@ public struct Conversation {
         self.lastSenderId = lastSenderId
         self.lastMessage = lastMessage
         self.lastMessageAt = lastMessageAt
+        self.remark = remark
+        self.extra = extra
+        self.tags = tags
         self.cachedAt = cachedAt
         self.isPartial = isPartial
     }
@@ -2395,6 +2515,9 @@ extension Conversation: Equatable, Hashable {
         if lhs.attendee != rhs.attendee {
             return false
         }
+        if lhs.members != rhs.members {
+            return false
+        }
         if lhs.name != rhs.name {
             return false
         }
@@ -2422,6 +2545,15 @@ extension Conversation: Equatable, Hashable {
         if lhs.lastMessageAt != rhs.lastMessageAt {
             return false
         }
+        if lhs.remark != rhs.remark {
+            return false
+        }
+        if lhs.extra != rhs.extra {
+            return false
+        }
+        if lhs.tags != rhs.tags {
+            return false
+        }
         if lhs.cachedAt != rhs.cachedAt {
             return false
         }
@@ -2439,6 +2571,7 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(lastReadSeq)
         hasher.combine(multiple)
         hasher.combine(attendee)
+        hasher.combine(members)
         hasher.combine(name)
         hasher.combine(icon)
         hasher.combine(sticky)
@@ -2448,6 +2581,9 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(lastSenderId)
         hasher.combine(lastMessage)
         hasher.combine(lastMessageAt)
+        hasher.combine(remark)
+        hasher.combine(extra)
+        hasher.combine(tags)
         hasher.combine(cachedAt)
         hasher.combine(isPartial)
     }
@@ -2464,6 +2600,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             lastReadSeq: FfiConverterInt64.read(from: &buf), 
             multiple: FfiConverterBool.read(from: &buf), 
             attendee: FfiConverterString.read(from: &buf), 
+            members: FfiConverterInt64.read(from: &buf), 
             name: FfiConverterString.read(from: &buf), 
             icon: FfiConverterString.read(from: &buf), 
             sticky: FfiConverterBool.read(from: &buf), 
@@ -2473,6 +2610,9 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             lastSenderId: FfiConverterString.read(from: &buf), 
             lastMessage: FfiConverterOptionTypeContent.read(from: &buf), 
             lastMessageAt: FfiConverterString.read(from: &buf), 
+            remark: FfiConverterOptionString.read(from: &buf), 
+            extra: FfiConverterOptionDictionaryStringString.read(from: &buf), 
+            tags: FfiConverterOptionSequenceTypeTag.read(from: &buf), 
             cachedAt: FfiConverterInt64.read(from: &buf), 
             isPartial: FfiConverterBool.read(from: &buf)
         )
@@ -2486,6 +2626,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterInt64.write(value.lastReadSeq, into: &buf)
         FfiConverterBool.write(value.multiple, into: &buf)
         FfiConverterString.write(value.attendee, into: &buf)
+        FfiConverterInt64.write(value.members, into: &buf)
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.icon, into: &buf)
         FfiConverterBool.write(value.sticky, into: &buf)
@@ -2495,6 +2636,9 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterString.write(value.lastSenderId, into: &buf)
         FfiConverterOptionTypeContent.write(value.lastMessage, into: &buf)
         FfiConverterString.write(value.lastMessageAt, into: &buf)
+        FfiConverterOptionString.write(value.remark, into: &buf)
+        FfiConverterOptionDictionaryStringString.write(value.extra, into: &buf)
+        FfiConverterOptionSequenceTypeTag.write(value.tags, into: &buf)
         FfiConverterInt64.write(value.cachedAt, into: &buf)
         FfiConverterBool.write(value.isPartial, into: &buf)
     }
@@ -2581,61 +2725,6 @@ public func FfiConverterTypeGetChatLogsResult_lower(_ value: GetChatLogsResult) 
 }
 
 
-public struct GetConversationsResult {
-    public var updatedAt: String
-    public var items: [Conversation]
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    public init(updatedAt: String, items: [Conversation]) {
-        self.updatedAt = updatedAt
-        self.items = items
-    }
-}
-
-
-extension GetConversationsResult: Equatable, Hashable {
-    public static func ==(lhs: GetConversationsResult, rhs: GetConversationsResult) -> Bool {
-        if lhs.updatedAt != rhs.updatedAt {
-            return false
-        }
-        if lhs.items != rhs.items {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(updatedAt)
-        hasher.combine(items)
-    }
-}
-
-
-public struct FfiConverterTypeGetConversationsResult: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GetConversationsResult {
-        return try GetConversationsResult(
-            updatedAt: FfiConverterString.read(from: &buf), 
-            items: FfiConverterSequenceTypeConversation.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: GetConversationsResult, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.updatedAt, into: &buf)
-        FfiConverterSequenceTypeConversation.write(value.items, into: &buf)
-    }
-}
-
-
-public func FfiConverterTypeGetConversationsResult_lift(_ buf: RustBuffer) throws -> GetConversationsResult {
-    return try FfiConverterTypeGetConversationsResult.lift(buf)
-}
-
-public func FfiConverterTypeGetConversationsResult_lower(_ value: GetConversationsResult) -> RustBuffer {
-    return FfiConverterTypeGetConversationsResult.lower(value)
-}
-
-
 public struct ListUserResult {
     public var hasMore: Bool
     public var updatedAt: String
@@ -2696,6 +2785,69 @@ public func FfiConverterTypeListUserResult_lift(_ buf: RustBuffer) throws -> Lis
 
 public func FfiConverterTypeListUserResult_lower(_ value: ListUserResult) -> RustBuffer {
     return FfiConverterTypeListUserResult.lower(value)
+}
+
+
+public struct Tag {
+    public var id: String
+    public var type: String
+    public var label: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(id: String, type: String, label: String) {
+        self.id = id
+        self.type = type
+        self.label = label
+    }
+}
+
+
+extension Tag: Equatable, Hashable {
+    public static func ==(lhs: Tag, rhs: Tag) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.type != rhs.type {
+            return false
+        }
+        if lhs.label != rhs.label {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(type)
+        hasher.combine(label)
+    }
+}
+
+
+public struct FfiConverterTypeTag: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Tag {
+        return try Tag(
+            id: FfiConverterString.read(from: &buf), 
+            type: FfiConverterString.read(from: &buf), 
+            label: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: Tag, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.type, into: &buf)
+        FfiConverterString.write(value.label, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeTag_lift(_ buf: RustBuffer) throws -> Tag {
+    return try FfiConverterTypeTag.lift(buf)
+}
+
+public func FfiConverterTypeTag_lower(_ value: Tag) -> RustBuffer {
+    return FfiConverterTypeTag.lower(value)
 }
 
 
@@ -2974,6 +3126,109 @@ public func FfiConverterTypeTopicKnock_lift(_ buf: RustBuffer) throws -> TopicKn
 
 public func FfiConverterTypeTopicKnock_lower(_ value: TopicKnock) -> RustBuffer {
     return FfiConverterTypeTopicKnock.lower(value)
+}
+
+
+public struct TopicMember {
+    public var topicId: String
+    public var userId: String
+    public var name: String
+    public var source: String
+    public var silenceAt: String?
+    public var joinedAt: String
+    public var updatedAt: String
+    public var extra: [String: String]?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(topicId: String, userId: String, name: String, source: String, silenceAt: String?, joinedAt: String, updatedAt: String, extra: [String: String]?) {
+        self.topicId = topicId
+        self.userId = userId
+        self.name = name
+        self.source = source
+        self.silenceAt = silenceAt
+        self.joinedAt = joinedAt
+        self.updatedAt = updatedAt
+        self.extra = extra
+    }
+}
+
+
+extension TopicMember: Equatable, Hashable {
+    public static func ==(lhs: TopicMember, rhs: TopicMember) -> Bool {
+        if lhs.topicId != rhs.topicId {
+            return false
+        }
+        if lhs.userId != rhs.userId {
+            return false
+        }
+        if lhs.name != rhs.name {
+            return false
+        }
+        if lhs.source != rhs.source {
+            return false
+        }
+        if lhs.silenceAt != rhs.silenceAt {
+            return false
+        }
+        if lhs.joinedAt != rhs.joinedAt {
+            return false
+        }
+        if lhs.updatedAt != rhs.updatedAt {
+            return false
+        }
+        if lhs.extra != rhs.extra {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(topicId)
+        hasher.combine(userId)
+        hasher.combine(name)
+        hasher.combine(source)
+        hasher.combine(silenceAt)
+        hasher.combine(joinedAt)
+        hasher.combine(updatedAt)
+        hasher.combine(extra)
+    }
+}
+
+
+public struct FfiConverterTypeTopicMember: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TopicMember {
+        return try TopicMember(
+            topicId: FfiConverterString.read(from: &buf), 
+            userId: FfiConverterString.read(from: &buf), 
+            name: FfiConverterString.read(from: &buf), 
+            source: FfiConverterString.read(from: &buf), 
+            silenceAt: FfiConverterOptionString.read(from: &buf), 
+            joinedAt: FfiConverterString.read(from: &buf), 
+            updatedAt: FfiConverterString.read(from: &buf), 
+            extra: FfiConverterOptionDictionaryStringString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TopicMember, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.topicId, into: &buf)
+        FfiConverterString.write(value.userId, into: &buf)
+        FfiConverterString.write(value.name, into: &buf)
+        FfiConverterString.write(value.source, into: &buf)
+        FfiConverterOptionString.write(value.silenceAt, into: &buf)
+        FfiConverterString.write(value.joinedAt, into: &buf)
+        FfiConverterString.write(value.updatedAt, into: &buf)
+        FfiConverterOptionDictionaryStringString.write(value.extra, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeTopicMember_lift(_ buf: RustBuffer) throws -> TopicMember {
+    return try FfiConverterTypeTopicMember.lift(buf)
+}
+
+public func FfiConverterTypeTopicMember_lower(_ value: TopicMember) -> RustBuffer {
+    return FfiConverterTypeTopicMember.lower(value)
 }
 
 
@@ -5068,48 +5323,6 @@ fileprivate struct FfiConverterOptionTypeGetChatLogsResult: FfiConverterRustBuff
     }
 }
 
-fileprivate struct FfiConverterOptionTypeListUserResult: FfiConverterRustBuffer {
-    typealias SwiftType = ListUserResult?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeListUserResult.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeListUserResult.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
-fileprivate struct FfiConverterOptionTypeTopic: FfiConverterRustBuffer {
-    typealias SwiftType = Topic?
-
-    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
-        guard let value = value else {
-            writeInt(&buf, Int8(0))
-            return
-        }
-        writeInt(&buf, Int8(1))
-        FfiConverterTypeTopic.write(value, into: &buf)
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
-        switch try readInt(&buf) as Int8 {
-        case 0: return nil
-        case 1: return try FfiConverterTypeTopic.read(from: &buf)
-        default: throw UniffiInternalError.unexpectedOptionalTag
-        }
-    }
-}
-
 fileprivate struct FfiConverterOptionTypeTopicNotice: FfiConverterRustBuffer {
     typealias SwiftType = TopicNotice?
 
@@ -5215,6 +5428,27 @@ fileprivate struct FfiConverterOptionSequenceString: FfiConverterRustBuffer {
     }
 }
 
+fileprivate struct FfiConverterOptionSequenceTypeTag: FfiConverterRustBuffer {
+    typealias SwiftType = [Tag]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceTypeTag.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceTypeTag.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionSequenceTypeTopicKnock: FfiConverterRustBuffer {
     typealias SwiftType = [TopicKnock]?
 
@@ -5252,6 +5486,27 @@ fileprivate struct FfiConverterOptionSequenceTypeUser: FfiConverterRustBuffer {
         switch try readInt(&buf) as Int8 {
         case 0: return nil
         case 1: return try FfiConverterSequenceTypeUser.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+fileprivate struct FfiConverterOptionDictionaryStringString: FfiConverterRustBuffer {
+    typealias SwiftType = [String: String]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterDictionaryStringString.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterDictionaryStringString.read(from: &buf)
         default: throw UniffiInternalError.unexpectedOptionalTag
         }
     }
@@ -5323,6 +5578,28 @@ fileprivate struct FfiConverterSequenceTypeConversation: FfiConverterRustBuffer 
     }
 }
 
+fileprivate struct FfiConverterSequenceTypeTag: FfiConverterRustBuffer {
+    typealias SwiftType = [Tag]
+
+    public static func write(_ value: [Tag], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeTag.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [Tag] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [Tag]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeTag.read(from: &buf))
+        }
+        return seq
+    }
+}
+
 fileprivate struct FfiConverterSequenceTypeTopicKnock: FfiConverterRustBuffer {
     typealias SwiftType = [TopicKnock]
 
@@ -5364,6 +5641,29 @@ fileprivate struct FfiConverterSequenceTypeUser: FfiConverterRustBuffer {
             seq.append(try FfiConverterTypeUser.read(from: &buf))
         }
         return seq
+    }
+}
+
+fileprivate struct FfiConverterDictionaryStringString: FfiConverterRustBuffer {
+    public static func write(_ value: [String: String], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for (key, value) in value {
+            FfiConverterString.write(key, into: &buf)
+            FfiConverterString.write(value, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [String: String] {
+        let len: Int32 = try readInt(&buf)
+        var dict = [String: String]()
+        dict.reserveCapacity(Int(len))
+        for _ in 0..<len {
+            let key = try FfiConverterString.read(from: &buf)
+            let value = try FfiConverterString.read(from: &buf)
+            dict[key] = value
+        }
+        return dict
     }
 }
 private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
@@ -5603,6 +5903,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_add_topic_admin() != 42268) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_restsend_sdk_checksum_method_client_add_topic_member() != 19524) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_restsend_sdk_checksum_method_client_app_active() != 64583) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -5612,7 +5915,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_cancel_send() != 49917) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_clean_history() != 53268) {
+    if (uniffi_restsend_sdk_checksum_method_client_clean_messages() != 4149) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_connect() != 55568) {
@@ -5621,7 +5924,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_connection_status() != 48399) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_create_chat() != 49536) {
+    if (uniffi_restsend_sdk_checksum_method_client_create_chat() != 29897) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_create_topic() != 39356) {
@@ -5681,7 +5984,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_get_conversation() != 18135) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_get_topic() != 41298) {
+    if (uniffi_restsend_sdk_checksum_method_client_get_topic() != 627) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_topic_admins() != 61168) {
@@ -5690,7 +5993,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_get_topic_knocks() != 45295) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_get_topic_members() != 36177) {
+    if (uniffi_restsend_sdk_checksum_method_client_get_topic_members() != 47693) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_topic_owner() != 43460) {
@@ -5700,6 +6003,9 @@ private var initializationResult: InitializationResult {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_users() != 63546) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_join_topic() != 19230) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_quit_topic() != 56845) {
@@ -5732,13 +6038,22 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_set_callback() != 27441) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_mute() != 15636) {
+    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_extra() != 64023) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_mute() != 46412) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_set_conversation_read() != 45318) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_sticky() != 10832) {
+    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_remark() != 50416) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_sticky() != 7467) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_set_conversation_tags() != 9878) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_set_user_block() != 7357) {

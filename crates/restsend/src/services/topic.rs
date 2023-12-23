@@ -1,5 +1,4 @@
 use super::api_call;
-use crate::models::Conversation;
 use crate::Result;
 use crate::{
     models::{ListUserResult, Topic},
@@ -66,10 +65,6 @@ pub async fn create_topic(
     })
     .to_string();
     api_call(endpoint, "/topic/create", token, Some(data)).await
-}
-
-pub async fn create_chat(endpoint: &str, token: &str, user_id: &str) -> Result<Conversation> {
-    api_call(endpoint, &format!("/topic/create/{}", user_id), token, None).await
 }
 
 pub async fn join_topic(

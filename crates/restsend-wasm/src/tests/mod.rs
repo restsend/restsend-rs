@@ -1,6 +1,7 @@
 use restsend_sdk::utils::sleep;
 use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
+mod conversations;
 
 const ENDPOINT: &str = "https://chat.ruzhila.cn";
 #[wasm_bindgen_test]

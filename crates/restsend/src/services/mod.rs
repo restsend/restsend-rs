@@ -3,7 +3,7 @@ use crate::utils::{elapsed, now_millis};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     ClientBuilder, RequestBuilder, Response,
@@ -95,7 +95,22 @@ where
     let url = resp.url().to_string();
 
     match status {
-        reqwest::StatusCode::OK => Ok(resp.json::<T>().await?),
+        reqwest::StatusCode::OK => {
+            let full = resp.bytes().await?;
+            let r = serde_json::from_slice(&full);
+            match r {
+                Ok(v) => Ok(v),
+                Err(e) => {
+                    info!(
+                        "decode with {} error: {} body:{}",
+                        url,
+                        e,
+                        String::from_utf8_lossy(&full)
+                    );
+                    Err(HTTP(e.to_string()).into())
+                }
+            }
+        }
         _ => {
             let body = resp.text().await?;
             let msg = serde_json::from_str::<serde_json::Value>(&body)
@@ -105,7 +120,7 @@ where
                 })
                 .unwrap_or(status.to_string());
 
-            warn!("response with {} error: {}", url, msg);
+            warn!("response with {} error: {} {}", url, msg, body);
 
             match status {
                 reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string()).into()),

@@ -92,6 +92,10 @@ impl ClientStore {
         Ok(conversation)
     }
 
+    pub fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
+        merge_conversation(self.message_storage.clone(), conversation)
+    }
+
     pub async fn set_conversation_remark(
         &self,
         topic_id: &str,

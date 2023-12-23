@@ -2,10 +2,10 @@ use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
+use crate::services::conversation::create_chat;
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
-use crate::services::topic::create_chat;
 use crate::utils::{now_millis, spwan_task};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
 use log::warn;
@@ -13,10 +13,9 @@ use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
 impl Client {
-    pub async fn create_chat(&self, user_id: String) -> Option<Conversation> {
-        create_chat(&self.endpoint, &self.token, &user_id)
-            .await
-            .ok()
+    pub async fn create_chat(&self, user_id: String) -> Result<Conversation> {
+        let conversation = create_chat(&self.endpoint, &self.token, &user_id).await?;
+        self.store.update_conversation(conversation)
     }
 
     pub async fn clean_messages(&self, topic_id: String) -> Result<()> {
@@ -62,7 +61,7 @@ impl Client {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit };
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
-                if last_seq == 0 || local_logs.items.len() == limit as usize {
+                if last_seq == 0 && local_logs.items.len() == limit as usize {
                     let r = GetChatLogsResult {
                         has_more: local_logs.end_sort_value > 1,
                         start_seq: local_logs.start_sort_value,

@@ -230,15 +230,7 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
         }
     };
 
-    let source = if language == "swift" {
-        format!(
-            "target/aarch64-apple-ios-sim/{}/lib{}.{}",
-            current_mode, crate_name, ext
-        )
-    } else {
-        format!("target/{}/lib{}.{}", current_mode, crate_name, ext)
-    };
-
+    let source = format!("target/{}/lib{}.{}", current_mode, crate_name, ext);
     let source = PathBuf::from(source);
     if !source.exists() {
         panic!(

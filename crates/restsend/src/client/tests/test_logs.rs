@@ -42,6 +42,9 @@ async fn test_client_fetch_logs() {
             let mut result = self.result.lock().unwrap();
             result.replace(r);
         }
+        fn on_fail(&self, _reason: crate::Error) {
+            panic!("on_fail {:?}", _reason);
+        }
     }
     let result = Arc::new(Mutex::new(None));
 
@@ -56,6 +59,7 @@ async fn test_client_fetch_logs() {
         .unwrap();
 
     let r = result.lock().unwrap().take().unwrap();
+    println!("r: {:?} seq:{}", r, resp.seq);
     assert!(r.start_seq >= resp.seq);
 
     let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();

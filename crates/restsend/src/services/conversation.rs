@@ -7,6 +7,10 @@ use crate::{
     utils::now_millis,
 };
 
+pub async fn create_chat(endpoint: &str, token: &str, user_id: &str) -> Result<Conversation> {
+    api_call(endpoint, &format!("/chat/create/{}", user_id), token, None).await
+}
+
 pub async fn get_conversations(
     endpoint: &str,
     token: &str,

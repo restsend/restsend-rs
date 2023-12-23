@@ -18,12 +18,9 @@ impl Client {
         members: Vec<String>,
         name: Option<String>,
         icon: Option<String>,
-    ) -> JsValue {
-        self.inner
-            .create_topic(members, name, icon)
-            .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("create_topic failed"))
-            .unwrap_or(JsValue::UNDEFINED)
+    ) -> Result<JsValue, JsValue> {
+        let r = self.inner.create_topic(members, name, icon).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Join a topic
@@ -36,22 +33,20 @@ impl Client {
         topicId: String,
         message: Option<String>,
         source: Option<String>,
-    ) -> JsValue {
-        self.inner
-            .join_topic(topicId, message, source)
-            .await
-            .map(|_| JsValue::UNDEFINED)
-            .unwrap_or(JsValue::UNDEFINED)
+    ) -> Result<(), JsValue> {
+        self.inner.join_topic(topicId, message, source).await?;
+        Ok(())
     }
 
     /// Add user into topic
     /// #Arguments
-    pub async fn addMember(&self, topicId: String, userId: String) -> JsValue {
-        self.inner
-            .add_topic_member(topicId, userId)
-            .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+    /// * `topicId` - topic id
+    /// * `userId` - user id
+    /// #Return
+    /// * `TopicMember` || `undefined`
+    pub async fn addMember(&self, topicId: String, userId: String) -> Result<JsValue, JsValue> {
+        let r = self.inner.add_topic_member(topicId, userId).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
 
     /// Get topic info
@@ -59,12 +54,9 @@ impl Client {
     /// * `topicId` - topic id
     /// #Return
     /// * `Topic` || `undefined`
-    pub async fn getTopic(&self, topicId: String) -> JsValue {
-        self.inner
-            .get_topic(topicId)
-            .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+    pub async fn getTopic(&self, topicId: String) -> Result<JsValue, JsValue> {
+        let r = self.inner.get_topic(topicId).await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
     /// Get topic admins
     /// #Arguments
@@ -75,8 +67,8 @@ impl Client {
         self.inner
             .get_topic_admins(topicId)
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .and_then(|v| serde_wasm_bindgen::to_value(&v).ok())
+            .unwrap_or(JsValue::UNDEFINED)
     }
     /// Get topic owner
     /// #Arguments
@@ -87,8 +79,8 @@ impl Client {
         self.inner
             .get_topic_owner(topicId)
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .and_then(|v| serde_wasm_bindgen::to_value(&v).ok())
+            .unwrap_or(JsValue::UNDEFINED)
     }
     /// Get topic members
     /// #Arguments
@@ -97,12 +89,17 @@ impl Client {
     /// * `limit` - limit
     /// #Return
     /// * `ListUserResult` || `undefined`
-    pub async fn getTopicMembers(&self, topicId: String, updatedAt: String, limit: u32) -> JsValue {
-        self.inner
+    pub async fn getTopicMembers(
+        &self,
+        topicId: String,
+        updatedAt: String,
+        limit: u32,
+    ) -> Result<JsValue, JsValue> {
+        let r = self
+            .inner
             .get_topic_members(topicId, updatedAt, limit)
-            .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .await?;
+        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
     }
     /// Get topic knocks
     /// #Arguments

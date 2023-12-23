@@ -1,10 +1,9 @@
-use restsend_macros::export_wasm_or_ffi;
-
 use super::Client;
 use crate::models::{Conversation, ListUserResult, Topic, TopicKnock, TopicMember, User};
 use crate::services::topic::{create_topic, get_topic, get_topic_members, join_topic};
 use crate::services::topic_admin::*;
 use crate::Result;
+use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
 impl Client {
@@ -40,21 +39,21 @@ impl Client {
         add_topic_member(&self.endpoint, &self.token, &topic_id, &user_id).await
     }
 
-    pub async fn get_topic(&self, topic_id: String) -> Option<Topic> {
-        get_topic(&self.endpoint, &self.token, &topic_id).await.ok()
+    pub async fn get_topic(&self, topic_id: String) -> Result<Topic> {
+        get_topic(&self.endpoint, &self.token, &topic_id).await
     }
 
     pub async fn get_topic_admins(&self, topic_id: String) -> Option<Vec<User>> {
         match self.get_topic(topic_id).await {
-            Some(t) => self.store.fetch_users(t.admins).await.ok(),
-            None => None,
+            Ok(t) => self.store.fetch_users(t.admins).await.ok(),
+            _ => None,
         }
     }
 
     pub async fn get_topic_owner(&self, topic_id: String) -> Option<User> {
         match self.get_topic(topic_id).await {
-            Some(t) => self.store.fetch_user(&t.owner_id).await.ok(),
-            None => None,
+            Ok(t) => self.store.fetch_user(&t.owner_id).await.ok(),
+            _ => None,
         }
     }
 
@@ -63,10 +62,8 @@ impl Client {
         topic_id: String,
         updated_at: String,
         limit: u32,
-    ) -> Option<ListUserResult> {
-        get_topic_members(&self.endpoint, &self.token, &topic_id, &updated_at, limit)
-            .await
-            .ok()
+    ) -> Result<ListUserResult> {
+        get_topic_members(&self.endpoint, &self.token, &topic_id, &updated_at, limit).await
     }
 
     pub async fn get_topic_knocks(&self, topic_id: String) -> Option<Vec<TopicKnock>> {
