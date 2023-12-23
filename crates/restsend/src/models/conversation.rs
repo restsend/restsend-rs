@@ -148,7 +148,6 @@ impl From<&ChatRequest> for Conversation {
         Conversation {
             topic_id: req.topic_id.clone(),
             last_seq: req.seq,
-            attendee: req.attendee.clone(),
             is_partial: true,
             updated_at: req.created_at.clone(),
             ..Default::default()

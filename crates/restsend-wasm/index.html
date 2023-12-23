@@ -45,7 +45,6 @@
                 console.debug = (text) => this.logText(text, 'debug')
                 console.warn = (text) => this.logText(text, 'warn')
                 console.error = (text) => this.logText(text, 'error')
-                console.log('init wasm')
             },
 
             getAvatar(userId) {
@@ -98,7 +97,6 @@
 
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
-                console.log('conversations updated', items)
                 items.forEach((item) => {
                     let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
                     if (item.multiple) {
@@ -148,9 +146,17 @@
             },
 
             updateConversation: function (conversation) {
+                let limit = undefined
+                if (this.conversation) {
+                    limit = conversation.lastSeq - this.conversation.lastSeq
+                }
                 this.conversation = conversation
-                console.log(conversation)
-                this.current.syncChatLogs(conversation.topicId, conversation.lastSeq, {
+                const lastSeq = conversation.lastSeq
+                if (limit === 0) { //the messages are not changed
+                    return
+                }
+                this.current.syncChatLogs(conversation.topicId, lastSeq, {
+                    limit,
                     onsuccess: (r) => {
                         this.appendMessages(r.items);
                         // scroll to bottom
@@ -315,7 +321,6 @@
                         logText(`delete message fail ${reason}`)
                     }
                 });
-                this.updateConversation(this.conversation);
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
@@ -603,7 +608,8 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round"
                                                             d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                                     </svg>
-                                                    <input type="file" @change="doSendImages(event)" class="h-6 w-6 absolute top-0 opacity-0" />
+                                                    <input type="file" @change="doSendImages(event)"
+                                                        class="h-6 w-6 absolute top-0 opacity-0" />
                                                 </button>
 
                                                 <!-- <button type="button" @click="doSendMemes"

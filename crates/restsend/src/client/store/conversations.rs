@@ -40,29 +40,24 @@ pub(super) fn merge_conversation_from_chat(
     req: &ChatRequest,
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>("conversations");
-    let mut conversation = Conversation::from(req);
-
-    if let Some(old_conversation) = t.get("", &conversation.topic_id) {
-        conversation.last_read_seq = old_conversation.last_read_seq;
-        conversation.last_sender_id = old_conversation.last_sender_id;
-        conversation.last_message_at = old_conversation.last_message_at;
-        conversation.last_message = old_conversation.last_message;
-        conversation.unread = old_conversation.unread;
-        conversation.is_partial = old_conversation.is_partial;
-    }
-
+    let mut conversation = t.get("", &req.topic_id).unwrap_or(Conversation::from(req));
     if let Some(content) = req.content.as_ref() {
         match ContentType::from(content.r#type.clone()) {
             ContentType::None | ContentType::Recall => {}
             _ => {
                 if req.seq > conversation.last_read_seq {
                     conversation.unread += 1;
-                    conversation.last_sender_id = req.attendee.clone();
-                    conversation.last_message_at = req.created_at.clone();
-                    conversation.last_message = req.content.clone();
                 }
             }
         }
+    }
+
+    if req.seq >= conversation.last_seq && !req.unreadable {
+        conversation.last_seq = req.seq;
+        conversation.last_sender_id = req.attendee.clone();
+        conversation.last_message_at = req.created_at.clone();
+        conversation.last_message = req.content.clone();
+        conversation.updated_at = req.created_at.clone();
     }
 
     conversation.cached_at = now_millis();
@@ -282,11 +277,16 @@ impl ClientStore {
         });
     }
 
-    pub(super) fn update_conversation_read(&self, topic_id: &str, updated_at: &str) -> Result<()> {
+    pub(super) fn update_conversation_read(
+        &self,
+        topic_id: &str,
+        updated_at: &str,
+        last_read_seq: Option<i64>,
+    ) -> Result<()> {
         let t = self.message_storage.table::<Conversation>("conversations");
 
         if let Some(mut conversation) = t.get("", topic_id) {
-            conversation.last_read_seq = conversation.last_seq;
+            conversation.last_read_seq = last_read_seq.unwrap_or(conversation.last_seq);
             conversation.updated_at = updated_at.to_string();
             t.set("", topic_id, Some(&conversation));
         }

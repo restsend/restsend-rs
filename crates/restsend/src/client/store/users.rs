@@ -140,18 +140,6 @@ impl ClientStore {
         Ok(users)
     }
 
-    pub(super) async fn fetch_or_update_user(
-        &self,
-        user_id: &str,
-        profile: Option<User>,
-    ) -> Result<()> {
-        let _ = match profile {
-            Some(profile) => self.update_user(profile)?,
-            None => self.fetch_user(&user_id).await?,
-        };
-        Ok(())
-    }
-
     pub(super) fn update_user(&self, user: User) -> Result<User> {
         update_user_with_storage(&self.message_storage, user)
     }

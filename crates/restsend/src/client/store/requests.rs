@@ -69,6 +69,39 @@ impl ClientStore {
                 vec![]
             }
             ChatRequestType::Chat => {
+                match req.attendee_profile.as_ref() {
+                    Some(profile) => {
+                        self.update_user(profile.clone()).ok();
+                    }
+                    None => {}
+                };
+
+                let topic_id = req.topic_id.clone();
+                let created_at = req.created_at.clone();
+                let resp = ChatRequest::new_response(&req, 200);
+
+                let r = callback
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()));
+
+                let resps = match r {
+                    Some(true) => {
+                        let last_read_seq = Some(req.seq);
+                        if let Err(e) =
+                            self.update_conversation_read(&topic_id, &created_at, last_read_seq)
+                        {
+                            warn!(
+                                "update_conversation_read failed, topic_id:{} error: {:?}",
+                                topic_id, e
+                            );
+                        }
+                        vec![resp, Some(ChatRequest::new_read(&topic_id))]
+                    }
+                    _ => vec![resp],
+                };
+
                 let r = self.save_incoming_chat_log(&req);
                 match r {
                     Ok(_) => match merge_conversation_from_chat(self.message_storage.clone(), &req)
@@ -93,35 +126,7 @@ impl ClientStore {
                         );
                     }
                 }
-
-                if let Err(e) = self
-                    .fetch_or_update_user(&req.attendee, req.attendee_profile.clone())
-                    .await
-                {
-                    warn!("fetch_or_update_user failed: {:?}", e);
-                }
-
-                let topic_id = req.topic_id.clone();
-                let created_at = req.created_at.clone();
-                let resp = ChatRequest::new_response(&req, 200);
-
-                let r = callback
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()));
-                match r {
-                    Some(true) => {
-                        if let Err(e) = self.update_conversation_read(&topic_id, &created_at) {
-                            warn!(
-                                "update_conversation_read failed, topic_id:{} error: {:?}",
-                                topic_id, e
-                            );
-                        }
-                        vec![resp, Some(ChatRequest::new_read(&topic_id))]
-                    }
-                    _ => vec![resp],
-                }
+                resps
             }
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);

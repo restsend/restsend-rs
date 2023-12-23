@@ -62,7 +62,7 @@ impl Client {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit };
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
-                if local_logs.items.len() == limit as usize {
+                if last_seq == 0 || local_logs.items.len() == limit as usize {
                     let r = GetChatLogsResult {
                         has_more: local_logs.end_sort_value > 1,
                         start_seq: local_logs.start_sort_value,
@@ -77,7 +77,6 @@ impl Client {
                 warn!("sync_chat_logs failed: {:?}", e);
             }
         }
-
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
 
