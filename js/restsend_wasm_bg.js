@@ -1782,14 +1782,14 @@ export function __wbindgen_boolean_get(arg0) {
     return ret;
 };
 
-export function __wbindgen_object_clone_ref(arg0) {
-    const ret = getObject(arg0);
-    return addHeapObject(ret);
-};
-
 export function __wbindgen_is_string(arg0) {
     const ret = typeof(getObject(arg0)) === 'string';
     return ret;
+};
+
+export function __wbindgen_object_clone_ref(arg0) {
+    const ret = getObject(arg0);
+    return addHeapObject(ret);
 };
 
 export function __wbindgen_cb_drop(arg0) {
@@ -2468,23 +2468,23 @@ export function __wbindgen_memory() {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper777(arg0, arg1, arg2) {
+export function __wbindgen_closure_wrapper766(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 361, __wbg_adapter_52);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper778(arg0, arg1, arg2) {
+export function __wbindgen_closure_wrapper767(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 361, __wbg_adapter_55);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper779(arg0, arg1, arg2) {
+export function __wbindgen_closure_wrapper768(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 361, __wbg_adapter_55);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper2153(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 717, __wbg_adapter_60);
+export function __wbindgen_closure_wrapper2144(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 720, __wbg_adapter_60);
     return addHeapObject(ret);
 };
 

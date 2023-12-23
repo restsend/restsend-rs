@@ -450,4 +450,23 @@ impl ClientStore {
             }),
         )
     }
+
+    pub fn get_last_conversation_updated_at(&self) -> Option<String> {
+        let t = self.message_storage.table::<Conversation>("conversations");
+        let conversation = t.last("");
+        match conversation {
+            Some(conversation) => {
+                if let Ok(t) = chrono::DateTime::parse_from_rfc3339(&conversation.updated_at) {
+                    if t.timestamp_millis() > 0
+                        && now_millis() - t.timestamp_millis()
+                            < 1000 * crate::CONVERSATION_CACHE_EXPIRE_SECS
+                    {
+                        return Some(conversation.updated_at);
+                    }
+                }
+            }
+            None => {}
+        }
+        None
+    }
 }

@@ -1,3 +1,4 @@
+use super::store::ClientStoreRef;
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
@@ -89,7 +90,6 @@ impl Client {
                 .await
                 .map(|(mut lr, _)| {
                     let now = now_millis();
-
                     lr.items.iter_mut().for_each(|c| {
                         c.cached_at = now;
                         c.status = if c.sender_id == current_user_id {
@@ -102,14 +102,10 @@ impl Client {
                     lr
                 })
                 .map(|lr| {
-                    let start_seq = lr.items[0].seq;
-                    let end_seq = if lr.items.len() > 0 {
-                        lr.items.last().unwrap().seq
-                    } else {
-                        0
-                    };
+                    let start_seq = lr.items.first().map(|c| c.seq).unwrap_or(0);
+                    let end_seq = lr.items.last().map(|c| c.seq).unwrap_or(0);
                     GetChatLogsResult {
-                        has_more: end_seq > 1,
+                        has_more: lr.has_more,
                         start_seq,
                         end_seq,
                         items: lr.items,
@@ -128,7 +124,7 @@ impl Client {
         limit: u32,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
-        let updated_at = updated_at.unwrap_or_default().clone();
+        // let updated_at = updated_at.unwrap_or_default().clone();
         let store_ref = self.store.clone();
         let limit = if limit == 0 {
             MAX_CONVERSATION_LIMIT
@@ -136,25 +132,30 @@ impl Client {
             limit
         };
 
-        match self.store.get_conversations(&updated_at, limit) {
-            Ok(r) => {
-                if r.items.len() == limit as usize {
-                    let updated_at = r
-                        .items
-                        .last()
-                        .map(|c| c.updated_at.clone())
-                        .unwrap_or_default();
-                    let count = r.items.len() as u32;
-
-                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                        cb.on_conversations_updated(r.items);
+        let local_updated_at = self.store.get_last_conversation_updated_at();
+        if updated_at.is_some() && local_updated_at.is_some() {
+            match self
+                .store
+                .get_conversations(&updated_at.unwrap_or_default(), limit)
+            {
+                Ok(r) => {
+                    if r.items.len() == limit as usize {
+                        let updated_at = r
+                            .items
+                            .last()
+                            .map(|c| c.updated_at.clone())
+                            .unwrap_or_default();
+                        let count = r.items.len() as u32;
+                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                            cb.on_conversations_updated(r.items);
+                        }
+                        callback.on_success(updated_at, count as u32);
+                        return;
                     }
-                    callback.on_success(updated_at, count as u32);
-                    return;
                 }
-            }
-            Err(e) => {
-                warn!("sync_conversations failed: {:?}", e);
+                Err(e) => {
+                    warn!("sync_conversations failed: {:?}", e);
+                }
             }
         }
 
@@ -162,24 +163,35 @@ impl Client {
         let token = self.token.clone();
 
         spwan_task(async move {
-            let r = get_conversations(&endpoint, &token, &updated_at, limit)
-                .await
-                .map(|lr| store_ref.merge_conversations(lr.items))
-                .map(|items: Vec<Conversation>| {
-                    let updated_at = items
-                        .last()
-                        .map(|c| c.updated_at.clone())
-                        .unwrap_or_default();
-                    let count = items.len() as u32;
+            let mut updated_at = String::default();
+            let limit = MAX_CONVERSATION_LIMIT;
+            let mut count = 0;
+            loop {
+                let r = get_conversations(&endpoint, &token, &updated_at, limit)
+                    .await
+                    .map(|lr| {
+                        count += lr.items.len();
+                        updated_at = lr.updated_at;
 
-                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                        cb.on_conversations_updated(items);
+                        let conversations = store_ref.merge_conversations(lr.items);
+                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                            cb.on_conversations_updated(conversations);
+                        }
+                        lr.has_more
+                    });
+                match r {
+                    Ok(has_more) => {
+                        if !has_more {
+                            callback.on_success(updated_at, count as u32);
+                            break;
+                        }
                     }
-                    (updated_at, count)
-                });
-            match r {
-                Ok(r) => callback.on_success(r.0, r.1),
-                Err(e) => callback.on_fail(e),
+                    Err(e) => {
+                        warn!("sync_all_conversations failed: {:?}", e);
+                        callback.on_fail(e);
+                        break;
+                    }
+                }
             }
         });
     }

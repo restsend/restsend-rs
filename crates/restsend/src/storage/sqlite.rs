@@ -256,6 +256,42 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
+    fn last(&self, partition: &str) -> Option<T> {
+        let db = self.session.clone();
+        let mut conn = db.lock().unwrap();
+        let conn = conn.as_mut().unwrap();
+
+        let stmt = format!(
+            "SELECT value FROM {} WHERE partition = ? ORDER BY sort_by DESC LIMIT 1",
+            self.name
+        );
+        let mut stmt = conn.prepare(&stmt).unwrap();
+        let rows = stmt.query(&[&partition]);
+        let mut rows = match rows {
+            Err(e) => {
+                debug!("{} query {} failed: {}", self.name, partition, e);
+                return None;
+            }
+            Ok(rows) => rows,
+        };
+
+        match rows.next() {
+            Ok(rows) => match rows {
+                Some(row) => {
+                    let value: String = row.get(0).unwrap();
+                    match T::from_str(&value) {
+                        Ok(v) => Some(v),
+                        _ => None,
+                    }
+                }
+                None => None,
+            },
+            Err(e) => {
+                debug!("{} get {} failed: {}", self.name, partition, e);
+                None
+            }
+        }
+    }
     fn clear(&self) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
