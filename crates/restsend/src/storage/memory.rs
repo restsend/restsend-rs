@@ -25,6 +25,14 @@ impl TableInner {
         self.data.remove(key);
     }
 
+    fn last(&self) -> Option<&String> {
+        self.index
+            .iter()
+            .last()
+            .map(|(_, v)| v)
+            .and_then(|v| self.data.get(v))
+    }
+
     fn clear(&mut self) {
         self.data.clear();
         self.index.clear();
@@ -216,6 +224,29 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
             None => {}
         }
     }
+
+    fn last(&self, partition: &str) -> Option<T> {
+        let mut data = self.data.lock().unwrap();
+        let mut table = data.get_mut(partition);
+        match table {
+            Some(table) => {
+                let v = table.last();
+                match v {
+                    Some(v) => {
+                        let v = match T::from_str(v) {
+                            Ok(v) => v,
+                            _ => return None,
+                        };
+                        return Some(v);
+                    }
+                    None => {}
+                }
+            }
+            None => {}
+        }
+        None
+    }
+
     fn clear(&self) {
         self.data.lock().unwrap().clear();
     }

@@ -35,6 +35,7 @@ pub trait Table<T: StoreModel> {
     fn get(&self, partition: &str, key: &str) -> Option<T>;
     fn set(&self, partition: &str, key: &str, value: Option<&T>);
     fn remove(&self, partition: &str, key: &str);
+    fn last(&self, partition: &str) -> Option<T>;
     fn clear(&self);
 }
 
