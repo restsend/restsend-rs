@@ -94,6 +94,11 @@
                 }
                 return false
             },
+            doMute: function (conversation) {
+                console.log('mute', conversation)
+                conversation.mute = !conversation.mute
+                this.current.setConversationMute(conversation.topicId, conversation.mute).then();
+            },
 
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
@@ -139,7 +144,6 @@
                 this.messageBlocks = []
                 this.msgs = {}
                 this.updateConversation(conversation);
-
                 // set read when conversation is selected
                 // via http api
                 this.current.setConversationRead(conversation.topicId).then();
@@ -182,7 +186,6 @@
                     const item = items[idx];
 
                     if (msgs[item.id] === item.id) {
-                        console.log('skip duplicated message', item)
                         if (item.content.type == 'recall' || item.content.type == '') {
                             msgs[item.id] = item
                         }
@@ -301,14 +304,12 @@
                 if (!this.conversation || !link) {
                     return
                 }
-                console.log('send link', link)
                 await client.doSendLink(this.conversation.topicId, link, {
                     placeholder: 'link',
                     reply: '1234567'
                 });
             },
-            doDeleteMessage: async function (message) {
-                console.log('delete message', message)
+            doDeleteMessage: async function (block, message) {
                 if (!this.conversation) {
                     return
                 }
@@ -320,15 +321,30 @@
                     onfail: function (reason) {
                         logText(`delete message fail ${reason}`)
                     },
-                    
                 });
-                this.updateConversation(this.conversation);
+                this.messageBlocks.forEach((b) => {
+                    if (b.id == block.id) {
+                        let index = b.items.findIndex((i) => i.id == message.id)
+                        if (index >= 0) {
+                            b.items[index].type = ''
+                            b.items[index].content = ''
+                        } else {
+                            console.log('not found message', message)
+                        }
+
+                        // if (b.items.findIndex((i) => i.content != '') < 0) {
+                        //     b.avatar = null
+                        // }
+                        
+                    }
+                   
+                })
+
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
                     return
                 }
-                console.log('forward message', item)
             },
             doReferenceMessage: async function (message, block) {
                 if (!this.conversation) {
@@ -336,13 +352,11 @@
                 }
                 this.reference = message
                 console.log('reference message', this.reference)
-
             },
-            doReCallMessage: async function (message) {
+            doReCallMessage: async function (block, message) {
                 if (!this.conversation) {
                     return
                 }
-                console.log('recall message', message)
                 let thisPtr = this;
                 await client.doRecall(this.conversation.topicId, message.id, {
                     onack: function (req) {
@@ -352,7 +366,18 @@
                         logText(`recall message fail ${reason}`)
                     }
                 });
-                // this.updateConversation(this.conversation);
+
+                this.messageBlocks.forEach((b) => {
+                    if (b.id == block.id) {
+                        let index = b.items.findIndex((i) => i.id == message.id)
+                        if (index >= 0) {
+                            b.items[index].type = 'recall'
+                            b.items[index].content = ''
+                        } else {
+                            console.log('not found message', message)
+                        }
+                    }
+                })
             },
             cleanHistory: async function () {
                 if (!this.conversation) {
@@ -422,7 +447,7 @@
                                         <template x-if="item.mute">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                                 stroke-width="1.5" stroke="currentColor" data-slot="icon"
-                                                class="w-5 h-5 text-gray-500">
+                                                class="w-5 h-5 text-gray-500" @click="doMute(item)">
                                                 <path stroke-linecap="round" stroke-linejoin="round"
                                                     d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
                                             </svg>
@@ -468,8 +493,8 @@
                                             class="absolute top-6 z-10 -left-32 bg-white hidden group-hover:block w-40 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
                                             <p class="bg-white space-y-2">
 
-                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100"
-                                                    @click="cleanHistory">Clean History</a>
+                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100" @click="cleanHistory">Clean History</a>
+                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100" @click="cleanHistory">Mute</a>
                                             </p>
                                         </div>
                                     </button>
@@ -536,7 +561,9 @@
                                                                             </svg>
                                                                         </div>
                                                                         <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doReCallMessage(item)">
+                                                                            @click="doReCallMessage(block,item)" 
+                                                                            :class="block.isSelf?'':'hidden'">
+                                                                            
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5" stroke="currentColor"
@@ -548,7 +575,7 @@
                                                                         </div>
 
                                                                         <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doDeleteMessage(item)">
+                                                                            @click="doDeleteMessage(block,item)">
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5" stroke="currentColor"
