@@ -95,7 +95,6 @@
                 return false
             },
             doMute: function (conversation) {
-                console.log('mute', conversation)
                 conversation.mute = !conversation.mute
                 this.current.setConversationMute(conversation.topicId, conversation.mute).then();
             },
@@ -335,9 +334,9 @@
                         // if (b.items.findIndex((i) => i.content != '') < 0) {
                         //     b.avatar = null
                         // }
-                        
+
                     }
-                   
+
                 })
 
             },
@@ -385,7 +384,7 @@
                 }
                 console.log('clean history', this.conversation)
                 let thisPtr = this;
-                await client.cleanHistory(this.conversation.topicId);
+                await client.cleanMessages(this.conversation.topicId);
                 this.updateConversation(this.conversation);
             },
         };
@@ -425,7 +424,7 @@
                 <div
                     class="border-b h-[calc(100vh-8rem)]  border-gray-200 px-2 py-5 sm:px-6  xl:w-72 xl:shrink-0  xl:border-b-0 xl:border-r">
                     <template x-for="item in conversations">
-                        <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer"
+                        <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative"
                             @click="onSelectConversation(item)">
                             <div class="flex min-w-0 items-center relative shrink-0">
                                 <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
@@ -439,21 +438,34 @@
                                         99+</div>
                                 </template>
                             </div>
-                            <div class="hidden shrink-0 sm:flex sm:flex-col pl-2">
+                            <div class="shrink-0 sm:flex sm:flex-col pl-2">
                                 <div class="flex w-full justify-between">
                                     <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
                                         x-text="item.title"></p>
-                                    <div>
-                                        <template x-if="item.mute">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                stroke-width="1.5" stroke="currentColor" data-slot="icon"
-                                                class="w-5 h-5 text-gray-500" @click="doMute(item)">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
-                                            </svg>
-                                        </template>
-                                    </div>
+                                    <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
+                                            <!-- <button class="hover:text-gray-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor" d="M5 4v2h14V4zm0 10h4v6h6v-6h4l-7-7z" />
+                                                </svg>
+                                            </button>
 
+                                            <button class="hover:text-gray-600">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M20.8 22.7L15 16.9V20H9v-6H5l3.6-3.6L1.1 3l1.3-1.3l19.7 19.7zM19 6V4H7.2l2 2zm-1.8 8H19l-7-7l-.9.9z" />
+                                                </svg>
+                                            </button> -->
+                                            <button class="hover:text-gray-600" :class="item.mute?'visible':'invisible'">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" data-slot="icon"
+                                                    class="w-5 h-5 text-gray-500" @click="doMute(item)">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                                </svg>
+                                            </button>
+                                    </div>
                                 </div>
                                 <p class="mt-1 text-xs leading-5 text-gray-500">
                                     <time :datetime="item.updatedAt" x-text="timeAgo(item.updatedAt)"></time>
@@ -493,8 +505,42 @@
                                             class="absolute top-6 z-10 -left-32 bg-white hidden group-hover:block w-40 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
                                             <p class="bg-white space-y-2">
 
-                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100" @click="cleanHistory">Clean History</a>
-                                                <a href="#" class="block px-2 py-2 hover:bg-gray-100" @click="cleanHistory">Mute</a>
+                                            <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800"
+                                                @click="cleanHistory">
+                                                <p class="w-10">Clean </p>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                                                </svg>
+                                            </div>
+
+
+                                            <template x-if="conversation.mute">
+                                                <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800"
+                                                    @click="doMute(conversation)">
+                                                    <p class="w-10">Unmute</p>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5 ">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                                    </svg>
+                                                </div>
+                                            </template>
+                                            <template x-if="!conversation.mute">
+                                                <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800"
+                                                    @click="doMute(conversation)">
+                                                    <p class="w-10">Mute</p>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                                    </svg>
+                                                </div>
+                                            </template>
+
                                             </p>
                                         </div>
                                     </button>
@@ -561,9 +607,9 @@
                                                                             </svg>
                                                                         </div>
                                                                         <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doReCallMessage(block,item)" 
+                                                                            @click="doReCallMessage(block,item)"
                                                                             :class="block.isSelf?'':'hidden'">
-                                                                            
+
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5" stroke="currentColor"
