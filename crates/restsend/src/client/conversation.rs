@@ -1,4 +1,3 @@
-use super::store::ClientStoreRef;
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
@@ -124,7 +123,6 @@ impl Client {
         limit: u32,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
-        // let updated_at = updated_at.unwrap_or_default().clone();
         let store_ref = self.store.clone();
         let limit = if limit == 0 {
             MAX_CONVERSATION_LIMIT
@@ -133,11 +131,9 @@ impl Client {
         };
 
         let local_updated_at = self.store.get_last_conversation_updated_at();
-        if updated_at.is_some() && local_updated_at.is_some() {
-            match self
-                .store
-                .get_conversations(&updated_at.unwrap_or_default(), limit)
-            {
+        let updated_at = updated_at.unwrap_or_default();
+        if !updated_at.is_empty() && local_updated_at.is_some() {
+            match self.store.get_conversations(&updated_at, limit) {
                 Ok(r) => {
                     if r.items.len() == limit as usize {
                         let updated_at = r
@@ -163,16 +159,20 @@ impl Client {
         let token = self.token.clone();
 
         spwan_task(async move {
-            let mut updated_at = String::default();
+            let mut first_updated_at: Option<String> = None;
             let limit = MAX_CONVERSATION_LIMIT;
             let mut count = 0;
+            let mut offset = 0;
+
             loop {
-                let r = get_conversations(&endpoint, &token, &updated_at, limit)
+                let r = get_conversations(&endpoint, &token, &updated_at, offset, limit)
                     .await
                     .map(|lr| {
                         count += lr.items.len();
-                        updated_at = lr.updated_at;
-
+                        offset = lr.offset;
+                        if first_updated_at.is_none() && !lr.items.is_empty() {
+                            first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
+                        }
                         let conversations = store_ref.merge_conversations(lr.items);
                         if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
                             cb.on_conversations_updated(conversations);
@@ -182,7 +182,7 @@ impl Client {
                 match r {
                     Ok(has_more) => {
                         if !has_more {
-                            callback.on_success(updated_at, count as u32);
+                            callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
                             break;
                         }
                     }

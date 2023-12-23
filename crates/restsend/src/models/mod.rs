@@ -34,7 +34,7 @@ pub struct ListUserResult {
 pub struct ListConversationResult {
     pub total: i64,
     pub has_more: bool,
-    pub updated_at: String,
+    pub offset: u32,
     #[serde(default)]
     pub items: Vec<Conversation>,
 }

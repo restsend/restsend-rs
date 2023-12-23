@@ -182,6 +182,18 @@ export class Client {
 */
   filterConversation(predicate: any): Promise<any>;
 /**
+* @param {any} info
+*/
+  constructor(info: any);
+/**
+* @returns {Promise<void>}
+*/
+  shutdown(): Promise<void>;
+/**
+* @returns {Promise<void>}
+*/
+  connect(): Promise<void>;
+/**
 *
 * Send message with content
 * # Arguments
@@ -670,18 +682,6 @@ export class Client {
 * @returns {Promise<void>}
 */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
-/**
-* @param {any} info
-*/
-  constructor(info: any);
-/**
-* @returns {Promise<void>}
-*/
-  shutdown(): Promise<void>;
-/**
-* @returns {Promise<void>}
-*/
-  connect(): Promise<void>;
 /**
 * get the current connection status
 * return: connecting, connected, net_broken, shutdown
