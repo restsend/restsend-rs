@@ -319,8 +319,10 @@
                     },
                     onfail: function (reason) {
                         logText(`delete message fail ${reason}`)
-                    }
+                    },
+                    
                 });
+                this.updateConversation(this.conversation);
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
