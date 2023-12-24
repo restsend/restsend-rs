@@ -45,7 +45,6 @@
                     if (found !== -1) {
                         if (!type) {
                             block.items.splice(found, 1)
-                            console.log('remove item', block.items.length, found)
                             if (block.items.length == 0) {
                                 this.blocks.splice(idx, 1)
                             }
@@ -149,6 +148,7 @@
                         type: items[idx].content.type,
                         content: this.renderContent(items[idx].content),
                         isLast: false,
+                        seq: items[idx].seq,
                         id: items[idx].id,
                         senderId: items[idx].senderId,
                         createdAt: new Date(items[idx].createdAt),
@@ -159,6 +159,9 @@
                             type: item.content.type,
                             content: this.renderContent(item.content)
                         })
+                        continue
+                    }
+                    if (!item.type) {
                         continue
                     }
                     this.msgs[item.id] = item
@@ -305,6 +308,7 @@
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
+                        console.log(r)
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -334,17 +338,17 @@
                 if (firstItemSeq == 0) {
                     return
                 }
-
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
                     onsuccess: (r) => {
+                        const el = document.getElementById('messages')
+                        const currentScrollHeight = el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
                         setTimeout(() => {
-                            const el = document.getElementById('messages')
-                            // if (el) {
-                            //     el.scrollTop = el.scrollHeight / 2
-                            // }
-                        }, 0)
+                            if (el) {
+                                el.scrollTop = el.scrollHeight - currentScrollHeight;
+                            }
+                        }, 200)
                     },
                     onfail: (reason) => {
                         this.logText(`sync messages failed: ${reason}`)
