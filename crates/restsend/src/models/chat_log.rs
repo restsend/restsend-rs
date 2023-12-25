@@ -26,12 +26,14 @@ pub enum ContentType {
     TopicKickout,
     TopicJoin,
     TopicNotice,
+    TopicUpdate,
     TopicKnock,
     TopicKnockAccept,
     TopicKnockReject,
     TopicSilent,
     TopicSilentMember,
     TopicChangeOwner,
+    ConversationUpdate,
     Unknown(String),
 }
 
@@ -58,12 +60,14 @@ impl From<ContentType> for String {
             ContentType::TopicKickout => "topic.kickout",
             ContentType::TopicJoin => "topic.join",
             ContentType::TopicNotice => "topic.notice",
+            ContentType::TopicUpdate => "topic.update",
             ContentType::TopicKnock => "topic.knock",
             ContentType::TopicKnockAccept => "topic.knock.accept",
             ContentType::TopicKnockReject => "topic.knock.reject",
             ContentType::TopicSilent => "topic.silent",
             ContentType::TopicSilentMember => "topic.silent.member",
             ContentType::TopicChangeOwner => "topic.changeowner",
+            ContentType::ConversationUpdate => "conversation.update",
             ContentType::Unknown(v) => return v.clone(),
         }
         .to_string()
@@ -92,12 +96,14 @@ impl From<String> for ContentType {
             "topic.kickout" => ContentType::TopicKickout,
             "topic.join" => ContentType::TopicJoin,
             "topic.notice" => ContentType::TopicNotice,
+            "topic.update" => ContentType::TopicUpdate,
             "topic.knock" => ContentType::TopicKnock,
             "topic.knock.accept" => ContentType::TopicKnockAccept,
             "topic.knock.reject" => ContentType::TopicKnockReject,
             "topic.silent" => ContentType::TopicSilent,
             "topic.silent.member" => ContentType::TopicSilentMember,
             "topic.changeowner" => ContentType::TopicChangeOwner,
+            "conversation.update" => ContentType::ConversationUpdate,
             _ => ContentType::Unknown(value),
         }
     }
@@ -263,6 +269,10 @@ pub struct Content {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub reply: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub reply_content: Option<String>,
 
     #[serde(skip)]
     #[serde(skip_serializing_if = "String::is_empty")]

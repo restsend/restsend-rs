@@ -45,14 +45,17 @@ pub(super) fn merge_conversation_from_chat(
         match ContentType::from(content.r#type.clone()) {
             ContentType::None | ContentType::Recall => {}
             _ => {
-                if req.seq > conversation.last_read_seq {
+                if req.seq > conversation.last_read_seq
+                    && !req.unreadable
+                    && !req.chat_id.is_empty()
+                {
                     conversation.unread += 1;
                 }
             }
         }
     }
 
-    if req.seq >= conversation.last_seq && !req.unreadable {
+    if req.seq >= conversation.last_seq && !req.unreadable && !req.chat_id.is_empty() {
         conversation.last_seq = req.seq;
         conversation.last_sender_id = req.attendee.clone();
         conversation.last_message_at = req.created_at.clone();
@@ -333,6 +336,10 @@ impl ClientStore {
     }
 
     pub(super) fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
+        if req.chat_id.is_empty() || req.seq <= 0 {
+            return Ok(());
+        }
+
         let t = self.message_storage.table::<ChatLog>("chat_logs");
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
