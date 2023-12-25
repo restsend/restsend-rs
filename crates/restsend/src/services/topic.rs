@@ -26,7 +26,6 @@ pub async fn get_topic_members(
     limit: u32,
 ) -> Result<ListUserResult> {
     let mut data = serde_json::json!({
-        "topicId": topic_id,
         "limit": limit.min(USERS_LIMIT),
     });
     if !updated_at.is_empty() {

@@ -390,6 +390,22 @@ impl ClientStore {
                         None => return Ok(()),
                     }
                 }
+                ContentType::UpdateExtra => {
+                    let (extra, update_chat_id) = match req.content.as_ref() {
+                        Some(content) => (&content.extra, &content.text),
+                        None => {
+                            return Err(Error::Other("[update_extra] invalid content".to_string()))
+                        }
+                    };
+
+                    match t.get(&topic_id, update_chat_id) {
+                        Some(mut log) => {
+                            log.content.extra = extra.clone();
+                            t.set(&topic_id, &update_chat_id, Some(&log));
+                        }
+                        None => return Ok(()),
+                    }
+                }
                 _ => {}
             },
             None => {}
@@ -430,6 +446,19 @@ impl ClientStore {
                             let mut log = recall_log.clone();
                             log.recall = true;
                             log.content = Content::new(ContentType::Recall);
+                            t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log));
+                        }
+                    }
+                    None => {}
+                };
+                Some(chat_log)
+            }
+            ContentType::UpdateExtra => {
+                match t.get(&chat_log.topic_id, &chat_log.content.text) {
+                    Some(update_log) => {
+                        if !update_log.recall {
+                            let mut log = update_log.clone();
+                            log.content.extra = chat_log.content.extra.clone();
                             t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log));
                         }
                     }

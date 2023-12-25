@@ -1,4 +1,4 @@
-use super::omit_empty;
+use super::{conversation::Extra, omit_empty};
 use crate::{request::ChatRequest, storage::StoreModel, utils::now_millis};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
@@ -34,6 +34,7 @@ pub enum ContentType {
     TopicSilentMember,
     TopicChangeOwner,
     ConversationUpdate,
+    UpdateExtra,
     Unknown(String),
 }
 
@@ -68,6 +69,7 @@ impl From<ContentType> for String {
             ContentType::TopicSilentMember => "topic.silent.member",
             ContentType::TopicChangeOwner => "topic.changeowner",
             ContentType::ConversationUpdate => "conversation.update",
+            ContentType::UpdateExtra => "update.extra",
             ContentType::Unknown(v) => return v.clone(),
         }
         .to_string()
@@ -104,6 +106,7 @@ impl From<String> for ContentType {
             "topic.silent.member" => ContentType::TopicSilentMember,
             "topic.changeowner" => ContentType::TopicChangeOwner,
             "conversation.update" => ContentType::ConversationUpdate,
+            "update.extra" => ContentType::UpdateExtra,
             _ => ContentType::Unknown(value),
         }
     }
@@ -281,6 +284,10 @@ pub struct Content {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub attachment: Option<Attachment>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub extra: Option<Extra>,
 }
 
 impl Content {
