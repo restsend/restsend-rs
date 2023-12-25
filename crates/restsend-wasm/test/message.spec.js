@@ -21,7 +21,6 @@ describe('Messages', async function () {
         expect(guido.connectionStatus).toBe('connected')
     })
     bob.onconversationsupdated = async (items) => {
-        console.log('onconversationsupdated', items)
     }
 
     it('#send text message', async () => {
@@ -68,7 +67,27 @@ describe('Messages', async function () {
         })
         await waitUntil(() => isAck, 3000)
     })
+    let lastSendId = undefined
     it('#send custom content', async () => {
+        let isAck = false
+        lastSendId = await bob.doSend(
+            'bob:alice',
+            {
+                'type': 'custom',
+                'text': JSON.stringify({
+                    'type': 'text',
+                    'text': 'hello'
+                })
+            },
+            {
+                onack: (req) => {
+                    isAck = true
+                },
+            });
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+    })
+    it('#send custom content with reply', async () => {
         let isAck = false
         await bob.doSend(
             'bob:alice',
@@ -80,7 +99,9 @@ describe('Messages', async function () {
                 })
             },
             {
+                'reply': lastSendId,
                 onack: (req) => {
+                    expect(req.content.reply).toBe(lastSendId)
                     isAck = true
                 },
             });

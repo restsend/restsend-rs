@@ -100,11 +100,13 @@ impl Client {
         attachment: Attachment,
         duration: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_voice(&topic_id, &duration, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -115,11 +117,13 @@ impl Client {
         attachment: Attachment,
         duration: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_video(&topic_id, &duration, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -129,11 +133,13 @@ impl Client {
         topic_id: String,
         attachment: Attachment,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_file(&topic_id, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -145,11 +151,13 @@ impl Client {
         longitude: String,
         address: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_location(&topic_id, &latitude, &longitude, &address)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -160,11 +168,13 @@ impl Client {
         url: String,
         placeholder: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_link(&topic_id, &url, &placeholder)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -184,6 +194,7 @@ impl Client {
         topic_id: String,
         log_ids: Vec<String>,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let file_name = "Chat history";
@@ -208,7 +219,9 @@ impl Client {
         #[cfg(target_family = "wasm")]
         let attachment = save_logs_to_blob(&file_name, data)?;
 
-        let req = ChatRequest::new_logs(&topic_id, attachment).mentions(mentions);
+        let req = ChatRequest::new_logs(&topic_id, attachment)
+            .mentions(mentions)
+            .mention_all(mention_all);
         self.send_chat_request_via_connection(req, callback).await
     }
 

@@ -1,34 +1,127 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, assert } from 'vitest'
 const { Client, signin, setLogging } = await import('../pkg/restsend_wasm.js')
 import { waitUntil, authClient, endpoint } from './common.js'
 
-describe('Conversations', function () {
+describe('Conversations', async function () {
+    let vitalik = await authClient('vitalik', 'vitalik:demo', false)
+    let guidoTopic = undefined
     it('#create conversation', async () => {
-        setLogging('debug')
-        let bob = await authClient('bob', 'bob:demo', false)
-        await bob.createChat('alice')
-        await bob.createChat('guido')
-        await bob.createChat('vitalik')
+        await vitalik.createChat('alice')
+        await vitalik.createChat('bob')
+        guidoTopic = await vitalik.createChat('guido')
+    })
+
+    it('#set tags, extra', async () => {
+        await vitalik.setConversationTags(guidoTopic.topicId, [{ id: 'tag1' }, { id: 'tag2' }])
+        let r = await vitalik.setConversationExtra(guidoTopic.topicId, { "key1": "value1" })
+        expect(r).toHaveProperty('tags')
+        expect(r.tags).toEqual([{ id: 'tag1' }, { id: 'tag2' }])
+        for ([k, v] in r.extra) {
+            expect(k).toEqual('key1')
+            expect(v).toEqual('value1')
+        }
     })
 
     it('#sync conversation', async () => {
-        let bob = await authClient('bob', 'bob:demo', false)
-        let cb_count = 0
+        let cbCount = 0
         let conversations = []
 
-        bob.onconversationsupdated = async (items) => {
+        vitalik.onconversationsupdated = async (items) => {
             conversations.push(...items)
         }
 
-        await bob.syncConversations({
+        await vitalik.syncConversations({
             onsuccess(updatedAt, count) {
-                cb_count += count
+                cbCount += count
             }
         })
 
-        await waitUntil(() => cb_count > 0, 3000)
-        expect(cb_count).toBeGreaterThan(0)
-        expect(conversations.length).toEqual(cb_count)
-        console.log(conversations)
+        await waitUntil(() => cbCount > 0, 3000)
+        expect(cbCount).toEqual(3)
+        expect(conversations.length).toEqual(cbCount)
+    })
+    it('#sync sync last logs', async () => {
+        await vitalik.connect()
+        await waitUntil(() => vitalik.connectionStatus === 'connected', 3000)
+
+        let ackCount = 0
+        let sendCount = 10;
+        let sendIds = []
+        for (let i = 0; i < sendCount; i++) {
+            let id = await vitalik.doSendText(guidoTopic.topicId, `hello guido ${i}`, {
+                onack: () => {
+                    ackCount += 1;
+                },
+                onfail: (reason) => {
+                    assert.fail(reason)
+                }
+            })
+            sendIds.unshift(id)
+        }
+
+        await waitUntil(() => ackCount == sendCount, 10000)
+        expect(ackCount).toEqual(sendCount)
+        expect(sendIds.length).toEqual(sendCount)
+
+        let logsCount = 0
+        let syncMax = 100
+        let items = []
+        let syncLogs = async () => {
+            await vitalik.syncChatLogs(guidoTopic.topicId, 0, {
+                limit: 10,
+                onsuccess: (r) => {
+                    if (r.items) {
+                        logsCount += r.items.length
+                    }
+                    r.items.forEach((item) => {
+                        items.push(item.id)
+                    })
+
+                    if (!r.hasMore || logsCount >= syncMax) {
+                        return
+                    }
+                    setTimeout(() => {
+                        syncLogs().then()
+                    }, 0)
+                }
+            })
+        }
+        await syncLogs()
+        await waitUntil(() => logsCount >= syncMax, 3000)
+        expect(logsCount).toEqual(syncMax)
+        expect(items.length).toEqual(syncMax)
+        expect(items.slice(0, sendIds.length)).toEqual(sendIds)
+
+        let recallAck = false
+        let recallId = sendIds[0]
+        let recallSeq = 0
+        await vitalik.doRecall(guidoTopic.topicId, recallId, {
+            onack: (req) => {
+                recallAck = true
+                recallSeq = req.seq
+            }
+        })
+        await waitUntil(() => recallAck, 3000)
+        expect(recallAck).toBe(true)
+
+        let syncDone = false
+        let newItems = []
+
+        await vitalik.syncChatLogs(guidoTopic.topicId, recallSeq, {
+            limit: 10,
+            onsuccess: (r) => {
+                syncDone = true
+                newItems = r.items
+            }
+        })
+        await waitUntil(() => syncDone, 3000)
+        expect(syncDone).toBe(true)
+
+        expect(newItems[0].content.type).toEqual('recall')
+        expect(newItems[0].content.text).toEqual(recallId)
+        expect(newItems[1].recall).toBe(true)
+        expect(newItems[1].content.type).toEqual('recall')
+        expect(newItems[1].content.text).toBeUndefined()
+
     })
 })
