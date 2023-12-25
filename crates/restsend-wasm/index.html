@@ -16,6 +16,16 @@
             -webkit-line-clamp: 2;
             overflow: hidden;
         }
+
+        input[type="file"] {
+            opacity: 0;
+            z-index: -1;
+        }
+
+        input[type="file"]+label::after {
+            content: '';
+            margin-left: 5px;
+        }
     </style>
 
     <script>
@@ -260,7 +270,10 @@
                 conversation.mute = !conversation.mute
                 this.current.setConversationMute(conversation.topicId, conversation.mute).then();
             },
-
+            doSticky: function (conversation) {
+                conversation.sticky = !conversation.sticky
+                this.current.setConversationSticky(conversation.topicId, conversation.sticky).then();
+            },
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
                 items.forEach((item) => {
@@ -376,12 +389,12 @@
             getMessageClass(block, item) {
                 let classList = []
                 if (item.isLast === true) {
-                    classList.push(block.isSelf ? 'rounded-br-none' : 'rounded-bl-none')
+                    classList.push(block.isSelf ? 'rounded-br-none ' : 'rounded-bl-none')
                 }
                 if (block.isSelf) {
-                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-blue-600 text-white')
+                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-blue-600 text-white px-4 py-2')
                 } else {
-                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-gray-300 text-gray-600')
+                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-gray-300 text-gray-600 px-4 py-2')
                 }
 
                 if (item.type == 'recall' || item.type == '') {
@@ -542,7 +555,7 @@
                 <div
                     class="border-b h-[calc(100vh-8rem)]  border-gray-200 px-2 py-5 sm:px-6  xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
                     <template x-for="item in conversations">
-                        <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative"
+                        <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
                             @click="onSelectConversation(item)">
                             <div class="flex min-w-0 items-center relative shrink-0">
                                 <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
@@ -567,20 +580,23 @@
                                     <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
                                         x-text="item.title"></p>
                                     <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
-                                        <!-- <button class="hover:text-gray-600">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24">
-                                                    <path fill="currentColor" d="M5 4v2h14V4zm0 10h4v6h6v-6h4l-7-7z" />
-                                                </svg>
-                                            </button>
+                                        <button class="hover:text-gray-600 invisible group-hover:visible"
+                                            :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                viewBox="0 0 24 24">
+                                                <path fill="currentColor"
+                                                    d="M5 5V4h14v1zm6.5 15V9.608l-3.1 3.1L7.692 12L12 7.692L16.308 12l-.708.708l-3.1-3.1V20z" />
+                                            </svg>
+                                        </button>
 
-                                            <button class="hover:text-gray-600">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                    viewBox="0 0 24 24">
-                                                    <path fill="currentColor"
-                                                        d="M20.8 22.7L15 16.9V20H9v-6H5l3.6-3.6L1.1 3l1.3-1.3l19.7 19.7zM19 6V4H7.2l2 2zm-1.8 8H19l-7-7l-.9.9z" />
-                                                </svg>
-                                            </button> -->
+                                        <button class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
+                                            :class="item.sticky?'block':'hidden'" @click="doSticky(item)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                                                viewBox="0 0 24 24">
+                                                <path fill="currentColor"
+                                                    d="M22.11 21.46L2.39 1.73L1.11 3l6 6H5l7 7l1.06-1.05L16.11 18H5v2h13.11l2.73 2.73zM11 5h2v4.8l2.6 2.6L19 9h-4V3H9v2.8l2 2z" />
+                                            </svg>
+                                        </button>
                                         <button class="hover:text-gray-600" :class="item.mute?'visible':'invisible'">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                                 stroke-width="1.5" stroke="currentColor" data-slot="icon"
@@ -593,18 +609,18 @@
                                 </div>
                                 <div
                                     class="flex items-center justify-between w-full text-xs leading-5 text-gray-500 mt-1">
-                                   <div class="flex items-center">
+                                    <div class="flex items-center">
                                         <template x-if="item.mute && item.unread>0 && item.unread <= 99">
                                             <p x-text="`[${item.unread}]`" class="pr-0.5"></p>
                                         </template>
                                         <template x-if="item.unread >99  && item.mute">
                                             <p x-text="[`[99+]`]" class="pr-0.5"></p>
                                         </template>
-    
+
                                         <p class="truncate" :class="item.mute && item.unread>0 ? 'w-[110px]':'w-32'">
                                             This is the last message
                                         </p>
-                                   </div>
+                                    </div>
                                     <p class="w-12 flex justify-end">
                                         <time x-text="formatDateTime(item.updatedAt)" class="shrink-0"></time>
                                     </p>
@@ -778,7 +794,7 @@
                                                                             </svg>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="px-4 py-2 rounded-lg whitespace-wrap break-all inline-block"
+                                                                    <div class="rounded-lg whitespace-wrap break-all inline-block"
                                                                         :class="getMessageClass(block, item)"
                                                                         x-html="item.content">
                                                                     </div>
@@ -814,7 +830,7 @@
                                                     <input type="file" id="fileInput"
                                                         class="custom-file-input w-6 h-5 absolute top-0.5 opacity-0"
                                                         @change="doSendFiles(event)">
-                                                    <label for="fileInput">
+                                                    <label for="fileInput" class="cursor-pointer">
                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none"
                                                             viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
                                                             class="h-6 w-6 text-gray-600 hover:text-gray-400">
