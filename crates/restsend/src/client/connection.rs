@@ -273,13 +273,13 @@ async fn serve_connection(
                     while let Some(message) = outgoing_rx.recv().await {
                         if let Err(e) = conn.send((&message).into()).await {
                             warn!("send fail {:?}", e);
-                            store_ref.handle_send_fail(&message.id).await;
+                            store_ref.handle_send_fail(&message.chat_id).await;
                             break;
                         }
                         state_ref.did_sent_or_recvived();
                         store_ref
                             .handle_send_success(
-                                &message.id,
+                                &message.chat_id,
                                 &message.topic_id,
                                 &message.r#type,
                                 message.code,
@@ -349,7 +349,7 @@ async fn serve_connection(
                                 }
                                 store_ref
                                     .handle_send_success(
-                                        &resp.id,
+                                        &resp.chat_id,
                                         &resp.topic_id,
                                         &resp.r#type,
                                         resp.code,

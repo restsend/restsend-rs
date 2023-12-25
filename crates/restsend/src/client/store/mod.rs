@@ -146,19 +146,19 @@ impl ClientStore {
         let mut expired = Vec::new();
         let now = now_millis();
 
-        for (req_id, pending) in outgoings.iter() {
+        for (chat_id, pending) in outgoings.iter() {
             if pending.is_expired() {
-                expired.push(req_id.clone());
+                expired.push(chat_id.clone());
             } else {
                 if pending.need_retry(now) {
-                    debug!("retry send: {}", req_id);
-                    self.try_send(req_id.clone());
+                    debug!("retry send: {}", chat_id);
+                    self.try_send(chat_id.clone());
                 }
             }
         }
 
-        for req_id in expired {
-            if let Some(pending) = outgoings.remove(&req_id) {
+        for chat_id in expired {
+            if let Some(pending) = outgoings.remove(&chat_id) {
                 pending
                     .callback
                     .map(|cb| cb.on_fail("send expired".to_string()));

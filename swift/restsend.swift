@@ -428,7 +428,7 @@ public protocol ClientProtocol {
     func addTopicMember(topicId: String, userId: String) async throws -> TopicMember
     func appActive()  
     func appDeactivate()  
-    func cancelSend(reqId: String)  
+    func cancelSend(chatId: String)  
     func cleanMessages(topicId: String) async throws
     func connect() async 
     func connectionStatus()   -> String
@@ -593,12 +593,12 @@ public class Client: ClientProtocol {
 }
     }
 
-    public func cancelSend(reqId: String)  {
+    public func cancelSend(chatId: String)  {
         try! 
     rustCall() {
     
     uniffi_restsend_sdk_fn_method_client_cancel_send(self.pointer, 
-        FfiConverterString.lower(reqId),$0
+        FfiConverterString.lower(chatId),$0
     )
 }
     }
@@ -2131,13 +2131,12 @@ public func FfiConverterTypeChatLog_lower(_ value: ChatLog) -> RustBuffer {
 
 public struct ChatRequest {
     public var type: String
-    public var id: String
+    public var chatId: String
     public var code: UInt32
     public var topicId: String
     public var seq: Int64
     public var attendee: String
     public var attendeeProfile: User?
-    public var chatId: String
     public var createdAt: String
     public var content: Content?
     public var e2eContent: String?
@@ -2147,15 +2146,14 @@ public struct ChatRequest {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(type: String, id: String, code: UInt32, topicId: String, seq: Int64, attendee: String, attendeeProfile: User?, chatId: String, createdAt: String, content: Content?, e2eContent: String?, message: String?, source: String?, unreadable: Bool) {
+    public init(type: String, chatId: String, code: UInt32, topicId: String, seq: Int64, attendee: String, attendeeProfile: User?, createdAt: String, content: Content?, e2eContent: String?, message: String?, source: String?, unreadable: Bool) {
         self.type = type
-        self.id = id
+        self.chatId = chatId
         self.code = code
         self.topicId = topicId
         self.seq = seq
         self.attendee = attendee
         self.attendeeProfile = attendeeProfile
-        self.chatId = chatId
         self.createdAt = createdAt
         self.content = content
         self.e2eContent = e2eContent
@@ -2171,7 +2169,7 @@ extension ChatRequest: Equatable, Hashable {
         if lhs.type != rhs.type {
             return false
         }
-        if lhs.id != rhs.id {
+        if lhs.chatId != rhs.chatId {
             return false
         }
         if lhs.code != rhs.code {
@@ -2187,9 +2185,6 @@ extension ChatRequest: Equatable, Hashable {
             return false
         }
         if lhs.attendeeProfile != rhs.attendeeProfile {
-            return false
-        }
-        if lhs.chatId != rhs.chatId {
             return false
         }
         if lhs.createdAt != rhs.createdAt {
@@ -2215,13 +2210,12 @@ extension ChatRequest: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(type)
-        hasher.combine(id)
+        hasher.combine(chatId)
         hasher.combine(code)
         hasher.combine(topicId)
         hasher.combine(seq)
         hasher.combine(attendee)
         hasher.combine(attendeeProfile)
-        hasher.combine(chatId)
         hasher.combine(createdAt)
         hasher.combine(content)
         hasher.combine(e2eContent)
@@ -2236,13 +2230,12 @@ public struct FfiConverterTypeChatRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChatRequest {
         return try ChatRequest(
             type: FfiConverterString.read(from: &buf), 
-            id: FfiConverterString.read(from: &buf), 
+            chatId: FfiConverterString.read(from: &buf), 
             code: FfiConverterUInt32.read(from: &buf), 
             topicId: FfiConverterString.read(from: &buf), 
             seq: FfiConverterInt64.read(from: &buf), 
             attendee: FfiConverterString.read(from: &buf), 
             attendeeProfile: FfiConverterOptionTypeUser.read(from: &buf), 
-            chatId: FfiConverterString.read(from: &buf), 
             createdAt: FfiConverterString.read(from: &buf), 
             content: FfiConverterOptionTypeContent.read(from: &buf), 
             e2eContent: FfiConverterOptionString.read(from: &buf), 
@@ -2254,13 +2247,12 @@ public struct FfiConverterTypeChatRequest: FfiConverterRustBuffer {
 
     public static func write(_ value: ChatRequest, into buf: inout [UInt8]) {
         FfiConverterString.write(value.type, into: &buf)
-        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterString.write(value.chatId, into: &buf)
         FfiConverterUInt32.write(value.code, into: &buf)
         FfiConverterString.write(value.topicId, into: &buf)
         FfiConverterInt64.write(value.seq, into: &buf)
         FfiConverterString.write(value.attendee, into: &buf)
         FfiConverterOptionTypeUser.write(value.attendeeProfile, into: &buf)
-        FfiConverterString.write(value.chatId, into: &buf)
         FfiConverterString.write(value.createdAt, into: &buf)
         FfiConverterOptionTypeContent.write(value.content, into: &buf)
         FfiConverterOptionString.write(value.e2eContent, into: &buf)
@@ -5912,7 +5904,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_app_deactivate() != 38633) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_cancel_send() != 49917) {
+    if (uniffi_restsend_sdk_checksum_method_client_cancel_send() != 8585) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_clean_messages() != 4149) {

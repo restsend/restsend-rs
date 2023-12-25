@@ -212,8 +212,8 @@ impl Client {
         self.send_chat_request_via_connection(req, callback).await
     }
 
-    pub fn cancel_send(&self, req_id: String) {
-        self.store.cancel_send(&req_id)
+    pub fn cancel_send(&self, chat_id: String) {
+        self.store.cancel_send(&chat_id)
     }
 
     pub async fn do_typing(&self, topic_id: String) -> Result<()> {

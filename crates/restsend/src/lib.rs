@@ -18,7 +18,6 @@ const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
 const DB_SUFFIX: &str = ".sqlite3";
 
 const CHAT_ID_LEN: usize = 10;
-const REQ_ID_LEN: usize = 12;
 const TEMP_FILENAME_LEN: usize = 12;
 
 const MAX_RECALL_SECS: i64 = 2 * 60; // 2 minutes

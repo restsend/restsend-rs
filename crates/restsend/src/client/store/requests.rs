@@ -14,9 +14,9 @@ impl ClientStore {
         let (msg_tx, mut msg_rx) = unbounded_channel::<String>();
         self.msg_tx.lock().unwrap().replace(msg_tx.clone());
 
-        while let Some(req_id) = msg_rx.recv().await {
+        while let Some(chat_id) = msg_rx.recv().await {
             let outgoings = self.outgoings.lock().unwrap();
-            if let Some(pending) = outgoings.get(&req_id) {
+            if let Some(pending) = outgoings.get(&chat_id) {
                 if pending.is_expired() {
                     continue;
                 }
@@ -59,7 +59,7 @@ impl ClientStore {
                     ChatLogStatus::SendFailed
                 };
 
-                if let Some(pending) = self.peek_pending_request(&req.id).await {
+                if let Some(pending) = self.peek_pending_request(&req.chat_id).await {
                     match status {
                         ChatLogStatus::Sent => {
                             let mut req = req;
@@ -132,8 +132,8 @@ impl ClientStore {
                     },
                     Err(e) => {
                         warn!(
-                            "save_incoming_chat_log failed, req_id:{} topic_id:{} err:{}",
-                            req.id, req.topic_id, e
+                            "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
+                            req.chat_id, req.topic_id, e
                         );
                     }
                 }
@@ -157,8 +157,8 @@ impl ClientStore {
         }
     }
 
-    pub async fn handle_send_fail(&self, req_id: &str) {
-        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(req_id) {
+    pub async fn handle_send_fail(&self, chat_id: &str) {
+        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(chat_id) {
             pending.did_retry();
             pending.is_expired()
         } else {
@@ -166,7 +166,7 @@ impl ClientStore {
         };
 
         if peek {
-            if let Some(pending) = self.peek_pending_request(&req_id).await {
+            if let Some(pending) = self.peek_pending_request(&chat_id).await {
                 pending
                     .callback
                     .map(|cb| cb.on_fail("request timeout".to_string()));
@@ -176,7 +176,7 @@ impl ClientStore {
 
     pub async fn handle_send_success(
         &self,
-        req_id: &str,
+        chat_id: &str,
         topic_id: &str,
         req_type: &str,
         code: u32,
@@ -187,14 +187,14 @@ impl ClientStore {
             None => "".to_string(),
         };
         info!(
-            "handle_send_success type:{} content_type:{} topic_id:{} req_id:{} code:{}",
-            req_type, content_type, topic_id, req_id, code
+            "handle_send_success type:{} content_type:{} topic_id:{} chat_id:{} code:{}",
+            req_type, content_type, topic_id, chat_id, code
         );
     }
 
-    pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
+    pub async fn peek_pending_request(&self, chat_id: &str) -> Option<PendingRequest> {
         let mut outgoings = self.outgoings.lock().unwrap();
-        outgoings.remove(req_id)
+        outgoings.remove(chat_id)
     }
 
     pub async fn add_pending_request(
@@ -203,21 +203,24 @@ impl ClientStore {
         callback: Option<Box<dyn MessageCallback>>,
     ) {
         debug!("add_pending_request: {:?}", req);
-        let req_id = req.id.clone();
+        let chat_id = req.chat_id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
                 if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
-                    warn!("save_outgoing_chat_log failed: req_id:{} err:{}", req_id, e);
+                    warn!(
+                        "save_outgoing_chat_log failed: chat_id:{} err:{}",
+                        chat_id, e
+                    );
                 }
                 // process
                 let pending_request = match pending_request.has_attachment() {
                     true => match self.submit_upload(pending_request).await {
                         Ok(req) => req,
                         Err(e) => {
-                            warn!("submit_upload failed: req_id:{} err:{}", req_id, e);
+                            warn!("submit_upload failed: chat_id:{} err:{}", chat_id, e);
                             return ();
                         }
                     },
@@ -226,24 +229,24 @@ impl ClientStore {
                 self.outgoings
                     .lock()
                     .unwrap()
-                    .insert(req_id.clone(), pending_request);
+                    .insert(chat_id.clone(), pending_request);
 
-                self.try_send(req_id);
+                self.try_send(chat_id);
             }
         }
     }
 
-    pub(super) fn try_send(&self, req_id: String) {
+    pub(super) fn try_send(&self, chat_id: String) {
         match self.msg_tx.lock().unwrap().as_ref() {
-            Some(tx) => match tx.send(req_id.clone()) {
+            Some(tx) => match tx.send(chat_id.clone()) {
                 Ok(_) => {}
                 Err(e) => {
-                    warn!("try_send failed: {:?} req_id:{}", e.to_string(), req_id);
+                    warn!("try_send failed: {:?} chat_id:{}", e.to_string(), chat_id);
                 }
             },
             None => {
                 let mut tmps = self.tmps.lock().unwrap();
-                tmps.push_back(req_id);
+                tmps.push_back(chat_id);
             }
         }
     }
@@ -253,14 +256,14 @@ impl ClientStore {
         let tx = self.msg_tx.lock().unwrap();
         match tx.as_ref() {
             Some(tx) => {
-                while let Some(req_id) = tmps.pop_front() {
-                    match tx.send(req_id.clone()) {
+                while let Some(chat_id) = tmps.pop_front() {
+                    match tx.send(chat_id.clone()) {
                         Ok(_) => {}
                         Err(e) => {
                             warn!(
-                                "flush_offline_requests failed:  {:?} req_id:{}",
+                                "flush_offline_requests failed:  {:?} chat_id:{}",
                                 e.to_string(),
-                                req_id
+                                chat_id
                             );
                             break;
                         }
@@ -271,16 +274,16 @@ impl ClientStore {
         }
     }
 
-    pub fn cancel_send(&self, req_id: &str) {
+    pub fn cancel_send(&self, chat_id: &str) {
         let mut outgoings = self.outgoings.lock().unwrap();
-        if let Some(pending) = outgoings.remove(req_id) {
+        if let Some(pending) = outgoings.remove(chat_id) {
             pending
                 .callback
                 .map(|cb| cb.on_fail("cancel send".to_string()));
         }
 
         let mut uploadings = self.upload_tasks.lock().unwrap();
-        if let Some(task) = uploadings.remove(req_id) {
+        if let Some(task) = uploadings.remove(chat_id) {
             task.abort();
         }
     }

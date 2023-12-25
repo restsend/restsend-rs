@@ -77,7 +77,7 @@ void uniffi_restsend_sdk_fn_method_client_app_active(void*_Nonnull ptr, RustCall
 );
 void uniffi_restsend_sdk_fn_method_client_app_deactivate(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuffer req_id, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuffer chat_id, RustCallStatus *_Nonnull out_status
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_messages(void*_Nonnull ptr, RustBuffer topic_id
 );
