@@ -439,15 +439,15 @@ public protocol ClientProtocol {
     func doRead(topicId: String) async throws
     func doRecall(topicId: String, chatId: String, callback: MessageCallback?) async throws -> String
     func doSend(topicId: String, content: Content, callback: MessageCallback?) async throws -> String
-    func doSendFile(topicId: String, attachment: Attachment, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
+    func doSendFile(topicId: String, attachment: Attachment, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendImage(topicId: String, attachment: Attachment, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendInvite(topicId: String, messsage: String?, callback: MessageCallback?) async throws -> String
-    func doSendLink(topicId: String, url: String, placeholder: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
-    func doSendLocation(topicId: String, latitude: String, longitude: String, address: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
-    func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, callback: MessageCallback?) async throws -> String
+    func doSendLink(topicId: String, url: String, placeholder: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
+    func doSendLocation(topicId: String, latitude: String, longitude: String, address: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
+    func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String
     func doSendText(topicId: String, text: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
-    func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
-    func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
+    func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
+    func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doTyping(topicId: String) async throws
     func downloadFile(fileUrl: String, callback: DownloadCallback) async throws -> String
     func getChatLog(topicId: String, chatId: String)   -> ChatLog?
@@ -784,7 +784,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendFile(topicId: String, attachment: Attachment, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String {
+    public func doSendFile(topicId: String, attachment: Attachment, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_file(
@@ -792,6 +792,7 @@ public class Client: ClientProtocol {
                     FfiConverterString.lower(topicId),
                     FfiConverterTypeAttachment.lower(attachment),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionString.lower(replyId),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
@@ -848,7 +849,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendLink(topicId: String, url: String, placeholder: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String {
+    public func doSendLink(topicId: String, url: String, placeholder: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_link(
@@ -857,6 +858,7 @@ public class Client: ClientProtocol {
                     FfiConverterString.lower(url),
                     FfiConverterString.lower(placeholder),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionString.lower(replyId),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
@@ -871,7 +873,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendLocation(topicId: String, latitude: String, longitude: String, address: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String {
+    public func doSendLocation(topicId: String, latitude: String, longitude: String, address: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_location(
@@ -881,6 +883,7 @@ public class Client: ClientProtocol {
                     FfiConverterString.lower(longitude),
                     FfiConverterString.lower(address),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionString.lower(replyId),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
@@ -895,7 +898,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, callback: MessageCallback?) async throws -> String {
+    public func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_logs(
@@ -903,6 +906,7 @@ public class Client: ClientProtocol {
                     FfiConverterString.lower(topicId),
                     FfiConverterSequenceString.lower(logIds),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
             },
@@ -938,7 +942,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String {
+    public func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_video(
@@ -947,6 +951,7 @@ public class Client: ClientProtocol {
                     FfiConverterTypeAttachment.lower(attachment),
                     FfiConverterString.lower(duration),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionString.lower(replyId),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
@@ -961,7 +966,7 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String {
+    public func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_voice(
@@ -970,6 +975,7 @@ public class Client: ClientProtocol {
                     FfiConverterTypeAttachment.lower(attachment),
                     FfiConverterString.lower(duration),
                     FfiConverterOptionSequenceString.lower(mentions),
+                    FfiConverterBool.lower(mentionAll),
                     FfiConverterOptionString.lower(replyId),
                     FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
                 )
@@ -2286,12 +2292,14 @@ public struct Content {
     public var mentions: [String]
     public var mentionAll: Bool
     public var reply: String
+    public var replyContent: String?
     public var createdAt: String
     public var attachment: Attachment?
+    public var extra: [String: String]?
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(type: String, encrypted: Bool, checksum: UInt32, text: String, placeholder: String, thumbnail: String, duration: String, size: UInt64, width: Float, height: Float, mentions: [String], mentionAll: Bool, reply: String, createdAt: String, attachment: Attachment?) {
+    public init(type: String, encrypted: Bool, checksum: UInt32, text: String, placeholder: String, thumbnail: String, duration: String, size: UInt64, width: Float, height: Float, mentions: [String], mentionAll: Bool, reply: String, replyContent: String?, createdAt: String, attachment: Attachment?, extra: [String: String]?) {
         self.type = type
         self.encrypted = encrypted
         self.checksum = checksum
@@ -2305,8 +2313,10 @@ public struct Content {
         self.mentions = mentions
         self.mentionAll = mentionAll
         self.reply = reply
+        self.replyContent = replyContent
         self.createdAt = createdAt
         self.attachment = attachment
+        self.extra = extra
     }
 }
 
@@ -2352,10 +2362,16 @@ extension Content: Equatable, Hashable {
         if lhs.reply != rhs.reply {
             return false
         }
+        if lhs.replyContent != rhs.replyContent {
+            return false
+        }
         if lhs.createdAt != rhs.createdAt {
             return false
         }
         if lhs.attachment != rhs.attachment {
+            return false
+        }
+        if lhs.extra != rhs.extra {
             return false
         }
         return true
@@ -2375,8 +2391,10 @@ extension Content: Equatable, Hashable {
         hasher.combine(mentions)
         hasher.combine(mentionAll)
         hasher.combine(reply)
+        hasher.combine(replyContent)
         hasher.combine(createdAt)
         hasher.combine(attachment)
+        hasher.combine(extra)
     }
 }
 
@@ -2397,8 +2415,10 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
             mentions: FfiConverterSequenceString.read(from: &buf), 
             mentionAll: FfiConverterBool.read(from: &buf), 
             reply: FfiConverterString.read(from: &buf), 
+            replyContent: FfiConverterOptionString.read(from: &buf), 
             createdAt: FfiConverterString.read(from: &buf), 
-            attachment: FfiConverterOptionTypeAttachment.read(from: &buf)
+            attachment: FfiConverterOptionTypeAttachment.read(from: &buf), 
+            extra: FfiConverterOptionDictionaryStringString.read(from: &buf)
         )
     }
 
@@ -2416,8 +2436,10 @@ public struct FfiConverterTypeContent: FfiConverterRustBuffer {
         FfiConverterSequenceString.write(value.mentions, into: &buf)
         FfiConverterBool.write(value.mentionAll, into: &buf)
         FfiConverterString.write(value.reply, into: &buf)
+        FfiConverterOptionString.write(value.replyContent, into: &buf)
         FfiConverterString.write(value.createdAt, into: &buf)
         FfiConverterOptionTypeAttachment.write(value.attachment, into: &buf)
+        FfiConverterOptionDictionaryStringString.write(value.extra, into: &buf)
     }
 }
 
@@ -5937,7 +5959,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_do_send() != 61877) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_file() != 20746) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_file() != 61611) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_do_send_image() != 15606) {
@@ -5946,22 +5968,22 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_do_send_invite() != 12145) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_link() != 5843) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_link() != 16677) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_location() != 9410) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_location() != 20895) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_logs() != 15230) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_logs() != 46916) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_do_send_text() != 2911) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_video() != 6926) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_video() != 17798) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_voice() != 7256) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_voice() != 52981) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_do_typing() != 56138) {

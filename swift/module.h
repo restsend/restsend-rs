@@ -99,23 +99,23 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_recall(void*_Nonnull ptr,
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer content, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_file(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_file(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_image(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_invite(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer messsage, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer placeholder, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer placeholder, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer log_ids, RustBuffer mentions, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer log_ids, RustBuffer mentions, int8_t mention_all, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_text(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_video(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_video(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_typing(void*_Nonnull ptr, RustBuffer topic_id
 );
