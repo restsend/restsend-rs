@@ -37,7 +37,8 @@
                 return this.blocks[0].items[0].seq
             }
 
-            updateItem(chatId, { type, content }) {
+            updateItem(chatId, {type, content,recall}) {
+                console.log('update item', chatId, type, content)
                 for (let idx = 0; idx < this.blocks.length; idx++) {
                     const block = this.blocks[idx];
                     let found = block.items.findIndex((item) => item.id == chatId)
@@ -51,10 +52,19 @@
                         } else {
                             block.items[found].type = type
                             block.items[found].content = content
+                            block.items[found].recall = recall
                         }
+                        console.log('update item', block.items[found])
                         break
                     }
                 }
+            }
+
+            bytesToSize(bytes) {
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+                if (bytes === 0) return '0 Byte';
+                const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
             }
 
             renderContent(content) {
@@ -66,9 +76,12 @@
                     return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
                 }
                 if (content.type == 'file') {
-                    return `<a href="${content.text}" target="_blank" class="flex w-32 h-20 rounded-md border shadow justify0between">
-                    <p> ${content.text}</p>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-16 h-16 text-gray-500">
+                    return `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow-md space-x-6">
+                      <div>
+                        <p class="text-gray-900 text-base w-24 text-wrap"> ${content.placeholder}</p>
+                        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+                     </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-700">
   <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
 </a>`
                 }
@@ -143,6 +156,7 @@
             }
 
             appendMessages(items) {
+                console.log('append messages', items)
                 for (var idx = 0; idx < items.length; idx++) {
                     let item = {
                         type: items[idx].content.type,
@@ -150,12 +164,16 @@
                         isLast: false,
                         seq: items[idx].seq,
                         id: items[idx].id,
+                        recall: items[idx].recall,
                         senderId: items[idx].senderId,
                         createdAt: new Date(items[idx].createdAt),
+                        placeholder: items[idx].placeholder || null,
+                        size: this.bytesToSize(items[idx].size) || null,
                     }
-
                     if (this.msgs[items[idx].id]) {
+                        console.log('msgs 777777777777777777777777', this.msgs[items[idx].id])
                         this.updateItem(items[idx].id, {
+                            recall: item.recall,
                             type: item.content.type,
                             content: this.renderContent(item.content)
                         })
@@ -379,15 +397,23 @@
                     return
                 }
                 let thisPtr = this;
-                await client.doSendText(this.conversation.topicId, this.message, {
-                    replyId: this.reference ? this.reference.id : undefined,
-                    onack: function (req) {
-                        thisPtr.message = ''
-                    },
-                    onfail: function (reason) {
-                        logText(`send message fail ${reason}`)
-                    }
-                });
+                if (this.message.startsWith('https://') || this.message.startsWith('http://')) {
+                    await client.doSendLink(this.conversation.topicId, this.message, {
+                        placeholder: 'link',
+                        reply: '1234567'
+                    });
+                    thisPtr.message = ''
+                } else {
+                    await client.doSendText(this.conversation.topicId, this.message, {
+                        replyId: this.reference ? this.reference.id : undefined,
+                        onack: function (req) {
+                            thisPtr.message = ''
+                        },
+                        onfail: function (reason) {
+                            logText(`send message fail ${reason}`)
+                        }
+                    });
+                }
                 this.reference = null
             },
             doSendImages: async function (event) {
@@ -399,14 +425,17 @@
                     file: event.target.files[0]
                 });
             },
-
-            doSendLink: async function (link) {
-                if (!this.conversation || !link) {
+            doSendFiles: async function (event) {
+                if (!this.conversation) {
                     return
                 }
-                await client.doSendLink(this.conversation.topicId, link, {
-                    placeholder: 'link',
-                    reply: '1234567'
+                // console.log('send file', event.target.files[0], event.target.files[0].size);
+                await client.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
+                    size: (event.target.files[0].size),
+                    name: event.target.files[0].name,
+                    mentions: ['bob'],
+                    mentionAll: false,
+                    replyId: '1234567'
                 });
             },
             doDeleteMessage: async function (block, message) {
@@ -440,16 +469,18 @@
                 let thisPtr = this;
                 await client.doRecall(this.conversation.topicId, message.id, {
                     onack: function (req) {
+                        console.log('recall message ack', req)
                         thisPtr.message = ''
-                        this.messageBlocks.updateItem(id, {
+                        thisPtr.messageBlocks.updateItem(message.id, {
                             type: 'recall',
-                            content: ''
+                            content: '',
                         })
                     },
                     onfail: function (reason) {
                         logText(`recall message fail ${reason}`)
                     }
-                });
+                }
+                );
             },
             cleanHistory: async function () {
                 if (!this.conversation) {
@@ -635,9 +666,15 @@
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items">
                                                         <div>
-                                                            <template x-if="item.type==='recall'">
+                                                            <template x-if="item.recall==true">
+                                                                <div class="text-gray-400 text-xs text-center flex items-center w-full">
+                                                                    The message has been recalled
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="item.type==='recall' && item.recall==false">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">
+                                                                    <!-- <p class="text-red-500" x-text="item.recall"></p> -->
                                                                     <template x-if="block.isSelf">
                                                                         <p>You recalled a message</p>
                                                                     </template>
@@ -646,7 +683,7 @@
                                                                     </template>
                                                                 </div>
                                                             </template>
-                                                            <template x-if="item.content">
+                                                            <template x-if="item.content && item.type!='recall'">
                                                                 <div class="flex items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
                                                                         <input type="checkbox"
@@ -736,16 +773,19 @@
                                         <div class="mt-2 w-full justify-between bottom-0 items-center hidden sm:flex">
 
                                             <div class="flex items-center space-x-3">
-                                                <button type="button" @click="doSendLink('https://www.google.com')"
-                                                    class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500 focus:outline-none">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                        viewBox="0 0 24 24" stroke="currentColor"
-                                                        class="h-6 w-6 text-gray-600 hover:text-gray-400">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            stroke-width="2"
-                                                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
-                                                        </path>
-                                                    </svg>
+                                                <button type="button"
+                                                    class="inline-flex items-center justify-center relative rounded-full transition duration-500 ease-in-out text-gray-500 focus:outline-none">
+                                                    <input type="file" id="fileInput"
+                                                        class="custom-file-input w-6 h-5 absolute top-0.5 opacity-0"
+                                                        @change="doSendFiles(event)">
+                                                    <label for="fileInput">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                            class="h-6 w-6 text-gray-600 hover:text-gray-400">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                                                        </svg>
+                                                    </label>
                                                 </button>
                                                 <button type="button"
                                                     class="inline-flex items-center justify-center relative rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
@@ -769,15 +809,7 @@
                                                             d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
                                                     </svg>
                                                 </button>
-                                                <button type="button" @click="doSendFiles"
-                                                    class="inline-flex items-center justify-center rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
-                                                        class="h-6 w-6 text-gray-600 hover:text-gray-400">
-                                                        <path stroke-linecap="round" stroke-linejoin="round"
-                                                            d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                                                    </svg>
-                                                </button> -->
+                                             -->
                                             </div>
 
                                             <button type="button" @click="doSendMessage"
@@ -812,11 +844,11 @@
                     </button>
                 </div>
 
-                <div class="flex items-start space-x-3 overflow-y-auto h-[calc(100vh-10rem)] p-2 mt-2">
+                <div class="flex items-start space-x-3 overflow-y-auto w h-[calc(100vh-10rem)] p-2 mt-2">
                     <div class="flex-1">
                         <template x-for="item in logs">
-                            <div class="text-sm text-gray-500 hover:bg-gray-200 px-2 py-1 rounded">
-                                <span x-text="item"></span>
+                            <div class="text-sm text-gray-500 hover:bg-gray-200 px-2 py-1 rounded whitespace-wrap">
+                                <span x-text="item" class="text-wrap"></span>
                             </div>
                         </template>
                     </div>
