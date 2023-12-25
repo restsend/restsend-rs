@@ -1,6 +1,6 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
-use crate::models::ChatLogStatus;
+use crate::models::{ChatLogStatus, Content};
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -31,9 +31,20 @@ impl ClientStore {
         req: ChatRequest,
         callback: CallbackRef,
     ) -> Vec<Option<ChatRequest>> {
+        let content_type = match req.content.as_ref() {
+            Some(content) => content.r#type.clone(),
+            None => req.r#type.clone(),
+        };
+
+        let chat_id = if req.chat_id.is_empty() {
+            "".to_string()
+        } else {
+            format!("chat_id:{} ", req.chat_id)
+        };
+
         info!(
-            "process_incoming, type:{} topic_id:{} seq:{} code:{}",
-            req.r#type, req.topic_id, req.seq, req.code
+            "process_incoming, type:{} topic_id:{} seq:{} {}",
+            content_type, req.topic_id, req.seq, chat_id
         );
 
         let topic_id = req.topic_id.clone();
@@ -169,10 +180,15 @@ impl ClientStore {
         topic_id: &str,
         req_type: &str,
         code: u32,
+        content: Option<&Content>,
     ) {
+        let content_type = match content {
+            Some(content) => content.r#type.clone(),
+            None => "".to_string(),
+        };
         info!(
-            "handle_send_success type:{} topic_id:{} req_id:{} code:{}",
-            req_type, topic_id, req_id, code
+            "handle_send_success type:{} content_type:{} topic_id:{} req_id:{} code:{}",
+            req_type, content_type, topic_id, req_id, code
         );
     }
 

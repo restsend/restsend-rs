@@ -16,7 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "wasm-pack build",
-    "publish": "wasm-pack build -d ../../js",
+    "dist": "wasm-pack build -d ../../js",
     "wasm_test": "wasm-pack test --firefox --headless",
     "test": "wasm-pack build && vitest --run"
   },

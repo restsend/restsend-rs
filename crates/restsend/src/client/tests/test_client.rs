@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-struct TestCallbackImpl {
+pub(super) struct TestCallbackImpl {
     last_topic_id: Arc<Mutex<String>>,
     is_connected: Arc<AtomicBool>,
     is_recv_message: Arc<AtomicBool>,
@@ -45,11 +45,10 @@ impl callback::Callback for TestCallbackImpl {
         self.is_update_conversation.store(true, Ordering::Relaxed);
     }
 }
-
-struct TestMessageCakllbackImpl {
-    is_sent: Arc<AtomicBool>,
-    is_ack: Arc<AtomicBool>,
-    last_error: Arc<Mutex<String>>,
+pub(super) struct TestMessageCakllbackImpl {
+    pub is_sent: Arc<AtomicBool>,
+    pub is_ack: Arc<AtomicBool>,
+    pub last_error: Arc<Mutex<String>>,
 }
 
 impl callback::MessageCallback for TestMessageCakllbackImpl {

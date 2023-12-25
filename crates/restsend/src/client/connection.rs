@@ -283,6 +283,7 @@ async fn serve_connection(
                                 &message.topic_id,
                                 &message.r#type,
                                 message.code,
+                                message.content.as_ref(),
                             )
                             .await;
                     }
@@ -352,6 +353,7 @@ async fn serve_connection(
                                         &resp.topic_id,
                                         &resp.r#type,
                                         resp.code,
+                                        resp.content.as_ref(),
                                     )
                                     .await;
                             }

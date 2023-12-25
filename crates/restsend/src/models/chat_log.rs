@@ -225,6 +225,7 @@ pub struct Content {
     pub checksum: u32,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -264,6 +265,7 @@ pub struct Content {
     pub reply: String,
 
     #[serde(skip)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]

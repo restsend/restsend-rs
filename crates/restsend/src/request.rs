@@ -198,16 +198,7 @@ impl ChatRequest {
     }
 
     pub fn new_recall(topic_id: &str, chat_id: &str) -> Self {
-        ChatRequest {
-            r#type: String::from(ChatRequestType::Chat),
-            topic_id: String::from(topic_id),
-            chat_id: String::from(chat_id),
-            content: Some(Content {
-                r#type: String::from(ContentType::Recall),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }
+        Self::new_chat(topic_id, ContentType::Recall).text(&chat_id)
     }
 
     pub fn thumbnail(&self, thumbnail: &str) -> Self {

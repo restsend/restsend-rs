@@ -7,7 +7,7 @@
 2. Build rust library, the outout dir is `restsend-rs/js`
     ```shell
     cd crates/restsend-wasm
-    npm run publish
+    npm run dist
     ```
 3. import `restsend_wasm.js` in your project
     ```javascript

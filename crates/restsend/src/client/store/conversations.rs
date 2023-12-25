@@ -11,7 +11,7 @@ use crate::{
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::sync::Arc;
 
 pub(crate) fn merge_conversation(
@@ -338,26 +338,57 @@ impl ClientStore {
         let chat_id = &req.chat_id;
         let now = now_millis();
         let mut new_status = ChatLogStatus::Received;
+
+        match req.content.as_ref() {
+            Some(content) => match ContentType::from(content.r#type.clone()) {
+                ContentType::None | ContentType::Recall => {
+                    let recall_chat_id = match req.content.as_ref() {
+                        Some(content) => &content.text,
+                        None => return Err(Error::Other("[recall] invalid content".to_string())),
+                    };
+
+                    match t.get(&topic_id, recall_chat_id) {
+                        Some(recall_log) => {
+                            if recall_log.recall {
+                                return Ok(());
+                            }
+
+                            if MAX_RECALL_SECS > 0
+                                && now - recall_log.cached_at > MAX_RECALL_SECS * 1000
+                            {
+                                return Err(Error::Other("[recall] timeout".to_string()));
+                            }
+
+                            match recall_log.status {
+                                ChatLogStatus::Sent | ChatLogStatus::Received => {}
+                                _ => {
+                                    return Err(Error::Other("[recall] invalid status".to_string()))
+                                }
+                            }
+
+                            if req.attendee != recall_log.sender_id {
+                                return Err(Error::Other("[recall] invalid owner".to_string()));
+                            }
+
+                            let mut log = recall_log.clone();
+                            log.recall = true;
+                            log.content = Content::new(ContentType::Recall);
+                            t.set(&topic_id, &recall_chat_id, Some(&log));
+
+                            info!(
+                            "recall chat_log: topic_id: {} chat_id: {} recall_chat_id: {} seq: {}",
+                            topic_id, chat_id, recall_chat_id, req.seq,
+                        );
+                        }
+                        None => return Ok(()),
+                    }
+                }
+                _ => {}
+            },
+            None => {}
+        }
+
         if let Some(old_log) = t.get(&topic_id, &chat_id) {
-            if req.r#type == "recall" {
-                if MAX_RECALL_SECS > 0 && now - old_log.cached_at > MAX_RECALL_SECS {
-                    return Err(Error::Other("[recall] timeout".to_string()));
-                }
-
-                match old_log.status {
-                    ChatLogStatus::Received => {}
-                    _ => return Err(Error::Other("[recall] invalid status".to_string())),
-                }
-
-                if req.attendee != old_log.sender_id {
-                    return Err(Error::Other("[recall] invalid owner".to_string()));
-                }
-
-                let mut log = old_log.clone();
-                log.recall = true;
-                log.content = Content::new(ContentType::Recall);
-                t.set(&topic_id, &chat_id, Some(&log));
-            }
             match old_log.status {
                 ChatLogStatus::Sending => new_status = ChatLogStatus::Sent,
                 _ => return Ok(()),
@@ -377,7 +408,7 @@ impl ClientStore {
     }
 
     pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
-        let t = self.message_storage.table("chat_logs");
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
 
         if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
             return Ok(());
@@ -385,6 +416,20 @@ impl ClientStore {
 
         let item = match ContentType::from(chat_log.content.r#type.to_string()) {
             ContentType::None => None, // remove local log
+            ContentType::Recall => {
+                match t.get(&chat_log.topic_id, &chat_log.content.text) {
+                    Some(recall_log) => {
+                        if !recall_log.recall {
+                            let mut log = recall_log.clone();
+                            log.recall = true;
+                            log.content = Content::new(ContentType::Recall);
+                            t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log));
+                        }
+                    }
+                    None => {}
+                };
+                Some(chat_log)
+            }
             _ => Some(chat_log),
         };
 
