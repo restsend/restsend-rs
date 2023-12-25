@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { authClient } from './common.js'
+import { setLogging } from '../pkg/restsend_wasm.js'
 
 describe('Users', function () {
     describe('#get user info', async function () {
@@ -24,6 +25,14 @@ describe('Users', function () {
             expect(users.length).toBe(4)
             let badGuy = users.find(u => u.userId === 'bad_guy')
             expect(badGuy.isPartial).toBe(true)
+        })
+    })
+    describe('#set user relation', async function () {
+        let bob = await authClient('bob', 'bob:demo', false)
+        it('should set user relation', async () => {
+            await bob.setUserRemark('alice', 'Remark from untitest')
+            let alice = await bob.getUser('alice', true)
+            expect(alice.remark).toBe('Remark from untitest')
         })
     })
 })
