@@ -265,6 +265,17 @@ impl ChatRequest {
             ..self.clone()
         }
     }
+
+    pub fn mention_all(&self, mention_all: bool) -> Self {
+        ChatRequest {
+            content: Some(Content {
+                mention_all: mention_all,
+                ..self.content.clone().unwrap_or(Content::default())
+            }),
+            ..self.clone()
+        }
+    }
+
     pub fn attachment(&self, attachment: Attachment) -> Self {
         if !attachment.url.is_empty() {
             return ChatRequest {

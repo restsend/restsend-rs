@@ -1,6 +1,6 @@
 use crate::{
     callback::MessageCallbackWasmWrap,
-    js_util::{get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
+    js_util::{get_bool, get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
     Client,
 };
 use wasm_bindgen::prelude::*;
@@ -51,7 +51,11 @@ impl Client {
         content: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let content = js_value_to_content(content)?;
+        let mut content = js_value_to_content(content)?;
+        content.mentions = get_vec_strings(&option, "mentions").unwrap_or(content.mentions);
+        content.reply = get_string(&option, "reply").unwrap_or(content.reply);
+        content.mention_all = get_bool(&option, "mentionAll");
+
         self.inner
             .do_send(
                 topicId,
@@ -109,6 +113,7 @@ impl Client {
                 js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
@@ -139,6 +144,7 @@ impl Client {
                 js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
@@ -168,6 +174,7 @@ impl Client {
                 topicId,
                 js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
@@ -202,6 +209,7 @@ impl Client {
                 longitude,
                 address,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
@@ -231,6 +239,7 @@ impl Client {
                 url,
                 get_string(&option, "placeholder").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
@@ -256,6 +265,7 @@ impl Client {
                 topicId,
                 logIds,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await

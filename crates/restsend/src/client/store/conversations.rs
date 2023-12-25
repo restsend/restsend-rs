@@ -370,10 +370,10 @@ impl ClientStore {
                                 return Err(Error::Other("[recall] invalid owner".to_string()));
                             }
 
-                            let mut log = recall_log.clone();
-                            log.recall = true;
-                            log.content = Content::new(ContentType::Recall);
-                            t.set(&topic_id, &recall_chat_id, Some(&log));
+                            let mut recall_log = recall_log.clone();
+                            recall_log.recall = true;
+                            recall_log.content = Content::new(ContentType::Recall);
+                            t.set(&topic_id, &recall_chat_id, Some(&recall_log));
 
                             info!(
                             "recall chat_log: topic_id: {} chat_id: {} recall_chat_id: {} seq: {}",
@@ -400,8 +400,8 @@ impl ClientStore {
         log.cached_at = now;
 
         debug!(
-            "save_incoming_chat_log: topic_id: {} chat_id: {} seq: {}",
-            topic_id, chat_id, req.seq,
+            "save_incoming_chat_log topic_id: {} chat_id: {} seq: {} content_type:{}",
+            topic_id, chat_id, req.seq, log.content.r#type,
         );
         t.set(&log.topic_id, &log.id, Some(&log));
         Ok(())

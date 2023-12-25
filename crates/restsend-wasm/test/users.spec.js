@@ -15,7 +15,6 @@ describe('Users', function () {
         })
         it('should get user info with blocking', async () => {
             let alice = await bob.getUser('alice', true)
-            console.log(alice)
             expect(alice.isPartial).toBe(false)
             expect(alice).toHaveProperty('avatar')
         })
