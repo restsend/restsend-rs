@@ -688,7 +688,7 @@ export class Client {
   setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 * get the current connection status
-* return: connecting, connected, net_broken, shutdown
+* return: connecting, connected, broken, shutdown
 */
   readonly connectionStatus: string;
 /**

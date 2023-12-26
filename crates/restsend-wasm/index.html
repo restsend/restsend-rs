@@ -47,7 +47,7 @@
                 return this.blocks[0].items[0].seq
             }
 
-            updateItem(chatId, {type, content, recall}) {
+            updateItem(chatId, { type, content, recall }) {
                 // console.log('update item', chatId, {type, content,recall})
                 for (let idx = 0; idx < this.blocks.length; idx++) {
                     const block = this.blocks[idx];
@@ -165,7 +165,10 @@
             }
 
             appendMessages(items) {
-                for (var idx = 0; idx < items.length; idx++) {
+                if (!items) {
+                    return
+                }
+                for (var idx = items.length - 1; idx >= 0; idx--) {
                     let item = {
                         type: items[idx].content.type,
                         content: this.renderContent(items[idx].content),
@@ -179,7 +182,6 @@
                         size: this.bytesToSize(items[idx].size) || null,
                     }
                     if (this.msgs[items[idx].id]) {
-                        // console.log('update item', items[idx].id, 'AAAAAAAAA',this.msgs[item.id])
                         this.updateItem(items[idx].id, {
                             type: item.type,
                             content: this.renderContent(items[idx].content),
@@ -328,6 +330,7 @@
                 if (this.conversation) {
                     limit = conversation.lastSeq - this.conversation.lastSeq
                 }
+
                 this.conversation = conversation
                 const lastSeq = conversation.lastSeq
                 if (limit === 0) { //the messages are not changed
@@ -337,7 +340,7 @@
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
-                        console.log(r)
+                        console.log('updateConversation', r)
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -370,6 +373,7 @@
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
                     onsuccess: (r) => {
+                        console.log('sync older messages', firstItemSeq, r)
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -441,7 +445,7 @@
                     return
                 }
                 // console.log('send file', event.target.files[0], event.target.files[0].size);
-                await client.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
+                await client.doSendFile(this.conversation.topicId, { file: event.target.files[0] }, {
                     size: (event.target.files[0].size),
                     name: event.target.files[0].name,
                     mentions: ['bob'],
@@ -589,7 +593,8 @@
                                             </svg>
                                         </button>
 
-                                        <button class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
+                                        <button
+                                            class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
                                             :class="item.sticky?'block':'hidden'" @click="doSticky(item)">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
                                                 viewBox="0 0 24 24">

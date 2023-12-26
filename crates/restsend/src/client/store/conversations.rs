@@ -54,13 +54,19 @@ pub(super) fn merge_conversation_from_chat(
             }
         }
     }
-
-    if req.seq >= conversation.last_seq && !req.unreadable && !req.chat_id.is_empty() {
+    info!(
+        "merge_conversation_from_chat: topic_id: {} chat_id: {} seq: {} conversation.last_seq: {} req.unreadable:{}",
+        req.topic_id, req.chat_id, req.seq, conversation.last_seq, req.unreadable
+    );
+    if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
-        conversation.last_sender_id = req.attendee.clone();
-        conversation.last_message_at = req.created_at.clone();
-        conversation.last_message = req.content.clone();
-        conversation.updated_at = req.created_at.clone();
+
+        if !req.unreadable && !req.chat_id.is_empty() {
+            conversation.last_sender_id = req.attendee.clone();
+            conversation.last_message_at = req.created_at.clone();
+            conversation.last_message = req.content.clone();
+            conversation.updated_at = req.created_at.clone();
+        }
     }
 
     conversation.cached_at = now_millis();
@@ -487,6 +493,10 @@ impl ClientStore {
             start_sort_value,
             limit,
         };
+        info!(
+            "get_chat_logs: topic_id: {} seq: {} limit: {} start_sort_value: {}",
+            topic_id, seq, limit, start_sort_value
+        );
         Ok(t.query(topic_id, &option))
     }
 
@@ -526,14 +536,7 @@ impl ClientStore {
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation>>,
     ) -> Vec<Conversation> {
         let t = self.message_storage.table("conversations");
-        t.filter(
-            "",
-            Box::new(move |c| {
-                let mut c = c;
-                c.unread = (c.last_seq - c.last_read_seq).max(0);
-                predicate(c)
-            }),
-        )
+        t.filter("", Box::new(move |c| predicate(c)))
     }
 
     pub fn get_last_conversation_updated_at(&self) -> Option<String> {

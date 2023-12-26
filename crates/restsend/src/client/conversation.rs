@@ -61,7 +61,7 @@ impl Client {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit };
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
-                if last_seq == 0 && local_logs.items.len() == limit as usize {
+                if local_logs.items.len() == limit as usize {
                     let r = GetChatLogsResult {
                         has_more: local_logs.end_sort_value > 1,
                         start_seq: local_logs.start_sort_value,
@@ -71,6 +71,12 @@ impl Client {
                     callback.on_success(r);
                     return;
                 }
+                warn!(
+                    "sync_chat_logs from local_logs.items.len(): {} last_seq: {} limit: {}",
+                    local_logs.items.len(),
+                    last_seq,
+                    limit,
+                );
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);
@@ -84,35 +90,37 @@ impl Client {
         let store_ref = self.store.clone();
 
         spwan_task(async move {
-            let r = get_chat_logs_desc(&endpoint, &token, &topic_id, last_seq, limit)
-                .await
-                .map(|(mut lr, _)| {
+            match get_chat_logs_desc(&endpoint, &token, &topic_id, last_seq, limit).await {
+                Ok((lr, _)) => {
                     let now = now_millis();
-                    lr.items.iter_mut().for_each(|c| {
+                    let mut items = Vec::new();
+                    for c in &lr.items {
+                        let mut c = c.clone();
                         c.cached_at = now;
                         c.status = if c.sender_id == current_user_id {
                             ChatLogStatus::Sent
                         } else {
                             ChatLogStatus::Received
                         };
-                        store_ref.save_chat_log(c).ok();
-                    });
-                    lr
-                })
-                .map(|lr| {
-                    let start_seq = lr.items.first().map(|c| c.seq).unwrap_or(0);
-                    let end_seq = lr.items.last().map(|c| c.seq).unwrap_or(0);
-                    GetChatLogsResult {
-                        has_more: lr.has_more,
-                        start_seq,
-                        end_seq,
-                        items: lr.items,
+                        match store_ref.save_chat_log(&c) {
+                            Ok(_) => items.push(c),
+                            Err(_) => {}
+                        };
                     }
-                });
-            match r {
-                Ok(r) => callback.on_success(r),
-                Err(e) => callback.on_fail(e),
-            }
+
+                    let r = GetChatLogsResult {
+                        has_more: lr.has_more,
+                        start_seq: lr.items.first().map(|c| c.seq).unwrap_or(0),
+                        end_seq: lr.items.last().map(|c| c.seq).unwrap_or(0),
+                        items,
+                    };
+                    callback.on_success(r);
+                }
+                Err(e) => {
+                    warn!("sync_chat_logs failed: {:?}", e);
+                    callback.on_fail(e);
+                }
+            };
         });
     }
 

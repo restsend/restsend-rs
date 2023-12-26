@@ -79,7 +79,7 @@ impl Client {
     }
 
     /// get the current connection status
-    /// return: connecting, connected, net_broken, shutdown
+    /// return: connecting, connected, broken, shutdown
     #[wasm_bindgen(getter)]
     pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()

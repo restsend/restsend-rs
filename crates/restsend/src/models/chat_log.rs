@@ -350,6 +350,7 @@ impl ChatLog {
         }
     }
 }
+
 impl FromStr for ChatLog {
     type Err = serde_json::Error;
 
@@ -361,6 +362,20 @@ impl FromStr for ChatLog {
 impl ToString for ChatLog {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+impl ToString for ChatLogStatus {
+    fn to_string(&self) -> String {
+        match self {
+            ChatLogStatus::Uploading => "uploading".to_string(),
+            ChatLogStatus::Sending => "sending".to_string(),
+            ChatLogStatus::Sent => "sent".to_string(),
+            ChatLogStatus::Downloading => "downloading".to_string(),
+            ChatLogStatus::Received => "received".to_string(),
+            ChatLogStatus::Read => "read".to_string(),
+            ChatLogStatus::SendFailed => "sendFailed".to_string(),
+        }
     }
 }
 

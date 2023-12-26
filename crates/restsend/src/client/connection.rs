@@ -38,7 +38,7 @@ impl ToString for ConnectionStatus {
     fn to_string(&self) -> String {
         match self {
             ConnectionStatus::Broken => "broken".to_string(),
-            ConnectionStatus::ConnectNow => "connect_now".to_string(),
+            ConnectionStatus::ConnectNow => "connectNow".to_string(),
             ConnectionStatus::Connected => "connected".to_string(),
             ConnectionStatus::Connecting => "connecting".to_string(),
             ConnectionStatus::Shutdown => "shutdown".to_string(),

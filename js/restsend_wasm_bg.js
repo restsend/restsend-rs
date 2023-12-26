@@ -360,7 +360,7 @@ export class Client {
     }
     /**
     * get the current connection status
-    * return: connecting, connected, net_broken, shutdown
+    * return: connecting, connected, broken, shutdown
     * @returns {string}
     */
     get connectionStatus() {
@@ -2496,8 +2496,8 @@ export function __wbindgen_closure_wrapper728(arg0, arg1, arg2) {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper2149(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 710, __wbg_adapter_62);
+export function __wbindgen_closure_wrapper2154(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 711, __wbg_adapter_62);
     return addHeapObject(ret);
 };
 
