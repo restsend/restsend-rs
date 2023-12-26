@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Error;
 use std::path::PathBuf;
 use std::process::Command;
@@ -230,14 +231,35 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
         }
     };
 
-    let source = format!("target/{}/lib{}.{}", current_mode, crate_name, ext);
-    let source = PathBuf::from(source);
-    if !source.exists() {
-        panic!(
-            "{} does not exist run `cargo build` first",
-            source.to_str().unwrap()
-        );
+    let sources = vec![
+        format!(
+            "target/aarch64-apple-ios-sim/{}/lib{}.{}",
+            current_mode, crate_name, ext
+        ),
+        format!("target/{}/lib{}.{}", current_mode, crate_name, ext),
+    ];
+
+    let mut mtimes = HashMap::new();
+    for source in sources {
+        if !PathBuf::from(source.clone()).exists() {
+            continue;
+        }
+        let mtime = std::fs::metadata(&source).unwrap().modified().unwrap();
+        mtimes.insert(source.clone(), mtime);
     }
+
+    if mtimes.len() == 0 {
+        if std::env::consts::OS == "macos" {
+            println!("🔥 No library found run `cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin` first");
+        } else {
+            println!("🔥 No library found run `cargo build` first");
+        }
+    }
+
+    let mut mtimes: Vec<_> = mtimes.into_iter().collect();
+    mtimes.sort_by(|a, b| b.1.cmp(&a.1));
+    let source = PathBuf::from(mtimes[0].0.clone());
+    println!("▸ Found library {:?}", source);
 
     let language = PathBuf::from(language.clone());
     let out_dir = Utf8Path::from_path(&language).unwrap();

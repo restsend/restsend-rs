@@ -52,6 +52,9 @@ pub(super) struct TestMessageCakllbackImpl {
 }
 
 impl callback::MessageCallback for TestMessageCakllbackImpl {
+    fn on_progress(&self, progress: u64, total: u64) {
+        warn!("on_progress: {}/{}", progress, total);
+    }
     fn on_sent(&self) {
         self.is_sent.store(true, Ordering::Relaxed);
     }
