@@ -113,6 +113,17 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         items
     }
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+        let start_sort_value = match option.start_sort_value {
+            Some(v) => v,
+            None => {
+                let last = self.last(partition);
+                match last {
+                    Some(v) => (v.sort_key() - option.limit as i64).max(0),
+                    None => 0,
+                }
+            }
+        };
+
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -125,7 +136,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let mut stmt = conn.prepare(&stmt).unwrap();
         let rows = stmt.query(&[
             &partition,
-            format!("{}", option.start_sort_value).as_str(),
+            format!("{}", start_sort_value).as_str(),
             format!("{}", option.limit).as_str(),
         ]);
 
@@ -133,7 +144,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(e) => {
                 debug!("{} query {} failed: {}", self.name, partition, e);
                 return QueryResult {
-                    start_sort_value: option.start_sort_value,
+                    start_sort_value: start_sort_value,
                     end_sort_value: 0,
                     items: vec![],
                 };

@@ -54,7 +54,7 @@ impl Client {
     pub fn sync_chat_logs(
         &self,
         topic_id: String,
-        last_seq: i64,
+        last_seq: Option<i64>,
         limit: u32,
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
@@ -74,7 +74,7 @@ impl Client {
                 warn!(
                     "sync_chat_logs from local_logs.items.len(): {} last_seq: {} limit: {}",
                     local_logs.items.len(),
-                    last_seq,
+                    last_seq.unwrap_or_default(),
                     limit,
                 );
             }

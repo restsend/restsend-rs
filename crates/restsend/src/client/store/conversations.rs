@@ -482,21 +482,16 @@ impl ClientStore {
     pub fn get_chat_logs(
         &self,
         topic_id: &str,
-        seq: i64,
+        last_seq: Option<i64>,
         limit: u32,
     ) -> Result<QueryResult<ChatLog>> {
-        let t = self.message_storage.table("chat_logs");
-
-        let start_sort_value = (seq - limit as i64).max(0);
+        let t = self.message_storage.table::<ChatLog>("chat_logs");
         let option = QueryOption {
             keyword: None,
-            start_sort_value,
+            start_sort_value: last_seq,
             limit,
         };
-        info!(
-            "get_chat_logs: topic_id: {} seq: {} limit: {} start_sort_value: {}",
-            topic_id, seq, limit, start_sort_value
-        );
+
         Ok(t.query(topic_id, &option))
     }
 
@@ -521,7 +516,7 @@ impl ClientStore {
 
         let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
             .map(|v| v.timestamp_millis())
-            .unwrap_or(0);
+            .ok();
 
         let option = QueryOption {
             keyword: None,

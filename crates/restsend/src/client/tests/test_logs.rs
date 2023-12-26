@@ -31,7 +31,7 @@ async fn test_client_fetch_logs() {
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let topic_id = "bob:alice";
 
-    let local_logs = c.store.get_chat_logs("bob:alice", 0, 10).unwrap();
+    let local_logs = c.store.get_chat_logs("bob:alice", None, 10).unwrap();
     assert_eq!(local_logs.items.len(), 0);
     let mut last_seq = 0;
     let send_count = 2;
@@ -62,14 +62,14 @@ async fn test_client_fetch_logs() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs(topic_id.to_string(), 0, send_count, Box::new(cb));
+    c.sync_chat_logs(topic_id.to_string(), None, send_count, Box::new(cb));
 
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
         .unwrap();
 
     let r = result.lock().unwrap().take().unwrap();
-    let local_logs = c.store.get_chat_logs(topic_id, 0, send_count).unwrap();
+    let local_logs = c.store.get_chat_logs(topic_id, None, send_count).unwrap();
     assert_eq!(r.start_seq, local_logs.start_sort_value);
     assert_eq!(r.end_seq, local_logs.end_sort_value);
     assert_eq!(last_seq, local_logs.start_sort_value);
@@ -148,11 +148,19 @@ async fn test_client_recall_log() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs(topic_id.to_string(), last_seq, send_count + 1, Box::new(cb));
+    c.sync_chat_logs(
+        topic_id.to_string(),
+        Some(last_seq),
+        send_count + 1,
+        Box::new(cb),
+    );
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
         .unwrap();
-    let local_logs = c.store.get_chat_logs(&topic_id, 0, send_count + 1).unwrap();
+    let local_logs = c
+        .store
+        .get_chat_logs(&topic_id, None, send_count + 1)
+        .unwrap();
     assert_eq!(local_logs.items.len(), send_count as usize + 1);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[2].id, first_send_id);

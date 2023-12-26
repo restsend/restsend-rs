@@ -13,7 +13,7 @@ pub trait StoreModel: ToString + FromStr {
 #[derive(Debug)]
 pub struct QueryOption {
     pub keyword: Option<String>,
-    pub start_sort_value: i64,
+    pub start_sort_value: Option<i64>,
     pub limit: u32,
 }
 #[derive(Debug)]

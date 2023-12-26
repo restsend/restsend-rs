@@ -146,15 +146,17 @@ pub async fn get_chat_logs_desc(
     endpoint: &str,
     token: &str,
     topic_id: &str,
-    last_seq: i64,
+    last_seq: Option<i64>,
     limit: u32,
 ) -> Result<(ListChatLogResult, i64)> {
-    let data = serde_json::json!({
+    let mut data = serde_json::json!({
         "topicId": topic_id,
-        "lastSeq": last_seq,
         "limit": limit.min(LOGS_LIMIT)
-    })
-    .to_string();
+    });
+
+    if last_seq.is_some() {
+        data["lastSeq"] = serde_json::json!(last_seq);
+    }
 
     let now = now_millis();
 
@@ -162,7 +164,7 @@ pub async fn get_chat_logs_desc(
         endpoint,
         &format!("/chat/sync/{}", topic_id),
         token,
-        Some(data),
+        Some(data.to_string()),
     )
     .await
     .map(|mut lr: ListChatLogResult| {
