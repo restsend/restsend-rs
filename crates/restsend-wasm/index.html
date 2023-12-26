@@ -77,7 +77,6 @@
             }
 
             renderContent(content) {
-                console.log('render content', content)
                 if (content.type == 'image') {
                     let url = content.thumbnail || content.text;
                     return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
@@ -109,7 +108,7 @@
                         if (itemTime + 5 * 60 * 1000 < blockTime) {
                             // create new block
                             firstBlock = {
-                                title: item.senderId,
+                                title: item.remark || item.senderId,
                                 avatar: this.getAvatar(item.senderId),
                                 isSelf: item.senderId == this.self,
                                 senderId: item.senderId,
@@ -136,7 +135,7 @@
                 }
 
                 lastBlock = {
-                    title: item.senderId,
+                    title: item.remark || item.senderId,
                     avatar: this.getAvatar(item.senderId),
                     isSelf: item.senderId == this.self,
                     senderId: item.senderId,
@@ -212,6 +211,7 @@
             self: null,
             reference: null,
             showCheckbox: false,
+            showRemarkInput: false,
             messageBlocks: null,
 
             init: async function () {
@@ -282,9 +282,9 @@
                 items.forEach((item) => {
                     let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
                     if (item.multiple) {
-                        item.title = `${item.name || item.topicId}(${item.members})`
+                        item.title = `${item.remark || item.name || item.topicId}`
                     } else {
-                        item.title = item.name || item.attendee
+                        item.title = item.remark || item.name || item.attendee
                     }
 
                     if (index >= 0) {
@@ -390,6 +390,16 @@
                 }).then();
             },
 
+            doRemark: async function (conservation) {
+                if (!this.conversation) {
+                    return
+                }
+                console.log('do remark', conservation)
+                this.showRemarkInput = false
+                await client.setConversationRemark(this.conversation.topicId, conservation.title);
+
+            },
+
 
             getMessageClass(block, item) {
                 let classList = []
@@ -436,7 +446,7 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('send image', event.target.files[0]);
+                // console.log('send image', event.target.files[0]);
                 await client.doSendImage(this.conversation.topicId, {
                     file: event.target.files[0]
                 });
@@ -475,7 +485,7 @@
                     return
                 }
                 this.reference = message
-                console.log('reference message', this.reference)
+                // console.log('reference message', this.reference)
             },
 
             doReCallMessage: async function (block, message) {
@@ -502,7 +512,7 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('clean history', this.conversation)
+
                 let thisPtr = this;
                 await client.cleanMessages(this.conversation.topicId);
                 this.messageBlocks = null
@@ -533,7 +543,18 @@
                     return '[file]'
                 }
                 return item.text
-            }
+            },
+            doGroupMembers: function (conversation) {
+                if (!conversation) {
+                    return
+                }
+                if (conversation.multiple) {
+                    return `${conversation.title}(${conversation.members})`
+                } else {
+                    return conversation.title
+                }
+
+            },
         };
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
@@ -594,7 +615,7 @@
                             <div class="sm:flex sm:flex-col pl-2 w-full">
                                 <div class="flex w-full justify-between">
                                     <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
-                                        x-text="item.title"></p>
+                                        x-text="doGroupMembers(item)"></p>
                                     <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
                                         <button class="hover:text-gray-600 invisible group-hover:visible"
                                             :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
@@ -655,9 +676,30 @@
                                             <img :src="conversation.icon" alt="" class="w-10 h-10 rounded-full">
                                         </div>
                                         <div class="flex flex-col leading-tight">
-                                            <div class="text-xl flex items-center">
-                                                <span class="text-gray-700 text-lg font-semibold"
-                                                    x-text="conversation.title"></span>
+                                            <div class="text-xl flex items-center group">
+                                                <template x-if="!showRemarkInput">
+                                                    <span class="text-gray-700 text-lg font-semibold max-w-xs truncate"
+                                                        x-text="doGroupMembers(conversation)"></span>
+                                                </template>
+
+                                                <template x-if="showRemarkInput">
+                                                    <input type="text" x-ref="remarkInput" placeholder="name"
+                                                        x-model="conversation.title"
+                                                        class="text-gray-800 w-40 h-7 px-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:border-indigo-600"
+                                                        x-on:blur="showRemarkInput=false"
+                                                        @change="doRemark(conversation)">
+                                                </template>
+
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor"
+                                                    class="w-6 h-6 invisible group-hover:visible text-gray-800 cursor-pointer ml-1"
+                                                    x-on:click="()=>{
+                                                        showRemarkInput=true;
+                                                        setTimeout(()=>{ $refs.remarkInput.focus()}, 0)
+                                                    }">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                </svg>
                                             </div>
                                             <span class="text-sm mt-1 text-gray-400"
                                                 x-text="conversation.topicId"></span>
@@ -718,7 +760,7 @@
                                 <!-- h-[calc(100vh-22rem)] -->
                                 <div id="messages" @scrollend="onScrollMessages($event)"
                                     class="flex  flex-col space-y-4 p-3 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
-                                    <template x-for="block in messageBlocks.blocks">
+                                    <template x-for="block in messageBlocks?.blocks">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
                                                 <p class="text-xs text-gray-400 shrink-0 text-center">
