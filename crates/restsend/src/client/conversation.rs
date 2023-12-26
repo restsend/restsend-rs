@@ -71,12 +71,6 @@ impl Client {
                     callback.on_success(r);
                     return;
                 }
-                warn!(
-                    "sync_chat_logs from local_logs.items.len(): {} last_seq: {} limit: {}",
-                    local_logs.items.len(),
-                    last_seq.unwrap_or_default(),
-                    limit,
-                );
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);

@@ -1,6 +1,7 @@
 use super::Client;
 use crate::callback::MessageCallback;
 use crate::models::chat_log::Attachment;
+use crate::models::conversation::Extra;
 use crate::services::conversation::send_request;
 use crate::services::response::APISendResponse;
 use crate::Result;
@@ -260,6 +261,19 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_chat_with_content(&topic_id, content);
+        self.send_chat_request_via_connection(req, callback).await
+    }
+
+    pub async fn do_update_extra(
+        &self,
+        topic_id: String,
+        chat_id: String,
+        extra: Option<Extra>,
+        callback: Option<Box<dyn MessageCallback>>,
+    ) -> Result<String> {
+        let req = ChatRequest::new_chat(&topic_id, crate::models::ContentType::UpdateExtra)
+            .text(&chat_id)
+            .extra(extra);
         self.send_chat_request_via_connection(req, callback).await
     }
 }

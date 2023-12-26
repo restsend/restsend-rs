@@ -449,6 +449,7 @@ public protocol ClientProtocol {
     func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doTyping(topicId: String) async throws
+    func doUpdateExtra(topicId: String, chatId: String, extra: [String: String]?, callback: MessageCallback?) async throws -> String
     func downloadFile(fileUrl: String, callback: DownloadCallback) async throws -> String
     func getChatLog(topicId: String, chatId: String)   -> ChatLog?
     func getConversation(topicId: String)   -> Conversation?
@@ -482,7 +483,7 @@ public protocol ClientProtocol {
     func shutdown()  
     func silentTopic(topicId: String, duration: String?) async throws
     func silentTopicMember(topicId: String, userId: String, duration: String?) async throws
-    func syncChatLogs(topicId: String, lastSeq: Int64, limit: UInt32, callback: SyncChatLogsCallback)  
+    func syncChatLogs(topicId: String, lastSeq: Int64?, limit: UInt32, callback: SyncChatLogsCallback)  
     func syncConversations(updatedAt: String?, limit: UInt32, callback: SyncConversationsCallback)  
     func transferTopic(topicId: String, userId: String) async throws
     func updateTopic(topicId: String, name: String?, icon: String?) async throws
@@ -1002,6 +1003,27 @@ public class Client: ClientProtocol {
             completeFunc: ffi_restsend_sdk_rust_future_complete_void,
             freeFunc: ffi_restsend_sdk_rust_future_free_void,
             liftFunc: { $0 },
+            errorHandler: FfiConverterTypeClientError.lift
+        )
+    }
+
+    
+
+    public func doUpdateExtra(topicId: String, chatId: String, extra: [String: String]?, callback: MessageCallback?) async throws -> String {
+        return try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_do_update_extra(
+                    self.pointer,
+                    FfiConverterString.lower(topicId),
+                    FfiConverterString.lower(chatId),
+                    FfiConverterOptionDictionaryStringString.lower(extra),
+                    FfiConverterOptionCallbackInterfaceMessageCallback.lower(callback)
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
+            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
     }
@@ -1607,13 +1629,13 @@ public class Client: ClientProtocol {
 
     
 
-    public func syncChatLogs(topicId: String, lastSeq: Int64, limit: UInt32, callback: SyncChatLogsCallback)  {
+    public func syncChatLogs(topicId: String, lastSeq: Int64?, limit: UInt32, callback: SyncChatLogsCallback)  {
         try! 
     rustCall() {
     
     uniffi_restsend_sdk_fn_method_client_sync_chat_logs(self.pointer, 
         FfiConverterString.lower(topicId),
-        FfiConverterInt64.lower(lastSeq),
+        FfiConverterOptionInt64.lower(lastSeq),
         FfiConverterUInt32.lower(limit),
         FfiConverterCallbackInterfaceSyncChatLogsCallback.lower(callback),$0
     )
@@ -5169,6 +5191,27 @@ extension FfiConverterCallbackInterfaceUploadCallback : FfiConverter {
     }
 }
 
+fileprivate struct FfiConverterOptionInt64: FfiConverterRustBuffer {
+    typealias SwiftType = Int64?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterInt64.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterInt64.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
 fileprivate struct FfiConverterOptionString: FfiConverterRustBuffer {
     typealias SwiftType = String?
 
@@ -5989,6 +6032,9 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_do_typing() != 56138) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_restsend_sdk_checksum_method_client_do_update_extra() != 10723) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_restsend_sdk_checksum_method_client_download_file() != 56679) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -6088,7 +6134,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_silent_topic_member() != 11552) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_sync_chat_logs() != 51862) {
+    if (uniffi_restsend_sdk_checksum_method_client_sync_chat_logs() != 53760) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_sync_conversations() != 27599) {

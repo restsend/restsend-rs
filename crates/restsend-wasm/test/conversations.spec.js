@@ -16,10 +16,7 @@ describe('Conversations', async function () {
         let r = await vitalik.setConversationExtra(guidoTopic.topicId, { "key1": "value1" })
         expect(r).toHaveProperty('tags')
         expect(r.tags).toEqual([{ id: 'tag1' }, { id: 'tag2' }])
-        for ([k, v] in r.extra) {
-            expect(k).toEqual('key1')
-            expect(v).toEqual('value1')
-        }
+        expect(r.extra).toStrictEqual({ key1: 'value1' })
     })
 
     it('#sync conversation', async () => {
@@ -67,7 +64,7 @@ describe('Conversations', async function () {
         let syncMax = 100
         let items = []
         let syncLogs = async () => {
-            await vitalik.syncChatLogs(guidoTopic.topicId, 0, {
+            await vitalik.syncChatLogs(guidoTopic.topicId, undefined, {
                 limit: 10,
                 onsuccess: (r) => {
                     if (r.items) {

@@ -133,4 +133,56 @@ describe('Messages', async function () {
         expect(sentContent.placeholder).toBe('hello_custom.png')
         expect(sentContent.size).toBe(12)
     })
+    it('#send update extra', async () => {
+        let isAck = false
+        let id = await bob.doSendText(
+            'bob:alice', 'Need to update extra',
+            {
+                onack: (req) => {
+                    isAck = true
+                },
+            });
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+
+        setLogging('info')
+        isAck = false
+        await bob.doUpdateExtra('bob:alice', id, {
+            'foo': 'bar'
+        }, {
+            onack: (req) => {
+                isAck = true
+            },
+        })
+
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        isAck = false
+
+        let items = []
+        await bob.syncChatLogs('bob:alice', undefined, {
+            limit: 2,
+            onsuccess: (r) => {
+                items = r.items
+                isAck = true
+            }
+        })
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        expect(items[1].content.extra).toStrictEqual({ foo: 'bar' })
+
+        let bob2 = await authClient('bob', 'bob:demo')
+        isAck = false
+        items = []
+        await bob2.syncChatLogs('bob:alice', undefined, {
+            limit: 2,
+            onsuccess: (r) => {
+                items = r.items
+                isAck = true
+            }
+        })
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        expect(items[1].content.extra).toStrictEqual({ foo: 'bar' })
+    })
 })

@@ -4,18 +4,19 @@ use crate::{
     js_util::{self, get_string},
 };
 use restsend_sdk::models::conversation::{Extra, Tags};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
-
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 impl Client {
     /// Create a new chat with userId
     /// return: Conversation
     pub async fn createChat(&self, userId: String) -> Result<JsValue, JsValue> {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .create_chat(userId)
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+            .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
             .map_err(|e| e.into())
     }
 
@@ -79,9 +80,10 @@ impl Client {
     /// * `topicId` - topic id
     /// return: Conversation or null
     pub fn getConversation(&self, topicId: String) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_conversation(topicId)
-            .and_then(|v| serde_wasm_bindgen::to_value(&v).ok())
+            .and_then(|v| v.serialize(serializer).ok())
             .unwrap_or(JsValue::UNDEFINED)
     }
 
@@ -102,7 +104,8 @@ impl Client {
         remark: Option<String>,
     ) -> Result<JsValue, JsValue> {
         let r = self.inner.set_conversation_remark(topicId, remark).await?;
-        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        r.serialize(serializer).map_err(|e| e.into())
     }
 
     /// Set conversation sticky by topicId
@@ -115,7 +118,8 @@ impl Client {
         sticky: bool,
     ) -> Result<JsValue, JsValue> {
         let r = self.inner.set_conversation_sticky(topicId, sticky).await?;
-        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        r.serialize(serializer).map_err(|e| e.into())
     }
 
     /// Set conversation mute by topicId
@@ -128,7 +132,8 @@ impl Client {
         mute: bool,
     ) -> Result<JsValue, JsValue> {
         let r = self.inner.set_conversation_mute(topicId, mute).await?;
-        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        r.serialize(serializer).map_err(|e| e.into())
     }
 
     /// Set conversation read by topicId
@@ -152,7 +157,8 @@ impl Client {
     ) -> Result<JsValue, JsValue> {
         let tags = serde_wasm_bindgen::from_value::<Tags>(tags).ok();
         let r = self.inner.set_conversation_tags(topicId, tags).await?;
-        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        r.serialize(serializer).map_err(|e| e.into())
     }
 
     /// Set conversation extra
@@ -167,7 +173,8 @@ impl Client {
     ) -> Result<JsValue, JsValue> {
         let extra = serde_wasm_bindgen::from_value::<Extra>(extra).ok();
         let r = self.inner.set_conversation_extra(topicId, extra).await?;
-        serde_wasm_bindgen::to_value(&r).map_err(|e| e.into())
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        r.serialize(serializer).map_err(|e| e.into())
     }
 
     /// Filter conversation with options
@@ -190,8 +197,13 @@ impl Client {
     pub async fn filterConversation(&self, predicate: JsValue) -> JsValue {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
         let items = self.inner.filter_conversation(Box::new(move |c| {
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let keep = match predicate.as_ref().and_then(|f| {
-                match f.call1(&JsValue::NULL, &serde_wasm_bindgen::to_value(&c).unwrap()) {
+                let c = match c.serialize(serializer) {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+                match f.call1(&JsValue::NULL, &c) {
                     Ok(v) => Some(v),
                     Err(e) => {
                         web_sys::console::error_1(&e);
@@ -208,6 +220,7 @@ impl Client {
                 None
             }
         }));
-        serde_wasm_bindgen::to_value(&items).unwrap_or(JsValue::UNDEFINED)
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        items.serialize(serializer).unwrap_or(JsValue::UNDEFINED)
     }
 }

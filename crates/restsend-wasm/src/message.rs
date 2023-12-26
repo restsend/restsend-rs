@@ -3,6 +3,7 @@ use crate::{
     js_util::{get_bool, get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
     Client,
 };
+use restsend_sdk::models::conversation::Extra;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -335,6 +336,31 @@ impl Client {
                 js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
+            )
+            .await
+            .map_err(|e| e.into())
+    }
+    /// Update sent chat message's extra
+    /// # Arguments
+    /// * `topicId` - The topic id
+    /// * `chatId` - The chat id
+    /// * `extra` - The extra, optional
+    /// * `option` - The send option
+    /// # Return
+    /// The message id
+    pub async fn doUpdateExtra(
+        &self,
+        topicId: String,
+        chatId: String,
+        extra: JsValue,
+        option: JsValue,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .do_update_extra(
+                topicId,
+                chatId,
+                serde_wasm_bindgen::from_value::<Extra>(extra).ok(),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await

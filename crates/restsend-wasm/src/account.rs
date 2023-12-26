@@ -1,4 +1,5 @@
 use crate::js_util::get_endpoint;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -12,6 +13,7 @@ pub async fn signin(
     token: Option<String>,
 ) -> Result<JsValue, JsValue> {
     let endpoint = get_endpoint(endpoint);
+    let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
 
     match password {
         Some(password) => {
@@ -26,7 +28,7 @@ pub async fn signin(
             .await
         }
     }
-    .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+    .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
     .map_err(|e| e.into())
 }
 
@@ -39,9 +41,11 @@ pub async fn signup(
     password: String,
 ) -> Result<JsValue, JsValue> {
     let endpoint = get_endpoint(endpoint);
+    let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+
     restsend_sdk::services::auth::signup(endpoint, userId, password)
         .await
-        .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
+        .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
         .map_err(|e| e.into())
 }
 

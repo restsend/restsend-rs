@@ -1,4 +1,5 @@
 use super::Client;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -11,11 +12,12 @@ impl Client {
     /// #Return
     /// User info
     pub async fn getUser(&self, userId: String, blocking: Option<bool>) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_user(userId, blocking.unwrap_or_default())
             .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).unwrap_or(JsValue::UNDEFINED))
-            .unwrap()
+            .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
+            .unwrap_or(JsValue::UNDEFINED)
     }
     /// Get multiple users info
     /// #Arguments
@@ -23,8 +25,9 @@ impl Client {
     /// #Return
     /// Array of user info
     pub async fn getUsers(&self, userIds: Vec<String>) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         let users = self.inner.get_users(userIds).await;
-        serde_wasm_bindgen::to_value(&users).unwrap_or(JsValue::UNDEFINED)
+        users.serialize(serializer).unwrap_or(JsValue::UNDEFINED)
     }
     /// Set user remark name
     /// #Arguments

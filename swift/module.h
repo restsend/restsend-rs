@@ -119,6 +119,8 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull 
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_typing(void*_Nonnull ptr, RustBuffer topic_id
 );
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_update_extra(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustBuffer extra, RustBuffer callback
+);
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_download_file(void*_Nonnull ptr, RustBuffer file_url, uint64_t callback
 );
 RustBuffer uniffi_restsend_sdk_fn_method_client_get_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustCallStatus *_Nonnull out_status
@@ -185,7 +187,7 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic(void*_Nonnull p
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer duration
 );
-void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, int64_t last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
 void uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
@@ -442,6 +444,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_voice(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_do_typing(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_update_extra(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_download_file(void

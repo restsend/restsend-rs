@@ -1,3 +1,4 @@
+use crate::models::conversation::Extra;
 use crate::models::Attachment;
 use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;
@@ -270,6 +271,15 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 mention_all: mention_all,
+                ..self.content.clone().unwrap_or(Content::default())
+            }),
+            ..self.clone()
+        }
+    }
+    pub fn extra(&self, extra: Option<Extra>) -> Self {
+        ChatRequest {
+            content: Some(Content {
+                extra,
                 ..self.content.clone().unwrap_or(Content::default())
             }),
             ..self.clone()

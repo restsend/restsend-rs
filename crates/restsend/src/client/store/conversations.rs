@@ -409,7 +409,7 @@ impl ClientStore {
                             log.content.extra = extra.clone();
                             t.set(&topic_id, &update_chat_id, Some(&log));
                         }
-                        None => return Ok(()),
+                        None => {}
                     }
                 }
                 _ => {}
@@ -425,20 +425,14 @@ impl ClientStore {
         }
 
         let mut log = ChatLog::from(req);
-        log.status = new_status;
         log.cached_at = now;
-
-        debug!(
-            "save_incoming_chat_log topic_id: {} chat_id: {} seq: {} content_type:{}",
-            topic_id, chat_id, req.seq, log.content.r#type,
-        );
+        log.status = new_status;
         t.set(&log.topic_id, &log.id, Some(&log));
         Ok(())
     }
 
     pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
-
         if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
             return Ok(());
         }

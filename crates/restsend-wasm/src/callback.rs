@@ -1,5 +1,6 @@
 use crate::{js_util::get_function, CallbackFunction, Client};
 use restsend_sdk::{models::Conversation, request::ChatRequest};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 pub(super) struct MessageCallbackWasmWrap {
@@ -46,7 +47,8 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
 
     fn on_ack(&self, req: ChatRequest) {
         if let Some(cb) = self.cb_on_ack.lock().unwrap().as_ref() {
-            let req = serde_wasm_bindgen::to_value(&req).unwrap_or(JsValue::NULL);
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &req)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -82,7 +84,8 @@ impl SyncChatLogsCallbackWasmWrap {
 impl restsend_sdk::callback::SyncChatLogsCallback for SyncChatLogsCallbackWasmWrap {
     fn on_success(&self, r: restsend_sdk::models::GetChatLogsResult) {
         if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
-            let r = serde_wasm_bindgen::to_value(&r).unwrap_or(JsValue::NULL);
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            let r = r.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &r)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -91,7 +94,7 @@ impl restsend_sdk::callback::SyncChatLogsCallback for SyncChatLogsCallbackWasmWr
 
     fn on_fail(&self, e: restsend_sdk::Error) {
         if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
-            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::NULL);
+            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &e)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -129,7 +132,7 @@ impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCall
 
     fn on_fail(&self, e: restsend_sdk::Error) {
         if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
-            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::NULL);
+            let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &e)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -196,7 +199,8 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
 
     fn on_system_request(&self, req: ChatRequest) -> Option<ChatRequest> {
         if let Some(cb) = self.cb_on_system_request.lock().unwrap().as_ref() {
-            let req = serde_wasm_bindgen::to_value(&req).unwrap_or(JsValue::NULL);
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             match cb.call1(&JsValue::NULL, &req) {
                 Ok(result) => {
                     if let Ok(result) = serde_wasm_bindgen::from_value(result) {
@@ -212,7 +216,8 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
     fn on_unknown_request(&self, req: ChatRequest) -> Option<ChatRequest> {
         if let Some(cb) = self.cb_on_unknown_request.lock().unwrap().as_ref() {
-            let req = serde_wasm_bindgen::to_value(&req).unwrap_or(JsValue::NULL);
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             match cb.call1(&JsValue::NULL, &req) {
                 Ok(result) => {
                     if let Ok(result) = serde_wasm_bindgen::from_value(result) {
@@ -242,7 +247,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     // if return true, will send `has read` to server
     fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
         if let Some(cb) = self.cb_on_topic_message.lock().unwrap().as_ref() {
-            let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::NULL);
+            let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::UNDEFINED);
             match cb.call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req) {
                 Ok(result) => {
                     if let Ok(result) = serde_wasm_bindgen::from_value(result) {
@@ -258,7 +263,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
         if let Some(cb) = self.cb_on_topic_read.lock().unwrap().as_ref() {
-            let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::NULL);
+            let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::UNDEFINED);
             cb.call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -266,8 +271,10 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
         if let Some(cb) = self.cb_on_conversations_updated.lock().unwrap().as_ref() {
-            let conversations =
-                serde_wasm_bindgen::to_value(&conversations).unwrap_or(JsValue::NULL);
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            let conversations = conversations
+                .serialize(serializer)
+                .unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &conversations)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
