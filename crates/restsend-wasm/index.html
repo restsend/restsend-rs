@@ -79,7 +79,7 @@
             renderContent(content) {
                 if (content.type == 'image') {
                     let url = content.thumbnail || content.text;
-                    return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
+                    return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
                 }
                 if (content.type == 'link') {
                     return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
@@ -212,6 +212,7 @@
             reference: null,
             showCheckbox: false,
             showRemarkInput: false,
+            selectedMessages: [],
             messageBlocks: null,
 
             init: async function () {
@@ -464,16 +465,24 @@
                     replyId: '1234567'
                 });
             },
-            doDeleteMessage: async function (block, message) {
+            doDeleteMessage: async function (message) {
                 if (!this.conversation) {
                     return
                 }
-                await client.removeMessages(this.conversation.topicId, [message.id]);
-                this.message = ''
-                this.messageBlocks.updateItem(message.id, {
-                    type: '',
-                    content: ''
-                })
+                let ids = []
+                for (let i = 0; i < message.length; i++) {
+                    ids.push(message[i].id)
+                }
+                console.log('delete message', ids)
+                await client.removeMessages(this.conversation.topicId, ids);
+                for (let i = 0; i < message.length; i++) {
+                    this.messageBlocks.updateItem(message[i].id, {
+                        type: '',
+                        content: ''
+                    })
+                }
+                this.selectedMessages = []
+                this.showCheckbox = false
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
@@ -517,6 +526,24 @@
                 await client.cleanMessages(this.conversation.topicId);
                 this.messageBlocks = null
             },
+
+            doSelectMessage: function (message, event) {
+                if (event.target.checked) {
+                    let index = this.selectedMessages.findIndex((m) => m.seq > message.seq)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 0, message)
+                    } else {
+                        this.selectedMessages.push(message)
+                    }
+                } else {
+                    let index = this.selectedMessages.findIndex((m) => m.id == message.id)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 1)
+                    }
+                }
+                console.log('doSelectMessage', this.selectedMessages)
+            },
+
             formatDateTime: function (time) {
                 const datetime = new Date(time);
                 const today = new Date();
@@ -553,7 +580,6 @@
                 } else {
                     return conversation.title
                 }
-
             },
         };
     </script>
@@ -669,7 +695,40 @@
                 <div class="px-4 h-full py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
                     <template x-if="conversation">
                         <div class="overflow-hidden rounded-lg bg-white shadow">
-                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)]">
+                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
+                                <template x-if="showCheckbox">
+                                    <div class="absolute bottom-0 h-28 z-20 left-0 px-10 w-full bg-white">
+                                        <div
+                                            class="flex items-center justify-center w-full mt-10 space-x-6 bg-white p-4 rounded-full shadow-md border relative">
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                                    <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                                        stroke-linejoin="round" stroke-width="1.5"
+                                                        d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500"
+                                                @click="doDeleteMessage(selectedMessages)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button"
+                                                x-on:click="()=>{ showCheckbox=false; selectedMessages=[] }"
+                                                class="bg-gray-100 rounded-full p-1 hover:bg-grtay-200 text-gray-800 absolute right-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M6 18 18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
@@ -769,7 +828,7 @@
                                                 </p>
                                             </template>
 
-                                            <div class="flex items-end" :class="block.isSelf?'justify-end':''">
+                                            <div class="flex items-end relative" :class="block.isSelf?'justify-end':''">
                                                 <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2 w-full"
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items">
@@ -795,8 +854,11 @@
                                                             <template x-if="item.content && item.type!='recall'">
                                                                 <div class="flex items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
-                                                                        <input type="checkbox"
-                                                                            class="w-4 h-4 text-gray-400 -mt-2 absolute left-0" />
+                                                                        <div class="absolute left-0 -pt-2">
+                                                                            <input type="checkbox"
+                                                                                @click="doSelectMessage(item,event)"
+                                                                                class="w-5 h-5 text-gray-400 text-indigo-600 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
+                                                                        </div>
                                                                     </template>
 
                                                                     <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
@@ -840,7 +902,7 @@
                                                                         </div>
 
                                                                         <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doDeleteMessage(block,item)">
+                                                                            @click="doDeleteMessage([item])">
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5" stroke="currentColor"
@@ -849,6 +911,21 @@
                                                                                     stroke-linejoin="round"
                                                                                     d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                                                             </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            x-on:click="()=>{
+                                                                                showCheckbox=true
+                                                                            }">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5"
+                                                                                stroke="currentColor">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                                            </svg>
+
                                                                         </div>
                                                                     </div>
                                                                     <div class="rounded-lg whitespace-wrap break-all inline-block"
@@ -872,8 +949,17 @@
                                             <div
                                                 class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs relative">
                                                 <p class="text-overflow-ellipsis pr-3" x-html="reference.content"></p>
-                                                <p class="absolute right-0 top-0 px-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300 text-gray-800 cursor-pointer"
-                                                    @click="reference=null">X</p>
+
+                                                <p class="absolute right-0.5 top-0.5 cursor-pointer hover:text-gray-800 text-gray-500"
+                                                    @click="reference=null">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                    </svg>
+                                                </p>
+
                                             </div>
                                         </template>
                                         <input type="text" placeholder="Write your message!" x-model="message"
