@@ -77,10 +77,9 @@
             }
 
             renderContent(content) {
-                console.log('render content', content)
                 if (content.type == 'image') {
                     let url = content.thumbnail || content.text;
-                    return `<img class="w-32 h-32 rounded-md shadow" src='${url}'/>`
+                    return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
                 }
                 if (content.type == 'link') {
                     return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
@@ -109,7 +108,7 @@
                         if (itemTime + 5 * 60 * 1000 < blockTime) {
                             // create new block
                             firstBlock = {
-                                title: item.senderId,
+                                title: item.remark || item.senderId,
                                 avatar: this.getAvatar(item.senderId),
                                 isSelf: item.senderId == this.self,
                                 senderId: item.senderId,
@@ -136,7 +135,7 @@
                 }
 
                 lastBlock = {
-                    title: item.senderId,
+                    title: item.remark || item.senderId,
                     avatar: this.getAvatar(item.senderId),
                     isSelf: item.senderId == this.self,
                     senderId: item.senderId,
@@ -212,6 +211,8 @@
             self: null,
             reference: null,
             showCheckbox: false,
+            showRemarkInput: false,
+            selectedMessages: [],
             messageBlocks: null,
 
             init: async function () {
@@ -282,9 +283,9 @@
                 items.forEach((item) => {
                     let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
                     if (item.multiple) {
-                        item.title = `${item.name || item.topicId}(${item.members})`
+                        item.title = `${item.remark || item.name || item.topicId}`
                     } else {
-                        item.title = item.name || item.attendee
+                        item.title = item.remark || item.name || item.attendee
                     }
 
                     if (index >= 0) {
@@ -390,6 +391,16 @@
                 }).then();
             },
 
+            doRemark: async function (conservation) {
+                if (!this.conversation) {
+                    return
+                }
+                console.log('do remark', conservation)
+                this.showRemarkInput = false
+                await client.setConversationRemark(this.conversation.topicId, conservation.title);
+
+            },
+
 
             getMessageClass(block, item) {
                 let classList = []
@@ -436,7 +447,7 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('send image', event.target.files[0]);
+                // console.log('send image', event.target.files[0]);
                 await client.doSendImage(this.conversation.topicId, {
                     file: event.target.files[0]
                 });
@@ -454,16 +465,24 @@
                     replyId: '1234567'
                 });
             },
-            doDeleteMessage: async function (block, message) {
+            doDeleteMessage: async function (message) {
                 if (!this.conversation) {
                     return
                 }
-                await client.removeMessages(this.conversation.topicId, [message.id]);
-                this.message = ''
-                this.messageBlocks.updateItem(message.id, {
-                    type: '',
-                    content: ''
-                })
+                let ids = []
+                for (let i = 0; i < message.length; i++) {
+                    ids.push(message[i].id)
+                }
+                console.log('delete message', ids)
+                await client.removeMessages(this.conversation.topicId, ids);
+                for (let i = 0; i < message.length; i++) {
+                    this.messageBlocks.updateItem(message[i].id, {
+                        type: '',
+                        content: ''
+                    })
+                }
+                this.selectedMessages = []
+                this.showCheckbox = false
             },
             doForwardMessage: async function (message) {
                 if (!this.conversation) {
@@ -475,7 +494,7 @@
                     return
                 }
                 this.reference = message
-                console.log('reference message', this.reference)
+                // console.log('reference message', this.reference)
             },
 
             doReCallMessage: async function (block, message) {
@@ -502,11 +521,29 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('clean history', this.conversation)
+
                 let thisPtr = this;
                 await client.cleanMessages(this.conversation.topicId);
                 this.messageBlocks = null
             },
+
+            doSelectMessage: function (message, event) {
+                if (event.target.checked) {
+                    let index = this.selectedMessages.findIndex((m) => m.seq > message.seq)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 0, message)
+                    } else {
+                        this.selectedMessages.push(message)
+                    }
+                } else {
+                    let index = this.selectedMessages.findIndex((m) => m.id == message.id)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 1)
+                    }
+                }
+                console.log('doSelectMessage', this.selectedMessages)
+            },
+
             formatDateTime: function (time) {
                 const datetime = new Date(time);
                 const today = new Date();
@@ -533,7 +570,17 @@
                     return '[file]'
                 }
                 return item.text
-            }
+            },
+            doGroupMembers: function (conversation) {
+                if (!conversation) {
+                    return
+                }
+                if (conversation.multiple) {
+                    return `${conversation.title}(${conversation.members})`
+                } else {
+                    return conversation.title
+                }
+            },
         };
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
@@ -594,7 +641,7 @@
                             <div class="sm:flex sm:flex-col pl-2 w-full">
                                 <div class="flex w-full justify-between">
                                     <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
-                                        x-text="item.title"></p>
+                                        x-text="doGroupMembers(item)"></p>
                                     <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
                                         <button class="hover:text-gray-600 invisible group-hover:visible"
                                             :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
@@ -648,16 +695,70 @@
                 <div class="px-4 h-full py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
                     <template x-if="conversation">
                         <div class="overflow-hidden rounded-lg bg-white shadow">
-                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)]">
+                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
+                                <template x-if="showCheckbox">
+                                    <div class="absolute bottom-0 h-28 z-20 left-0 px-10 w-full bg-white">
+                                        <div
+                                            class="flex items-center justify-center w-full mt-10 space-x-6 bg-white p-4 rounded-full shadow-md border relative">
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                                    <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                                        stroke-linejoin="round" stroke-width="1.5"
+                                                        d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500"
+                                                @click="doDeleteMessage(selectedMessages)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button"
+                                                x-on:click="()=>{ showCheckbox=false; selectedMessages=[] }"
+                                                class="bg-gray-100 rounded-full p-1 hover:bg-grtay-200 text-gray-800 absolute right-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M6 18 18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
                                             <img :src="conversation.icon" alt="" class="w-10 h-10 rounded-full">
                                         </div>
                                         <div class="flex flex-col leading-tight">
-                                            <div class="text-xl flex items-center">
-                                                <span class="text-gray-700 text-lg font-semibold"
-                                                    x-text="conversation.title"></span>
+                                            <div class="text-xl flex items-center group">
+                                                <template x-if="!showRemarkInput">
+                                                    <span class="text-gray-700 text-lg font-semibold max-w-xs truncate"
+                                                        x-text="doGroupMembers(conversation)"></span>
+                                                </template>
+
+                                                <template x-if="showRemarkInput">
+                                                    <input type="text" x-ref="remarkInput" placeholder="name"
+                                                        x-model="conversation.title"
+                                                        class="text-gray-800 w-40 h-7 px-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:border-indigo-600"
+                                                        x-on:blur="showRemarkInput=false"
+                                                        @change="doRemark(conversation)">
+                                                </template>
+
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor"
+                                                    class="w-6 h-6 invisible group-hover:visible text-gray-800 cursor-pointer ml-1"
+                                                    x-on:click="()=>{
+                                                        showRemarkInput=true;
+                                                        setTimeout(()=>{ $refs.remarkInput.focus()}, 0)
+                                                    }">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                </svg>
                                             </div>
                                             <span class="text-sm mt-1 text-gray-400"
                                                 x-text="conversation.topicId"></span>
@@ -718,7 +819,7 @@
                                 <!-- h-[calc(100vh-22rem)] -->
                                 <div id="messages" @scrollend="onScrollMessages($event)"
                                     class="flex  flex-col space-y-4 p-3 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
-                                    <template x-for="block in messageBlocks.blocks">
+                                    <template x-for="block in messageBlocks?.blocks">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
                                                 <p class="text-xs text-gray-400 shrink-0 text-center">
@@ -727,7 +828,7 @@
                                                 </p>
                                             </template>
 
-                                            <div class="flex items-end" :class="block.isSelf?'justify-end':''">
+                                            <div class="flex items-end relative" :class="block.isSelf?'justify-end':''">
                                                 <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2 w-full"
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items">
@@ -753,8 +854,11 @@
                                                             <template x-if="item.content && item.type!='recall'">
                                                                 <div class="flex items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
-                                                                        <input type="checkbox"
-                                                                            class="w-4 h-4 text-gray-400 -mt-2 absolute left-0" />
+                                                                        <div class="absolute left-0 -pt-2">
+                                                                            <input type="checkbox"
+                                                                                @click="doSelectMessage(item,event)"
+                                                                                class="w-5 h-5 text-gray-400 text-indigo-600 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
+                                                                        </div>
                                                                     </template>
 
                                                                     <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
@@ -798,7 +902,7 @@
                                                                         </div>
 
                                                                         <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doDeleteMessage(block,item)">
+                                                                            @click="doDeleteMessage([item])">
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5" stroke="currentColor"
@@ -807,6 +911,21 @@
                                                                                     stroke-linejoin="round"
                                                                                     d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                                                                             </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            x-on:click="()=>{
+                                                                                showCheckbox=true
+                                                                            }">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5"
+                                                                                stroke="currentColor">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                                            </svg>
+
                                                                         </div>
                                                                     </div>
                                                                     <div class="rounded-lg whitespace-wrap break-all inline-block"
@@ -830,8 +949,17 @@
                                             <div
                                                 class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs relative">
                                                 <p class="text-overflow-ellipsis pr-3" x-html="reference.content"></p>
-                                                <p class="absolute right-0 top-0 px-2 p-1 bg-gray-200 rounded-full hover:bg-gray-300 text-gray-800 cursor-pointer"
-                                                    @click="reference=null">X</p>
+
+                                                <p class="absolute right-0.5 top-0.5 cursor-pointer hover:text-gray-800 text-gray-500"
+                                                    @click="reference=null">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                    </svg>
+                                                </p>
+
                                             </div>
                                         </template>
                                         <input type="text" placeholder="Write your message!" x-model="message"
