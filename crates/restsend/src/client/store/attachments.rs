@@ -41,7 +41,7 @@ impl UploadTask {
         self.updated_at.store(now_millis(), Ordering::Relaxed);
         let req = &self.req.lock().unwrap();
         let last_progress = self.last_progress.load(Ordering::Relaxed);
-        log::debug!("upload progress: {} / {}", progress, total);
+        
         if elapsed(last_progress).as_millis() < MEDIA_PROGRESS_INTERVAL {
             // 300ms
             return;

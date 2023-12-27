@@ -8,7 +8,7 @@ use crate::{
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
-use log::{debug, info, warn};
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
     sync::{
@@ -181,7 +181,6 @@ impl WebSocketCallback for ConnectionInner {
     }
 
     fn on_message(&self, message: String) {
-        debug!("websocket message: {}", message);
         self.connect_state_ref.did_sent_or_recvived();
 
         let req = match ChatRequest::try_from(message) {

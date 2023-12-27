@@ -9,7 +9,6 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use log::debug;
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::{HashMap, VecDeque},
@@ -151,7 +150,6 @@ impl ClientStore {
                 expired.push(chat_id.clone());
             } else {
                 if pending.need_retry(now) {
-                    debug!("retry send: {}", chat_id);
                     self.try_send(chat_id.clone());
                 }
             }

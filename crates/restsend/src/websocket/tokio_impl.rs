@@ -3,7 +3,7 @@ use crate::error::ClientError::{self, TokenExpired, HTTP};
 use crate::utils::{elapsed, now_millis, sleep};
 use crate::Result;
 use futures_util::{SinkExt, StreamExt};
-use log::{debug, warn};
+use log::warn;
 use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use std::sync::Mutex;
 use tokio::select;
@@ -81,7 +81,6 @@ impl WebSocketImpl {
         let usage = elapsed(st);
         match resp.status() {
             reqwest::StatusCode::SWITCHING_PROTOCOLS => {
-                debug!("websocket connected usage: {:?}", elapsed(st));
                 callback.on_connected(usage);
             }
             reqwest::StatusCode::UNAUTHORIZED => {
@@ -112,17 +111,14 @@ impl WebSocketImpl {
                 };
 
                 if msg.is_ping() {
-                    debug!("websocket recv ping");
                     continue;
                 }
 
                 if msg.is_pong() {
-                    debug!("websocket recv pong");
                     continue;
                 }
 
                 if msg.is_close() {
-                    debug!("websocket recv close");
                     return Ok(());
                 }
 
@@ -144,11 +140,9 @@ impl WebSocketImpl {
                 let msg = match sender_rx.recv().await {
                     Some(msg) => msg,
                     None => {
-                        debug!("websocket send close");
                         return Ok(());
                     }
                 };
-                debug!("websocket send: {}", msg);
                 let r = stream_tx.send(Message::text(msg)).await;
                 if let Err(e) = r {
                     return Err(HTTP(format!("websocket send failed: {}", e)));

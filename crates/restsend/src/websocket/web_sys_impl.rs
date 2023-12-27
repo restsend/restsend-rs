@@ -3,7 +3,7 @@ use crate::error::ClientError;
 use crate::utils::elapsed;
 use crate::utils::now_millis;
 use crate::Result;
-use log::{debug, warn};
+use log::warn;
 use std::sync::Arc;
 use std::sync::Mutex;
 use tokio::sync::oneshot;
@@ -90,7 +90,6 @@ impl WebSocketImpl {
             }
         };
 
-        debug!("websocket url: {}", url);
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
 
         let callback_ref = callback.clone();
@@ -116,9 +115,7 @@ impl WebSocketImpl {
                     Ok(message) => {
                         callback_ref.lock().unwrap().as_ref().on_message(message);
                     }
-                    Err(e) => {
-                        debug!("message event, received arraybuffer: {:?}", e);
-                    }
+                    Err(_) => {}
                 }
             } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
                 let message = txt.as_string();
@@ -126,12 +123,8 @@ impl WebSocketImpl {
                     Some(message) => {
                         callback_ref.lock().unwrap().as_ref().on_message(message);
                     }
-                    None => {
-                        debug!("message event, received Text: {:?}", txt);
-                    }
+                    None => {}
                 }
-            } else {
-                debug!("message event, received Unknown: {:?}", e.data());
             }
         });
         ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));

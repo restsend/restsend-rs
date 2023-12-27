@@ -1,6 +1,6 @@
 use super::{QueryOption, QueryResult, StoreModel};
 use crate::{error::ClientError, Result};
-use log::{debug, error};
+use log::{error, info};
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
@@ -85,8 +85,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let mut stmt = conn.prepare(&stmt).unwrap();
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
-            Err(e) => {
-                debug!("{} query {} failed: {}", self.name, partition, e);
+            Err(_) => {
                 return vec![];
             }
             Ok(rows) => rows,
@@ -129,7 +128,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!(
-            "SELECT value FROM {} WHERE partition = ? AND sort_by > ? ORDER BY sort_by DESC LIMIT ?",
+            "SELECT value FROM {} WHERE partition = ? AND sort_by > ? ORDER BY sort_by ASC LIMIT ?",
             self.name
         );
 
@@ -141,8 +140,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         ]);
 
         let mut rows = match rows {
-            Err(e) => {
-                debug!("{} query {} failed: {}", self.name, partition, e);
+            Err(_) => {
                 return QueryResult {
                     start_sort_value: start_sort_value,
                     end_sort_value: 0,
@@ -166,7 +164,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 None => break,
             }
         }
-
+        items.reverse();
         let (start_sort_value, end_sort_value) = if items.len() > 0 {
             (
                 items.first().unwrap().sort_key(),
@@ -195,8 +193,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let mut stmt = conn.prepare(&stmt).unwrap();
         let rows = stmt.query(&[&partition, &key]);
         let mut rows = match rows {
-            Err(e) => {
-                debug!("{} query {} failed: {}", self.name, key, e);
+            Err(_) => {
                 return None;
             }
             Ok(rows) => rows,
@@ -213,10 +210,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 }
                 None => None,
             },
-            Err(e) => {
-                debug!("{} get {} failed: {}", self.name, key, e);
-                None
-            }
+            Err(_) => None,
         }
     }
 
@@ -234,14 +228,10 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 let mut stmt = conn.prepare(&stmt).unwrap();
                 let value = v.to_string();
                 let r = stmt.execute(params![&partition, &key, &value, v.sort_key()]);
-                debug!(
-                    "{} set partition:{} key:{} value:{:?}",
-                    self.name, partition, key, value
-                );
                 match r {
                     Ok(_) => {}
                     Err(e) => {
-                        debug!("{} set {} failed: {}", self.name, key, e);
+                        info!("{} set {} failed: {}", self.name, key, e);
                     }
                 }
             }
@@ -262,7 +252,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         match r {
             Ok(_) => {}
             Err(e) => {
-                debug!("{} remove {} failed: {}", self.name, key, e);
+                info!("{} remove {} failed: {}", self.name, key, e);
             }
         }
     }
@@ -279,8 +269,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let mut stmt = conn.prepare(&stmt).unwrap();
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
-            Err(e) => {
-                debug!("{} query {} failed: {}", self.name, partition, e);
+            Err(_) => {
                 return None;
             }
             Ok(rows) => rows,
@@ -297,10 +286,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 }
                 None => None,
             },
-            Err(e) => {
-                debug!("{} get {} failed: {}", self.name, partition, e);
-                None
-            }
+            Err(_) => None,
         }
     }
     fn clear(&self) {
@@ -313,9 +299,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let r = stmt.execute([]);
         match r {
             Ok(_) => {}
-            Err(e) => {
-                debug!("{} clear failed: {}", self.name, e);
-            }
+            Err(_) => {}
         }
     }
 }

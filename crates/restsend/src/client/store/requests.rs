@@ -6,7 +6,7 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
 };
 use http::StatusCode;
-use log::{debug, info, warn};
+use log::{info, warn};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 impl ClientStore {
@@ -184,7 +184,7 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
-        debug!("add_pending_request: {:?}", req);
+        
         let chat_id = req.chat_id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {

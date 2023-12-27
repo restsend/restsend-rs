@@ -11,7 +11,7 @@ use crate::{
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
-use log::{debug, warn};
+use log::warn;
 use std::sync::Arc;
 
 pub(crate) fn merge_conversation(
@@ -329,10 +329,6 @@ impl ClientStore {
             if let Some(seq) = seq {
                 log.seq = seq;
             }
-            debug!(
-                "update_outoing_chat_log_state: topic_id: {} chat_id: {} status: {:?} seq: {:?}",
-                topic_id, chat_id, log.status, seq
-            );
             t.set(topic_id, chat_id, Some(&log));
         }
         Ok(())
@@ -382,7 +378,7 @@ impl ClientStore {
 
                             let mut recall_log = recall_log.clone();
                             recall_log.recall = true;
-                            recall_log.content = Content::new(ContentType::Recall);
+                            recall_log.content = Content::new(ContentType::None);
                             t.set(&topic_id, &recall_chat_id, Some(&recall_log));
                         }
                         None => return Ok(()),
@@ -433,7 +429,7 @@ impl ClientStore {
                         if !recall_log.recall {
                             let mut log = recall_log.clone();
                             log.recall = true;
-                            log.content = Content::new(ContentType::Recall);
+                            log.content = Content::new(ContentType::None);
                             t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log));
                         }
                     }
@@ -491,6 +487,7 @@ impl ClientStore {
             }
             let has_more = result.items.len() >= limit as usize;
             let next_last_seq = result.items.last().map(|v| v.seq);
+
             let items: Vec<ChatLog> = result
                 .items
                 .into_iter()

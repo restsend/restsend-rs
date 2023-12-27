@@ -1,9 +1,8 @@
 use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
-use crate::utils::{elapsed, now_millis};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
-use log::{debug, info, warn};
+use log::{info, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     ClientBuilder, RequestBuilder, Response,
@@ -141,7 +140,6 @@ pub(super) async fn api_call<R>(
 where
     R: serde::de::DeserializeOwned,
 {
-    let st = now_millis();
     let req = make_post_request(
         endpoint,
         &format!("{}{}", API_PREFIX, uri),
@@ -152,13 +150,5 @@ where
     );
 
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
-    let status = resp.status();
-
-    debug!(
-        "api url:{} status:{} usage: {:?}",
-        resp.url().to_string(),
-        status,
-        elapsed(st)
-    );
     handle_response::<R>(resp).await
 }
