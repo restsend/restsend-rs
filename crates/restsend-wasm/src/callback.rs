@@ -1,11 +1,16 @@
 use crate::{js_util::get_function, CallbackFunction, Client};
-use restsend_sdk::{models::Conversation, request::ChatRequest};
+use restsend_sdk::{
+    models::{Content, Conversation},
+    request::ChatRequest,
+    services::response::Upload,
+};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 pub(super) struct MessageCallbackWasmWrap {
     pub(super) cb_on_sent: CallbackFunction,
     pub(super) cb_on_progress: CallbackFunction,
+    pub(super) cb_on_attachment_upload: CallbackFunction,
     pub(super) cb_on_ack: CallbackFunction,
     pub(super) cb_on_fail: CallbackFunction,
 }
@@ -18,6 +23,7 @@ impl MessageCallbackWasmWrap {
         Self {
             cb_on_sent: get_function(&cb, "onsent"),
             cb_on_progress: get_function(&cb, "onprogress"),
+            cb_on_attachment_upload: get_function(&cb, "onattachmentupload"),
             cb_on_ack: get_function(&cb, "onack"),
             cb_on_fail: get_function(&cb, "onfail"),
         }
@@ -43,6 +49,24 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
             .err()
             .map(|e| web_sys::console::error_1(&e));
         }
+    }
+
+    fn on_attachment_upload(&self, result: Upload) -> Option<Content> {
+        if let Some(cb) = self.cb_on_attachment_upload.lock().unwrap().as_ref() {
+            let result = serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::UNDEFINED);
+            match cb.call1(&JsValue::NULL, &result) {
+                Ok(r) => match serde_wasm_bindgen::from_value(r) {
+                    Ok(r) => return Some(r),
+                    Err(e) => {
+                        web_sys::console::error_1(&e.into());
+                    }
+                },
+                Err(e) => {
+                    web_sys::console::error_1(&e);
+                }
+            }
+        }
+        None
     }
 
     fn on_ack(&self, req: ChatRequest) {

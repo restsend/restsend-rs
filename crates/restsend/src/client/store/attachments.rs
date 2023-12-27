@@ -1,4 +1,5 @@
 use super::{ClientStore, PendingRequest};
+use crate::models::Content;
 use crate::utils::elapsed;
 use crate::Error;
 use crate::{
@@ -59,19 +60,32 @@ impl UploadTask {
                 return;
             }
         };
+
         info!(
             "upload success: file: {} size: {} url: {}",
             result.file_name, result.size, result.path
         );
 
-        let content = pending.req.content.as_mut().unwrap();
-        content.attachment.take();
+        let content = if let Some(cb) = pending.callback.as_ref() {
+            match cb.on_attachment_upload(result.clone()) {
+                Some(content) => Some(content),
+                None => None,
+            }
+        } else {
+            None
+        };
 
-        content.text = result.path;
-        content.size = result.size;
-        content.thumbnail = result.thumbnail;
-        content.placeholder = result.file_name;
-
+        pending.req.content = match content {
+            Some(content) => Some(content),
+            None => {
+                let mut content = Content::new(crate::models::ContentType::Image);
+                content.text = result.path;
+                content.size = result.size;
+                content.thumbnail = result.thumbnail;
+                content.placeholder = result.file_name;
+                Some(content)
+            }
+        };
         // 囧
         self.req.lock().unwrap().replace(pending);
     }

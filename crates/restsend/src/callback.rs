@@ -1,5 +1,5 @@
 use crate::{
-    models::{Conversation, GetChatLogsResult},
+    models::{Content, Conversation, GetChatLogsResult},
     request::ChatRequest,
     services::response::Upload,
     Error,
@@ -53,6 +53,9 @@ pub trait DownloadCallback: Send + Sync {
 pub trait MessageCallback: Send + Sync {
     fn on_sent(&self) {}
     fn on_progress(&self, progress: u64, total: u64) {}
+    fn on_attachment_upload(&self, result: Upload) -> Option<Content> {
+        None
+    }
     fn on_ack(&self, req: ChatRequest) {}
     fn on_fail(&self, reason: String) {}
 }

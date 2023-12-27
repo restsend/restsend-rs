@@ -193,6 +193,7 @@ impl Client {
     pub async fn do_send_logs(
         &self,
         topic_id: String,
+        source_topic_id: String,
         log_ids: Vec<String>,
         mentions: Option<Vec<String>>,
         mention_all: bool,
@@ -201,13 +202,13 @@ impl Client {
         let file_name = "Chat history";
         let mut items = Vec::new();
         for log_id in log_ids.iter() {
-            if let Some(log) = self.store.get_chat_log(&topic_id, log_id) {
+            if let Some(log) = self.store.get_chat_log(&source_topic_id, log_id) {
                 items.push(log.to_string());
             }
         }
 
         let data = serde_json::json!({
-            "topicId": topic_id,
+            "topicId": source_topic_id,
             "ownerId": self.user_id,
             "createdAt": chrono::Local::now().to_rfc3339(),
             "logIds": log_ids,

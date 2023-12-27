@@ -121,8 +121,7 @@ async fn test_client_recall_log() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
-    let recall_id = c
-        .do_recall(topic_id.to_string(), first_send_id.clone(), Some(msg_cb))
+    c.do_recall(topic_id.to_string(), first_send_id.clone(), Some(msg_cb))
         .await
         .unwrap();
 
@@ -151,17 +150,12 @@ async fn test_client_recall_log() {
     c.sync_chat_logs(
         topic_id.to_string(),
         Some(last_seq),
-        send_count + 1,
+        send_count,
         Box::new(cb),
     );
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
         .unwrap();
-    let local_logs = c
-        .store
-        .get_chat_logs(&topic_id, None, send_count + 1)
-        .unwrap();
-    assert_eq!(local_logs.items.len(), send_count as usize + 1);
-    assert_eq!(local_logs.items[0].id, recall_id);
-    assert_eq!(local_logs.items[2].id, first_send_id);
+    let local_logs = c.store.get_chat_logs(&topic_id, None, send_count).unwrap();
+    assert_eq!(local_logs.items.len(), 1);
 }

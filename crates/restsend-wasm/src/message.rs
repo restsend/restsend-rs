@@ -42,6 +42,7 @@ impl Client {
     ///     reply:  undefined, // The reply message id, optional
     ///     onsent:  () => {}, // The callback when message sent
     ///     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+    ///     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
     ///     onack:  (req:ChatRequest)  => {}, // The callback when message acked
     ///     onfail:  (reason:String)  => {} // The callback when message failed
     /// });
@@ -258,12 +259,14 @@ impl Client {
     pub async fn doSendLogs(
         &self,
         topicId: String,
+        sourceTopicId: String,
         logIds: Vec<String>,
         option: JsValue,
     ) -> Result<String, JsValue> {
         self.inner
             .do_send_logs(
                 topicId,
+                sourceTopicId,
                 logIds,
                 get_vec_strings(&option, "mentions"),
                 get_bool(&option, "mentionAll"),

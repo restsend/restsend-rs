@@ -58,14 +58,29 @@ describe('Messages', async function () {
 
     it('#send image message with upload', async () => {
         let isAck = false
+        let sentContent = undefined
         bob.doSendImage('bob:alice', {
             'file': new File(['xxx'], 'hello_restsend.png', { type: 'image/png' }),
         }, {
+            onattachmentupload: (result) => {
+                return {
+                    type: 'image',
+                    text: result.path.replace('https://', 'ftp://'),
+                    size: result.size,
+                    placeholder: result.fileName,
+                }
+            },
             onack: (req) => {
                 isAck = true
+                sentContent = req.content
             },
         })
         await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        expect(sentContent).toHaveProperty('text')
+        expect(sentContent.text).toContain('ftp://')
+        expect(sentContent.placeholder).toBe('hello_restsend.png')
+        expect(sentContent.size).toBe(3)
     })
     let lastSendId = undefined
     it('#send custom content', async () => {
@@ -145,7 +160,6 @@ describe('Messages', async function () {
         await waitUntil(() => isAck, 3000)
         expect(isAck).toBe(true)
 
-        setLogging('info')
         isAck = false
         await bob.doUpdateExtra('bob:alice', id, {
             'foo': 'bar'

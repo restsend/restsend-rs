@@ -13,7 +13,7 @@ pub struct Login {
     pub profile: UserProfile,
 }
 
-#[derive(serde::Deserialize, Default, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Upload {

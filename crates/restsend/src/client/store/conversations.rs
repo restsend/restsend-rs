@@ -433,12 +433,12 @@ impl ClientStore {
 
     pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
-        if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
-            return Ok(());
-        }
+        // if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
+        //     return Ok(());
+        // }
 
         let item = match ContentType::from(chat_log.content.r#type.to_string()) {
-            ContentType::None => None, // remove local log
+            ContentType::None => Some(chat_log), // remove local log
             ContentType::Recall => {
                 match t.get(&chat_log.topic_id, &chat_log.content.text) {
                     Some(recall_log) => {
@@ -480,13 +480,52 @@ impl ClientStore {
         limit: u32,
     ) -> Result<QueryResult<ChatLog>> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
-        let option = QueryOption {
-            keyword: None,
-            start_sort_value: last_seq,
-            limit,
+
+        let mut r = QueryResult {
+            start_sort_value: 0,
+            end_sort_value: 0,
+            items: Vec::new(),
         };
 
-        Ok(t.query(topic_id, &option))
+        let mut limit = limit;
+        let mut last_seq = last_seq;
+
+        loop {
+            let option = QueryOption {
+                keyword: None,
+                start_sort_value: last_seq,
+                limit,
+            };
+
+            let result = t.query(topic_id, &option);
+            if result.items.len() == 0 {
+                break;
+            }
+
+            let items: Vec<ChatLog> = result
+                .items
+                .into_iter()
+                .filter(|item| {
+                    if item.recall {
+                        return false;
+                    }
+                    match ContentType::from(item.content.r#type.to_string()) {
+                        ContentType::None | ContentType::Recall | ContentType::UpdateExtra => false,
+                        _ => true,
+                    }
+                })
+                .collect();
+
+            r.items.extend(items);
+            if r.items.len() >= limit as usize {
+                break;
+            }
+            limit -= r.items.len() as u32;
+            last_seq = r.items.last().map(|v| v.seq);
+        }
+        r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
+        r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);
+        Ok(r)
     }
 
     pub fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
