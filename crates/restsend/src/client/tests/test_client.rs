@@ -10,17 +10,18 @@ use crate::{
 use log::warn;
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicI64, Ordering},
         Arc, Mutex,
     },
     time::Duration,
 };
 
 pub(super) struct TestCallbackImpl {
-    last_topic_id: Arc<Mutex<String>>,
-    is_connected: Arc<AtomicBool>,
-    is_recv_message: Arc<AtomicBool>,
-    is_update_conversation: Arc<AtomicBool>,
+    pub last_topic_id: Arc<Mutex<String>>,
+    pub is_connected: Arc<AtomicBool>,
+    pub is_recv_message: Arc<AtomicBool>,
+    pub recv_message_count: Arc<AtomicI64>,
+    pub is_update_conversation: Arc<AtomicBool>,
 }
 
 impl callback::Callback for TestCallbackImpl {
@@ -34,6 +35,7 @@ impl callback::Callback for TestCallbackImpl {
             topic_id, message
         );
         self.is_recv_message.store(true, Ordering::Relaxed);
+        self.recv_message_count.fetch_add(1, Ordering::Relaxed);
         return false;
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
@@ -85,6 +87,7 @@ async fn test_client_connected() {
         last_topic_id: Arc::new(Mutex::new("".to_string())),
         is_connected: is_connected.clone(),
         is_recv_message: Arc::new(AtomicBool::new(false)),
+        recv_message_count: Arc::new(AtomicI64::new(0)),
         is_update_conversation: Arc::new(AtomicBool::new(false)),
     });
 
@@ -118,6 +121,7 @@ async fn test_client_send_message() {
         last_topic_id: last_topic_id.clone(),
         is_connected: is_connected.clone(),
         is_recv_message: is_recv_message.clone(),
+        recv_message_count: Arc::new(AtomicI64::new(0)),
         is_update_conversation: is_update_conversation.clone(),
     });
 

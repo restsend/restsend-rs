@@ -389,8 +389,8 @@ impl ClientStore {
                             t.set(&topic_id, &recall_chat_id, Some(&recall_log));
 
                             info!(
-                            "recall chat_log: topic_id: {} chat_id: {} recall_chat_id: {} seq: {}",
-                            topic_id, chat_id, recall_chat_id, req.seq,
+                            "recall chat_log: topic_id: {} chat_id: {} recall_chat_id: {} recall_seq: {}",
+                            topic_id, chat_id, recall_chat_id, recall_log.seq,
                         );
                         }
                         None => return Ok(()),
@@ -427,6 +427,10 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
+        info!(
+            "save_incoming_chat_log: topic_id: {} chat_id: {} status: {:?} seq: {}",
+            topic_id, chat_id, log.status, log.seq
+        );
         t.set(&log.topic_id, &log.id, Some(&log));
         Ok(())
     }
@@ -501,7 +505,8 @@ impl ClientStore {
             if result.items.len() == 0 {
                 break;
             }
-
+            let has_more = result.items.len() >= limit as usize;
+            let next_last_seq = result.items.last().map(|v| v.seq - limit as i64);
             let items: Vec<ChatLog> = result
                 .items
                 .into_iter()
@@ -510,18 +515,19 @@ impl ClientStore {
                         return false;
                     }
                     match ContentType::from(item.content.r#type.to_string()) {
-                        ContentType::None | ContentType::Recall | ContentType::UpdateExtra => false,
+                        ContentType::None => false,
                         _ => true,
                     }
                 })
                 .collect();
 
             r.items.extend(items);
-            if r.items.len() >= limit as usize {
+            if !has_more || r.items.len() >= limit as usize {
                 break;
             }
             limit -= r.items.len() as u32;
-            last_seq = r.items.last().map(|v| v.seq);
+            last_seq = next_last_seq;
+            warn!("get_chat_logs: next_last_seq: {:?}", next_last_seq);
         }
         r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);

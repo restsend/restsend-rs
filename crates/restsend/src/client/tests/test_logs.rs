@@ -1,6 +1,6 @@
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicI64, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -11,7 +11,10 @@ use log::info;
 use crate::{
     callback,
     client::{
-        tests::{test_client::TestMessageCakllbackImpl, TEST_ENDPOINT},
+        tests::{
+            test_client::{TestCallbackImpl, TestMessageCakllbackImpl},
+            TEST_ENDPOINT,
+        },
         Client,
     },
     models::GetChatLogsResult,
@@ -86,6 +89,15 @@ async fn test_client_recall_log() {
     .await;
 
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
+    let recv_message_count = Arc::new(AtomicI64::new(0));
+    c.set_callback(Some(Box::new(TestCallbackImpl {
+        last_topic_id: Arc::new(Mutex::new("".to_string())),
+        is_connected: Arc::new(AtomicBool::new(false)),
+        is_recv_message: Arc::new(AtomicBool::new(false)),
+        recv_message_count: recv_message_count.clone(),
+        is_update_conversation: Arc::new(AtomicBool::new(false)),
+    })));
+
     c.connect().await;
 
     check_until(Duration::from_secs(3), || {
@@ -96,6 +108,8 @@ async fn test_client_recall_log() {
     let conversation = c.create_chat("alice".to_string()).await.unwrap();
     let topic_id = conversation.topic_id;
     let mut first_send_id = "".to_string();
+    let mut last_send_id = "".to_string();
+
     let send_count = 2;
     let mut last_seq = 0;
     for i in 0..send_count {
@@ -106,9 +120,16 @@ async fn test_client_recall_log() {
             .unwrap();
         if i == 0 {
             first_send_id = resp.chat_id;
+        } else {
+            last_send_id = resp.chat_id;
         }
         last_seq = resp.seq;
     }
+    check_until(Duration::from_secs(3), || {
+        recv_message_count.load(Ordering::Relaxed) as u32 == send_count
+    })
+    .await
+    .unwrap();
 
     info!("do recall first_send_id {}", first_send_id);
 
@@ -121,13 +142,15 @@ async fn test_client_recall_log() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
-    c.do_recall(topic_id.to_string(), first_send_id.clone(), Some(msg_cb))
+    let recall_id = c
+        .do_recall(topic_id.to_string(), first_send_id.clone(), Some(msg_cb))
         .await
         .unwrap();
 
     check_until(Duration::from_secs(3), || is_ack.load(Ordering::Relaxed))
         .await
         .unwrap();
+
     struct TestSyncLogsCallbackImpl {
         result: Arc<Mutex<Option<GetChatLogsResult>>>,
     }
@@ -150,12 +173,24 @@ async fn test_client_recall_log() {
     c.sync_chat_logs(
         topic_id.to_string(),
         Some(last_seq),
-        send_count,
+        send_count + 1,
         Box::new(cb),
     );
+
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
         .unwrap();
-    let local_logs = c.store.get_chat_logs(&topic_id, None, send_count).unwrap();
-    assert_eq!(local_logs.items.len(), 1);
+
+    let local_logs = c
+        .store
+        .get_chat_logs(&topic_id, None, send_count + 1)
+        .unwrap();
+    for item in local_logs.items.iter() {
+        info!("item: {:?}", item);
+    }
+    assert_eq!(local_logs.items.len(), (send_count + 1) as usize);
+    assert_eq!(local_logs.items[0].id, recall_id);
+    assert_eq!(local_logs.items[1].id, first_send_id);
+    assert!(local_logs.items[1].recall);
+    assert_eq!(local_logs.items[2].id, last_send_id);
 }
