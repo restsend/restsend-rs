@@ -277,15 +277,6 @@ async fn serve_connection(
                             break;
                         }
                         state_ref.did_sent_or_recvived();
-                        store_ref
-                            .handle_send_success(
-                                &message.chat_id,
-                                &message.topic_id,
-                                &message.r#type,
-                                message.code,
-                                message.content.as_ref(),
-                            )
-                            .await;
                     }
                 };
 
@@ -347,15 +338,6 @@ async fn serve_connection(
                                     warn!("websocket send failed: {:?}", e);
                                     break;
                                 }
-                                store_ref
-                                    .handle_send_success(
-                                        &resp.chat_id,
-                                        &resp.topic_id,
-                                        &resp.r#type,
-                                        resp.code,
-                                        resp.content.as_ref(),
-                                    )
-                                    .await;
                             }
                         }
                     }

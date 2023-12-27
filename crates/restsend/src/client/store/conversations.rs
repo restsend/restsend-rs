@@ -11,7 +11,7 @@ use crate::{
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
-use log::{debug, info, warn};
+use log::{debug, warn};
 use std::sync::Arc;
 
 pub(crate) fn merge_conversation(
@@ -54,10 +54,7 @@ pub(super) fn merge_conversation_from_chat(
             }
         }
     }
-    info!(
-        "merge_conversation_from_chat: topic_id: {} chat_id: {} seq: {} conversation.last_seq: {} req.unreadable:{}",
-        req.topic_id, req.chat_id, req.seq, conversation.last_seq, req.unreadable
-    );
+
     if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
 
@@ -387,11 +384,6 @@ impl ClientStore {
                             recall_log.recall = true;
                             recall_log.content = Content::new(ContentType::Recall);
                             t.set(&topic_id, &recall_chat_id, Some(&recall_log));
-
-                            info!(
-                            "recall chat_log: topic_id: {} chat_id: {} recall_chat_id: {} recall_seq: {}",
-                            topic_id, chat_id, recall_chat_id, recall_log.seq,
-                        );
                         }
                         None => return Ok(()),
                     }
@@ -427,20 +419,12 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
-        info!(
-            "save_incoming_chat_log: topic_id: {} chat_id: {} status: {:?} seq: {}",
-            topic_id, chat_id, log.status, log.seq
-        );
         t.set(&log.topic_id, &log.id, Some(&log));
         Ok(())
     }
 
     pub(crate) fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
-        // if let Some(_) = t.get(&chat_log.topic_id, &chat_log.id) {
-        //     return Ok(());
-        // }
-
         let item = match ContentType::from(chat_log.content.r#type.to_string()) {
             ContentType::None => Some(chat_log), // remove local log
             ContentType::Recall => {
@@ -506,19 +490,16 @@ impl ClientStore {
                 break;
             }
             let has_more = result.items.len() >= limit as usize;
-            let next_last_seq = result.items.last().map(|v| v.seq - limit as i64);
+            let next_last_seq = result.items.last().map(|v| v.seq);
             let items: Vec<ChatLog> = result
                 .items
                 .into_iter()
-                .filter(|item| {
-                    if item.recall {
-                        return false;
-                    }
-                    match ContentType::from(item.content.r#type.to_string()) {
+                .filter(
+                    |item| match ContentType::from(item.content.r#type.to_string()) {
                         ContentType::None => false,
                         _ => true,
-                    }
-                })
+                    },
+                )
                 .collect();
 
             r.items.extend(items);
@@ -526,8 +507,7 @@ impl ClientStore {
                 break;
             }
             limit -= r.items.len() as u32;
-            last_seq = next_last_seq;
-            warn!("get_chat_logs: next_last_seq: {:?}", next_last_seq);
+            last_seq = next_last_seq.map(|v| v - limit as i64);
         }
         r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);

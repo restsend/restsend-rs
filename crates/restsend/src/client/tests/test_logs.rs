@@ -190,7 +190,7 @@ async fn test_client_recall_log() {
     }
     assert_eq!(local_logs.items.len(), (send_count + 1) as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
-    assert_eq!(local_logs.items[1].id, first_send_id);
-    assert!(local_logs.items[1].recall);
-    assert_eq!(local_logs.items[2].id, last_send_id);
+    assert_eq!(local_logs.items[1].id, last_send_id);
+    assert!(local_logs.items[2].recall);
+    assert_eq!(local_logs.items[2].id, first_send_id);
 }

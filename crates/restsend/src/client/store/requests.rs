@@ -1,6 +1,6 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
-use crate::models::{ChatLogStatus, Content};
+use crate::models::ChatLogStatus;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -172,24 +172,6 @@ impl ClientStore {
                     .map(|cb| cb.on_fail("request timeout".to_string()));
             }
         }
-    }
-
-    pub async fn handle_send_success(
-        &self,
-        chat_id: &str,
-        topic_id: &str,
-        req_type: &str,
-        code: u32,
-        content: Option<&Content>,
-    ) {
-        let content_type = match content {
-            Some(content) => content.r#type.clone(),
-            None => "".to_string(),
-        };
-        info!(
-            "handle_send_success type:{} content_type:{} topic_id:{} chat_id:{} code:{}",
-            req_type, content_type, topic_id, chat_id, code
-        );
     }
 
     pub async fn peek_pending_request(&self, chat_id: &str) -> Option<PendingRequest> {
