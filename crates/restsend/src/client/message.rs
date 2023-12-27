@@ -29,21 +29,28 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
     Ok(Attachment::from_local(file_name, &file_path, false))
 }
 
-#[cfg(target_family = "wasm")]
+#[allow(unused)]
 pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     use wasm_bindgen::JsValue;
     let file_size = data.len() as i64;
-    let data = JsValue::from_str(&data);
-    let file_stream = web_sys::Blob::new_with_str_sequence_and_options(
-        &data,
+    let array: js_sys::Array = js_sys::Array::new();
+    array.push(&JsValue::from_str(&data));
+
+    match web_sys::Blob::new_with_str_sequence_and_options(
+        &array,
         web_sys::BlobPropertyBag::new().type_("application/json"),
-    )?;
-    Ok(Attachment::from_blob(
-        file_stream,
-        Some(file_name.to_string()),
-        false,
-        file_size,
-    ))
+    ) {
+        Ok(blob) => Ok(Attachment::from_blob(
+            blob,
+            Some(file_name.to_string()),
+            false,
+            file_size,
+        )),
+        Err(e) => {
+            web_sys::console::error_1(&e);
+            return Err(e.into());
+        }
+    }
 }
 
 #[export_wasm_or_ffi]

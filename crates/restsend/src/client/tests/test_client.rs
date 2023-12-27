@@ -170,4 +170,28 @@ async fn test_client_send_message() {
     assert!(logs.items.len() == 1);
     assert_eq!(logs.items[0].sender_id, "guido");
     assert_eq!(logs.items[0].status, ChatLogStatus::Sent);
+
+    let is_ack = Arc::new(AtomicBool::new(false));
+    let msg_cb = Box::new(TestMessageCakllbackImpl {
+        is_sent: is_sent.clone(),
+        is_ack: is_ack.clone(),
+        last_error: Arc::new(Mutex::new("".to_string())),
+    });
+
+    let log_ids = logs.items.iter().map(|l| l.id.clone()).collect();
+    let r = c
+        .do_send_logs(
+            topic_id.clone(),
+            topic_id,
+            log_ids,
+            None,
+            false,
+            Some(msg_cb),
+        )
+        .await;
+    assert!(r.is_ok());
+
+    check_until(Duration::from_secs(3), || is_ack.load(Ordering::Relaxed))
+        .await
+        .unwrap();
 }

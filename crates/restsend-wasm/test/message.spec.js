@@ -47,7 +47,7 @@ describe('Messages', async function () {
     it('#send image message', async () => {
         let isAck = false
         bob.doSendImage('bob:alice', {
-            'url': 'https://avatars1.githubusercontent.com/u/1016365?s=460&v=4',
+            'url': 'https://sd.zaowuyun.com/asset/kalnd5p7kq8mjm4p.png.1024.jpg',
         }, {
             onack: (req) => {
                 isAck = true
@@ -65,7 +65,7 @@ describe('Messages', async function () {
             onattachmentupload: (result) => {
                 return {
                     type: 'image',
-                    text: result.path.replace('https://', 'ftp://'),
+                    text: result.path,
                     size: result.size,
                     placeholder: result.fileName,
                 }
@@ -78,7 +78,7 @@ describe('Messages', async function () {
         await waitUntil(() => isAck, 3000)
         expect(isAck).toBe(true)
         expect(sentContent).toHaveProperty('text')
-        expect(sentContent.text).toContain('ftp://')
+        expect(sentContent.text).toContain('https://')
         expect(sentContent.placeholder).toBe('hello_restsend.png')
         expect(sentContent.size).toBe(3)
     })
@@ -198,5 +198,34 @@ describe('Messages', async function () {
         await waitUntil(() => isAck, 3000)
         expect(isAck).toBe(true)
         expect(items[1].content.extra).toStrictEqual({ foo: 'bar' })
+    })
+    it('#send logs', async () => {
+        let items = []
+        let isAck = false
+        await bob.syncChatLogs('bob:alice', undefined, {
+            limit: 2,
+            onsuccess: (r) => {
+                items = r.items
+                isAck = true
+            }
+        })
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        let ids = items.map((item) => item.id)
+        isAck = false
+        let content = undefined
+        let id = await bob.doSendLogs(
+            'bob:alice', 'bob:alice', ids,
+            {
+                onack: (req) => {
+                    isAck = true
+                    content = req.content
+                },
+            });
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+        let r = await fetch(content.text)
+        let logs = await r.json()
+        expect(logs.logIds).toStrictEqual(ids)
     })
 })

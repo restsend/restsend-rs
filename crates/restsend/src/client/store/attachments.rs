@@ -41,14 +41,18 @@ impl UploadTask {
         self.updated_at.store(now_millis(), Ordering::Relaxed);
         let req = &self.req.lock().unwrap();
         let last_progress = self.last_progress.load(Ordering::Relaxed);
-        
+
         if elapsed(last_progress).as_millis() < MEDIA_PROGRESS_INTERVAL {
             // 300ms
             return;
         }
         self.last_progress.store(now_millis(), Ordering::Relaxed);
-        req.as_ref()
-            .map(|r| r.callback.as_ref().unwrap().on_progress(progress, total));
+
+        if let Some(req) = req.as_ref() {
+            if let Some(cb) = req.callback.as_ref() {
+                cb.on_progress(progress, total);
+            }
+        }
     }
 
     pub fn on_success(&self, result: Upload) {
@@ -92,8 +96,11 @@ impl UploadTask {
 
     pub fn on_fail(&self, e: Error) {
         let req = &self.req.lock().unwrap();
-        req.as_ref()
-            .map(|r| r.callback.as_ref().unwrap().on_fail(e.to_string()));
+        if let Some(req) = req.as_ref() {
+            if let Some(cb) = req.callback.as_ref() {
+                cb.on_fail(e.to_string());
+            }
+        }
     }
 }
 struct UploadTaskCallback {
@@ -122,6 +129,7 @@ impl UploadCallback for UploadTaskCallback {
 impl ClientStore {
     // upload or download media
     pub(super) async fn submit_upload(&self, req: PendingRequest) -> crate::Result<PendingRequest> {
+        warn!("submit_upload {:?}", req.req);
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
         let attachment = match req.get_attachment() {
             Some(a) => a,
