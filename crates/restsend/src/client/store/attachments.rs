@@ -69,7 +69,7 @@ impl UploadTask {
             "upload success: file: {} size: {} url: {}",
             result.file_name, result.size, result.path
         );
-        
+
 
         let original = pending
             .req
@@ -136,7 +136,6 @@ impl UploadCallback for UploadTaskCallback {
 impl ClientStore {
     // upload or download media
     pub(super) async fn submit_upload(&self, req: PendingRequest) -> crate::Result<PendingRequest> {
-        warn!("submit_upload {:?}", req.req);
         let (cancel_tx, cancel_rx) = oneshot::channel::<()>();
         let attachment = match req.get_attachment() {
             Some(a) => a,
