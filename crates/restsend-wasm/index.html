@@ -47,8 +47,8 @@
                 return this.blocks[0].items[0].seq
             }
 
-            updateItem(chatId, {type, content, recall}) {
-                // console.log('update item', chatId, {type, content,recall})
+            updateItem(chatId, {type, content, recall, replyContent}) {
+                console.log('update item', chatId, {type, content, recall})
                 for (let idx = 0; idx < this.blocks.length; idx++) {
                     const block = this.blocks[idx];
                     let found = block.items.findIndex((item) => item.id == chatId)
@@ -63,6 +63,7 @@
                             block.items[found].type = type
                             block.items[found].content = content
                             block.items[found].recall = recall
+                            block.items[found].replyContent = replyContent
                         }
                         break
                     }
@@ -77,6 +78,14 @@
             }
 
             renderContent(content) {
+                if (!content) {
+                    return ''
+                }
+
+                if (content.type == 'update.extra') {
+                    return ''
+                }
+
                 if (content.type == 'image') {
                     let url = content.thumbnail || content.text;
                     return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
@@ -172,6 +181,7 @@
                     let item = {
                         type: items[idx].content.type,
                         content: this.renderContent(items[idx].content),
+                        replyContent: (items[idx].content.replyContent),
                         isLast: false,
                         seq: items[idx].seq,
                         id: items[idx].id,
@@ -185,7 +195,8 @@
                         this.updateItem(items[idx].id, {
                             type: item.type,
                             content: this.renderContent(items[idx].content),
-                            recall: item.recall
+                            recall: item.recall,
+                            replyContent: (items[idx].content.replyContent),
                         })
                         continue
                     }
@@ -212,6 +223,8 @@
             reference: null,
             showCheckbox: false,
             showRemarkInput: false,
+            showList: false,
+            logIds: null,
             selectedMessages: [],
             messageBlocks: null,
 
@@ -397,8 +410,35 @@
                 }
                 console.log('do remark', conservation)
                 this.showRemarkInput = false
-                await client.setConversationRemark(this.conversation.topicId, conservation.title);
+                await this.current.setConversationRemark(this.conversation.topicId, conservation.title);
 
+            },
+            renderReply: function (content) {
+                if (!content) {
+                    return
+                }
+                if (content.type == 'update.extra') {
+                    return ''
+                }
+                // console.log('renderContent', content)
+                if (content.type == 'image') {
+                    let url = content.thumbnail || content.text;
+                    return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
+                }
+                if (content.type == 'link') {
+                    return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
+                }
+                if (content.type == 'file') {
+                    return `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
+                      <div>
+                        <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
+                        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+                     </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+</a>`
+                }
+                return content.text
             },
 
 
@@ -425,14 +465,14 @@
                 }
                 let thisPtr = this;
                 if (this.message.startsWith('https://') || this.message.startsWith('http://')) {
-                    await client.doSendLink(this.conversation.topicId, this.message, {
+                    await this.current.doSendLink(this.conversation.topicId, this.message, {
                         placeholder: 'link',
-                        reply: '1234567'
+                        reply: this.reference ? this.reference.id : undefined,
                     });
                     thisPtr.message = ''
                 } else {
-                    await client.doSendText(this.conversation.topicId, this.message, {
-                        replyId: this.reference ? this.reference.id : undefined,
+                    await this.current.doSendText(this.conversation.topicId, this.message, {
+                        reply: this.reference ? this.reference.id : undefined,
                         onack: function (req) {
                             thisPtr.message = ''
                         },
@@ -447,9 +487,9 @@
                 if (!this.conversation) {
                     return
                 }
-                // console.log('send image', event.target.files[0]);
-                await client.doSendImage(this.conversation.topicId, {
-                    file: event.target.files[0]
+                await this.current.doSendImage(this.conversation.topicId, {
+                    file: event.target.files[0],
+                    // reply: this.reference ? this.reference.id : undefined,
                 });
             },
             doSendFiles: async function (event) {
@@ -457,15 +497,16 @@
                     return
                 }
 
-                await client.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
+                await this.current.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
                     size: (event.target.files[0].size),
                     name: event.target.files[0].name,
                     mentions: ['bob'],
                     mentionAll: false,
-                    replyId: '1234567'
+                    reply: this.reference ? this.reference.id : undefined,
                 });
             },
             doDeleteMessage: async function (message) {
+                console.log('delete message', message)
                 if (!this.conversation) {
                     return
                 }
@@ -474,20 +515,43 @@
                     ids.push(message[i].id)
                 }
                 console.log('delete message', ids)
-                await client.removeMessages(this.conversation.topicId, ids);
+                await this.current.removeMessages(this.conversation.topicId, ids);
                 for (let i = 0; i < message.length; i++) {
                     this.messageBlocks.updateItem(message[i].id, {
                         type: '',
-                        content: ''
+                        content: '',
+                        replyContent: '',
                     })
                 }
                 this.selectedMessages = []
                 this.showCheckbox = false
             },
-            doForwardMessage: async function (message) {
+            doForwardMessage: async function (targetConversation) {
                 if (!this.conversation) {
                     return
                 }
+                let ids = []
+                for (let i = 0; i < this.logIds.length; i++) {
+                    ids.push(this.logIds[i].id)
+                }
+                console.log('forward message', targetConversation.topicId, this.conversation.topicId, ids)
+
+                // this.logIds = []
+                this.showList = false
+                this.showCheckbox = false
+                let thisPtr = this;
+                await this.current.doSendLogs(targetConversation.topicId, this.conversation.topicId, ids, {
+                    onack: function (req) {
+                        console.log('forward message ack', req)
+                        thisPtr.logIds = []
+                        // thisPtr.showList = false
+                        // thisPtr.showCheckbox = false
+                    },
+                    onfail: function (reason) {
+                        this.logText(`forward message fail ${reason}`)
+                    }
+                }
+                );
             },
             doReferenceMessage: async function (message, block) {
                 if (!this.conversation) {
@@ -502,13 +566,14 @@
                     return
                 }
                 let thisPtr = this;
-                await client.doRecall(this.conversation.topicId, message.id, {
+                await this.current.doRecall(this.conversation.topicId, message.id, {
                     onack: function (req) {
                         console.log('recall message ack', req)
                         thisPtr.message = ''
                         thisPtr.messageBlocks.updateItem(message.id, {
                             type: 'recall',
                             content: '',
+                            replyContent: '',
                         })
                     },
                     onfail: function (reason) {
@@ -523,7 +588,7 @@
                 }
 
                 let thisPtr = this;
-                await client.cleanMessages(this.conversation.topicId);
+                await this.current.cleanMessages(this.conversation.topicId);
                 this.messageBlocks = null
             },
 
@@ -560,6 +625,9 @@
                 }
             },
             lastMessageClass: function (item) {
+                if (item.type == 'update.extra') {
+                    return ''
+                }
                 if (item.type == 'recall') {
                     return 'The message was recalled'
                 }
@@ -692,15 +760,47 @@
                     </template>
                 </div>
 
-                <div class="px-4 h-full py-6 sm:px-6 lg:pl-8 xl:flex-1 xl:pl-6">
+                <div class="p-4 h-full xl:flex-1">
                     <template x-if="conversation">
-                        <div class="overflow-hidden rounded-lg bg-white shadow">
-                            <div class="flex-1 p-2 sm:p-4 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
+                        <div class="rounded-lg bg-white shadow relative">
+                            <template x-if="showList">
+                                <div id="forwords"
+                                    class="absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
+                                    <div class="flex items-center my-2 justify-end text-gray-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer"
+                                            x-on:click="()=>{ 
+                                                showCheckbox=false;
+                                                showList=false;
+                                                logIds=[]}">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                        </svg>
+                                    </div>
+
+                                    <template x-for="item in conversations">
+                                        <li class="flex w-full my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
+                                            @click="doForwardMessage(item)">
+                                            <div class="flex w-full items-center space-x-3 ">
+                                                <img class="h-8 w-8 flex-none rounded-full bg-gray-50" :src="item.icon"
+                                                    alt="">
+                                                <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
+                                                    x-text="doGroupMembers(item)"></p>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </div>
+                            </template>
+                            <div class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
                                 <template x-if="showCheckbox">
-                                    <div class="absolute bottom-0 h-28 z-20 left-0 px-10 w-full bg-white">
+                                    <div class="absolute bottom-1 h-28 z-20 left-0 px-10 w-full bg-white">
                                         <div
                                             class="flex items-center justify-center w-full mt-10 space-x-6 bg-white p-4 rounded-full shadow-md border relative">
-                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500">
+                                            <p class="text-gray-600 text-sm">total:
+                                                <span x-text="selectedMessages.length"></span>
+                                            </p>
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500"
+                                                x-on:click="()=>{showList=true;logIds=selectedMessages}">
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
                                                     <path fill="none" stroke="currentColor" stroke-linecap="round"
                                                         stroke-linejoin="round" stroke-width="1.5"
@@ -729,6 +829,7 @@
                                         </div>
                                     </div>
                                 </template>
+                                <!-- <div :class="showCheckbox?'pl-6':''"> -->
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
@@ -753,9 +854,9 @@
                                                     stroke-width="1.5" stroke="currentColor"
                                                     class="w-6 h-6 invisible group-hover:visible text-gray-800 cursor-pointer ml-1"
                                                     x-on:click="()=>{
-                                                        showRemarkInput=true;
-                                                        setTimeout(()=>{ $refs.remarkInput.focus()}, 0)
-                                                    }">
+                                                            showRemarkInput=true;
+                                                            setTimeout(()=>{ $refs.remarkInput.focus()}, 0)
+                                                        }">
                                                     <path stroke-linecap="round" stroke-linejoin="round"
                                                         d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                                                 </svg>
@@ -811,14 +912,16 @@
                                                     </svg>
                                                 </div>
                                             </template>
-
                                             </p>
                                         </div>
                                     </button>
                                 </div>
-                                <!-- h-[calc(100vh-22rem)] -->
+                                <!-- </div> -->
+
+                                <!-- h-[calc( 100vh-22rem)] -->
                                 <div id="messages" @scrollend="onScrollMessages($event)"
-                                    class="flex  flex-col space-y-4 p-3 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
+                                    :class="showCheckbox?'pl-8 py-3':'p-3'"
+                                    class="flex  flex-col space-y-4 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
                                     <template x-for="block in messageBlocks?.blocks">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
@@ -829,14 +932,15 @@
                                             </template>
 
                                             <div class="flex items-end relative" :class="block.isSelf?'justify-end':''">
-                                                <div class="flex flex-col space-y-2 text-xs max-w-xs mx-2 w-full"
+                                                <div class="flex flex-col space-y-2 text-xs max-w-xs px-2 w-full"
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items">
                                                         <div>
                                                             <template x-if="item.recall==true">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">
-                                                                    The message has been recalled
+                                                                    <!-- <p class="text-red-500" x-text="item.recall"></p> -->
+                                                                    <span> The message was recalled</span>
                                                                 </div>
                                                             </template>
                                                             <template x-if="item.type==='recall' && item.recall==false">
@@ -854,10 +958,10 @@
                                                             <template x-if="item.content && item.type!='recall'">
                                                                 <div class="flex items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
-                                                                        <div class="absolute left-0 -pt-2">
+                                                                        <div class="absolute -left-9 -pt-2">
                                                                             <input type="checkbox"
                                                                                 @click="doSelectMessage(item,event)"
-                                                                                class="w-5 h-5 text-gray-400 text-indigo-600 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
+                                                                                class="w-5 h-5 text-gray-400 text-indigo-600 shrink-0 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
                                                                         </div>
                                                                     </template>
 
@@ -865,7 +969,10 @@
                                                                         :class="block.isSelf? '':'order-2'">
 
                                                                         <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doForwardMessage(item)">
+                                                                            x-on:click="()=>{
+                                                                                    showList=true;
+                                                                                    logIds=[item];
+                                                                            }">
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 viewBox="0 0 16 16">
                                                                                 <path fill="none" stroke="currentColor"
@@ -914,9 +1021,7 @@
                                                                         </div>
 
                                                                         <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            x-on:click="()=>{
-                                                                                showCheckbox=true
-                                                                            }">
+                                                                            @click="showCheckbox=true">
                                                                             <svg xmlns="http://www.w3.org/2000/svg"
                                                                                 fill="none" viewBox="0 0 24 24"
                                                                                 stroke-width="1.5"
@@ -928,9 +1033,26 @@
 
                                                                         </div>
                                                                     </div>
-                                                                    <div class="rounded-lg whitespace-wrap break-all inline-block"
-                                                                        :class="getMessageClass(block, item)"
-                                                                        x-html="item.content">
+                                                                    <div class="flex flex-col"
+                                                                        :class="block.isSelf?'items-end':'items-start'">
+                                                                        <div class="rounded-lg whitespace-wrap break-all inline-block"
+                                                                            :class="getMessageClass(block, item)"
+                                                                            x-html="item.content">
+                                                                        </div>
+
+                                                                        <template x-if="item.replyContent">
+                                                                            <div
+                                                                                class="bg-gray-100 mt-1 p-2 rounded text-gray-500 flex space-x-1">
+                                                                                <span
+                                                                                    x-text="JSON.parse(item.replyContent).senderId">
+                                                                                </span>:&nbsp;
+                                                                                <span
+                                                                                    class=" max-w-[140px] max-h-[140px] truncate"
+                                                                                    x-html="renderReply(JSON.parse(item.replyContent))">
+                                                                                </span>
+                                                                            </div>
+                                                                        </template>
+
                                                                     </div>
                                                                 </div>
                                                             </template>
