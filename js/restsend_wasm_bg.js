@@ -2523,7 +2523,7 @@ export function __wbindgen_closure_wrapper728(arg0, arg1, arg2) {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper2164(arg0, arg1, arg2) {
+export function __wbindgen_closure_wrapper2165(arg0, arg1, arg2) {
     const ret = makeMutClosure(arg0, arg1, 710, __wbg_adapter_62);
     return addHeapObject(ret);
 };

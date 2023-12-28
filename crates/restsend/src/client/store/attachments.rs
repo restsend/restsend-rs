@@ -69,6 +69,13 @@ impl UploadTask {
             "upload success: file: {} size: {} url: {}",
             result.file_name, result.size, result.path
         );
+        
+
+        let original = pending
+            .req
+            .content
+            .clone()
+            .unwrap_or(Content::new(crate::models::ContentType::File));
 
         let content = if let Some(cb) = pending.callback.as_ref() {
             match cb.on_attachment_upload(result.clone()) {
@@ -82,7 +89,7 @@ impl UploadTask {
         pending.req.content = match content {
             Some(content) => Some(content),
             None => {
-                let mut content = Content::new(crate::models::ContentType::Image);
+                let mut content = original;
                 content.text = result.path;
                 content.size = result.size;
                 content.thumbnail = result.thumbnail;

@@ -226,6 +226,7 @@ describe('Messages', async function () {
         expect(isAck).toBe(true)
         let r = await fetch(content.text)
         let logs = await r.json()
+        expect(content.type).toBe('logs')
         expect(logs.logIds).toStrictEqual(ids)
     })
 })
