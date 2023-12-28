@@ -7,6 +7,97 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://unpkg.com/alpinejs" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('modalData', {
+                open: false,
+                innerHTML: '',
+                logs: null,
+                toggle() {
+                    this.open = !this.open
+                }
+            })
+
+            Alpine.directive('content', (el, {expression}, {evaluate}) => {
+                let content = evaluate(expression)
+                let node = document.createElement('div')
+                if (content) {
+                    if (content.type == 'update.extra') {
+
+                        node.className = "hidden"
+                        node.innerHTML = ''
+                    }
+                    if (content.type == 'logs') {
+                        node.innerHTML = `<div class="w-48 p-3 rounded-md border bg-gray-50 cursor-pointer text-gray-800">
+                                        <p class="text-gray-700 text-base">${content.type}</p>
+                                        <div class="flex items-center justify-between w-full mt-2">
+                                        <div class="space-y-1">
+                                           <p>${content.placeholder} </p>
+                                           <p>size:${content.size}</p>
+                                        </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                    </svg>
+                                    </div>
+                            </div>`
+
+                        node.addEventListener('click', () => {
+                            let modalData = Alpine.store('modalData')
+                            modalData.toggle()
+                            let jsonString = ''
+                            let jsonObject = ''
+                            fetch('https://chat.ruzhila.cn/api/attachment/o6t0tmlwc9wy').then(response => response.json())
+                                .then(jsonData => {
+                                    jsonString = JSON.stringify(jsonData);
+                                    jsonObject = JSON.parse(jsonString);
+                                    console.log(jsonObject);
+                                    modalData.innerHTML = jsonObject
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                });
+
+                            console.log('modalData', modalData.innerHTML)
+                        })
+
+                    }
+
+                    if (content.type == 'image') {
+                        let url = content.thumbnail || content.text;
+                        node.innerHTML = `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow cursor-pointer" src='${url}'/>`
+                        node.addEventListener('click', () => {
+                            let modalData = Alpine.store('modalData')
+                            modalData.toggle()
+                            modalData.innerHTML = `<img class="w-full h-auto rounded-md shadow" src='${content.text}'/>`
+                        })
+                    }
+
+                    if (content.type == 'file') {
+                        node.innerHTML = `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
+                      <div>
+                        <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
+                        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+                     </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600">
+                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+              </a>`
+                    }
+
+                    if (content.type == 'link') {
+                        node.innerHTML = `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
+                    }
+
+                    else if (content.type == 'text' || (content.type).includes('custom' || 'custom.image')) {
+                        node.innerHTML = `<p>${content.text}</p>`
+                    }
+                }
+                el.appendChild(node)
+            })
+        });
+
+
+
+    </script>
 
 <body class="bg-gray-100">
     <style>
@@ -75,35 +166,6 @@
                 if (bytes === 0) return '0 Byte';
                 const i = Math.floor(Math.log(bytes) / Math.log(1024));
                 return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
-            }
-
-            renderContent(content) {
-                if (!content) {
-                    return ''
-                }
-
-                if (content.type == 'update.extra') {
-                    return ''
-                }
-
-                if (content.type == 'image') {
-                    let url = content.thumbnail || content.text;
-                    return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
-                }
-                if (content.type == 'link') {
-                    return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
-                }
-                if (content.type == 'file') {
-                    return `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
-                      <div>
-                        <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
-                        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
-                     </div>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
-</a>`
-                }
-                return content.text
             }
 
             getOrCreateBlock(item) {
@@ -180,7 +242,7 @@
                 for (var idx = items.length - 1; idx >= 0; idx--) {
                     let item = {
                         type: items[idx].content.type,
-                        content: this.renderContent(items[idx].content),
+                        content: items[idx].content,//this.renderContent(items[idx].content),
                         replyContent: (items[idx].content.replyContent),
                         isLast: false,
                         seq: items[idx].seq,
@@ -223,8 +285,10 @@
             reference: null,
             showCheckbox: false,
             showRemarkInput: false,
+            open: false,
             showList: false,
             logIds: null,
+            forwardLogs: null,
             selectedMessages: [],
             messageBlocks: null,
 
@@ -448,9 +512,9 @@
                     classList.push(block.isSelf ? 'rounded-br-none ' : 'rounded-bl-none')
                 }
                 if (block.isSelf) {
-                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-blue-600 text-white px-4 py-2')
+                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-blue-600 text-white px-4 py-2')
                 } else {
-                    classList.push(item.type == 'image' || item.type == 'file' ? '' : 'bg-gray-300 text-gray-600 px-4 py-2')
+                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-gray-300 text-gray-800 px-4 py-2')
                 }
 
                 if (item.type == 'recall' || item.type == '') {
@@ -625,17 +689,23 @@
                 }
             },
             lastMessageClass: function (item) {
+                if (!item || item.type == '') {
+                    return ''
+                }
                 if (item.type == 'update.extra') {
                     return ''
+                }
+                if (item.type == 'logs') {
+                    return '[ Logs ]'
                 }
                 if (item.type == 'recall') {
                     return 'The message was recalled'
                 }
                 if (item.type == 'image') {
-                    return '[image]'
+                    return '[ image ]'
                 }
                 if (item.type == 'file') {
-                    return '[file]'
+                    return '[ file ]'
                 }
                 return item.text
             },
@@ -649,7 +719,7 @@
                     return conversation.title
                 }
             },
-        };
+        }
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
         <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->
@@ -791,6 +861,24 @@
                                     </template>
                                 </div>
                             </template>
+
+                            <template x-if="$store.modalData.open">
+                                <div class="absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
+                                    <div class="flex items-center justify-end w-full pb-1 my-2 border-b">
+                                        <!-- <p class="text-gray-700"></p> -->
+                                        <button type="button">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                stroke-width="1.5" stroke="currentColor" class="w-5 h-5 cursor-pointer"
+                                                @click="$store.modalData.toggle()">
+                                                <path stroke-linecap="round" stroke-linejoin="round"
+                                                    d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                            </svg> </button>
+                                    </div>
+                                    <div x-html="$store.modalData.innerHTML"> </div>
+                                    <!-- <p x-text="$store.modalData.logs"></p> -->
+                                </div>
+                            </template>
+                            <!-- </div> -->
                             <div class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
                                 <template x-if="showCheckbox">
                                     <div class="absolute bottom-1 h-28 z-20 left-0 px-10 w-full bg-white">
@@ -955,7 +1043,8 @@
                                                                     </template>
                                                                 </div>
                                                             </template>
-                                                            <template x-if="item.content && item.type!='recall'">
+                                                            <template
+                                                                x-if="item.content && item.type!='recall' && item.type!='update.extra'">
                                                                 <div class="flex items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
                                                                         <div class="absolute -left-9 -pt-2">
@@ -1035,10 +1124,13 @@
                                                                     </div>
                                                                     <div class="flex flex-col"
                                                                         :class="block.isSelf?'items-end':'items-start'">
-                                                                        <div class="rounded-lg whitespace-wrap break-all inline-block"
+                                                                        <!-- <div class="rounded-lg whitespace-wrap break-all inline-block"
                                                                             :class="getMessageClass(block, item)"
-                                                                            x-html="item.content">
-                                                                        </div>
+                                                                            x-html="item.content" x-render-content>
+                                                                        </div> -->
+                                                                        <div x-content="item.content"
+                                                                            class="rounded-lg whitespace-wrap break-all inline-block"
+                                                                            :class="getMessageClass(block, item)"></div>
 
                                                                         <template x-if="item.replyContent">
                                                                             <div
