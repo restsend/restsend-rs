@@ -8,7 +8,7 @@ use crate::services::conversation::{
 };
 use crate::utils::{now_millis, spwan_task};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
-use log::warn;
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
@@ -58,12 +58,26 @@ impl Client {
         limit: u32,
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
-        let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit };
+        let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit }.min(MAX_LOGS_LIMIT);
+        let start_seq = self
+            .store
+            .get_conversation(&topic_id)
+            .map(|c| c.start_seq)
+            .unwrap_or(0);
         match self.store.get_chat_logs(&topic_id, last_seq, limit) {
             Ok(local_logs) => {
-                if local_logs.items.len() == limit as usize {
+                let mut need_fetch = local_logs.items.len() < limit as usize;
+
+                if need_fetch
+                    && local_logs.items.len() > 0
+                    && local_logs.items.len() < limit as usize
+                {
+                    need_fetch = local_logs.end_sort_value != start_seq + 1;
+                }
+
+                if !need_fetch {
                     let r = GetChatLogsResult {
-                        has_more: local_logs.end_sort_value > 1,
+                        has_more: local_logs.end_sort_value > start_seq,
                         start_seq: local_logs.start_sort_value,
                         end_seq: local_logs.end_sort_value,
                         items: local_logs.items,
@@ -71,6 +85,13 @@ impl Client {
                     callback.on_success(r);
                     return;
                 }
+                info!(
+                    "sync_chat_logs local_logs.len: {} start_seq: {} limit: {} local_logs.end_sort_value:{}",
+                    local_logs.items.len(),
+                    start_seq,
+                    limit,
+                    local_logs.end_sort_value
+                )
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);
@@ -129,7 +150,8 @@ impl Client {
             MAX_CONVERSATION_LIMIT
         } else {
             limit
-        };
+        }
+        .max(MAX_CONVERSATION_LIMIT);
 
         let local_updated_at = self.store.get_last_conversation_updated_at();
         let updated_at = updated_at.unwrap_or_default();

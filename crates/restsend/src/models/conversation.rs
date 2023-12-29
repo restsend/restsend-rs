@@ -37,6 +37,10 @@ pub struct Conversation {
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
+    pub start_seq: i64,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
     pub last_seq: i64,
 
     #[serde(skip_serializing_if = "omit_empty")]

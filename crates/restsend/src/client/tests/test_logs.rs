@@ -39,7 +39,10 @@ async fn test_client_fetch_logs() {
     let mut last_seq = 0;
     let send_count = 2;
     for i in 0..send_count {
-        let req = ChatRequest::new_text(topic_id, &format!("hello from rust unittest {}", i));
+        let req = ChatRequest::new_text(
+            topic_id,
+            &format!("hello from rust unittest bob->alice {}", i),
+        );
         let resp = c
             .send_chat_request(topic_id.to_string(), req)
             .await
@@ -105,7 +108,7 @@ async fn test_client_recall_log() {
     })
     .await
     .unwrap();
-    let conversation = c.create_chat("alice".to_string()).await.unwrap();
+    let conversation = c.create_chat("guido".to_string()).await.unwrap();
     let topic_id = conversation.topic_id;
     let mut first_send_id = "".to_string();
     let mut last_send_id = "".to_string();
@@ -114,7 +117,7 @@ async fn test_client_recall_log() {
     for i in 0..send_count {
         let content = Content::new_text(
             ContentType::Image,
-            &format!("hello from rust unittest {}", i),
+            &format!("hello from rust unittest vitalik->guido {}", i),
         );
         let is_ack = Arc::new(AtomicBool::new(false));
         let msg_cb = Box::new(TestMessageCakllbackImpl {
@@ -161,31 +164,6 @@ async fn test_client_recall_log() {
     check_until(Duration::from_secs(3), || is_ack.load(Ordering::Relaxed))
         .await
         .unwrap();
-
-    // struct TestSyncLogsCallbackImpl {
-    //     result: Arc<Mutex<Option<GetChatLogsResult>>>,
-    // }
-
-    // impl callback::SyncChatLogsCallback for TestSyncLogsCallbackImpl {
-    //     fn on_success(&self, r: GetChatLogsResult) {
-    //         let mut result = self.result.lock().unwrap();
-    //         result.replace(r);
-    //     }
-    //     fn on_fail(&self, _reason: crate::Error) {
-    //         panic!("on_fail {:?}", _reason);
-    //     }
-    // }
-
-    // let result = Arc::new(Mutex::new(None));
-    // let cb = TestSyncLogsCallbackImpl {
-    //     result: result.clone(),
-    // };
-
-    // // c.sync_chat_logs(topic_id.to_string(), None, send_count + 1, Box::new(cb));
-
-    // // check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
-    // //     .await
-    // //     .unwrap();
 
     let local_logs = c
         .store

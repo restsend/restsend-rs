@@ -113,12 +113,10 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
-
         expect(newItems[0].content.type).toEqual('recall')
         expect(newItems[0].content.text).toEqual(recallId)
-        expect(newItems[1].recall).toBe(true)
-        expect(newItems[1].content.type).toEqual('recall')
-        expect(newItems[1].content.text).toBeUndefined()
+        expect(newItems[1].recall).toBe(false)
+        expect(newItems[1].content.type).toEqual('text')
 
     })
 })

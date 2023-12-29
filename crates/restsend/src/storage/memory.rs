@@ -126,22 +126,17 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
             }
         };
 
-        let start_sort_value = match option.start_sort_value {
+        let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
-            None => {
-                let v = table.last();
-                match v {
-                    Some(v) => {
-                        let v = match T::from_str(v) {
-                            Ok(v) => (v.sort_key() - option.limit as i64).max(0),
-                            _ => 0,
-                        };
-                        v
-                    }
-                    None => 0,
-                }
-            }
-        };
+            None => match table.last() {
+                Some(v) => match T::from_str(v) {
+                    Ok(v) => v.sort_key(),
+                    _ => 0,
+                },
+                None => 0,
+            },
+        } - option.limit as i64)
+            .max(0);
 
         let mut iter = table
             .index
@@ -333,7 +328,7 @@ fn test_memory_query() {
         let v = table.query(
             "",
             &QueryOption {
-                start_sort_value: Some(480),
+                start_sort_value: Some(490),
                 limit: 10,
                 keyword: None,
             },
@@ -357,10 +352,10 @@ fn test_memory_query() {
         );
 
         assert_eq!(v.items.len(), 10);
-        assert_eq!(v.start_sort_value, 490);
-        assert_eq!(v.end_sort_value, 481);
+        assert_eq!(v.start_sort_value, 480);
+        assert_eq!(v.end_sort_value, 471);
 
-        assert_eq!(v.items[0], 490);
-        assert_eq!(v.items[9], 481);
+        assert_eq!(v.items[0], 480);
+        assert_eq!(v.items[9], 471);
     }
 }

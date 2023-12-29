@@ -112,16 +112,14 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         items
     }
     fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
-        let start_sort_value = match option.start_sort_value {
+        let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
-            None => {
-                let last = self.last(partition);
-                match last {
-                    Some(v) => (v.sort_key() - option.limit as i64).max(0),
-                    None => 0,
-                }
-            }
-        };
+            None => match self.last(partition) {
+                Some(v) => v.sort_key(),
+                None => 0,
+            },
+        } - option.limit as i64)
+            .max(0);
 
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
@@ -346,4 +344,64 @@ pub fn test_store_i32() {
     t.clear();
     let value_1 = t.get("", "1");
     assert_eq!(value_1, None);
+}
+#[test]
+fn test_sqlite_query() {
+    let storage = SqliteStorage::new(":memory:");
+    storage.make_table("test").unwrap();
+    let table = storage.table::<i32>("test");
+    for i in 0..500 {
+        table.set("", &i.to_string(), Some(&i));
+    }
+    {
+        let v = table.query(
+            "",
+            &QueryOption {
+                start_sort_value: None,
+                limit: 10,
+                keyword: None,
+            },
+        );
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 499);
+        assert_eq!(v.end_sort_value, 490);
+
+        assert_eq!(v.items[0], 499);
+        assert_eq!(v.items[9], 490);
+    }
+    {
+        let v = table.query(
+            "",
+            &QueryOption {
+                start_sort_value: Some(490),
+                limit: 10,
+                keyword: None,
+            },
+        );
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 490);
+        assert_eq!(v.end_sort_value, 481);
+
+        assert_eq!(v.items[0], 490);
+        assert_eq!(v.items[9], 481);
+    }
+    {
+        let v = table.query(
+            "",
+            &QueryOption {
+                start_sort_value: Some(480),
+                limit: 10,
+                keyword: None,
+            },
+        );
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 480);
+        assert_eq!(v.end_sort_value, 471);
+
+        assert_eq!(v.items[0], 480);
+        assert_eq!(v.items[9], 471);
+    }
 }

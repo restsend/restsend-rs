@@ -33,167 +33,6 @@ export function setLogging(level?: string): void;
 export class Client {
   free(): void;
 /**
-* @param {any} info
-*/
-  constructor(info: any);
-/**
-* @returns {Promise<void>}
-*/
-  shutdown(): Promise<void>;
-/**
-* @returns {Promise<void>}
-*/
-  connect(): Promise<void>;
-/**
-* Create a new chat with userId
-* return: Conversation
-* @param {string} userId
-* @returns {Promise<any>}
-*/
-  createChat(userId: string): Promise<any>;
-/**
-* Clean history of a conversation
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  cleanMessages(topicId: string): Promise<void>;
-/**
-* Remove messages from a conversation
-* @param {string} topicId
-* @param {(string)[]} chatIds
-* @returns {Promise<void>}
-*/
-  removeMessages(topicId: string, chatIds: (string)[]): Promise<void>;
-/**
-* Sync chat logs from server
-* #Arguments
-* * `topicId` - topic id
-* * `lastSeq` - Number, last seq
-* * `option` - option
-*     * `limit` - limit
-*     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
-*     * `onerror` - onerror callback -> function (error: String)
-* @param {string} topicId
-* @param {number | undefined} lastSeq
-* @param {any} option
-* @returns {Promise<void>}
-*/
-  syncChatLogs(topicId: string, lastSeq: number | undefined, option: any): Promise<void>;
-/**
-* Sync conversations from server
-* #Arguments
-* * `option` - option
-*    * `limit` - limit
-*    * `updatedAt` String - updated_at optional
-*    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
-*         - updated_at: last updated_at
-*         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
-*    * `onerror` - onerror callback -> function (error: String)
-* @param {any} option
-* @returns {Promise<void>}
-*/
-  syncConversations(option: any): Promise<void>;
-/**
-* Get conversation by topicId
-* #Arguments
-* * `topicId` - topic id
-* return: Conversation or null
-* @param {string} topicId
-* @returns {any}
-*/
-  getConversation(topicId: string): any;
-/**
-* Remove conversation by topicId
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  removeConversation(topicId: string): Promise<void>;
-/**
-* Set conversation remark
-* #Arguments
-* * `topicId` - topic id
-* * `remark` - remark
-* @param {string} topicId
-* @param {string | undefined} [remark]
-* @returns {Promise<any>}
-*/
-  setConversationRemark(topicId: string, remark?: string): Promise<any>;
-/**
-* Set conversation sticky by topicId
-* #Arguments
-* * `topicId` - topic id
-* * `sticky` - sticky
-* @param {string} topicId
-* @param {boolean} sticky
-* @returns {Promise<any>}
-*/
-  setConversationSticky(topicId: string, sticky: boolean): Promise<any>;
-/**
-* Set conversation mute by topicId
-* #Arguments
-* * `topicId` - topic id
-* * `mute` - mute
-* @param {string} topicId
-* @param {boolean} mute
-* @returns {Promise<any>}
-*/
-  setConversationMute(topicId: string, mute: boolean): Promise<any>;
-/**
-* Set conversation read by topicId
-* #Arguments
-* * `topicId` - topic id
-* @param {string} topicId
-* @returns {Promise<void>}
-*/
-  setConversationRead(topicId: string): Promise<void>;
-/**
-* Set conversation tags
-* #Arguments
-* * `topicId` - topic id
-* * `tags` - tags is array of Tag:
-*     - id - string
-*     - type - string
-*     - label - string
-* @param {string} topicId
-* @param {any} tags
-* @returns {Promise<any>}
-*/
-  setConversationTags(topicId: string, tags: any): Promise<any>;
-/**
-* Set conversation extra
-* #Arguments
-* * `topicId` - topic id
-* # `extra` - extra
-* # Return: Conversation
-* @param {string} topicId
-* @param {any} extra
-* @returns {Promise<any>}
-*/
-  setConversationExtra(topicId: string, extra: any): Promise<any>;
-/**
-* Filter conversation with options
-* #Arguments
-* * `predicate` - filter predicate
-*     -> return true to keep the conversation
-* #Return Array of Conversation
-* #Example
-* ```js
-* const conversations = client.filterConversation((c) => {
-*    return c.remark === 'hello'
-* })
-* ```
-* #Example
-* ```js
-* const conversations = client.filterConversation((c) => {
-*   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
-* })
-* @param {any} predicate
-* @returns {Promise<any>}
-*/
-  filterConversation(predicate: any): Promise<any>;
-/**
 *
 * Send message with content
 * # Arguments
@@ -489,6 +328,167 @@ export class Client {
 * @returns {Promise<void>}
 */
   setAllowGuestChat(allow: boolean): Promise<void>;
+/**
+* @param {any} info
+*/
+  constructor(info: any);
+/**
+* @returns {Promise<void>}
+*/
+  shutdown(): Promise<void>;
+/**
+* @returns {Promise<void>}
+*/
+  connect(): Promise<void>;
+/**
+* Create a new chat with userId
+* return: Conversation
+* @param {string} userId
+* @returns {Promise<any>}
+*/
+  createChat(userId: string): Promise<any>;
+/**
+* Clean history of a conversation
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  cleanMessages(topicId: string): Promise<void>;
+/**
+* Remove messages from a conversation
+* @param {string} topicId
+* @param {(string)[]} chatIds
+* @returns {Promise<void>}
+*/
+  removeMessages(topicId: string, chatIds: (string)[]): Promise<void>;
+/**
+* Sync chat logs from server
+* #Arguments
+* * `topicId` - topic id
+* * `lastSeq` - Number, last seq
+* * `option` - option
+*     * `limit` - limit
+*     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
+*     * `onerror` - onerror callback -> function (error: String)
+* @param {string} topicId
+* @param {number | undefined} lastSeq
+* @param {any} option
+* @returns {Promise<void>}
+*/
+  syncChatLogs(topicId: string, lastSeq: number | undefined, option: any): Promise<void>;
+/**
+* Sync conversations from server
+* #Arguments
+* * `option` - option
+*    * `limit` - limit
+*    * `updatedAt` String - updated_at optional
+*    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
+*         - updated_at: last updated_at
+*         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
+*    * `onerror` - onerror callback -> function (error: String)
+* @param {any} option
+* @returns {Promise<void>}
+*/
+  syncConversations(option: any): Promise<void>;
+/**
+* Get conversation by topicId
+* #Arguments
+* * `topicId` - topic id
+* return: Conversation or null
+* @param {string} topicId
+* @returns {any}
+*/
+  getConversation(topicId: string): any;
+/**
+* Remove conversation by topicId
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  removeConversation(topicId: string): Promise<void>;
+/**
+* Set conversation remark
+* #Arguments
+* * `topicId` - topic id
+* * `remark` - remark
+* @param {string} topicId
+* @param {string | undefined} [remark]
+* @returns {Promise<any>}
+*/
+  setConversationRemark(topicId: string, remark?: string): Promise<any>;
+/**
+* Set conversation sticky by topicId
+* #Arguments
+* * `topicId` - topic id
+* * `sticky` - sticky
+* @param {string} topicId
+* @param {boolean} sticky
+* @returns {Promise<any>}
+*/
+  setConversationSticky(topicId: string, sticky: boolean): Promise<any>;
+/**
+* Set conversation mute by topicId
+* #Arguments
+* * `topicId` - topic id
+* * `mute` - mute
+* @param {string} topicId
+* @param {boolean} mute
+* @returns {Promise<any>}
+*/
+  setConversationMute(topicId: string, mute: boolean): Promise<any>;
+/**
+* Set conversation read by topicId
+* #Arguments
+* * `topicId` - topic id
+* @param {string} topicId
+* @returns {Promise<void>}
+*/
+  setConversationRead(topicId: string): Promise<void>;
+/**
+* Set conversation tags
+* #Arguments
+* * `topicId` - topic id
+* * `tags` - tags is array of Tag:
+*     - id - string
+*     - type - string
+*     - label - string
+* @param {string} topicId
+* @param {any} tags
+* @returns {Promise<any>}
+*/
+  setConversationTags(topicId: string, tags: any): Promise<any>;
+/**
+* Set conversation extra
+* #Arguments
+* * `topicId` - topic id
+* # `extra` - extra
+* # Return: Conversation
+* @param {string} topicId
+* @param {any} extra
+* @returns {Promise<any>}
+*/
+  setConversationExtra(topicId: string, extra: any): Promise<any>;
+/**
+* Filter conversation with options
+* #Arguments
+* * `predicate` - filter predicate
+*     -> return true to keep the conversation
+* #Return Array of Conversation
+* #Example
+* ```js
+* const conversations = client.filterConversation((c) => {
+*    return c.remark === 'hello'
+* })
+* ```
+* #Example
+* ```js
+* const conversations = client.filterConversation((c) => {
+*   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
+* })
+* @param {any} predicate
+* @returns {Promise<any>}
+*/
+  filterConversation(predicate: any): Promise<any>;
 /**
 * Create a new topic
 * #Arguments
