@@ -109,7 +109,7 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull p
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer log_ids, RustBuffer mentions, int8_t mention_all, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer source_topic_id, RustBuffer log_ids, RustBuffer mentions, int8_t mention_all, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_text(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
@@ -615,6 +615,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_sent(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_progress(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_attachment_upload(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_ack(void

@@ -444,7 +444,7 @@ public protocol ClientProtocol {
     func doSendInvite(topicId: String, messsage: String?, callback: MessageCallback?) async throws -> String
     func doSendLink(topicId: String, url: String, placeholder: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendLocation(topicId: String, latitude: String, longitude: String, address: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
-    func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String
+    func doSendLogs(topicId: String, sourceTopicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String
     func doSendText(topicId: String, text: String, mentions: [String]?, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendVideo(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
     func doSendVoice(topicId: String, attachment: Attachment, duration: String, mentions: [String]?, mentionAll: Bool, replyId: String?, callback: MessageCallback?) async throws -> String
@@ -899,12 +899,13 @@ public class Client: ClientProtocol {
 
     
 
-    public func doSendLogs(topicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String {
+    public func doSendLogs(topicId: String, sourceTopicId: String, logIds: [String], mentions: [String]?, mentionAll: Bool, callback: MessageCallback?) async throws -> String {
         return try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_restsend_sdk_fn_method_client_do_send_logs(
                     self.pointer,
                     FfiConverterString.lower(topicId),
+                    FfiConverterString.lower(sourceTopicId),
                     FfiConverterSequenceString.lower(logIds),
                     FfiConverterOptionSequenceString.lower(mentions),
                     FfiConverterBool.lower(mentionAll),
@@ -2479,6 +2480,7 @@ public struct Conversation {
     public var ownerId: String
     public var topicId: String
     public var updatedAt: String
+    public var startSeq: Int64
     public var lastSeq: Int64
     public var lastReadSeq: Int64
     public var multiple: Bool
@@ -2495,16 +2497,18 @@ public struct Conversation {
     public var lastMessageAt: String
     public var remark: String?
     public var extra: [String: String]?
+    public var topicExtra: [String: String]?
     public var tags: [Tag]?
     public var cachedAt: Int64
     public var isPartial: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(ownerId: String, topicId: String, updatedAt: String, lastSeq: Int64, lastReadSeq: Int64, multiple: Bool, attendee: String, members: Int64, name: String, icon: String, sticky: Bool, mute: Bool, source: String, unread: Int64, lastSenderId: String, lastMessage: Content?, lastMessageAt: String, remark: String?, extra: [String: String]?, tags: [Tag]?, cachedAt: Int64, isPartial: Bool) {
+    public init(ownerId: String, topicId: String, updatedAt: String, startSeq: Int64, lastSeq: Int64, lastReadSeq: Int64, multiple: Bool, attendee: String, members: Int64, name: String, icon: String, sticky: Bool, mute: Bool, source: String, unread: Int64, lastSenderId: String, lastMessage: Content?, lastMessageAt: String, remark: String?, extra: [String: String]?, topicExtra: [String: String]?, tags: [Tag]?, cachedAt: Int64, isPartial: Bool) {
         self.ownerId = ownerId
         self.topicId = topicId
         self.updatedAt = updatedAt
+        self.startSeq = startSeq
         self.lastSeq = lastSeq
         self.lastReadSeq = lastReadSeq
         self.multiple = multiple
@@ -2521,6 +2525,7 @@ public struct Conversation {
         self.lastMessageAt = lastMessageAt
         self.remark = remark
         self.extra = extra
+        self.topicExtra = topicExtra
         self.tags = tags
         self.cachedAt = cachedAt
         self.isPartial = isPartial
@@ -2537,6 +2542,9 @@ extension Conversation: Equatable, Hashable {
             return false
         }
         if lhs.updatedAt != rhs.updatedAt {
+            return false
+        }
+        if lhs.startSeq != rhs.startSeq {
             return false
         }
         if lhs.lastSeq != rhs.lastSeq {
@@ -2587,6 +2595,9 @@ extension Conversation: Equatable, Hashable {
         if lhs.extra != rhs.extra {
             return false
         }
+        if lhs.topicExtra != rhs.topicExtra {
+            return false
+        }
         if lhs.tags != rhs.tags {
             return false
         }
@@ -2603,6 +2614,7 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(ownerId)
         hasher.combine(topicId)
         hasher.combine(updatedAt)
+        hasher.combine(startSeq)
         hasher.combine(lastSeq)
         hasher.combine(lastReadSeq)
         hasher.combine(multiple)
@@ -2619,6 +2631,7 @@ extension Conversation: Equatable, Hashable {
         hasher.combine(lastMessageAt)
         hasher.combine(remark)
         hasher.combine(extra)
+        hasher.combine(topicExtra)
         hasher.combine(tags)
         hasher.combine(cachedAt)
         hasher.combine(isPartial)
@@ -2632,6 +2645,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             ownerId: FfiConverterString.read(from: &buf), 
             topicId: FfiConverterString.read(from: &buf), 
             updatedAt: FfiConverterString.read(from: &buf), 
+            startSeq: FfiConverterInt64.read(from: &buf), 
             lastSeq: FfiConverterInt64.read(from: &buf), 
             lastReadSeq: FfiConverterInt64.read(from: &buf), 
             multiple: FfiConverterBool.read(from: &buf), 
@@ -2648,6 +2662,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
             lastMessageAt: FfiConverterString.read(from: &buf), 
             remark: FfiConverterOptionString.read(from: &buf), 
             extra: FfiConverterOptionDictionaryStringString.read(from: &buf), 
+            topicExtra: FfiConverterOptionDictionaryStringString.read(from: &buf), 
             tags: FfiConverterOptionSequenceTypeTag.read(from: &buf), 
             cachedAt: FfiConverterInt64.read(from: &buf), 
             isPartial: FfiConverterBool.read(from: &buf)
@@ -2658,6 +2673,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterString.write(value.ownerId, into: &buf)
         FfiConverterString.write(value.topicId, into: &buf)
         FfiConverterString.write(value.updatedAt, into: &buf)
+        FfiConverterInt64.write(value.startSeq, into: &buf)
         FfiConverterInt64.write(value.lastSeq, into: &buf)
         FfiConverterInt64.write(value.lastReadSeq, into: &buf)
         FfiConverterBool.write(value.multiple, into: &buf)
@@ -2674,6 +2690,7 @@ public struct FfiConverterTypeConversation: FfiConverterRustBuffer {
         FfiConverterString.write(value.lastMessageAt, into: &buf)
         FfiConverterOptionString.write(value.remark, into: &buf)
         FfiConverterOptionDictionaryStringString.write(value.extra, into: &buf)
+        FfiConverterOptionDictionaryStringString.write(value.topicExtra, into: &buf)
         FfiConverterOptionSequenceTypeTag.write(value.tags, into: &buf)
         FfiConverterInt64.write(value.cachedAt, into: &buf)
         FfiConverterBool.write(value.isPartial, into: &buf)
@@ -4587,6 +4604,7 @@ extension FfiConverterCallbackInterfaceDownloadCallback : FfiConverter {
 public protocol MessageCallback : AnyObject {
     func onSent() 
     func onProgress(progress: UInt64, total: UInt64) 
+    func onAttachmentUpload(result: Upload)  -> Content?
     func onAck(req: ChatRequest) 
     func onFail(reason: String) 
     
@@ -4613,6 +4631,20 @@ fileprivate let foreignCallbackCallbackInterfaceMessageCallback : ForeignCallbac
                     progress:  try FfiConverterUInt64.read(from: &reader), 
                     total:  try FfiConverterUInt64.read(from: &reader)
                     )
+            return UNIFFI_CALLBACK_SUCCESS
+        }
+        return try makeCall()
+    }
+
+    func invokeOnAttachmentUpload(_ swiftCallbackInterface: MessageCallback, _ argsData: UnsafePointer<UInt8>, _ argsLen: Int32, _ out_buf: UnsafeMutablePointer<RustBuffer>) throws -> Int32 {
+        var reader = createReader(data: Data(bytes: argsData, count: Int(argsLen)))
+        func makeCall() throws -> Int32 {
+            let result =  swiftCallbackInterface.onAttachmentUpload(
+                    result:  try FfiConverterTypeUpload.read(from: &reader)
+                    )
+            var writer = [UInt8]()
+            FfiConverterOptionTypeContent.write(result, into: &writer)
+            out_buf.pointee = RustBuffer(bytes: writer)
             return UNIFFI_CALLBACK_SUCCESS
         }
         return try makeCall()
@@ -4684,12 +4716,26 @@ fileprivate let foreignCallbackCallbackInterfaceMessageCallback : ForeignCallbac
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
             do {
-                return try invokeOnAck(cb, argsData, argsLen, out_buf)
+                return try invokeOnAttachmentUpload(cb, argsData, argsLen, out_buf)
             } catch let error {
                 out_buf.pointee = FfiConverterString.lower(String(describing: error))
                 return UNIFFI_CALLBACK_UNEXPECTED_ERROR
             }
         case 4:
+            let cb: MessageCallback
+            do {
+                cb = try FfiConverterCallbackInterfaceMessageCallback.lift(handle)
+            } catch {
+                out_buf.pointee = FfiConverterString.lower("MessageCallback: Invalid handle")
+                return UNIFFI_CALLBACK_UNEXPECTED_ERROR
+            }
+            do {
+                return try invokeOnAck(cb, argsData, argsLen, out_buf)
+            } catch let error {
+                out_buf.pointee = FfiConverterString.lower(String(describing: error))
+                return UNIFFI_CALLBACK_UNEXPECTED_ERROR
+            }
+        case 5:
             let cb: MessageCallback
             do {
                 cb = try FfiConverterCallbackInterfaceMessageCallback.lift(handle)
@@ -6017,7 +6063,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_client_do_send_location() != 20895) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_client_do_send_logs() != 46916) {
+    if (uniffi_restsend_sdk_checksum_method_client_do_send_logs() != 37643) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_do_send_text() != 2911) {
@@ -6203,10 +6249,13 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_messagecallback_on_progress() != 6454) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_messagecallback_on_ack() != 23621) {
+    if (uniffi_restsend_sdk_checksum_method_messagecallback_on_attachment_upload() != 8662) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_messagecallback_on_fail() != 64032) {
+    if (uniffi_restsend_sdk_checksum_method_messagecallback_on_ack() != 31812) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_messagecallback_on_fail() != 20293) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_syncchatlogscallback_on_success() != 44636) {
