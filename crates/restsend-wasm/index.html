@@ -13,6 +13,7 @@
                 open: false,
                 innerHTML: '',
                 logs: null,
+                loading: false,
                 toggle() {
                     this.open = !this.open
                 }
@@ -28,13 +29,13 @@
                         node.innerHTML = ''
                     }
                     if (content.type == 'logs') {
-                        node.innerHTML = `<div class="w-48 p-4 rounded-md border cursor-pointer text-gray-800 bg-gray-100 hover:bg-gray-200">
+                        node.innerHTML = `<div class="w-48 p-4 rounded-md border border-gray-200 cursor-pointer text-gray-800 bg-gray-50 hover:bg-gray-200">
                                         <div class="flex items-center justify-between w-full mt-0">
                                         <div class="space-y-2">
                                            <p class="text-base">${content.placeholder} </p>
                                            <p class="text-sm">size:${content.size}</p>
                                         </div>
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10 text-gray-800">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                     </svg>
                                     </div>
@@ -87,7 +88,10 @@
                     }
 
                     if (content.type == 'file') {
-                        node.innerHTML = `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
+                        let modalData = Alpine.store('modalData')
+                        let url = content.text;
+                        //  <p class="absolute top-0 left-0 h-full w-full flex justify-center items-center text-gray-700 bg-gray-200 rounded-md" :class="${modalData.loading ? 'block' : 'hidden'}"> downloading……</p>
+                        node.innerHTML = `<a class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6 cursor-pointer relative">  
                       <div>
                         <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
                         <p class="text-gray-500 text-xs mt-2">${content.size}</p>
@@ -95,6 +99,32 @@
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600">
                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
               </a>`
+                        node.addEventListener('click', async () => {
+                            let modalData = Alpine.store('modalData')
+                            modalData.loading = false
+                            try {
+                                const response = await fetch(content.text);
+                                const blob = await response.blob();
+                                const url = URL.createObjectURL(blob);
+
+                                const a = document.createElement('a');
+                                a.style.display = 'none';
+                                a.href = url;
+                                a.download = content.placeholder;
+
+                                a.addEventListener('click', () => {
+                                    console.log('File downloaded successfully');
+                                    modalData.loading = false
+                                });
+
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            } catch (error) {
+                                console.error('Error:', error);
+                            }
+                        });
                     }
 
                     if (content.type == 'link') {
@@ -135,6 +165,7 @@
         .scroll-bar {
             width: 100%;
         }
+
         .scroll-bar::-webkit-scrollbar {
             height: 4px;
             width: 4px;
@@ -533,10 +564,10 @@
                     return `<div class="max-w-[90px]"><img class="rounded-md shadow" src='${url}'/></div>`
                 }
                 if (content.type == 'link') {
-                    return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
+                    return `<a class="underline text-blue-400">${content.text}</a>`
                 }
                 if (content.type == 'file') {
-                    return `<a href="${content.text}" class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
+                    return `<a class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
                       <div>
                         <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
                         <p class="text-gray-500 text-xs mt-2">${content.size}</p>
@@ -883,12 +914,12 @@
                         </template>
                     </div>
                     <div class="py-3 border-t border-gray-200 flex justify-between border-r px-3">
-                       <div class="flex items-center space-x-2"> 
-                        <img :src="`${endpoint}/api/avatar/${userid}`" alt="" class="w-6 h-6 rounded-full">
-                        <p x-text="userid" class="font-semibold capitalize"></p>
-                    </div>
+                        <div class="flex items-center space-x-2">
+                            <img :src="`${endpoint}/api/avatar/${userid}`" alt="" class="w-6 h-6 rounded-full">
+                            <p x-text="userid" class="font-semibold capitalize"></p>
+                        </div>
 
-                       <div class="relative group">
+                        <div class="relative group">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                 stroke="currentColor" class="w-6 h-6 text-indigo-700 cursor-pointer">
                                 <path stroke-linecap="round" stroke-linejoin="round"
@@ -902,7 +933,7 @@
                                     <ul class="shadow px-1 rounded-md text-gray-700 bg-white py-1">
                                         <template x-for="item in items">
                                             <li x-text="item"
-                                                class="px-8 py-1 hover:bg-indigo-50 cursor-pointer capitalize"
+                                                class="px-8 py-1.5 hover:bg-indigo-50 cursor-pointer capitalize rounded"
                                                 :class="userid==item?'bg-indigo-100':''" @click="doSwitchAccount(item)">
                                             </li>
                                         </template>
@@ -946,7 +977,8 @@
                             </template>
 
                             <template x-if="$store.modalData.open">
-                                <div class="scroll-bar absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
+                                <div
+                                    class="scroll-bar absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
                                     <div class="flex items-center justify-end w-full pb-1 my-2 border-b">
                                         <button type="button">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -1208,7 +1240,8 @@
                                                                         </div> -->
                                                                         <div x-content="item.content"
                                                                             class="rounded-lg whitespace-wrap break-all inline-block"
-                                                                            :class="getMessageClass(block, item)"></div>
+                                                                            :class="getMessageClass(block, item)">
+                                                                        </div>
 
                                                                         <template x-if="item.replyContent">
                                                                             <div
