@@ -28,12 +28,11 @@
                         node.innerHTML = ''
                     }
                     if (content.type == 'logs') {
-                        node.innerHTML = `<div class="w-48 p-3 rounded-md border bg-gray-50 cursor-pointer text-gray-800">
-                                        <p class="text-gray-700 text-base">${content.type}</p>
-                                        <div class="flex items-center justify-between w-full mt-2">
-                                        <div class="space-y-1">
-                                           <p>${content.placeholder} </p>
-                                           <p>size:${content.size}</p>
+                        node.innerHTML = `<div class="w-48 p-4 rounded-md border cursor-pointer text-gray-800 bg-gray-100 hover:bg-gray-200">
+                                        <div class="flex items-center justify-between w-full mt-0">
+                                        <div class="space-y-2">
+                                           <p class="text-base">${content.placeholder} </p>
+                                           <p class="text-sm">size:${content.size}</p>
                                         </div>
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
@@ -44,20 +43,35 @@
                         node.addEventListener('click', () => {
                             let modalData = Alpine.store('modalData')
                             modalData.toggle()
-                            let jsonString = ''
-                            let jsonObject = ''
-                            fetch('https://chat.ruzhila.cn/api/attachment/o6t0tmlwc9wy').then(response => response.json())
+                            let logsString = ''
+                            let logsObject = ''
+                            fetch(content.text).then(response => response.json())
                                 .then(jsonData => {
-                                    jsonString = JSON.stringify(jsonData);
-                                    jsonObject = JSON.parse(jsonString);
-                                    console.log(jsonObject);
-                                    modalData.innerHTML = jsonObject
+                                    logsString = JSON.stringify(jsonData);
+                                    logsObject = JSON.parse(logsString);
+                                    const items = logsObject.items.map(logsString => JSON.parse(logsString));
+                                    modalData.innerHTML = `<div class="w-full h-auto text-gray-700 px-4">
+                                     <div class="flex items-center justify-between w-full">
+                                          <p class="text-gray-800"> <span class="font-semibold"> ${logsObject.ownerId} </span>Chat history</p>
+                                        <p class="text-gray-500 text-sm">${(logsObject.createdAt).slice(0, 10)}</p>
+                                     </div>  
+
+                                     <div> 
+                                        <ul class="text-sm text-gray-700 py-2  mt-5">
+                                            ${items.map(item =>
+                                        `<li class="py-3 border-b border-text-200">
+                                                    <div class="flex w-full items-center space-x-4 text-gray-500 text-xs"> <p class="text-gray-700 font-semibold">${item.senderId}</p> <p>${(item.createdAt).replace("T", " ").split("+")[0]}</p> </div>  
+                                                   <p class="mt-1.5 text-gray-800">${item.content.text} <span class="text-gray-400 text-xs">(${item.content.type})</span> </p>
+                                                    </li>`).join('')}
+                                            </ul>
+                                        </div>
+                                         
+                            </div>`
+                                    modalData.logs = logsObject
                                 })
                                 .catch(error => {
                                     console.error('Error:', error);
                                 });
-
-                            console.log('modalData', modalData.innerHTML)
                         })
 
                     }
@@ -139,7 +153,7 @@
             }
 
             updateItem(chatId, {type, content, recall, replyContent}) {
-                console.log('update item', chatId, {type, content, recall})
+                // console.log('update item', chatId, {type, content, recall})
                 for (let idx = 0; idx < this.blocks.length; idx++) {
                     const block = this.blocks[idx];
                     let found = block.items.findIndex((item) => item.id == chatId)
@@ -242,7 +256,7 @@
                 for (var idx = items.length - 1; idx >= 0; idx--) {
                     let item = {
                         type: items[idx].content.type,
-                        content: items[idx].content,//this.renderContent(items[idx].content),
+                        content: items[idx].content,
                         replyContent: (items[idx].content.replyContent),
                         isLast: false,
                         seq: items[idx].seq,
@@ -256,7 +270,7 @@
                     if (this.msgs[items[idx].id]) {
                         this.updateItem(items[idx].id, {
                             type: item.type,
-                            content: this.renderContent(items[idx].content),
+                            content: items[idx].content,
                             recall: item.recall,
                             replyContent: (items[idx].content.replyContent),
                         })
@@ -419,7 +433,6 @@
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
-                        console.log('updateConversation', r)
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -452,7 +465,7 @@
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
                     onsuccess: (r) => {
-                        console.log('sync older messages', firstItemSeq, r)
+                        // console.log('sync older messages', firstItemSeq, r)
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -472,7 +485,6 @@
                 if (!this.conversation) {
                     return
                 }
-                console.log('do remark', conservation)
                 this.showRemarkInput = false
                 await this.current.setConversationRemark(this.conversation.topicId, conservation.title);
 
@@ -484,10 +496,23 @@
                 if (content.type == 'update.extra') {
                     return ''
                 }
-                // console.log('renderContent', content)
+                if (content.type == 'logs') {
+                    return `<div class="w-32 p-3 rounded-md border bg-gray-50 cursor-pointer text-gray-800">
+                                      
+                                        <div class="flex items-center justify-between w-full mt-0">
+                                        <div class="space-y-1 text-xs">
+                                           <p>${content.placeholder} </p>
+                                           <p>size:${content.size}</p>
+                                        </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                    </svg>
+                                    </div>
+                            </div>`
+                }
                 if (content.type == 'image') {
                     let url = content.thumbnail || content.text;
-                    return `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow" src='${url}'/>`
+                    return `<div class="max-w-[90px]"><img class="rounded-md shadow" src='${url}'/></div>`
                 }
                 if (content.type == 'link') {
                     return `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
@@ -570,7 +595,6 @@
                 });
             },
             doDeleteMessage: async function (message) {
-                console.log('delete message', message)
                 if (!this.conversation) {
                     return
                 }
@@ -578,7 +602,6 @@
                 for (let i = 0; i < message.length; i++) {
                     ids.push(message[i].id)
                 }
-                console.log('delete message', ids)
                 await this.current.removeMessages(this.conversation.topicId, ids);
                 for (let i = 0; i < message.length; i++) {
                     this.messageBlocks.updateItem(message[i].id, {
@@ -598,9 +621,7 @@
                 for (let i = 0; i < this.logIds.length; i++) {
                     ids.push(this.logIds[i].id)
                 }
-                console.log('forward message', targetConversation.topicId, this.conversation.topicId, ids)
 
-                // this.logIds = []
                 this.showList = false
                 this.showCheckbox = false
                 let thisPtr = this;
@@ -621,8 +642,10 @@
                 if (!this.conversation) {
                     return
                 }
+                if (this.reference) {
+                    this.reference = null
+                }
                 this.reference = message
-                // console.log('reference message', this.reference)
             },
 
             doReCallMessage: async function (block, message) {
@@ -632,7 +655,6 @@
                 let thisPtr = this;
                 await this.current.doRecall(this.conversation.topicId, message.id, {
                     onack: function (req) {
-                        console.log('recall message ack', req)
                         thisPtr.message = ''
                         thisPtr.messageBlocks.updateItem(message.id, {
                             type: 'recall',
@@ -670,7 +692,6 @@
                         this.selectedMessages.splice(index, 1)
                     }
                 }
-                console.log('doSelectMessage', this.selectedMessages)
             },
 
             formatDateTime: function (time) {
@@ -722,7 +743,6 @@
         }
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
-        <!-- We've used 3xl here, but feel free to try other max-widths based on your needs -->
         <div class="flex gap-x-2">
             <div>
                 <label for="endpoint" class="block text-sm font-medium leading-6 text-gray-900">Endpoint</label>
@@ -875,7 +895,7 @@
                                             </svg> </button>
                                     </div>
                                     <div x-html="$store.modalData.innerHTML"> </div>
-                                    <!-- <p x-text="$store.modalData.logs"></p> -->
+                                    <!-- <p x-text="$store.modalData.logs.createdAt"></p> -->
                                 </div>
                             </template>
                             <!-- </div> -->
@@ -1162,7 +1182,9 @@
                                         <template x-if="reference">
                                             <div
                                                 class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs relative">
-                                                <p class="text-overflow-ellipsis pr-3" x-html="reference.content"></p>
+                                                <p class="text-overflow-ellipsis pr-3"
+                                                    x-html="renderReply(reference.content)">
+                                                </p>
 
                                                 <p class="absolute right-0.5 top-0.5 cursor-pointer hover:text-gray-800 text-gray-500"
                                                     @click="reference=null">
