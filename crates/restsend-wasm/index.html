@@ -113,7 +113,7 @@
 
     </script>
 
-<body class="bg-gray-100">
+<body>
     <style>
         .text-overflow-ellipsis {
             display: -webkit-box;
@@ -299,6 +299,7 @@
             reference: null,
             showCheckbox: false,
             showRemarkInput: false,
+            signined: false,
             open: false,
             showList: false,
             logIds: null,
@@ -350,6 +351,7 @@
                 client.ontopicmessage = this.onTopicMessage.bind(this)
                 await client.connect();
                 this.current = client;
+                this.signined = true
             },
 
             onTopicMessage: function (topicId, req) {
@@ -498,7 +500,6 @@
                 }
                 if (content.type == 'logs') {
                     return `<div class="w-32 p-3 rounded-md border bg-gray-50 cursor-pointer text-gray-800">
-                                      
                                         <div class="flex items-center justify-between w-full mt-0">
                                         <div class="space-y-1 text-xs">
                                            <p>${content.placeholder} </p>
@@ -539,7 +540,7 @@
                 if (block.isSelf) {
                     classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-blue-600 text-white px-4 py-2')
                 } else {
-                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-gray-300 text-gray-800 px-4 py-2')
+                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-gray-200 text-gray-800 px-4 py-2')
                 }
 
                 if (item.type == 'recall' || item.type == '') {
@@ -740,117 +741,157 @@
                     return conversation.title
                 }
             },
+            doSwitchAccount: function (user) {
+                this.userid = user
+                this.password = user + ':demo'
+                this.doSignin()
+                // signined = true
+            },
         }
     </script>
     <div class="h-screen overflow-y-auto mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8" x-data="demoApp">
-        <div class="flex gap-x-2">
-            <div>
-                <label for="endpoint" class="block text-sm font-medium leading-6 text-gray-900">Endpoint</label>
-                <div class="mt-2">
-                    <input id="endpoint" name="endpoint" type="text" required x-model="endpoint"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+        <template x-if="!signined">
+            <div class="flex bg-gray-50 fixed left-0 top-0 h-full w-full z-40 justify-center items-center">
+                <div class="space-y-4 py-8 px-20 bg-white rounded-xl shadow">
+                    <div>
+                        <label for="endpoint" class="block text-sm font-medium leading-6 text-gray-900">Endpoint</label>
+                        <div class="mt-2">
+                            <input id="endpoint" name="endpoint" type="text" required x-model="endpoint"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="userid" class="block text-sm font-medium leading-6 text-gray-900">User ID</label>
+                        <div class="mt-2">
+                            <input id="userid" name="userid" type="text" required x-model="userid"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+                        <div class="mt-2 flex gap-x-2">
+                            <input id="password" name="password" type="text" required x-model="password"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button type="button" @click="doSignin()"
+                            class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign
+                            in</button>
+                    </div>
                 </div>
             </div>
-            <div>
-                <label for="userid" class="block text-sm font-medium leading-6 text-gray-900">User ID</label>
-                <div class="mt-2">
-                    <input id="userid" name="userid" type="text" required x-model="userid"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-                </div>
-            </div>
-            <div>
-                <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
-                <div class="mt-2 flex gap-x-2">
-                    <input id="password" name="password" type="text" required x-model="password"
-                        class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
-
-                    <button type="button" @click="doSignin()"
-                        class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign
-                        in</button>
-                </div>
-            </div>
-        </div>
-        <div class="mx-auto h-auto w-full max-w-7xl  lg:flex xl:px-2 relative">
+        </template>
+        <div class="mx-auto h-auto w-full max-w-7xl lg:flex relative mt-6 p-6 shadow bg-gray-50 border border-gray-100 rounded-md">
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
-                <div
-                    class="border-b h-[calc(100vh-8rem)]  border-gray-200 px-2 py-5 sm:px-6  xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
-                    <template x-for="item in conversations">
-                        <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
-                            @click="onSelectConversation(item)">
-                            <div class="flex min-w-0 items-center relative shrink-0">
-                                <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
-                                <template x-if="item.unread>0 && item.unread <= 99 && !item.mute">
-                                    <div class="text-[10px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md"
-                                        x-text="item.unread"></div>
-                                </template>
-                                <template x-if="item.unread > 99 && !item.mute">
-                                    <div
-                                        class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md">
-                                        99+</div>
-                                </template>
+                <div>
+                    <div
+                        class="border-b h-[calc(100vh-12rem)] border-gray-200 px-2 py-5 xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
+                        <template x-for="item in conversations">
+                            <li class="flex my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
+                                @click="onSelectConversation(item)">
+                                <div class="flex min-w-0 items-center relative shrink-0">
+                                    <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
+                                    <template x-if="item.unread>0 && item.unread <= 99 && !item.mute">
+                                        <div class="text-[10px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md"
+                                            x-text="item.unread"></div>
+                                    </template>
+                                    <template x-if="item.unread > 99 && !item.mute">
+                                        <div
+                                            class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md">
+                                            99+</div>
+                                    </template>
 
-                                <template x-if="item.mute && item.unread>0">
-                                    <div
-                                        class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[12px] h-[12px] absolute top-0.5 right-0.5 p-[2px] shadow-md">
+                                    <template x-if="item.mute && item.unread>0">
+                                        <div
+                                            class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[12px] h-[12px] absolute top-0.5 right-0.5 p-[2px] shadow-md">
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="sm:flex sm:flex-col pl-2 w-full">
+                                    <div class="flex w-full justify-between">
+                                        <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
+                                            x-text="doGroupMembers(item)"></p>
+                                        <div
+                                            class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
+                                            <button class="hover:text-gray-600 invisible group-hover:visible"
+                                                :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M5 5V4h14v1zm6.5 15V9.608l-3.1 3.1L7.692 12L12 7.692L16.308 12l-.708.708l-3.1-3.1V20z" />
+                                                </svg>
+                                            </button>
+
+                                            <button
+                                                class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
+                                                :class="item.sticky?'block':'hidden'" @click="doSticky(item)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M22.11 21.46L2.39 1.73L1.11 3l6 6H5l7 7l1.06-1.05L16.11 18H5v2h13.11l2.73 2.73zM11 5h2v4.8l2.6 2.6L19 9h-4V3H9v2.8l2 2z" />
+                                                </svg>
+                                            </button>
+                                            <button class="hover:text-gray-600"
+                                                :class="item.mute?'visible':'invisible'">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" data-slot="icon"
+                                                    class="w-5 h-5 text-gray-500" @click="doMute(item)">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </div>
-                                </template>
-                            </div>
-                            <div class="sm:flex sm:flex-col pl-2 w-full">
-                                <div class="flex w-full justify-between">
-                                    <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
-                                        x-text="doGroupMembers(item)"></p>
-                                    <div class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
-                                        <button class="hover:text-gray-600 invisible group-hover:visible"
-                                            :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                viewBox="0 0 24 24">
-                                                <path fill="currentColor"
-                                                    d="M5 5V4h14v1zm6.5 15V9.608l-3.1 3.1L7.692 12L12 7.692L16.308 12l-.708.708l-3.1-3.1V20z" />
-                                            </svg>
-                                        </button>
-
-                                        <button
-                                            class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
-                                            :class="item.sticky?'block':'hidden'" @click="doSticky(item)">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
-                                                viewBox="0 0 24 24">
-                                                <path fill="currentColor"
-                                                    d="M22.11 21.46L2.39 1.73L1.11 3l6 6H5l7 7l1.06-1.05L16.11 18H5v2h13.11l2.73 2.73zM11 5h2v4.8l2.6 2.6L19 9h-4V3H9v2.8l2 2z" />
-                                            </svg>
-                                        </button>
-                                        <button class="hover:text-gray-600" :class="item.mute?'visible':'invisible'">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                                                stroke-width="1.5" stroke="currentColor" data-slot="icon"
-                                                class="w-5 h-5 text-gray-500" @click="doMute(item)">
-                                                <path stroke-linecap="round" stroke-linejoin="round"
-                                                    d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
-                                            </svg>
-                                        </button>
+                                    <div
+                                        class="flex items-center justify-between w-full text-xs leading-5 text-gray-500 mt-1">
+                                        <div class="flex items-center">
+                                            <template x-if="item.mute && item.unread>0 && item.unread <= 99">
+                                                <p x-text="`[${item.unread}]`" class="pr-0.5"></p>
+                                            </template>
+                                            <template x-if="item.unread >99  && item.mute">
+                                                <p x-text="[`[99+]`]" class="pr-0.5"></p>
+                                            </template>
+                                            <p x-text="lastMessageClass(item.lastMessage)" class="truncate"
+                                                :class="item.mute && item.unread>0 ? 'w-[110px]':'w-28'"></p>
+                                        </div>
+                                        <p class="w-12 flex justify-end">
+                                            <time x-text="formatDateTime(item.updatedAt)" class="shrink-0"></time>
+                                        </p>
                                     </div>
                                 </div>
-                                <div
-                                    class="flex items-center justify-between w-full text-xs leading-5 text-gray-500 mt-1">
-                                    <div class="flex items-center">
-                                        <template x-if="item.mute && item.unread>0 && item.unread <= 99">
-                                            <p x-text="`[${item.unread}]`" class="pr-0.5"></p>
+                            </li>
+                        </template>
+                    </div>
+                    <div class="py-3 border-t border-gray-200 flex justify-between border-r px-3">
+                        <p x-text="userid" class="font-semibold capitalize"></p>
+                        <div class="relative group">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                                stroke="currentColor" class="w-6 h-6 text-indigo-700">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                            </svg>
+
+                            <div class="pb-4 absolute invisible group-hover:visible bottom-3 right-1">
+                                <div x-data="{items: ['alice', 'bob', 'guido'] }">
+                                    <ul class="shadow px-1 rounded-md text-gray-700 bg-white py-1">
+                                        <template x-for="item in items">
+                                            <li x-text="item"
+                                                class="px-8 py-1 hover:bg-indigo-50 cursor-pointer capitalize"
+                                                :class="userid==item?'bg-indigo-100':''" @click="doSwitchAccount(item)">
+                                            </li>
                                         </template>
-                                        <template x-if="item.unread >99  && item.mute">
-                                            <p x-text="[`[99+]`]" class="pr-0.5"></p>
-                                        </template>
-                                        <p x-text="lastMessageClass(item.lastMessage)" class="truncate"
-                                            :class="item.mute && item.unread>0 ? 'w-[110px]':'w-28'"></p>
-                                    </div>
-                                    <p class="w-12 flex justify-end">
-                                        <time x-text="formatDateTime(item.updatedAt)" class="shrink-0"></time>
-                                    </p>
+                                    </ul>
                                 </div>
                             </div>
-                        </li>
-                    </template>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="p-4 h-full xl:flex-1">
+                <div class="px-4 h-full xl:flex-1">
                     <template x-if="conversation">
                         <div class="rounded-lg bg-white shadow relative">
                             <template x-if="showList">
@@ -885,7 +926,6 @@
                             <template x-if="$store.modalData.open">
                                 <div class="absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
                                     <div class="flex items-center justify-end w-full pb-1 my-2 border-b">
-                                        <!-- <p class="text-gray-700"></p> -->
                                         <button type="button">
                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                                 stroke-width="1.5" stroke="currentColor" class="w-5 h-5 cursor-pointer"
@@ -895,11 +935,9 @@
                                             </svg> </button>
                                     </div>
                                     <div x-html="$store.modalData.innerHTML"> </div>
-                                    <!-- <p x-text="$store.modalData.logs.createdAt"></p> -->
                                 </div>
                             </template>
-                            <!-- </div> -->
-                            <div class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-10rem)] relative">
+                            <div class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-8rem)] relative">
                                 <template x-if="showCheckbox">
                                     <div class="absolute bottom-1 h-28 z-20 left-0 px-10 w-full bg-white">
                                         <div
@@ -937,7 +975,6 @@
                                         </div>
                                     </div>
                                 </template>
-                                <!-- <div :class="showCheckbox?'pl-6':''"> -->
                                 <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
                                     <div class="relative flex items-center space-x-4">
                                         <div class="relative">
@@ -1024,7 +1061,6 @@
                                         </div>
                                     </button>
                                 </div>
-                                <!-- </div> -->
 
                                 <!-- h-[calc( 100vh-22rem)] -->
                                 <div id="messages" @scrollend="onScrollMessages($event)"
@@ -1198,9 +1234,9 @@
 
                                             </div>
                                         </template>
-                                        <input type="text" placeholder="Write your message!" x-model="message"
-                                            x-on:keydown.enter="doSendMessage"
-                                            class="w-full focus:outline-none border-none focus:ring-0  focus:placeholder-gray-400 text-sm text-gray-600 px-0 bg-white placeholder-gray-700 bg-gray-50 rounded-md py-1">
+                                        <input type="text" placeholder="Write your message!" x-model="message" autofocus
+                                            x-on:keydown.enter="doSendMessage"  
+                                            class="w-full focus:outline-none border-none focus:ring-0  focus:placeholder-gray-400 text-sm text-gray-600 px-0 bg-white placeholder-gray-700 rounded-md py-1">
                                         <div class="mt-2 w-full justify-between bottom-0 items-center hidden sm:flex">
 
                                             <div class="flex items-center w-full space-x-4">
