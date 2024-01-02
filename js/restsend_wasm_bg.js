@@ -24,11 +24,7 @@ function takeObject(idx) {
     return ret;
 }
 
-const lTextDecoder = typeof TextDecoder === 'undefined' ? (0, module.require)('util').TextDecoder : TextDecoder;
-
-let cachedTextDecoder = new lTextDecoder('utf-8', { ignoreBOM: true, fatal: true });
-
-cachedTextDecoder.decode();
+let WASM_VECTOR_LEN = 0;
 
 let cachedUint8Memory0 = null;
 
@@ -38,22 +34,6 @@ function getUint8Memory0() {
     }
     return cachedUint8Memory0;
 }
-
-function getStringFromWasm0(ptr, len) {
-    ptr = ptr >>> 0;
-    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
-}
-
-function addHeapObject(obj) {
-    if (heap_next === heap.length) heap.push(heap.length + 1);
-    const idx = heap_next;
-    heap_next = heap[idx];
-
-    heap[idx] = obj;
-    return idx;
-}
-
-let WASM_VECTOR_LEN = 0;
 
 const lTextEncoder = typeof TextEncoder === 'undefined' ? (0, module.require)('util').TextEncoder : TextEncoder;
 
@@ -121,6 +101,26 @@ function getInt32Memory0() {
         cachedInt32Memory0 = new Int32Array(wasm.memory.buffer);
     }
     return cachedInt32Memory0;
+}
+
+const lTextDecoder = typeof TextDecoder === 'undefined' ? (0, module.require)('util').TextDecoder : TextDecoder;
+
+let cachedTextDecoder = new lTextDecoder('utf-8', { ignoreBOM: true, fatal: true });
+
+cachedTextDecoder.decode();
+
+function getStringFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
+}
+
+function addHeapObject(obj) {
+    if (heap_next === heap.length) heap.push(heap.length + 1);
+    const idx = heap_next;
+    heap_next = heap[idx];
+
+    heap[idx] = obj;
+    return idx;
 }
 
 let cachedFloat64Memory0 = null;
@@ -230,16 +230,43 @@ function makeMutClosure(arg0, arg1, dtor, f) {
 
     return real;
 }
-function __wbg_adapter_52(arg0, arg1) {
-    wasm.wasm_bindgen__convert__closures__invoke0_mut__h82d70937a9815a78(arg0, arg1);
+function __wbg_adapter_52(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures__invoke1_mut__h0c3f28e6c56cee6d(arg0, arg1, addHeapObject(arg2));
 }
 
-function __wbg_adapter_55(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures__invoke1_mut__h4d6cd25da2fee777(arg0, arg1, addHeapObject(arg2));
+function __wbg_adapter_59(arg0, arg1) {
+    wasm.wasm_bindgen__convert__closures__invoke0_mut__ha500982c49fbc458(arg0, arg1);
 }
 
-function __wbg_adapter_62(arg0, arg1, arg2) {
+function __wbg_adapter_64(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures__invoke1_mut__hebb5522d251d5b58(arg0, arg1, addHeapObject(arg2));
+}
+
+let cachedUint32Memory0 = null;
+
+function getUint32Memory0() {
+    if (cachedUint32Memory0 === null || cachedUint32Memory0.byteLength === 0) {
+        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32Memory0;
+}
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    const mem = getUint32Memory0();
+    for (let i = 0; i < array.length; i++) {
+        mem[ptr / 4 + i] = addHeapObject(array[i]);
+    }
+    WASM_VECTOR_LEN = array.length;
+    return ptr;
+}
+/**
+* @param {string | undefined} [level]
+*/
+export function setLogging(level) {
+    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    wasm.setLogging(ptr0, len0);
 }
 
 /**
@@ -296,33 +323,6 @@ export function logout(endpoint, token) {
     return takeObject(ret);
 }
 
-let cachedUint32Memory0 = null;
-
-function getUint32Memory0() {
-    if (cachedUint32Memory0 === null || cachedUint32Memory0.byteLength === 0) {
-        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32Memory0;
-}
-
-function passArrayJsValueToWasm0(array, malloc) {
-    const ptr = malloc(array.length * 4, 4) >>> 0;
-    const mem = getUint32Memory0();
-    for (let i = 0; i < array.length; i++) {
-        mem[ptr / 4 + i] = addHeapObject(array[i]);
-    }
-    WASM_VECTOR_LEN = array.length;
-    return ptr;
-}
-/**
-* @param {string | undefined} [level]
-*/
-export function setLogging(level) {
-    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    wasm.setLogging(ptr0, len0);
-}
-
 function handleError(f, args) {
     try {
         return f.apply(this, args);
@@ -330,7 +330,7 @@ function handleError(f, args) {
         wasm.__wbindgen_exn_store(addHeapObject(e));
     }
 }
-function __wbg_adapter_323(arg0, arg1, arg2, arg3) {
+function __wbg_adapter_359(arg0, arg1, arg2, arg3) {
     wasm.wasm_bindgen__convert__closures__invoke2_mut__h69279b9161a1265d(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
@@ -351,450 +351,354 @@ export class Client {
         wasm.__wbg_client_free(ptr);
     }
     /**
-    *
-    * Send message with content
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `content` - The content Object
-    *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-    *     * `text` String - The text message
-    *     * `attachment` Object - The attachment object
-    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-    *     * `size` Number - The size of the content, only for file, optional
-    *     * `placeholder` String - The placeholder of the content, optional
-    *     * `width` Number - The width of the content, only for image/video, optional
-    *     * `height` Number - The height of the content, only for image/video, optional
-    *     * `reply` String - The reply message id, optional
-    *     * `mentions` Array - Mention to users, optional
-    *     * `mentionsAll` Boolean - Mention to all users, optional
-    * * `option` - The send option
-    * # Return
-    * The message id
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * await client.doSend(topicId, {
-    *     type: 'wx.text',
-    *     text: 'hello',
-    * }, {
-    *     mentions: undefined, // The mention user id list, optional
-    *     mentionAll:  false, // Mention all users, optional
-    *     reply:  undefined, // The reply message id, optional
-    *     onsent:  () => {}, // The callback when message sent
-    *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-    *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
-    *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-    *     onfail:  (reason:String)  => {} // The callback when message failed
-    * });
-    * ```
-    * @param {string} topicId
-    * @param {any} content
-    * @param {any} option
-    * @returns {Promise<string>}
+    * Create a new topic
+    * #Arguments
+    *   name: String,
+    *  icon: String,
+    * #Return
+    * * `Topic` || `undefined`
+    * @param {(string)[]} members
+    * @param {string | undefined} [name]
+    * @param {string | undefined} [icon]
+    * @returns {Promise<any>}
     */
-    doSend(topicId, content, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    createTopic(members, name, icon) {
+        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, addHeapObject(content), addHeapObject(option));
+        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         return takeObject(ret);
     }
     /**
-    * Send typing status
-    * # Arguments
-    * * `topicId` - The topic id
+    * Join a topic
+    * #Arguments
+    * * `topicId` - topic id
+    * * `message` - message
+    * * `source` - source
     * @param {string} topicId
+    * @param {string | undefined} [message]
+    * @param {string | undefined} [source]
     * @returns {Promise<void>}
     */
-    doTyping(topicId) {
+    joinTopic(topicId, message, source) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
+        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         return takeObject(ret);
     }
     /**
-    * Recall message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `messageId` - The message id
+    * Add user into topic
+    * #Arguments
+    * * `topicId` - topic id
+    * * `userId` - user id
+    * #Return
+    * * `TopicMember` || `undefined`
     * @param {string} topicId
-    * @param {string} messageId
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @param {string} userId
+    * @returns {Promise<any>}
     */
-    doRecall(topicId, messageId, option) {
+    addMember(topicId, userId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    * Send voice message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *     * `mentions` Array - The mention user id list, optional
-    *     * `mentionAll` boolean, // Mention all users, optional
-    *     * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
+    * Get topic info
+    * #Arguments
+    * * `topicId` - topic id
+    * #Return
+    * * `Topic` || `undefined`
     * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<any>}
     */
-    doSendVoice(topicId, attachment, option) {
+    getTopic(topicId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
-    * Send video message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-    *    * `mentions` Array - The mention user id list, optional
-    *    * `mentionAll` boolean, // Mention all users, optional
-    *    * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
+    * Get topic admins
+    * #Arguments
+    * * `topicId` - topic id
+    * #Return
+    * * `Vec<User>` || `undefined`
     * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<any>}
     */
-    doSendVideo(topicId, attachment, option) {
+    getTopicAdmins(topicId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
-    * Send file message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    * * `option` - The send option
-    *    * `size` Number - The size of the content, only for file, optional
-    *    * `mentions` Array - The mention user id list, optional
-    *    * `mentionAll` boolean, // Mention all users, optional
-    *    * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
+    * Get topic owner
+    * #Arguments
+    * * `topicId` - topic id
+    * #Return
+    * * `User` || `undefined`
     * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<any>}
     */
-    doSendFile(topicId, attachment, option) {
+    getTopicOwner(topicId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendFile(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
-    * Send location message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `latitude` - The latitude
-    * * `longitude` - The longitude
-    * * `address` - The address
-    * * `option` - The send option
-    *   * `mentions` Array - The mention user id list, optional
-    *   * `mentionAll` boolean, // Mention all users, optional
-    *   * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
+    * Get topic members
+    * #Arguments
+    * * `topicId` - topic id
+    * * `updatedAt` - updated_at
+    * * `limit` - limit
+    * #Return
+    * * `ListUserResult` || `undefined`
     * @param {string} topicId
-    * @param {string} latitude
-    * @param {string} longitude
-    * @param {string} address
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @param {string} updatedAt
+    * @param {number} limit
+    * @returns {Promise<any>}
     */
-    doSendLocation(topicId, latitude, longitude, address, option) {
+    getTopicMembers(topicId, updatedAt, limit) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, addHeapObject(option));
+        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
         return takeObject(ret);
     }
     /**
-    * Send link message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `url` - The url
-    * * `option` - The send option
-    *  * `placeholder` String - The placeholder of the content, optional
-    *  * `mentions` Array - The mention user id list, optional
-    *  * `mentionAll` boolean, // Mention all users, optional
-    *  * `reply` String - The reply message id, optional
-    * # Return
-    * The message id
+    * Get topic knocks
+    * #Arguments
+    * * `topicId` - topic id
+    * #Return
+    * * `Vec<TopicKnock>`
     * @param {string} topicId
-    * @param {string} url
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<any>}
     */
-    doSendLink(topicId, url, option) {
+    getTopicKnocks(topicId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLink(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
-    * Send invite message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `logIds` Array - The log id list
-    * * `option` - The send option
-    * # Return
-    * The message id
+    * Update topic info
+    * #Arguments
+    * * `topicId` - topic id
+    * * `option` - option
+    *     * `name` - String
+    *     * `icon` - String (url) or base64
     * @param {string} topicId
-    * @param {string} sourceTopicId
-    * @param {(string)[]} logIds
     * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<void>}
     */
-    doSendLogs(topicId, sourceTopicId, logIds, option) {
+    updateTopic(topicId, option) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(sourceTopicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passArrayJsValueToWasm0(logIds, wasm.__wbindgen_malloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLogs(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, addHeapObject(option));
+        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, addHeapObject(option));
         return takeObject(ret);
     }
     /**
-    * Send text message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `text` - The text message
-    * * `option` - The send option
-    * # Return
-    * The message id
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * await client.sendText(topicId, text, {
-    *     mentions: [] || undefined, // The mention user id list, optional
-    *     reply: String || undefined, - The reply message id, optional
-    *     onsent:  () => {},
-    *     onprogress:  (progress:Number, total:Number)  =>{},
-    *     onack:  (req:ChatRequest)  => {},
-    *     onfail:  (reason:String)  => {}
-    * });
-    * ```
+    * Update topic notice
+    * #Arguments
+    * * `topicId` - topic id
+    * * `text` - notice text
     * @param {string} topicId
     * @param {string} text
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @returns {Promise<void>}
     */
-    doSendText(topicId, text, option) {
+    updateTopicNotice(topicId, text) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendText(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    *
-    * Send image message
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `attachment` - The attachment object
-    *     * `file` File - The file object
-    *     * `url` String  - The file name
-    * * `option` - The send option
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-    * ```
+    * Silence topic
+    * #Arguments
+    * * `topicId` - topic id
+    * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
     * @param {string} topicId
-    * @param {any} attachment
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @param {string | undefined} [duration]
+    * @returns {Promise<void>}
     */
-    doSendImage(topicId, attachment, option) {
+    silentTopic(topicId, duration) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendImage(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    * Update sent chat message's extra
-    * # Arguments
-    * * `topicId` - The topic id
-    * * `chatId` - The chat id
-    * * `extra` - The extra, optional
-    * * `option` - The send option
-    * # Return
-    * The message id
+    * Silent topic member
+    * #Arguments
+    * * `topicId` - topic id
+    * * `userId` - user id
+    * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
     * @param {string} topicId
-    * @param {string} chatId
-    * @param {any} extra
-    * @param {any} option
-    * @returns {Promise<string>}
+    * @param {string} userId
+    * @param {string | undefined} [duration]
+    * @returns {Promise<void>}
     */
-    doUpdateExtra(topicId, chatId, extra, option) {
+    silentTopicMember(topicId, userId, duration) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(chatId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doUpdateExtra(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(extra), addHeapObject(option));
+        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         return takeObject(ret);
     }
     /**
-    * Get user info
+    * Add topic admin
     * #Arguments
+    * * `topicId` - topic id
     * * `userId` - user id
-    * * `blocking` - blocking fetch from server
-    * #Return
-    * User info
+    * @param {string} topicId
     * @param {string} userId
-    * @param {boolean | undefined} [blocking]
-    * @returns {Promise<any>}
-    */
-    getUser(userId, blocking) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
-        return takeObject(ret);
-    }
-    /**
-    * Get multiple users info
-    * #Arguments
-    * * `userIds` - Array of user id
-    * #Return
-    * Array of user info
-    * @param {(string)[]} userIds
-    * @returns {Promise<any>}
-    */
-    getUsers(userIds) {
-        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Set user remark name
-    * #Arguments
-    * * `userId` - user id
-    * * `remark` - remark name
-    * @param {string} userId
-    * @param {string} remark
     * @returns {Promise<void>}
     */
-    setUserRemark(userId, remark) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    addTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    * Set user star
+    * Remove topic admin
     * #Arguments
+    * * `topicId` - topic id
     * * `userId` - user id
-    * * `star` - star
+    * @param {string} topicId
     * @param {string} userId
-    * @param {boolean} star
     * @returns {Promise<void>}
     */
-    setUserStar(userId, star) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    removeTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    * Set user block
+    * Transfer topic
     * #Arguments
+    * * `topicId` - topic id
+    * * `userId` - user id to transfer, the user must be a topic member
+    * @param {string} topicId
+    * @param {string} userId
+    * @returns {Promise<void>}
+    */
+    transferTopic(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return takeObject(ret);
+    }
+    /**
+    * Quit topic
+    * #Arguments
+    * * `topicId` - topic id
+    * @param {string} topicId
+    * @returns {Promise<void>}
+    */
+    quitTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+    * Dismiss topic
+    * #Arguments
+    * * `topicId` - topic id
+    * @param {string} topicId
+    * @returns {Promise<void>}
+    */
+    dismissTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+    * Accept topic join
+    * #Arguments
+    * * `topicId` - topic id
     * * `userId` - user id
-    * * `block` - block
+    * * `memo` - accept memo
+    * @param {string} topicId
     * @param {string} userId
-    * @param {boolean} block
+    * @param {string | undefined} [memo]
     * @returns {Promise<void>}
     */
-    setUserBlock(userId, block) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    acceptTopicJoin(topicId, userId, memo) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         return takeObject(ret);
     }
     /**
-    * Set allow guest chat
+    * Decline topic join
     * #Arguments
-    * * `allow` - allow
-    * @param {boolean} allow
+    * * `topicId` - topic id
+    * * `userId` - user id
+    * * `message` - decline message
+    * @param {string} topicId
+    * @param {string} userId
+    * @param {string | undefined} [message]
     * @returns {Promise<void>}
     */
-    setAllowGuestChat(allow) {
-        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
+    declineTopicJoin(topicId, userId, message) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
         return takeObject(ret);
     }
     /**
-    * @param {any} info
-    */
-    constructor(info) {
-        const ret = wasm.client_new(addHeapObject(info));
-        this.__wbg_ptr = ret >>> 0;
-        return this;
-    }
-    /**
-    * get the current connection status
-    * return: connecting, connected, broken, shutdown
-    * @returns {string}
-    */
-    get connectionStatus() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.client_connectionStatus(retptr, this.__wbg_ptr);
-            var r0 = getInt32Memory0()[retptr / 4 + 0];
-            var r1 = getInt32Memory0()[retptr / 4 + 1];
-            deferred1_0 = r0;
-            deferred1_1 = r1;
-            return getStringFromWasm0(r0, r1);
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
+    * Remove topic member
+    * #Arguments
+    * * `topicId` - topic id
+    * * `userId` - user id
+    * @param {string} topicId
+    * @param {string} userId
     * @returns {Promise<void>}
     */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-    /**
-    * @returns {Promise<void>}
-    */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
+    removeTopicMember(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
@@ -1200,354 +1104,450 @@ export class Client {
         return takeObject(ret);
     }
     /**
-    * Create a new topic
+    * Get user info
     * #Arguments
-    *   name: String,
-    *  icon: String,
-    * #Return
-    * * `Topic` || `undefined`
-    * @param {(string)[]} members
-    * @param {string | undefined} [name]
-    * @param {string | undefined} [icon]
-    * @returns {Promise<any>}
-    */
-    createTopic(members, name, icon) {
-        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return takeObject(ret);
-    }
-    /**
-    * Join a topic
-    * #Arguments
-    * * `topicId` - topic id
-    * * `message` - message
-    * * `source` - source
-    * @param {string} topicId
-    * @param {string | undefined} [message]
-    * @param {string | undefined} [source]
-    * @returns {Promise<void>}
-    */
-    joinTopic(topicId, message, source) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return takeObject(ret);
-    }
-    /**
-    * Add user into topic
-    * #Arguments
-    * * `topicId` - topic id
     * * `userId` - user id
+    * * `blocking` - blocking fetch from server
     * #Return
-    * * `TopicMember` || `undefined`
-    * @param {string} topicId
+    * User info
     * @param {string} userId
+    * @param {boolean | undefined} [blocking]
     * @returns {Promise<any>}
     */
-    addMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    getUser(userId, blocking) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
         return takeObject(ret);
     }
     /**
-    * Get topic info
+    * Get multiple users info
     * #Arguments
-    * * `topicId` - topic id
+    * * `userIds` - Array of user id
     * #Return
-    * * `Topic` || `undefined`
-    * @param {string} topicId
+    * Array of user info
+    * @param {(string)[]} userIds
     * @returns {Promise<any>}
     */
-    getTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    getUsers(userIds) {
+        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
+        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
         return takeObject(ret);
     }
     /**
-    * Get topic admins
+    * Set user remark name
     * #Arguments
-    * * `topicId` - topic id
-    * #Return
-    * * `Vec<User>` || `undefined`
-    * @param {string} topicId
-    * @returns {Promise<any>}
-    */
-    getTopicAdmins(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Get topic owner
-    * #Arguments
-    * * `topicId` - topic id
-    * #Return
-    * * `User` || `undefined`
-    * @param {string} topicId
-    * @returns {Promise<any>}
-    */
-    getTopicOwner(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Get topic members
-    * #Arguments
-    * * `topicId` - topic id
-    * * `updatedAt` - updated_at
-    * * `limit` - limit
-    * #Return
-    * * `ListUserResult` || `undefined`
-    * @param {string} topicId
-    * @param {string} updatedAt
-    * @param {number} limit
-    * @returns {Promise<any>}
-    */
-    getTopicMembers(topicId, updatedAt, limit) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
-        return takeObject(ret);
-    }
-    /**
-    * Get topic knocks
-    * #Arguments
-    * * `topicId` - topic id
-    * #Return
-    * * `Vec<TopicKnock>`
-    * @param {string} topicId
-    * @returns {Promise<any>}
-    */
-    getTopicKnocks(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Update topic info
-    * #Arguments
-    * * `topicId` - topic id
-    * * `option` - option
-    *     * `name` - String
-    *     * `icon` - String (url) or base64
-    * @param {string} topicId
-    * @param {any} option
+    * * `userId` - user id
+    * * `remark` - remark name
+    * @param {string} userId
+    * @param {string} remark
     * @returns {Promise<void>}
     */
-    updateTopic(topicId, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    setUserRemark(userId, remark) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, addHeapObject(option));
+        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return takeObject(ret);
     }
     /**
-    * Update topic notice
+    * Set user star
     * #Arguments
-    * * `topicId` - topic id
-    * * `text` - notice text
+    * * `userId` - user id
+    * * `star` - star
+    * @param {string} userId
+    * @param {boolean} star
+    * @returns {Promise<void>}
+    */
+    setUserStar(userId, star) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
+        return takeObject(ret);
+    }
+    /**
+    * Set user block
+    * #Arguments
+    * * `userId` - user id
+    * * `block` - block
+    * @param {string} userId
+    * @param {boolean} block
+    * @returns {Promise<void>}
+    */
+    setUserBlock(userId, block) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
+        return takeObject(ret);
+    }
+    /**
+    * Set allow guest chat
+    * #Arguments
+    * * `allow` - allow
+    * @param {boolean} allow
+    * @returns {Promise<void>}
+    */
+    setAllowGuestChat(allow) {
+        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
+        return takeObject(ret);
+    }
+    /**
+    * @param {any} info
+    */
+    constructor(info) {
+        const ret = wasm.client_new(addHeapObject(info));
+        this.__wbg_ptr = ret >>> 0;
+        return this;
+    }
+    /**
+    * get the current connection status
+    * return: connecting, connected, broken, shutdown
+    * @returns {string}
+    */
+    get connectionStatus() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.client_connectionStatus(retptr, this.__wbg_ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            deferred1_0 = r0;
+            deferred1_1 = r1;
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+    *
+    * Send message with content
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `content` - The content Object
+    *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+    *     * `text` String - The text message
+    *     * `attachment` Object - The attachment object
+    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+    *     * `size` Number - The size of the content, only for file, optional
+    *     * `placeholder` String - The placeholder of the content, optional
+    *     * `width` Number - The width of the content, only for image/video, optional
+    *     * `height` Number - The height of the content, only for image/video, optional
+    *     * `reply` String - The reply message id, optional
+    *     * `mentions` Array - Mention to users, optional
+    *     * `mentionsAll` Boolean - Mention to all users, optional
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.doSend(topicId, {
+    *     type: 'wx.text',
+    *     text: 'hello',
+    * }, {
+    *     mentions: undefined, // The mention user id list, optional
+    *     mentionAll:  false, // Mention all users, optional
+    *     reply:  undefined, // The reply message id, optional
+    *     onsent:  () => {}, // The callback when message sent
+    *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+    *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
+    *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+    *     onfail:  (reason:String)  => {} // The callback when message failed
+    * });
+    * ```
+    * @param {string} topicId
+    * @param {any} content
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSend(topicId, content, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, addHeapObject(content), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send typing status
+    * # Arguments
+    * * `topicId` - The topic id
+    * @param {string} topicId
+    * @returns {Promise<void>}
+    */
+    doTyping(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
+        return takeObject(ret);
+    }
+    /**
+    * Recall message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `messageId` - The message id
+    * @param {string} topicId
+    * @param {string} messageId
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doRecall(topicId, messageId, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send voice message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *     * `mentions` Array - The mention user id list, optional
+    *     * `mentionAll` boolean, // Mention all users, optional
+    *     * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendVoice(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send video message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+    *    * `mentions` Array - The mention user id list, optional
+    *    * `mentionAll` boolean, // Mention all users, optional
+    *    * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendVideo(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send file message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    * * `option` - The send option
+    *    * `size` Number - The size of the content, only for file, optional
+    *    * `mentions` Array - The mention user id list, optional
+    *    * `mentionAll` boolean, // Mention all users, optional
+    *    * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendFile(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendFile(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send location message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `latitude` - The latitude
+    * * `longitude` - The longitude
+    * * `address` - The address
+    * * `option` - The send option
+    *   * `mentions` Array - The mention user id list, optional
+    *   * `mentionAll` boolean, // Mention all users, optional
+    *   * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {string} latitude
+    * @param {string} longitude
+    * @param {string} address
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLocation(topicId, latitude, longitude, address, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send link message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `url` - The url
+    * * `option` - The send option
+    *  * `placeholder` String - The placeholder of the content, optional
+    *  * `mentions` Array - The mention user id list, optional
+    *  * `mentionAll` boolean, // Mention all users, optional
+    *  * `reply` String - The reply message id, optional
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {string} url
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLink(topicId, url, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(url, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLink(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send invite message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `logIds` Array - The log id list
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * @param {string} topicId
+    * @param {string} sourceTopicId
+    * @param {(string)[]} logIds
+    * @param {any} option
+    * @returns {Promise<string>}
+    */
+    doSendLogs(topicId, sourceTopicId, logIds, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(sourceTopicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passArrayJsValueToWasm0(logIds, wasm.__wbindgen_malloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLogs(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, addHeapObject(option));
+        return takeObject(ret);
+    }
+    /**
+    * Send text message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `text` - The text message
+    * * `option` - The send option
+    * # Return
+    * The message id
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.sendText(topicId, text, {
+    *     mentions: [] || undefined, // The mention user id list, optional
+    *     reply: String || undefined, - The reply message id, optional
+    *     onsent:  () => {},
+    *     onprogress:  (progress:Number, total:Number)  =>{},
+    *     onack:  (req:ChatRequest)  => {},
+    *     onfail:  (reason:String)  => {}
+    * });
+    * ```
     * @param {string} topicId
     * @param {string} text
-    * @returns {Promise<void>}
+    * @param {any} option
+    * @returns {Promise<string>}
     */
-    updateTopicNotice(topicId, text) {
+    doSendText(topicId, text, option) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.client_doSendText(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(option));
         return takeObject(ret);
     }
     /**
-    * Silence topic
-    * #Arguments
-    * * `topicId` - topic id
-    * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+    *
+    * Send image message
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `attachment` - The attachment object
+    *     * `file` File - The file object
+    *     * `url` String  - The file name
+    * * `option` - The send option
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+    * ```
     * @param {string} topicId
-    * @param {string | undefined} [duration]
-    * @returns {Promise<void>}
+    * @param {any} attachment
+    * @param {any} option
+    * @returns {Promise<string>}
     */
-    silentTopic(topicId, duration) {
+    doSendImage(topicId, attachment, option) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.client_doSendImage(this.__wbg_ptr, ptr0, len0, addHeapObject(attachment), addHeapObject(option));
         return takeObject(ret);
     }
     /**
-    * Silent topic member
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+    * Update sent chat message's extra
+    * # Arguments
+    * * `topicId` - The topic id
+    * * `chatId` - The chat id
+    * * `extra` - The extra, optional
+    * * `option` - The send option
+    * # Return
+    * The message id
     * @param {string} topicId
-    * @param {string} userId
-    * @param {string | undefined} [duration]
-    * @returns {Promise<void>}
+    * @param {string} chatId
+    * @param {any} extra
+    * @param {any} option
+    * @returns {Promise<string>}
     */
-    silentTopicMember(topicId, userId, duration) {
+    doUpdateExtra(topicId, chatId, extra, option) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passStringToWasm0(chatId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return takeObject(ret);
-    }
-    /**
-    * Add topic admin
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * @param {string} topicId
-    * @param {string} userId
-    * @returns {Promise<void>}
-    */
-    addTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return takeObject(ret);
-    }
-    /**
-    * Remove topic admin
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * @param {string} topicId
-    * @param {string} userId
-    * @returns {Promise<void>}
-    */
-    removeTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return takeObject(ret);
-    }
-    /**
-    * Transfer topic
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id to transfer, the user must be a topic member
-    * @param {string} topicId
-    * @param {string} userId
-    * @returns {Promise<void>}
-    */
-    transferTopic(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return takeObject(ret);
-    }
-    /**
-    * Quit topic
-    * #Arguments
-    * * `topicId` - topic id
-    * @param {string} topicId
-    * @returns {Promise<void>}
-    */
-    quitTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Dismiss topic
-    * #Arguments
-    * * `topicId` - topic id
-    * @param {string} topicId
-    * @returns {Promise<void>}
-    */
-    dismissTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
-        return takeObject(ret);
-    }
-    /**
-    * Accept topic join
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * * `memo` - accept memo
-    * @param {string} topicId
-    * @param {string} userId
-    * @param {string | undefined} [memo]
-    * @returns {Promise<void>}
-    */
-    acceptTopicJoin(topicId, userId, memo) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return takeObject(ret);
-    }
-    /**
-    * Decline topic join
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * * `message` - decline message
-    * @param {string} topicId
-    * @param {string} userId
-    * @param {string | undefined} [message]
-    * @returns {Promise<void>}
-    */
-    declineTopicJoin(topicId, userId, message) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return takeObject(ret);
-    }
-    /**
-    * Remove topic member
-    * #Arguments
-    * * `topicId` - topic id
-    * * `userId` - user id
-    * @param {string} topicId
-    * @param {string} userId
-    * @returns {Promise<void>}
-    */
-    removeTopicMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        const ret = wasm.client_doUpdateExtra(this.__wbg_ptr, ptr0, len0, ptr1, len1, addHeapObject(extra), addHeapObject(option));
         return takeObject(ret);
     }
 }
@@ -1781,6 +1781,15 @@ export function __wbindgen_object_drop_ref(arg0) {
     takeObject(arg0);
 };
 
+export function __wbindgen_string_get(arg0, arg1) {
+    const obj = getObject(arg1);
+    const ret = typeof(obj) === 'string' ? obj : undefined;
+    var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    getInt32Memory0()[arg0 / 4 + 1] = len1;
+    getInt32Memory0()[arg0 / 4 + 0] = ptr1;
+};
+
 export function __wbindgen_string_new(arg0, arg1) {
     const ret = getStringFromWasm0(arg0, arg1);
     return addHeapObject(ret);
@@ -1789,15 +1798,6 @@ export function __wbindgen_string_new(arg0, arg1) {
 export function __wbindgen_is_function(arg0) {
     const ret = typeof(getObject(arg0)) === 'function';
     return ret;
-};
-
-export function __wbindgen_string_get(arg0, arg1) {
-    const obj = getObject(arg1);
-    const ret = typeof(obj) === 'string' ? obj : undefined;
-    var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len1 = WASM_VECTOR_LEN;
-    getInt32Memory0()[arg0 / 4 + 1] = len1;
-    getInt32Memory0()[arg0 / 4 + 0] = ptr1;
 };
 
 export function __wbindgen_boolean_get(arg0) {
@@ -1869,11 +1869,6 @@ export function __wbindgen_cb_drop(arg0) {
     return ret;
 };
 
-export function __wbindgen_is_null(arg0) {
-    const ret = getObject(arg0) === null;
-    return ret;
-};
-
 export function __wbindgen_error_new(arg0, arg1) {
     const ret = new Error(getStringFromWasm0(arg0, arg1));
     return addHeapObject(ret);
@@ -1882,6 +1877,11 @@ export function __wbindgen_error_new(arg0, arg1) {
 export function __wbindgen_number_new(arg0) {
     const ret = arg0;
     return addHeapObject(ret);
+};
+
+export function __wbindgen_is_null(arg0) {
+    const ret = getObject(arg0) === null;
+    return ret;
 };
 
 export function __wbindgen_jsval_loose_eq(arg0, arg1) {
@@ -1907,13 +1907,9 @@ export function __wbg_setTimeout_e85cc7fc84067d7a(arg0, arg1) {
     setTimeout(getObject(arg0), arg1 >>> 0);
 };
 
-export function __wbg_fetch_b5d6bebed1e6c2d2(arg0) {
+export function __wbg_fetch_6a2624d7f767e331(arg0) {
     const ret = fetch(getObject(arg0));
     return addHeapObject(ret);
-};
-
-export function __wbg_respond_8fadc5f5c9d95422(arg0, arg1) {
-    getObject(arg0).respond(arg1 >>> 0);
 };
 
 export function __wbg_close_e9110ca16e2567db(arg0) {
@@ -1922,6 +1918,10 @@ export function __wbg_close_e9110ca16e2567db(arg0) {
 
 export function __wbg_enqueue_d71a1a518e21f5c3(arg0, arg1) {
     getObject(arg0).enqueue(getObject(arg1));
+};
+
+export function __wbg_respond_8fadc5f5c9d95422(arg0, arg1) {
+    getObject(arg0).respond(arg1 >>> 0);
 };
 
 export function __wbg_byobRequest_08c18cee35def1f4(arg0) {
@@ -2029,11 +2029,6 @@ export function __wbg_newwithstrsequenceandoptions_4806b667a908f161() { return h
     return addHeapObject(ret);
 }, arguments) };
 
-export function __wbg_arrayBuffer_a9d862b05aaee2f9(arg0) {
-    const ret = getObject(arg0).arrayBuffer();
-    return addHeapObject(ret);
-};
-
 export function __wbg_origin_595edc88be6e66b8() { return handleError(function (arg0, arg1) {
     const ret = getObject(arg1).origin;
     const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -2049,6 +2044,11 @@ export function __wbg_host_793ff88f2063bc10() { return handleError(function (arg
     getInt32Memory0()[arg0 / 4 + 1] = len1;
     getInt32Memory0()[arg0 / 4 + 0] = ptr1;
 }, arguments) };
+
+export function __wbg_target_52ddf6955f636bf5(arg0) {
+    const ret = getObject(arg0).target;
+    return isLikeNone(ret) ? 0 : addHeapObject(ret);
+};
 
 export function __wbg_instanceof_File_45d4199a1f9c7f8c(arg0) {
     let result;
@@ -2069,22 +2069,9 @@ export function __wbg_name_bbf9c43b9611377a(arg0, arg1) {
     getInt32Memory0()[arg0 / 4 + 0] = ptr1;
 };
 
-export function __wbg_newwithstrandinit_f581dff0d19a8b03() { return handleError(function (arg0, arg1, arg2) {
-    const ret = new Request(getStringFromWasm0(arg0, arg1), getObject(arg2));
-    return addHeapObject(ret);
-}, arguments) };
-
-export function __wbg_message_a438a1cce45796a8(arg0, arg1) {
-    const ret = getObject(arg1).message;
-    const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    const len1 = WASM_VECTOR_LEN;
-    getInt32Memory0()[arg0 / 4 + 1] = len1;
-    getInt32Memory0()[arg0 / 4 + 0] = ptr1;
-};
-
-export function __wbg_data_ba3ea616b5392abf(arg0) {
-    const ret = getObject(arg0).data;
-    return addHeapObject(ret);
+export function __wbg_loaded_f4a997ddfb620882(arg0) {
+    const ret = getObject(arg0).loaded;
+    return ret;
 };
 
 export function __wbg_instanceof_Response_4c3b1446206114d1(arg0) {
@@ -2126,28 +2113,21 @@ export function __wbg_text_668782292b0bc561() { return handleError(function (arg
     return addHeapObject(ret);
 }, arguments) };
 
-export function __wbg_signal_3c701f5f40a5f08d(arg0) {
-    const ret = getObject(arg0).signal;
-    return addHeapObject(ret);
+export function __wbg_setonprogress_5213e72cd0118be1(arg0, arg1) {
+    getObject(arg0).onprogress = getObject(arg1);
 };
 
-export function __wbg_new_0ae46f44b7485bb2() { return handleError(function () {
-    const ret = new AbortController();
-    return addHeapObject(ret);
-}, arguments) };
-
-export function __wbg_abort_2c4fb490d878d2b2(arg0) {
-    getObject(arg0).abort();
+export function __wbg_setonerror_201fdfa32076d771(arg0, arg1) {
+    getObject(arg0).onerror = getObject(arg1);
 };
 
-export function __wbg_new_7a20246daa6eec7e() { return handleError(function () {
-    const ret = new Headers();
-    return addHeapObject(ret);
-}, arguments) };
+export function __wbg_setontimeout_2491dc5758f98309(arg0, arg1) {
+    getObject(arg0).ontimeout = getObject(arg1);
+};
 
-export function __wbg_append_aa3f462f9e2b5ff2() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
-    getObject(arg0).append(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
-}, arguments) };
+export function __wbg_setonloadend_57c1e2e646948ab8(arg0, arg1) {
+    getObject(arg0).onloadend = getObject(arg1);
+};
 
 export function __wbg_new_9543178e16f01733() { return handleError(function () {
     const ret = new FormData();
@@ -2160,6 +2140,14 @@ export function __wbg_append_a2eb87e422026db5() { return handleError(function (a
 
 export function __wbg_append_26434afd037ecfb1() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
     getObject(arg0).append(getStringFromWasm0(arg1, arg2), getObject(arg3), getStringFromWasm0(arg4, arg5));
+}, arguments) };
+
+export function __wbg_append_c107e178051f8854() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+    getObject(arg0).append(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
+}, arguments) };
+
+export function __wbg_set_5500679064e8a7af() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
+    getObject(arg0).set(getStringFromWasm0(arg1, arg2), getObject(arg3), getStringFromWasm0(arg4, arg5));
 }, arguments) };
 
 export function __wbg_setonopen_1264714f7bce70f8(arg0, arg1) {
@@ -2189,6 +2177,103 @@ export function __wbg_new_2575c598b4006174() { return handleError(function (arg0
 
 export function __wbg_send_5bf3f962e9ffe0f6() { return handleError(function (arg0, arg1, arg2) {
     getObject(arg0).send(getStringFromWasm0(arg1, arg2));
+}, arguments) };
+
+export function __wbg_instanceof_ErrorEvent_f21da67dc52be3af(arg0) {
+    let result;
+    try {
+        result = getObject(arg0) instanceof ErrorEvent;
+    } catch (_) {
+        result = false;
+    }
+    const ret = result;
+    return ret;
+};
+
+export function __wbg_message_a438a1cce45796a8(arg0, arg1) {
+    const ret = getObject(arg1).message;
+    const ptr1 = passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len1 = WASM_VECTOR_LEN;
+    getInt32Memory0()[arg0 / 4 + 1] = len1;
+    getInt32Memory0()[arg0 / 4 + 0] = ptr1;
+};
+
+export function __wbg_data_ba3ea616b5392abf(arg0) {
+    const ret = getObject(arg0).data;
+    return addHeapObject(ret);
+};
+
+export function __wbg_signal_3c701f5f40a5f08d(arg0) {
+    const ret = getObject(arg0).signal;
+    return addHeapObject(ret);
+};
+
+export function __wbg_new_0ae46f44b7485bb2() { return handleError(function () {
+    const ret = new AbortController();
+    return addHeapObject(ret);
+}, arguments) };
+
+export function __wbg_abort_2c4fb490d878d2b2(arg0) {
+    getObject(arg0).abort();
+};
+
+export function __wbg_new_7a20246daa6eec7e() { return handleError(function () {
+    const ret = new Headers();
+    return addHeapObject(ret);
+}, arguments) };
+
+export function __wbg_append_aa3f462f9e2b5ff2() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+    getObject(arg0).append(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
+}, arguments) };
+
+export function __wbg_newwithstrandinit_f581dff0d19a8b03() { return handleError(function (arg0, arg1, arg2) {
+    const ret = new Request(getStringFromWasm0(arg0, arg1), getObject(arg2));
+    return addHeapObject(ret);
+}, arguments) };
+
+export function __wbg_instanceof_XmlHttpRequest_b9e0cecfb38c9289(arg0) {
+    let result;
+    try {
+        result = getObject(arg0) instanceof XMLHttpRequest;
+    } catch (_) {
+        result = false;
+    }
+    const ret = result;
+    return ret;
+};
+
+export function __wbg_settimeout_f8914798679d7289(arg0, arg1) {
+    getObject(arg0).timeout = arg1 >>> 0;
+};
+
+export function __wbg_upload_2ec3ba48f0c5f98a() { return handleError(function (arg0) {
+    const ret = getObject(arg0).upload;
+    return addHeapObject(ret);
+}, arguments) };
+
+export function __wbg_responseText_0d2bf7f826aeb35e() { return handleError(function (arg0, arg1) {
+    const ret = getObject(arg1).responseText;
+    var ptr1 = isLikeNone(ret) ? 0 : passStringToWasm0(ret, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len1 = WASM_VECTOR_LEN;
+    getInt32Memory0()[arg0 / 4 + 1] = len1;
+    getInt32Memory0()[arg0 / 4 + 0] = ptr1;
+}, arguments) };
+
+export function __wbg_new_c62fcbf93be55037() { return handleError(function () {
+    const ret = new XMLHttpRequest();
+    return addHeapObject(ret);
+}, arguments) };
+
+export function __wbg_open_c9966951df62ee9f() { return handleError(function (arg0, arg1, arg2, arg3, arg4, arg5) {
+    getObject(arg0).open(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4), arg5 !== 0);
+}, arguments) };
+
+export function __wbg_send_2afa4fcf321c6886() { return handleError(function (arg0, arg1) {
+    getObject(arg0).send(getObject(arg1));
+}, arguments) };
+
+export function __wbg_setRequestHeader_ac553dae8764451a() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
+    getObject(arg0).setRequestHeader(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
 }, arguments) };
 
 export function __wbg_get_f01601b5a68d10e3(arg0, arg1) {
@@ -2378,6 +2463,11 @@ export function __wbg_entries_9e2e2aa45aa5094a(arg0) {
     return addHeapObject(ret);
 };
 
+export function __wbg_toString_6577cc00288ad588(arg0) {
+    const ret = getObject(arg0).toString();
+    return addHeapObject(ret);
+};
+
 export function __wbg_toString_e302283d4ca65316(arg0) {
     const ret = getObject(arg0).toString();
     return addHeapObject(ret);
@@ -2390,7 +2480,7 @@ export function __wbg_new_60f57089c7563e81(arg0, arg1) {
             const a = state0.a;
             state0.a = 0;
             try {
-                return __wbg_adapter_323(a, state0.b, arg0, arg1);
+                return __wbg_adapter_359(a, state0.b, arg0, arg1);
             } finally {
                 state0.a = a;
             }
@@ -2503,28 +2593,33 @@ export function __wbindgen_memory() {
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper649(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 335, __wbg_adapter_52);
+export function __wbindgen_closure_wrapper754(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 356, __wbg_adapter_52);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper650(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 335, __wbg_adapter_55);
+export function __wbindgen_closure_wrapper755(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 356, __wbg_adapter_52);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper651(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 335, __wbg_adapter_55);
+export function __wbindgen_closure_wrapper756(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 356, __wbg_adapter_52);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper652(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 335, __wbg_adapter_55);
+export function __wbindgen_closure_wrapper757(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 356, __wbg_adapter_59);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper2164(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 708, __wbg_adapter_62);
+export function __wbindgen_closure_wrapper760(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 356, __wbg_adapter_52);
+    return addHeapObject(ret);
+};
+
+export function __wbindgen_closure_wrapper2190(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 714, __wbg_adapter_64);
     return addHeapObject(ret);
 };
 

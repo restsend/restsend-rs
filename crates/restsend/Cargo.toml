@@ -25,8 +25,8 @@ serde_json = "1.0.108"
 serde = { version = "1.0.193", features = ["derive"] }
 log = "0.4.20"
 url = "2.5.0"
-futures-channel = "0.3.29"
-futures-util = { version = "0.3.29", features = ["sink", "std"] }
+futures-channel = "0.3.30"
+futures-util = { version = "0.3.30", features = ["sink", "std"] }
 http = "1.0.0"
 base64 = "0.21.5"
 thiserror = "1.0.50"
@@ -55,13 +55,13 @@ web-sys = { version = "0.3.66", features = [
     "File",
     "FormData",
     "XmlHttpRequest",
-    "XmlHttpRequestResponseType",
+    "XmlHttpRequestUpload",
 ] }
+serde-wasm-bindgen = "0.6.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio = { version = "1.34.0", features = ["time", "sync", "macros"] }
-
-reqwest = { version = "0.11.22", default-features = false, features = [
+tokio = { version = "1.35.1", features = ["time", "sync", "macros", "io-util"] }
+reqwest = { version = "0.11.23", default-features = false, features = [
     "json",
     "multipart",
     "stream",
@@ -77,8 +77,8 @@ tokio-websockets = { version = "0.4.1", features = [
     "openssl",
     "rand",
 ] }
-tokio = { version = "1.34.0", features = ["full"] }
-reqwest = { version = "0.11.22", default-features = false, features = [
+tokio = { version = "1.35.1", features = ["full"] }
+reqwest = { version = "0.11.23", default-features = false, features = [
     "json",
     "multipart",
     "stream",
@@ -89,11 +89,11 @@ camino = "1.1.6"
 tempdir = "0.3.7"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-hyper = { version = "1.0.1", features = ["full"] }
+hyper = { version = "1.1.0", features = ["full"] }
 http-body-util = "0.1"
-hyper-util = { version = "0.1.1", features = ["full"] }
+hyper-util = { version = "0.1.2", features = ["full"] }
 tempfile = "3.8.1"
-multer = "2.1.0"
+multer = "3.0.0"
 
 [[bin]]
 name = "bindgen"

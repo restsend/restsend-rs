@@ -24,6 +24,8 @@ pub struct Upload {
     #[serde(default)]
     pub ext: String,
     pub size: u64,
+    #[serde(default)]
+    pub external: bool,
 }
 
 #[derive(serde::Deserialize, Default, Clone, Debug)]

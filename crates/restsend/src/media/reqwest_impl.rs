@@ -1,6 +1,5 @@
 use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{StdError, UserCancel, HTTP};
-use crate::media::HumanReadable;
 use crate::models::Attachment;
 use crate::services::response::Upload;
 use crate::services::{handle_response, make_get_request, make_post_request};
@@ -49,14 +48,6 @@ pub async fn upload_file(
 
         let private_part = multipart::Part::text(format!("{}", attachment.is_private as u32));
         let form = form.part("file", file_part).part("private", private_part);
-
-        info!(
-            "upload url:{} file_path:{} size:{} private:{}",
-            uploader_url,
-            attachment.file_path,
-            total.human_readable(),
-            attachment.is_private,
-        );
 
         let req = make_post_request(
             "",

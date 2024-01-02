@@ -7,6 +7,12 @@ description = "A client for the retsend server"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+default = ["conversation", "topic", "message"]
+conversation = []
+topic = []
+message = []
+
 [dependencies]
 serde = "1.0.193"
 restsend-sdk = { path = "../restsend", features = ["web"] }

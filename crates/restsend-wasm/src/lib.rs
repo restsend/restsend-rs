@@ -5,10 +5,13 @@ use wasm_bindgen::prelude::*;
 
 mod account;
 mod callback;
+#[cfg(feature = "conversation")]
 mod conversations;
 mod js_util;
 mod logger;
+#[cfg(feature = "message")]
 mod message;
+#[cfg(feature = "topic")]
 mod topics;
 mod users;
 

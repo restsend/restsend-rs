@@ -6,6 +6,7 @@ pub mod wasm_wrap;
 #[cfg(not(target_family = "wasm"))]
 pub use uniffi_wrap::*;
 
+use wasm_bindgen::JsCast;
 #[cfg(target_family = "wasm")]
 pub use wasm_wrap::*;
 
@@ -41,6 +42,12 @@ impl From<ClientError> for wasm_bindgen::JsValue {
 
 impl From<wasm_bindgen::JsValue> for ClientError {
     fn from(e: wasm_bindgen::JsValue) -> ClientError {
-        ClientError::StdError(e.as_string().unwrap_or_default())
+        match e.dyn_into::<js_sys::Error>() {
+            Ok(v) => {
+                let msg = v.message();
+                ClientError::StdError(msg.as_string().unwrap_or_default())
+            }
+            Err(e) => ClientError::StdError(e.as_string().unwrap_or_default()),
+        }
     }
 }
