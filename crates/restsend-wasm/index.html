@@ -14,7 +14,6 @@
             const i = Math.floor(Math.log(bytes) / Math.log(1024));
             return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
         }
-
         document.addEventListener('alpine:init', () => {
             Alpine.store('modalData', {
                 open: false,
@@ -151,9 +150,6 @@
                 el.appendChild(node)
             })
         });
-
-
-
     </script>
 
 <body>
@@ -357,6 +353,7 @@
             open: false,
             showList: false,
             logIds: null,
+            showOperation: false,
             forwardLogs: null,
             selectedMessages: [],
             messageBlocks: null,
@@ -802,7 +799,6 @@
                 const logsBlocksElement = document.getElementById('logsBlocks')
 
                 if (block == 'userList') {
-                    console.log('userList', block)
                     userListElement.className = 'block'
                     conversationElement.className = 'hidden'
                     logsBlocksElement.className = 'hidden'
@@ -820,8 +816,7 @@
                 this.userid = user
                 this.password = user + ':demo'
                 this.doSignin()
-                // signined = true
-            },
+            }
         }
     </script>
 
@@ -859,7 +854,7 @@
             </div>
         </template>
         <div
-            class="mx-auto h-auto w-full max-w-7xl lg:flex relative md:mt-6 p-3 md:p-6 pr-0 shadow bg-gray-50 border border-gray-100 rounded-md">
+            class="mx-auto h-auto w-full max-w-7xl lg:flex relative md:mt-6 md:p-6 pr-0 shadow bg-gray-50 border border-gray-100 rounded-md">
             <!-- Left sidebar & main wrapper -->
             <div class="flex-1 xl:flex">
                 <div id="userList">
@@ -1019,7 +1014,8 @@
                                     <div x-html="$store.modalData.innerHTML"> </div>
                                 </div>
                             </template>
-                            <div class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] relative">
+                            <div
+                                class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] relative">
                                 <template x-if="showCheckbox">
                                     <div class="absolute bottom-1 h-28 z-20 left-0 px-10 w-full bg-white">
                                         <div
@@ -1165,14 +1161,12 @@
                                                             <template x-if="item.recall==true">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">
-                                                                    <!-- <p class="text-red-500" x-text="item.recall"></p> -->
                                                                     <span> The message was recalled</span>
                                                                 </div>
                                                             </template>
                                                             <template x-if="item.type==='recall' && item.recall==false">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">
-                                                                    <!-- <p class="text-red-500" x-text="item.recall"></p> -->
                                                                     <template x-if="block.isSelf">
                                                                         <p>You recalled a message</p>
                                                                     </template>
@@ -1183,90 +1177,87 @@
                                                             </template>
                                                             <template
                                                                 x-if="item.content && item.type!='recall' && item.type!='update.extra'">
-                                                                <div class="flex items-end mt-2 space-x-3 group">
+                                                                <div class="md:flex md:items-end mt-2 space-x-3 group">
                                                                     <template x-if="showCheckbox">
-                                                                        <div class="absolute -left-9 -pt-2">
+                                                                        <div
+                                                                            class="absolute -left-9 mt-8 md:mt-0 md:-pt-2">
                                                                             <input type="checkbox"
                                                                                 @click="doSelectMessage(item,event)"
                                                                                 class="w-5 h-5 text-gray-400 text-indigo-600 shrink-0 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
                                                                         </div>
                                                                     </template>
 
-                                                                    <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
-                                                                        :class="block.isSelf? '':'order-2'">
+                                                                    <!-- <div> -->
+                                                                        <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
+                                                                            :class="block.isSelf? '':'order-2'">
+                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                                x-on:click="()=>{ showList=true; logIds=[item]}">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    viewBox="0 0 16 16">
+                                                                                    <path fill="none"
+                                                                                        stroke="currentColor"
+                                                                                        stroke-linecap="round"
+                                                                                        stroke-linejoin="round"
+                                                                                        stroke-width="1.5"
+                                                                                        d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                                                </svg>
+                                                                            </div>
+                                                                            <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                                @click="doReferenceMessage(item)">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    viewBox="0 0 16 16">
+                                                                                    <g fill="currentColor">
+                                                                                        <path
+                                                                                            d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
+                                                                                        <path
+                                                                                            d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
+                                                                                    </g>
+                                                                                </svg>
+                                                                            </div>
+                                                                            <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                                @click="doReCallMessage(block,item)"
+                                                                                :class="block.isSelf?'':'hidden'">
 
-                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            x-on:click="()=>{
-                                                                                    showList=true;
-                                                                                    logIds=[item];
-                                                                            }">
-                                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                viewBox="0 0 16 16">
-                                                                                <path fill="none" stroke="currentColor"
-                                                                                    stroke-linecap="round"
-                                                                                    stroke-linejoin="round"
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    fill="none" viewBox="0 0 24 24"
                                                                                     stroke-width="1.5"
-                                                                                    d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
-                                                                            </svg>
-                                                                        </div>
-                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doReferenceMessage(item)">
-                                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                viewBox="0 0 16 16">
-                                                                                <g fill="currentColor">
-                                                                                    <path
-                                                                                        d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
-                                                                                    <path
-                                                                                        d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
-                                                                                </g>
-                                                                            </svg>
-                                                                        </div>
-                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doReCallMessage(block,item)"
-                                                                            :class="block.isSelf?'':'hidden'">
+                                                                                    stroke="currentColor"
+                                                                                    data-slot="icon">
+                                                                                    <path stroke-linecap="round"
+                                                                                        stroke-linejoin="round"
+                                                                                        d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                                                                                </svg>
+                                                                            </div>
 
-                                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                fill="none" viewBox="0 0 24 24"
-                                                                                stroke-width="1.5" stroke="currentColor"
-                                                                                data-slot="icon">
-                                                                                <path stroke-linecap="round"
-                                                                                    stroke-linejoin="round"
-                                                                                    d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                                                                            </svg>
-                                                                        </div>
+                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                                @click="doDeleteMessage([item])">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    fill="none" viewBox="0 0 24 24"
+                                                                                    stroke-width="1.5"
+                                                                                    stroke="currentColor"
+                                                                                    data-slot="icon">
+                                                                                    <path stroke-linecap="round"
+                                                                                        stroke-linejoin="round"
+                                                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                                </svg>
+                                                                            </div>
 
-                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="doDeleteMessage([item])">
-                                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                fill="none" viewBox="0 0 24 24"
-                                                                                stroke-width="1.5" stroke="currentColor"
-                                                                                data-slot="icon">
-                                                                                <path stroke-linecap="round"
-                                                                                    stroke-linejoin="round"
-                                                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                                            </svg>
+                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                                @click="showCheckbox=true">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                    fill="none" viewBox="0 0 24 24"
+                                                                                    stroke-width="1.5"
+                                                                                    stroke="currentColor">
+                                                                                    <path stroke-linecap="round"
+                                                                                        stroke-linejoin="round"
+                                                                                        d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                                                </svg>
+                                                                            </div>
                                                                         </div>
-
-                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                            @click="showCheckbox=true">
-                                                                            <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                fill="none" viewBox="0 0 24 24"
-                                                                                stroke-width="1.5"
-                                                                                stroke="currentColor">
-                                                                                <path stroke-linecap="round"
-                                                                                    stroke-linejoin="round"
-                                                                                    d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                                                            </svg>
-
-                                                                        </div>
-                                                                    </div>
+                                                                    <!-- </div> -->
                                                                     <div class="flex flex-col"
                                                                         :class="block.isSelf?'items-end':'items-start'">
-                                                                        <!-- <div class="rounded-lg whitespace-wrap break-all inline-block"
-                                                                            :class="getMessageClass(block, item)"
-                                                                            x-html="item.content" x-render-content>
-                                                                        </div> -->
-                                                                        <div x-content="item.content"
+                                                                        <div x-content="item.content" id="touch"
                                                                             class="rounded-lg whitespace-wrap break-all inline-block"
                                                                             :class="getMessageClass(block, item)">
                                                                         </div>
@@ -1278,12 +1269,11 @@
                                                                                     x-text="JSON.parse(item.replyContent).senderId">
                                                                                 </span>:&nbsp;
                                                                                 <span
-                                                                                    class=" max-w-[140px] max-h-[140px] truncate"
+                                                                                    class="max-w-[100px] md:max-w-[140px] max-h-[140px] truncate"
                                                                                     x-html="renderReply(JSON.parse(item.replyContent))">
                                                                                 </span>
                                                                             </div>
                                                                         </template>
-
                                                                     </div>
                                                                 </div>
                                                             </template>
@@ -1296,7 +1286,7 @@
                                         </div>
                                     </template>
                                 </div>
-                                <div class="border-t border-gray-200 mb-2 sm:mb-0 shrink-0 ">
+                                <div class="border-t border-gray-200 mb-2 sm:mb-0 shrink-0">
                                     <div class="relative rounded-md py-2">
                                         <template x-if="reference">
                                             <div
@@ -1320,7 +1310,7 @@
                                         <input type="text" placeholder="Write your message!" x-model="message" autofocus
                                             x-on:keydown.enter="doSendMessage"
                                             class="w-full focus:outline-none border-none focus:ring-0  focus:placeholder-gray-400 text-sm text-gray-600 px-0 bg-white placeholder-gray-700 rounded-md py-1">
-                                        <div class="mt-2 w-full justify-between bottom-0 items-center hidden sm:flex">
+                                        <div class="mt-2 w-full justify-between bottom-0 items-center flex">
 
                                             <div class="flex items-center w-full space-x-4">
                                                 <button type="button"
@@ -1376,7 +1366,7 @@
             <div id="logsBlocks"
                 class="shrink-0 border-t relative border-gray-200 lg:w-80 lg:border-l lg:border-t-0 hidden md:block">
                 <div
-                    class="flex items-center w-full lg:w-80 justify-between pl-4 pr-1 pb-2 border-b border-gray-200 pr-4">
+                    class="flex items-center w-full lg:w-80 justify-between pl-4 pr-1 pb-2 pt-3 md:pt-0 border-b border-gray-200 pr-4">
                     <p>Logs</p>
 
                     <button class="cursor-pointer" @click="onClearLogs">
@@ -1388,7 +1378,8 @@
                     </button>
                 </div>
 
-                <div class="scroll-bar flex items-start space-x-3 overflow-y-auto h-[calc(100vh-9rem)] md:h-[calc(100vh-10rem)] p-2 mt-2 pr-6">
+                <div
+                    class="scroll-bar flex items-start space-x-3 overflow-y-auto h-[calc(100vh-9rem)] md:h-[calc(100vh-10rem)] p-2 mt-2 pr-6">
                     <div class="">
                         <template x-for="item in logs">
                             <div class="text-gray-500 hover:bg-gray-200 px-2 py-1 rounded text-wrap">
