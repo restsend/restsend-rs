@@ -26,6 +26,7 @@
 
             Alpine.directive('content', (el, {expression}, {evaluate}) => {
                 let content = evaluate(expression)
+                console.log('content', content)
                 content.size = bytesToSize(content.size)
 
                 let node = document.createElement('div')
@@ -97,14 +98,14 @@
                     else if (content.type == 'file') {
                         let url = content.text;
                         node.innerHTML =
-                            `<div class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6 cursor-pointer relative">  
-    <p id="loading-bar-${url}" style="display: none;" class="absolute top-0 left-0 h-full w-full flex justify-center items-center text-gray-700 bg-gray-200 bg-opacity-60 rounded-md"> 
-        <svg t="1704027290240" class="icon animate-spin" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4259" width="25" height="25"><path d="M782.065 901.684c10.893 18.387 4.797 42.97-14.29 53.363-18.687 10.893-42.47 4.497-53.064-14.29-11.392-18.388-4.796-42.471 13.691-53.364 19.387-10.792 42.77-4.197 53.663 14.29z m-230.342 83.243c0 21.285-17.588 39.073-39.673 39.073-21.285 0-39.073-17.388-39.073-39.073v-27.382c0-21.785 17.887-39.173 39.073-39.173 21.785 0 39.673 17.388 39.673 39.173v27.382z m-241.135-44.17c-11.093 19.287-35.176 25.383-53.664 14.49-18.987-10.693-25.682-34.576-14.49-53.663l29.08-50.866c11.193-18.687 35.176-25.182 54.163-14.49 18.388 10.893 25.183 35.176 13.99 53.664l-29.08 50.865zM123.416 782.765c-18.987 10.593-43.27 4.197-53.664-14.49-11.092-18.388-4.796-42.77 13.99-53.664l78.147-45.269c18.688-10.392 42.971-4.496 53.664 14.49 10.592 18.388 4.097 42.771-14.49 53.664l-77.647 45.269zM40.272 551.823c-21.785 0-39.073-17.588-39.073-39.074 0-21.785 17.288-39.373 39.073-39.373H161.99c21.785 0 39.074 17.588 39.074 39.074 0 21.785-17.289 39.373-39.074 39.373H40.272z m43.57-241.535c-18.986-10.593-25.182-34.576-13.99-53.364 10.393-18.987 34.577-25.382 53.664-14.49l132.31 76.848c18.686 10.692 24.882 34.576 14.49 53.063-11.093 18.987-35.177 25.083-53.564 14.49l-132.91-76.547z m158.592-187.072l92.137 159.99c11.193 18.688 35.176 25.383 53.863 14.29 18.688-10.592 24.883-34.876 13.99-53.663l-92.536-159.69c-10.593-18.488-34.576-25.183-53.064-14.29-18.987 10.892-25.082 34.975-14.39 53.363z m230.643-82.644c0-21.285 17.887-39.373 39.073-39.373 21.785 0 39.673 17.688 39.673 39.373v184.274c0 21.785-17.588 39.373-39.673 39.673-21.286 0-39.073-17.288-39.073-39.673V40.572z m241.135 43.57c11.192-18.987 34.876-25.182 53.663-14.49 18.987 10.593 25.683 34.577 14.49 53.664l-92.337 159.99c-10.393 18.688-34.976 25.283-53.663 14.49-18.687-10.892-24.883-35.176-14.29-53.963l92.137-159.69z m187.671 158.292l-160.19 92.337c-18.687 10.593-25.183 34.577-14.49 53.663 11.092 18.388 35.176 24.584 53.663 14.29l160.29-92.336c18.388-10.593 25.183-34.577 13.991-53.364-10.793-18.987-34.876-25.782-53.264-14.59z m82.344 230.942c21.985 0 39.373 17.588 39.073 39.373 0 21.486-16.988 39.074-39.073 39.074H799.753c-21.285 0-39.173-17.588-39.173-39.373 0-21.486 17.888-39.074 39.173-39.074h184.474z" fill="#333333" p-id="4260"></path></svg>
-    </p>
-    <div>
-        <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
-        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
-    </div>
+                         `<div class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow cursor-pointer relative">  
+                   <p id="loading-bar-${url}" style="display: none;" class="absolute top-0 left-0 h-full w-full flex justify-center items-center text-gray-700 bg-gray-200 bg-opacity-60 rounded-md"> 
+                   <svg t="1704027290240" class="icon animate-spin" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4259" width="25" height="25"><path d="M782.065 901.684c10.893 18.387 4.797 42.97-14.29 53.363-18.687 10.893-42.47 4.497-53.064-14.29-11.392-18.388-4.796-42.471 13.691-53.364 19.387-10.792 42.77-4.197 53.663 14.29z m-230.342 83.243c0 21.285-17.588 39.073-39.673 39.073-21.285 0-39.073-17.388-39.073-39.073v-27.382c0-21.785 17.887-39.173 39.073-39.173 21.785 0 39.673 17.388 39.673 39.173v27.382z m-241.135-44.17c-11.093 19.287-35.176 25.383-53.664 14.49-18.987-10.693-25.682-34.576-14.49-53.663l29.08-50.866c11.193-18.687 35.176-25.182 54.163-14.49 18.388 10.893 25.183 35.176 13.99 53.664l-29.08 50.865zM123.416 782.765c-18.987 10.593-43.27 4.197-53.664-14.49-11.092-18.388-4.796-42.77 13.99-53.664l78.147-45.269c18.688-10.392 42.971-4.496 53.664 14.49 10.592 18.388 4.097 42.771-14.49 53.664l-77.647 45.269zM40.272 551.823c-21.785 0-39.073-17.588-39.073-39.074 0-21.785 17.288-39.373 39.073-39.373H161.99c21.785 0 39.074 17.588 39.074 39.074 0 21.785-17.289 39.373-39.074 39.373H40.272z m43.57-241.535c-18.986-10.593-25.182-34.576-13.99-53.364 10.393-18.987 34.577-25.382 53.664-14.49l132.31 76.848c18.686 10.692 24.882 34.576 14.49 53.063-11.093 18.987-35.177 25.083-53.564 14.49l-132.91-76.547z m158.592-187.072l92.137 159.99c11.193 18.688 35.176 25.383 53.863 14.29 18.688-10.592 24.883-34.876 13.99-53.663l-92.536-159.69c-10.593-18.488-34.576-25.183-53.064-14.29-18.987 10.892-25.082 34.975-14.39 53.363z m230.643-82.644c0-21.285 17.887-39.373 39.073-39.373 21.785 0 39.673 17.688 39.673 39.373v184.274c0 21.785-17.588 39.373-39.673 39.673-21.286 0-39.073-17.288-39.073-39.673V40.572z m241.135 43.57c11.192-18.987 34.876-25.182 53.663-14.49 18.987 10.593 25.683 34.577 14.49 53.664l-92.337 159.99c-10.393 18.688-34.976 25.283-53.663 14.49-18.687-10.892-24.883-35.176-14.29-53.963l92.137-159.69z m187.671 158.292l-160.19 92.337c-18.687 10.593-25.183 34.577-14.49 53.663 11.092 18.388 35.176 24.584 53.663 14.29l160.29-92.336c18.388-10.593 25.183-34.577 13.991-53.364-10.793-18.987-34.876-25.782-53.264-14.59z m82.344 230.942c21.985 0 39.373 17.588 39.073 39.373 0 21.486-16.988 39.074-39.073 39.074H799.753c-21.285 0-39.173-17.588-39.173-39.373 0-21.486 17.888-39.074 39.173-39.074h184.474z" fill="#333333" p-id="4260"></path></svg>
+                 </p>
+                 <div class="pr-6">
+           <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
+           <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+       </div>
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600"> <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
 </div>`
                         node.addEventListener('click', async () => {
@@ -300,6 +301,7 @@
             }
 
             appendMessages(items) {
+                console.log('append messages', items)
                 if (!items) {
                     return
                 }
@@ -519,9 +521,10 @@
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
                     onsuccess: (r) => {
-                        // console.log('sync older messages', firstItemSeq, r)
+                        console.log('sync older messages', firstItemSeq, r)
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
+                        // console.log('currentScrollHeight', r)
                         this.messageBlocks.appendMessages(r.items)
                         setTimeout(() => {
                             if (el) {
@@ -625,27 +628,37 @@
                 }
                 this.reference = null
             },
-            doSendImages: async function (event) {
-                if (!this.conversation) {
-                    return
-                }
-                await this.current.doSendImage(this.conversation.topicId, {
-                    file: event.target.files[0],
-                    // reply: this.reference ? this.reference.id : undefined,
-                });
-            },
+            // doSendImages: async function (event) {
+            //     if (!this.conversation) {
+            //         return
+            //     }
+            //     await this.current.doSendImage(this.conversation.topicId, {
+            //         file: event.target.files[0],
+            //     });
+            // },
             doSendFiles: async function (event) {
                 if (!this.conversation) {
                     return
                 }
 
-                await this.current.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
-                    size: (event.target.files[0].size),
-                    name: event.target.files[0].name,
-                    mentions: ['bob'],
-                    mentionAll: false,
-                    reply: this.reference ? this.reference.id : undefined,
-                });
+                let file = event.target.files[0]
+                if (file.type.startsWith('image/')) {
+                    await this.current.doSendImage(this.conversation.topicId, {
+                        file: event.target.files[0],
+                    })
+                } else {
+                    await this.current.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
+                        size: (event.target.files[0].size),
+                        name: event.target.files[0].name,
+                        onprogress: (progress, total) => {
+                            console.log('progress', progress, total)
+                        },
+                        onattachmentuploaded: (attachment) => {
+                            console.log('attachment', attachment)
+                        },
+                        // reply: this.reference ? this.reference.id : undefined,
+                    })
+                }
             },
             doDeleteMessage: async function (message) {
                 if (!this.conversation) {
@@ -1188,72 +1201,69 @@
                                                                     </template>
 
                                                                     <!-- <div> -->
-                                                                        <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
-                                                                            :class="block.isSelf? '':'order-2'">
-                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                                x-on:click="()=>{ showList=true; logIds=[item]}">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                    viewBox="0 0 16 16">
-                                                                                    <path fill="none"
-                                                                                        stroke="currentColor"
-                                                                                        stroke-linecap="round"
-                                                                                        stroke-linejoin="round"
-                                                                                        stroke-width="1.5"
-                                                                                        d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
-                                                                                </svg>
-                                                                            </div>
-                                                                            <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                                @click="doReferenceMessage(item)">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                    viewBox="0 0 16 16">
-                                                                                    <g fill="currentColor">
-                                                                                        <path
-                                                                                            d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
-                                                                                        <path
-                                                                                            d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
-                                                                                    </g>
-                                                                                </svg>
-                                                                            </div>
-                                                                            <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
-                                                                                @click="doReCallMessage(block,item)"
-                                                                                :class="block.isSelf?'':'hidden'">
-
-                                                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                    fill="none" viewBox="0 0 24 24"
+                                                                    <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
+                                                                        :class="block.isSelf? '':'order-2'">
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            x-on:click="()=>{ showList=true; logIds=[item]}">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <path fill="none" stroke="currentColor"
+                                                                                    stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
                                                                                     stroke-width="1.5"
-                                                                                    stroke="currentColor"
-                                                                                    data-slot="icon">
-                                                                                    <path stroke-linecap="round"
-                                                                                        stroke-linejoin="round"
-                                                                                        d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                                                                                </svg>
-                                                                            </div>
-
-                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                                @click="doDeleteMessage([item])">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                    fill="none" viewBox="0 0 24 24"
-                                                                                    stroke-width="1.5"
-                                                                                    stroke="currentColor"
-                                                                                    data-slot="icon">
-                                                                                    <path stroke-linecap="round"
-                                                                                        stroke-linejoin="round"
-                                                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                                                </svg>
-                                                                            </div>
-
-                                                                            <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
-                                                                                @click="showCheckbox=true">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg"
-                                                                                    fill="none" viewBox="0 0 24 24"
-                                                                                    stroke-width="1.5"
-                                                                                    stroke="currentColor">
-                                                                                    <path stroke-linecap="round"
-                                                                                        stroke-linejoin="round"
-                                                                                        d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                                                                </svg>
-                                                                            </div>
+                                                                                    d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                                            </svg>
                                                                         </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReferenceMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <g fill="currentColor">
+                                                                                    <path
+                                                                                        d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
+                                                                                    <path
+                                                                                        d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
+                                                                                </g>
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReCallMessage(block,item)"
+                                                                            :class="block.isSelf?'':'hidden'">
+
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                                                                            </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doDeleteMessage([item])">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                            </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="showCheckbox=true">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5"
+                                                                                stroke="currentColor">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
                                                                     <!-- </div> -->
                                                                     <div class="flex flex-col"
                                                                         :class="block.isSelf?'items-end':'items-start'">
@@ -1327,7 +1337,7 @@
                                                         </svg>
                                                     </label>
                                                 </button>
-                                                <button type="button"
+                                                <!-- <button type="button"
                                                     class="relative w-6 rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
                                                     <input type="file" id="imageInput" class="h-5 w-6 opacity-0"
                                                         @change="doSendImages(event)" />
@@ -1340,7 +1350,7 @@
                                                                 d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                                         </svg>
                                                     </label>
-                                                </button>
+                                                </button> -->
 
                                             </div>
 
