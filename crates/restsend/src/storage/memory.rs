@@ -7,7 +7,7 @@ use std::{
 #[derive(Debug, Default)]
 pub struct TableInner {
     pub(super) data: HashMap<String, String>,
-    pub(super) index: BTreeMap<i64, String>,
+    pub(super) index: BTreeMap<i64, Vec<String>>,
 }
 
 impl TableInner {
@@ -17,19 +17,26 @@ impl TableInner {
 
     fn insert(&mut self, key: String, sort_key: i64, value: String) {
         self.data.insert(key.clone(), value.clone());
-        self.index.insert(sort_key, key);
+        let mut indices = self.index.entry(sort_key).or_insert_with(Vec::new);
+        if indices.iter().find(|v| v == &&key).is_none() {
+            indices.push(key);
+        }
     }
 
     fn remove(&mut self, key: &str, sort_key: i64) {
-        self.index.remove(&sort_key);
         self.data.remove(key);
+        let mut indices = match self.index.get_mut(&sort_key) {
+            Some(v) => v,
+            None => return,
+        };
+        indices.retain(|v| v != key);
     }
 
     fn last(&self) -> Option<&String> {
         self.index
             .iter()
             .last()
-            .map(|(_, v)| v)
+            .and_then(|(_, v)| v.last())
             .and_then(|v| self.data.get(v))
     }
 
@@ -142,25 +149,27 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
             .index
             .range((Bound::Excluded(start_sort_value), Bound::Unbounded));
 
-        while let Some((_, key)) = iter.next() {
-            let v = table.get(key);
-            match v {
-                Some(v) => {
-                    let v = match T::from_str(v) {
+        while let Some((_, indices)) = iter.next() {
+            for index in indices {
+                let v = match table.get(index) {
+                    Some(v) => match T::from_str(v) {
                         Ok(v) => v,
                         _ => continue,
-                    };
-                    if let Some(keyword) = &option.keyword {
-                        if !v.to_string().contains(keyword) {
-                            continue;
-                        }
-                    }
-                    items.push(v);
-                    if items.len() >= option.limit as usize {
-                        break;
+                    },
+                    None => continue,
+                };
+                if let Some(keyword) = &option.keyword {
+                    if !v.to_string().contains(keyword) {
+                        continue;
                     }
                 }
-                None => {}
+                items.push(v);
+                if items.len() >= option.limit as usize {
+                    break;
+                }
+            }
+            if items.len() >= option.limit as usize {
+                break;
             }
         }
 
@@ -175,23 +184,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     fn get(&self, partition: &str, key: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        match table {
-            Some(table) => {
-                let v = table.get(&key);
-                match v {
-                    Some(v) => {
-                        let v = match T::from_str(v) {
-                            Ok(v) => v,
-                            _ => return None,
-                        };
-                        return Some(v);
-                    }
-                    None => {}
-                }
-            }
-            None => {}
-        }
-        None
+        table?.get(&key).and_then(|v| T::from_str(v).ok())
     }
 
     fn set(&self, partition: &str, key: &str, value: Option<&T>) {
@@ -222,42 +215,22 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         let mut table = data.get_mut(partition);
         match table {
             Some(table) => {
-                let v = table.get(&key);
-                match v {
-                    Some(v) => {
-                        let v = match T::from_str(v) {
-                            Ok(v) => v,
-                            _ => return,
-                        };
+                table
+                    .get(&key)
+                    .and_then(|v| T::from_str(v).ok())
+                    .and_then(|v| {
                         table.remove(&key, v.sort_key());
-                    }
-                    None => {}
-                }
+                        Some(())
+                    });
             }
             None => {}
-        }
+        };
     }
 
     fn last(&self, partition: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        match table {
-            Some(table) => {
-                let v = table.last();
-                match v {
-                    Some(v) => {
-                        let v = match T::from_str(v) {
-                            Ok(v) => v,
-                            _ => return None,
-                        };
-                        return Some(v);
-                    }
-                    None => {}
-                }
-            }
-            None => {}
-        }
-        None
+        table?.last().and_then(|v| T::from_str(v).ok())
     }
 
     fn clear(&self) {

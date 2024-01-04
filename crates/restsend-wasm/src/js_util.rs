@@ -117,14 +117,3 @@ pub fn js_value_to_content(obj: JsValue) -> Result<Content, JsValue> {
     content.attachment = attachment;
     Ok(content)
 }
-
-pub fn get_endpoint(endpoint: String) -> String {
-    if endpoint.is_empty() {
-        match web_sys::window() {
-            Some(w) => w.location().origin().unwrap_or_default(),
-            None => "".to_string(),
-        }
-    } else {
-        endpoint
-    }
-}

@@ -3,6 +3,7 @@ use restsend_sdk::models::AuthInfo;
 use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 
+#[cfg(feature = "auth")]
 mod account;
 mod callback;
 #[cfg(feature = "conversation")]

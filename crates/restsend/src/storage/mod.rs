@@ -2,6 +2,9 @@ use crate::Result;
 use std::str::FromStr;
 
 #[allow(unused)]
+mod indexeddb;
+
+#[allow(unused)]
 mod memory;
 
 #[cfg(not(target_family = "wasm"))]

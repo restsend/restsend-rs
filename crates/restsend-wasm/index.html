@@ -7,6 +7,14 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
     <script src="https://unpkg.com/alpinejs" defer></script>
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script type="module">
+        import init, { signin, Client, setLogging } from "./pkg/restsend_wasm.js";
+        init().then(() => {
+            window.signin = signin
+            window.Client = Client
+            setLogging('info')
+        });
+    </script>
     <script>
         function bytesToSize(bytes) {
             const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
@@ -24,7 +32,7 @@
                 }
             })
 
-            Alpine.directive('content', (el, {expression}, {evaluate}) => {
+            Alpine.directive('content', (el, { expression }, { evaluate }) => {
                 let content = evaluate(expression)
                 content.size = bytesToSize(content.size)
 
@@ -212,7 +220,7 @@
                 return this.blocks[0].items[0].seq
             }
 
-            updateItem(chatId, {type, content, recall, replyContent}) {
+            updateItem(chatId, { type, content, recall, replyContent }) {
                 // console.log('update item', chatId, {type, content, recall})
                 for (let idx = 0; idx < this.blocks.length; idx++) {
                     const block = this.blocks[idx];
@@ -362,12 +370,6 @@
             messageBlocks: null,
 
             init: async function () {
-                var wasm = await import("./pkg/restsend_wasm.js")
-                window.signin = wasm.signin;
-                window.Client = wasm.Client;
-
-                wasm.setLogging('info');
-
                 console.info = (text) => this.logText(text, 'info')
                 console.debug = (text) => this.logText(text, 'debug')
                 console.warn = (text) => this.logText(text, 'warn')
@@ -641,7 +643,7 @@
                         file: event.target.files[0],
                     })
                 } else {
-                    await this.current.doSendFile(this.conversation.topicId, {file: event.target.files[0]}, {
+                    await this.current.doSendFile(this.conversation.topicId, { file: event.target.files[0] }, {
                         size: (event.target.files[0].size),
                         name: event.target.files[0].name,
                         onprogress: (progress, total) => {

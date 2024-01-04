@@ -8,10 +8,12 @@ description = "A client for the retsend server"
 crate-type = ["cdylib"]
 
 [features]
-default = ["conversation", "topic", "message"]
+default = ["auth", "conversation", "topic", "message"]
+auth = []
 conversation = []
 topic = []
 message = []
+livechat = ["conversation", "message"]
 
 [dependencies]
 serde = "1.0.193"

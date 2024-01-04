@@ -2,13 +2,11 @@ mod test_media;
 use crate::utils::spwan_task;
 use crate::Result;
 use futures_util::Future;
-use http_body_util::combinators::BoxBody;
 use http_body_util::Full;
 use hyper::body::Bytes;
 use hyper::{body::Incoming as IncomingBody, Request, Response};
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::TokioIo;
-use std::convert::Infallible;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 
@@ -28,13 +26,6 @@ pub(crate) fn open_port() -> String {
         }
     }
     panic!("no port available");
-}
-
-#[allow(unused)]
-async fn response_examples(
-    req: Request<IncomingBody>,
-) -> Result<Response<BoxBody<Bytes, Infallible>>> {
-    Ok(Response::default())
 }
 
 #[allow(unused)]

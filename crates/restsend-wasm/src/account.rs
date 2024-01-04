@@ -1,7 +1,17 @@
-use crate::js_util::get_endpoint;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+
+pub fn get_endpoint(endpoint: String) -> String {
+    if endpoint.is_empty() {
+        match web_sys::window() {
+            Some(w) => w.location().origin().unwrap_or_default(),
+            None => "".to_string(),
+        }
+    } else {
+        endpoint
+    }
+}
 
 /// Signin with userId and password or token
 #[allow(non_snake_case)]

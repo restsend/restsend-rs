@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 impl Client {
     /// Create a new chat with userId
-    /// return: Conversation
+    /// return: Conversation    
     pub async fn createChat(&self, userId: String) -> Result<JsValue, JsValue> {
         let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
