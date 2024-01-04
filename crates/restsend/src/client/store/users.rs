@@ -12,9 +12,9 @@ impl ClientStore {
     pub async fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
         {
             let t = self.message_storage.table::<User>("users");
-            if let Some(mut u) = t.get("", user_id) {
+            if let Some(mut u) = t.get("", user_id).await {
                 u.remark = remark.to_string();
-                t.set("", user_id, Some(&u));
+                t.set("", user_id, Some(&u)).await;
             }
         }
 
@@ -24,9 +24,9 @@ impl ClientStore {
     pub async fn set_user_star(&self, user_id: &str, star: bool) -> Result<()> {
         {
             let t = self.message_storage.table::<User>("users");
-            if let Some(mut u) = t.get("", user_id) {
+            if let Some(mut u) = t.get("", user_id).await {
                 u.is_star = star;
-                t.set("", user_id, Some(&u));
+                t.set("", user_id, Some(&u)).await;
             }
         }
 
@@ -36,9 +36,9 @@ impl ClientStore {
     pub async fn set_user_block(&self, user_id: &str, block: bool) -> Result<()> {
         {
             let t = self.message_storage.table::<User>("users");
-            if let Some(mut u) = t.get("", user_id) {
+            if let Some(mut u) = t.get("", user_id).await {
                 u.is_blocked = block;
-                t.set("", user_id, Some(&u));
+                t.set("", user_id, Some(&u)).await;
             }
         }
         set_user_block(&self.endpoint, &self.token, &user_id, block).await
@@ -47,7 +47,7 @@ impl ClientStore {
     pub async fn get_user(&self, user_id: &str, blocking: bool) -> Option<User> {
         let u = {
             let t = self.message_storage.table::<User>("users");
-            t.get("", user_id).unwrap_or(User::new(user_id))
+            t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
         if !(u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS)) {
@@ -60,7 +60,7 @@ impl ClientStore {
         let message_storage = self.message_storage.clone();
         let runner = async move {
             match get_user(&endpoint, &token, &user_id).await {
-                Ok(user) => update_user_with_storage(&message_storage, user).ok(),
+                Ok(user) => update_user_with_storage(&message_storage, user).await.ok(),
                 Err(e) => {
                     warn!("get_user failed user_id:{} error:{:?}", user_id, e);
                     None
@@ -84,7 +84,7 @@ impl ClientStore {
         {
             let t = self.message_storage.table::<User>("users");
             for user_id in user_ids {
-                let u = t.get("", &user_id).unwrap_or(User::new(&user_id));
+                let u = t.get("", &user_id).await.unwrap_or(User::new(&user_id));
                 if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
                     missing_ids.push(user_id.clone());
                 }
@@ -108,12 +108,12 @@ impl ClientStore {
     pub async fn fetch_user(&self, user_id: &str) -> Result<User> {
         let u = {
             let t = self.message_storage.table::<User>("users");
-            t.get("", user_id).unwrap_or(User::new(user_id))
+            t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
         if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
             let user = get_user(&self.endpoint, &self.token, &user_id).await?;
-            return self.update_user(user);
+            return self.update_user(user).await;
         }
         Ok(u)
     }
@@ -140,22 +140,23 @@ impl ClientStore {
         Ok(users)
     }
 
-    pub(super) fn update_user(&self, user: User) -> Result<User> {
-        update_user_with_storage(&self.message_storage, user)
+    pub(super) async fn update_user(&self, user: User) -> Result<User> {
+        update_user_with_storage(&self.message_storage, user).await
     }
 }
 
-pub(super) fn update_user_with_storage(storage: &Storage, mut user: User) -> Result<User> {
+pub(super) async fn update_user_with_storage(storage: &Storage, mut user: User) -> Result<User> {
     let t = storage.table::<User>("users");
 
     let user_id = user.user_id.clone();
-    if let Some(old_user) = t.get("", &user_id) {
+    if let Some(old_user) = t.get("", &user_id).await {
         user = old_user.merge(&user);
     }
 
     user.is_partial = false;
     user.cached_at = now_millis();
 
-    t.set("", &user_id, Some(&user));
+    let t = storage.table::<User>("users");
+    t.set("", &user_id, Some(&user)).await;
     Ok(user)
 }

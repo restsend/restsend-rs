@@ -1,4 +1,5 @@
 use super::{QueryOption, QueryResult, StoreModel};
+use async_trait::async_trait;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::{Bound, Range},
@@ -96,8 +97,13 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
     }
 }
 
+#[async_trait]
 impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
-    fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T> {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Vec<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         let mut table = match table {
@@ -118,7 +124,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         items
     }
 
-    fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
         let mut data = self.data.lock().unwrap();
         let mut items = Vec::<T>::new();
         let mut table = data.get_mut(partition);
@@ -181,13 +187,13 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
             items,
         }
     }
-    fn get(&self, partition: &str, key: &str) -> Option<T> {
+    async fn get(&self, partition: &str, key: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         table?.get(&key).and_then(|v| T::from_str(v).ok())
     }
 
-    fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
         match value {
             Some(v) => {
                 let mut data = self.data.lock().unwrap();
@@ -205,12 +211,12 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
                 }
             }
             None => {
-                self.remove(partition, key);
+                self.remove(partition, key).await;
             }
         }
     }
 
-    fn remove(&self, partition: &str, key: &str) {
+    async fn remove(&self, partition: &str, key: &str) {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         match table {
@@ -227,68 +233,70 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         };
     }
 
-    fn last(&self, partition: &str) -> Option<T> {
+    async fn last(&self, partition: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         table?.last().and_then(|v| T::from_str(v).ok())
     }
 
-    fn clear(&self) {
+    async fn clear(&self) {
         self.data.lock().unwrap().clear();
     }
 }
 
-#[test]
-fn test_memory_table() {
+#[tokio::test]
+async fn test_memory_table() {
     let t = Table::default();
     let table = MemoryTable::from(t);
-    table.set("", "1", Some(&1));
-    table.set("", "2", Some(&2));
-    table.set("", "3", Some(&3));
-    let v = table.get("", "1").expect("must value");
+    table.set("", "1", Some(&1)).await;
+    table.set("", "2", Some(&2)).await;
+    table.set("", "3", Some(&3)).await;
+    let v = table.get("", "1").await.expect("must value");
     assert_eq!(v, 1);
-    table.remove("", "1");
-    let v = table.get("", "1");
+    table.remove("", "1").await;
+    let v = table.get("", "1").await;
     assert_eq!(v, None);
-    table.clear();
-    let v = table.get("", "2");
+    table.clear().await;
+    let v = table.get("", "2").await;
     assert_eq!(v, None);
 }
 
-#[test]
-fn test_memory_storage() {
+#[tokio::test]
+async fn test_memory_storage() {
     let storage = InMemoryStorage::new("");
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
-    table.set("", "1", Some(&1));
-    table.set("", "2", Some(&2));
-    table.set("", "3", Some(&3));
-    let v = table.get("", "1");
+    table.set("", "1", Some(&1)).await;
+    table.set("", "2", Some(&2)).await;
+    table.set("", "3", Some(&3)).await;
+    let v = table.get("", "1").await;
     assert_eq!(v, Some(1));
-    table.remove("", "1");
-    let v = table.get("", "1");
+    table.remove("", "1").await;
+    let v = table.get("", "1").await;
     assert_eq!(v, None);
-    table.clear();
-    let v = table.get("", "2");
+    table.clear().await;
+    let v = table.get("", "2").await;
     assert_eq!(v, None);
 }
-#[test]
-fn test_memory_query() {
+#[tokio::test]
+async fn test_memory_query() {
     let storage = InMemoryStorage::new("");
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
     for i in 0..500 {
-        table.set("", &i.to_string(), Some(&i));
+        table.set("", &i.to_string(), Some(&i)).await;
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: None,
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: None,
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 499);
@@ -298,14 +306,16 @@ fn test_memory_query() {
         assert_eq!(v.items[9], 490);
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: Some(490),
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(490),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 490);
@@ -315,14 +325,16 @@ fn test_memory_query() {
         assert_eq!(v.items[9], 481);
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: Some(480),
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(480),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 480);

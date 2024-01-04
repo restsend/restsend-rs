@@ -16,8 +16,6 @@ mod message;
 mod topics;
 mod users;
 
-#[cfg(test)]
-mod tests;
 pub use logger::setLogging;
 
 type CallbackFunction = Arc<Mutex<Option<js_sys::Function>>>;

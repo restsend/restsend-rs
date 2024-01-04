@@ -84,20 +84,6 @@ pub fn spwan_task<F>(f: F)
 where
     F: Future<Output = ()> + 'static,
 {
-    // use wasm_bindgen_futures::spawn_local;
-    // let f = Arc::new(Mutex::new(Some(f)));
-    // let closure = Closure::wrap(Box::new(move || {
-    //     if let Some(f) = f.lock().unwrap().take() {
-    //         log::info!("spwan_task with timeout 0");
-    //         spawn_local(async {
-    //             log::info!("spwan_task with begin");
-    //             f.await;
-    //         });
-    //     }
-    // }) as Box<dyn FnMut()>);
-    // set_timeout(&closure, 0);
-    // closure.forget();
-
     wasm_bindgen_futures::spawn_local(f);
 }
 

@@ -50,12 +50,14 @@ impl Client {
     ///     * `onerror` - onerror callback -> function (error: String)
     pub async fn syncChatLogs(&self, topicId: String, lastSeq: Option<f64>, option: JsValue) {
         let limit = js_util::get_f64(&option, "limit") as u32;
-        self.inner.sync_chat_logs(
-            topicId,
-            lastSeq.map(|v| v as i64),
-            limit,
-            Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
-        )
+        self.inner
+            .sync_chat_logs(
+                topicId,
+                lastSeq.map(|v| v as i64),
+                limit,
+                Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
+            )
+            .await
     }
 
     /// Sync conversations from server
@@ -69,20 +71,23 @@ impl Client {
     ///    * `onerror` - onerror callback -> function (error: String)
     pub async fn syncConversations(&self, option: JsValue) {
         let limit = js_util::get_f64(&option, "limit") as u32;
-        self.inner.sync_conversations(
-            get_string(&option, "updatedAt"),
-            limit,
-            Box::new(SyncConversationsCallbackWasmWrap::new(option)),
-        )
+        self.inner
+            .sync_conversations(
+                get_string(&option, "updatedAt"),
+                limit,
+                Box::new(SyncConversationsCallbackWasmWrap::new(option)),
+            )
+            .await
     }
     /// Get conversation by topicId
     /// #Arguments
     /// * `topicId` - topic id
     /// return: Conversation or null
-    pub fn getConversation(&self, topicId: String) -> JsValue {
+    pub async fn getConversation(&self, topicId: String) -> JsValue {
         let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_conversation(topicId)
+            .await
             .and_then(|v| v.serialize(serializer).ok())
             .unwrap_or(JsValue::UNDEFINED)
     }
@@ -190,37 +195,43 @@ impl Client {
     /// ```
     /// #Example
     /// ```js
-    /// const conversations = client.filterConversation((c) => {
+    /// const conversations = await client.filterConversation((c) => {
     ///   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
     /// })
     ///
     pub async fn filterConversation(&self, predicate: JsValue) -> JsValue {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
-        let items = self.inner.filter_conversation(Box::new(move |c| {
+        let items = self
+            .inner
+            .filter_conversation(Box::new(move |c| Some(c)))
+            .await;
+
+        let vals = js_sys::Array::new();
+        for item in &items {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-            let keep = match predicate.as_ref().and_then(|f| {
-                let c = match c.serialize(serializer) {
-                    Ok(v) => v,
-                    Err(_) => return None,
-                };
-                match f.call1(&JsValue::NULL, &c) {
-                    Ok(v) => Some(v),
-                    Err(e) => {
-                        web_sys::console::error_1(&e);
-                        None
-                    }
+            match item.serialize(serializer) {
+                Ok(v) => {
+                    predicate
+                        .as_ref()
+                        .and_then(|f| match f.call1(&JsValue::NULL, &v) {
+                            Ok(r) => Some(r),
+                            Err(e) => {
+                                web_sys::console::error_1(&e);
+                                None
+                            }
+                        })
+                        .and_then(|r| {
+                            if r.as_bool().unwrap_or(false) {
+                                vals.push(&v);
+                            }
+                            Some(())
+                        });
                 }
-            }) {
-                Some(v) => v.as_bool().unwrap_or(false),
-                None => false,
-            };
-            if keep {
-                Some(c)
-            } else {
-                None
+                Err(e) => {
+                    log::warn!("serialize conversation error: {:?}", e);
+                }
             }
-        }));
-        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-        items.serialize(serializer).unwrap_or(JsValue::UNDEFINED)
+        }
+        vals.into()
     }
 }

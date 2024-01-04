@@ -1,10 +1,10 @@
-use crate::error::ClientError;
-
 use super::QueryOption;
 use super::QueryResult;
 use super::StoreModel;
-use indexed_db_futures::prelude::*;
+use crate::error::ClientError;
+use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use web_sys::Event;
@@ -16,18 +16,11 @@ pub struct IndexeddbStorage {
 }
 
 impl IndexeddbStorage {
-    fn open_db(db_name: &str) -> crate::Result<IdbDatabase> {
-        let idb = web_sys::window()
-            .ok_or(ClientError::Storage("window is none".to_string()))?
-            .indexed_db()?
-            .ok_or(ClientError::Storage("indexed_db is none".to_string()))?;
-
-        let db = idb.open(&db_name)?;
-        db.result()?.dyn_into::<IdbDatabase>().map_err(|e| e.into())
+    pub async fn open_db(db_name: &str) -> crate::Result<IdbDatabase> {
+        todo!()
     }
 
-    pub fn new(db_name: &str) -> Self {
-        let db = Self::open_db(db_name).unwrap();
+    pub fn new(db: IdbDatabase) -> Self {
         IndexeddbStorage {
             db: Arc::new(Mutex::new(db)),
         }
@@ -67,30 +60,40 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     }
 }
 
+unsafe impl<T: StoreModel> Send for IndexeddbTable<T> {}
+unsafe impl<T: StoreModel> Sync for IndexeddbTable<T> {}
+
+#[async_trait]
 impl<T: StoreModel> super::Table<T> for IndexeddbTable<T> {
-    fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T> {
-        todo!()
-    }
-    fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
-        todo!()
-    }
-    fn get(&self, partition: &str, key: &str) -> Option<T> {
-        todo!()
-    }
-
-    fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Vec<T> {
         todo!()
     }
 
-    fn remove(&self, partition: &str, key: &str) {
+    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
         todo!()
     }
 
-    fn last(&self, partition: &str) -> Option<T> {
+    async fn get(&self, partition: &str, key: &str) -> Option<T> {
         todo!()
     }
 
-    fn clear(&self) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+        todo!()
+    }
+
+    async fn remove(&self, partition: &str, key: &str) {
+        todo!()
+    }
+
+    async fn last(&self, partition: &str) -> Option<T> {
+        todo!()
+    }
+
+    async fn clear(&self) {
         self.data.clear().ok();
     }
 }

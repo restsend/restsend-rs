@@ -76,13 +76,14 @@ impl ClientStore {
                 }
 
                 self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
+                    .await
                     .ok();
                 vec![]
             }
             ChatRequestType::Chat => {
                 match req.attendee_profile.as_ref() {
                     Some(profile) => {
-                        self.update_user(profile.clone()).ok();
+                        self.update_user(profile.clone()).await.ok();
                     }
                     None => {}
                 };
@@ -100,8 +101,9 @@ impl ClientStore {
                 let resps = match r {
                     Some(true) => {
                         let last_read_seq = Some(req.seq);
-                        if let Err(e) =
-                            self.update_conversation_read(&topic_id, &created_at, last_read_seq)
+                        if let Err(e) = self
+                            .update_conversation_read(&topic_id, &created_at, last_read_seq)
+                            .await
                         {
                             warn!(
                                 "update_conversation_read failed, topic_id:{} error: {:?}",
@@ -113,9 +115,10 @@ impl ClientStore {
                     _ => vec![resp],
                 };
 
-                let r = self.save_incoming_chat_log(&req);
+                let r = self.save_incoming_chat_log(&req).await;
                 match r {
                     Ok(_) => match merge_conversation_from_chat(self.message_storage.clone(), &req)
+                        .await
                     {
                         Ok(conversation) => {
                             if !conversation.is_partial {
@@ -123,7 +126,7 @@ impl ClientStore {
                                     cb.on_conversations_updated(vec![conversation]);
                                 }
                             } else {
-                                self.fetch_conversation(&topic_id);
+                                self.fetch_conversation(&topic_id).await;
                             }
                         }
                         Err(e) => {
@@ -142,7 +145,7 @@ impl ClientStore {
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
-                self.set_conversation_read_local(&topic_id);
+                self.set_conversation_read_local(&topic_id).await;
                 callback
                     .lock()
                     .unwrap()
@@ -184,14 +187,13 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
-        
         let chat_id = req.chat_id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
-                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
+                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req).await {
                     warn!(
                         "save_outgoing_chat_log failed: chat_id:{} err:{}",
                         chat_id, e

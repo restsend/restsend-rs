@@ -209,7 +209,7 @@ impl Client {
         let file_name = "Chat history";
         let mut items = Vec::new();
         for log_id in log_ids.iter() {
-            if let Some(log) = self.store.get_chat_log(&source_topic_id, log_id) {
+            if let Some(log) = self.store.get_chat_log(&source_topic_id, log_id).await {
                 items.push(log.to_string());
             }
         }

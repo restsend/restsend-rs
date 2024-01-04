@@ -1,5 +1,6 @@
 use super::{QueryOption, QueryResult, StoreModel};
 use crate::{error::ClientError, Result};
+use async_trait::async_trait;
 use log::{error, info};
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
@@ -74,9 +75,13 @@ impl<T: StoreModel> SqliteTable<T> {
         }
     }
 }
-
+#[async_trait]
 impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
-    fn filter(&self, partition: &str, predicate: Box<dyn Fn(T) -> Option<T>>) -> Vec<T> {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Vec<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -111,10 +116,10 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
 
         items
     }
-    fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
         let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
-            None => match self.last(partition) {
+            None => match self.last(partition).await {
                 Some(v) => v.sort_key(),
                 None => 0,
             },
@@ -179,7 +184,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn get(&self, partition: &str, key: &str) -> Option<T> {
+    async fn get(&self, partition: &str, key: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -212,7 +217,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -234,12 +239,12 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 }
             }
             None => {
-                self.remove(partition, key);
+                self.remove(partition, key).await;
             }
         }
     }
 
-    fn remove(&self, partition: &str, key: &str) {
+    async fn remove(&self, partition: &str, key: &str) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -255,7 +260,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    fn last(&self, partition: &str) -> Option<T> {
+    async fn last(&self, partition: &str) -> Option<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -287,7 +292,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(_) => None,
         }
     }
-    fn clear(&self) {
+    async fn clear(&self) {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -323,45 +328,47 @@ pub fn test_prepare() {
     std::fs::remove_file(test_file).unwrap_or(());
 }
 
-#[test]
-pub fn test_store_i32() {
+#[tokio::test]
+async fn test_store_i32() {
     let storage = SqliteStorage::new(":memory:");
     storage.make_table("tests").unwrap();
 
     let t = storage.table::<i32>("tests");
-    t.set("", "1", Some(&1));
-    t.set("", "2", Some(&2));
+    t.set("", "1", Some(&1)).await;
+    t.set("", "2", Some(&2)).await;
 
-    let not_exist_3 = t.get("", "3");
+    let not_exist_3 = t.get("", "3").await;
     assert_eq!(not_exist_3, None);
-    let value_2 = t.get("", "2");
+    let value_2 = t.get("", "2").await;
     assert_eq!(value_2, Some(2));
 
-    t.remove("", "2");
-    let value_2 = t.get("", "2");
+    t.remove("", "2").await;
+    let value_2 = t.get("", "2").await;
     assert_eq!(value_2, None);
 
-    t.clear();
-    let value_1 = t.get("", "1");
+    t.clear().await;
+    let value_1 = t.get("", "1").await;
     assert_eq!(value_1, None);
 }
-#[test]
-fn test_sqlite_query() {
+#[tokio::test]
+async fn test_sqlite_query() {
     let storage = SqliteStorage::new(":memory:");
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
     for i in 0..500 {
-        table.set("", &i.to_string(), Some(&i));
+        table.set("", &i.to_string(), Some(&i)).await;
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: None,
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: None,
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 499);
@@ -371,14 +378,16 @@ fn test_sqlite_query() {
         assert_eq!(v.items[9], 490);
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: Some(490),
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(490),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 490);
@@ -388,14 +397,16 @@ fn test_sqlite_query() {
         assert_eq!(v.items[9], 481);
     }
     {
-        let v = table.query(
-            "",
-            &QueryOption {
-                start_sort_value: Some(480),
-                limit: 10,
-                keyword: None,
-            },
-        );
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(480),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await;
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 480);

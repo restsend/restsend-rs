@@ -131,6 +131,26 @@ impl ClientStore {
         }
     }
 
+    pub fn new_with_storage(
+        _root_path: &str,
+        endpoint: &str,
+        token: &str,
+        user_id: &str,
+        message_storage: Arc<Storage>,
+    ) -> Self {
+        Self {
+            user_id: user_id.to_string(),
+            endpoint: endpoint.to_string(),
+            token: token.to_string(),
+            tmps: Mutex::new(VecDeque::new()),
+            outgoings: Arc::new(Mutex::new(HashMap::new())),
+            upload_tasks: Mutex::new(HashMap::new()),
+            msg_tx: Mutex::new(None),
+            message_storage,
+            callback: Arc::new(Mutex::new(None)),
+        }
+    }
+
     pub(super) fn migrate(&self) -> Result<()> {
         prepare(&self.message_storage)
     }

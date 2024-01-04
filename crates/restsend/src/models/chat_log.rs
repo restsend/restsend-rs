@@ -157,6 +157,9 @@ pub struct Attachment {
     pub file: Option<web_sys::Blob>,
 }
 
+unsafe impl Send for Attachment {}
+unsafe impl Sync for Attachment {}
+
 #[export_wasm_or_ffi]
 /// create attachment from url, without upload to server
 pub fn attachment_from_url(url: String, is_private: bool, size: i64) -> Attachment {

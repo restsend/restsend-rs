@@ -8,6 +8,7 @@ use crate::{
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
     services::user::set_allow_guest_chat,
+    storage::Storage,
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};
@@ -55,6 +56,36 @@ impl Client {
             file_name = file_name.replace("*", &utils::random_text(TEMP_FILENAME_LEN));
         }
         format!("{}/tmp/{}", root_path, file_name)
+    }
+}
+
+impl Client {
+    pub fn new_with_storage(
+        root_path: String,
+        info: &AuthInfo,
+        storage: Arc<Storage>,
+    ) -> Arc<Self> {
+        let store = ClientStore::new_with_storage(
+            &root_path,
+            &info.endpoint,
+            &info.token,
+            &info.user_id,
+            storage,
+        );
+
+        let store_ref = Arc::new(store);
+        if let Err(e) = store_ref.migrate() {
+            warn!("migrate database fail!! {:?}", e)
+        }
+
+        Arc::new(Self {
+            root_path: root_path.to_string(),
+            user_id: info.user_id.to_string(),
+            token: info.token.to_string(),
+            endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
+            store: store_ref,
+            state: Arc::new(ConnectState::new()),
+        })
     }
 }
 

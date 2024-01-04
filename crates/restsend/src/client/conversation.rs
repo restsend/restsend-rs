@@ -15,7 +15,7 @@ use restsend_macros::export_wasm_or_ffi;
 impl Client {
     pub async fn create_chat(&self, user_id: String) -> Result<Conversation> {
         let conversation = create_chat(&self.endpoint, &self.token, &user_id).await?;
-        self.store.update_conversation(conversation)
+        self.store.update_conversation(conversation).await
     }
 
     pub async fn clean_messages(&self, topic_id: String) -> Result<()> {
@@ -28,7 +28,7 @@ impl Client {
         chat_ids: Vec<String>,
         sync_to_server: bool,
     ) -> Result<()> {
-        self.store.remove_messages(&topic_id, &chat_ids);
+        self.store.remove_messages(&topic_id, &chat_ids).await;
 
         if sync_to_server {
             remove_messages(&self.endpoint, &self.token, &topic_id, chat_ids).await
@@ -37,8 +37,8 @@ impl Client {
         }
     }
 
-    pub fn get_chat_log(&self, topic_id: String, chat_id: String) -> Option<ChatLog> {
-        self.store.get_chat_log(&topic_id, &chat_id)
+    pub async fn get_chat_log(&self, topic_id: String, chat_id: String) -> Option<ChatLog> {
+        self.store.get_chat_log(&topic_id, &chat_id).await
     }
 
     pub async fn search_chat_log(
@@ -51,7 +51,7 @@ impl Client {
         None
     }
 
-    pub fn sync_chat_logs(
+    pub async fn sync_chat_logs(
         &self,
         topic_id: String,
         last_seq: Option<i64>,
@@ -62,9 +62,10 @@ impl Client {
         let start_seq = self
             .store
             .get_conversation(&topic_id)
+            .await
             .map(|c| c.start_seq)
             .unwrap_or(0);
-        match self.store.get_chat_logs(&topic_id, last_seq, limit) {
+        match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
             Ok(local_logs) => {
                 let mut need_fetch = local_logs.items.len() < limit as usize;
 
@@ -117,7 +118,7 @@ impl Client {
                         } else {
                             ChatLogStatus::Received
                         };
-                        match store_ref.save_chat_log(&c) {
+                        match store_ref.save_chat_log(&c).await {
                             Ok(_) => items.push(c),
                             Err(_) => {}
                         };
@@ -139,7 +140,7 @@ impl Client {
         });
     }
 
-    pub fn sync_conversations(
+    pub async fn sync_conversations(
         &self,
         updated_at: Option<String>,
         limit: u32,
@@ -153,10 +154,10 @@ impl Client {
         }
         .max(MAX_CONVERSATION_LIMIT);
 
-        let local_updated_at = self.store.get_last_conversation_updated_at();
+        let local_updated_at = self.store.get_last_conversation_updated_at().await;
         let updated_at = updated_at.unwrap_or_default();
         if !updated_at.is_empty() && local_updated_at.is_some() {
-            match self.store.get_conversations(&updated_at, limit) {
+            match self.store.get_conversations(&updated_at, limit).await {
                 Ok(r) => {
                     if r.items.len() == limit as usize {
                         let updated_at = r
@@ -188,39 +189,60 @@ impl Client {
             let mut offset = 0;
 
             loop {
-                let r = get_conversations(&endpoint, &token, &updated_at, offset, limit)
-                    .await
-                    .map(|lr| {
+                let r = get_conversations(&endpoint, &token, &updated_at, offset, limit).await;
+                match r {
+                    Ok(lr) => {
                         count += lr.items.len();
                         offset = lr.offset;
                         if first_updated_at.is_none() && !lr.items.is_empty() {
                             first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
                         }
-                        let conversations = store_ref.merge_conversations(lr.items);
+                        let conversations = store_ref.merge_conversations(lr.items).await;
                         if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
                             cb.on_conversations_updated(conversations);
                         }
-                        lr.has_more
-                    });
-                match r {
-                    Ok(has_more) => {
-                        if !has_more {
+                        if !lr.has_more {
                             callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
                             break;
                         }
                     }
                     Err(e) => {
-                        warn!("sync_all_conversations failed: {:?}", e);
+                        warn!("sync_conversations failed: {:?}", e);
                         callback.on_fail(e);
                         break;
                     }
                 }
+                // .map(|lr| {
+                //     count += lr.items.len();
+                //     offset = lr.offset;
+                //     if first_updated_at.is_none() && !lr.items.is_empty() {
+                //         first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
+                //     }
+                //     let conversations = store_ref.merge_conversations(lr.items).await;
+                //     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                //         cb.on_conversations_updated(conversations);
+                //     }
+                //     lr.has_more
+                // });
+                // match r {
+                //     Ok(has_more) => {
+                //         if !has_more {
+                //             callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
+                //             break;
+                //         }
+                //     }
+                //     Err(e) => {
+                //         warn!("sync_all_conversations failed: {:?}", e);
+                //         callback.on_fail(e);
+                //         break;
+                //     }
+                // }
             }
         });
     }
 
-    pub fn get_conversation(&self, topic_id: String) -> Option<Conversation> {
-        self.store.get_conversation(&topic_id)
+    pub async fn get_conversation(&self, topic_id: String) -> Option<Conversation> {
+        self.store.get_conversation(&topic_id).await
     }
 
     pub async fn remove_conversation(&self, topic_id: String) {
@@ -273,10 +295,10 @@ impl Client {
 }
 
 impl Client {
-    pub fn filter_conversation(
+    pub async fn filter_conversation(
         &self,
-        predicate: Box<dyn Fn(Conversation) -> Option<Conversation>>,
+        predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
     ) -> Vec<Conversation> {
-        self.store.filter_conversation(predicate)
+        self.store.filter_conversation(predicate).await
     }
 }

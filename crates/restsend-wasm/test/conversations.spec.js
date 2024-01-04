@@ -117,6 +117,15 @@ describe('Conversations', async function () {
         expect(newItems[0].content.text).toEqual(recallId)
         expect(newItems[1].recall).toBe(false)
         expect(newItems[1].content.type).toEqual('text')
+    })
 
+    it('#filter conversations', async () => {
+        setLogging('info')
+        let conversations = await vitalik.filterConversation(c => {
+            console.log(c.attendee === 'guido')
+            return c.attendee === 'guido'
+        })
+        expect(conversations.length).toEqual(1)
+        expect(conversations[0].attendee).toEqual('guido')
     })
 })
