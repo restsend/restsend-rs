@@ -8,7 +8,18 @@ impl InMemoryStorage {
     pub fn new(_db_name: &str) -> Self {
         InMemoryStorage {}
     }
-    pub fn make_table(&self, _name: &str) -> crate::Result<()> {
+
+    pub async fn new_async(db_name: &str) -> Self {
+        Self::new(db_name)
+    }
+
+    pub fn make_table(&self, name: &str) -> crate::Result<()> {
+        let mut tables = self.tables.lock().unwrap();
+        match tables.get(name) {
+            Some(_) => return Ok(()),
+            None => {}
+        };
+        tables.insert(name.to_string(), Table::default());
         Ok(())
     }
     pub fn table<T>(&self, _name: &str) -> Box<dyn super::Table<T>>

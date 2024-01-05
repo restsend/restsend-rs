@@ -44,3 +44,9 @@ impl From<wasm_bindgen::JsValue> for ClientError {
         ClientError::StdError(e.as_string().unwrap_or_default())
     }
 }
+
+impl From<web_sys::DomException> for ClientError {
+    fn from(e: web_sys::DomException) -> ClientError {
+        ClientError::StdError(e.message())
+    }
+}

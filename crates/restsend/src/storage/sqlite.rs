@@ -10,11 +10,11 @@ pub struct SqliteStorage {
 }
 
 impl SqliteStorage {
-    pub fn new(name: &str) -> Self {
-        let conn = Connection::open(name);
+    pub fn new(db_name: &str) -> Self {
+        let conn = Connection::open(db_name);
         match conn {
             Err(e) => {
-                error!("open sqlite connection failed: {} -> {}", name, e);
+                error!("open sqlite connection failed: {} -> {}", db_name, e);
                 return SqliteStorage {
                     conn: Arc::new(Mutex::new(None)),
                 };
@@ -25,6 +25,10 @@ impl SqliteStorage {
                 };
             }
         }
+    }
+
+    pub async fn new_async(db_name: &str) -> Self {
+        Self::new(db_name)
     }
 
     pub fn make_table(&self, name: &str) -> Result<()> {
