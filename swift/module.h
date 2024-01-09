@@ -71,15 +71,17 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_accept_topic_join(void*_Nonn
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_add_topic_admin(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_add_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
+);
 void uniffi_restsend_sdk_fn_method_client_app_active(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
 void uniffi_restsend_sdk_fn_method_client_app_deactivate(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
-void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuffer req_id, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_cancel_send(void*_Nonnull ptr, RustBuffer chat_id, RustCallStatus *_Nonnull out_status
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_history(void*_Nonnull ptr, RustBuffer topic_id
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_clean_messages(void*_Nonnull ptr, RustBuffer topic_id
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr, uint64_t callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_connect(void*_Nonnull ptr
 );
 RustBuffer uniffi_restsend_sdk_fn_method_client_connection_status(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
 );
@@ -97,25 +99,27 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_recall(void*_Nonnull ptr,
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer content, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_file(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_file(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_image(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_invite(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer messsage, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer placeholder, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_link(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer url, RustBuffer placeholder, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_location(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer latitude, RustBuffer longitude, RustBuffer address, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer log_ids, RustBuffer mentions, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer source_topic_id, RustBuffer log_ids, RustBuffer mentions, int8_t mention_all, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_text(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_video(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_video(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
-void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, RustBuffer reply_id, RustBuffer callback
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_send_voice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer attachment, RustBuffer duration, RustBuffer mentions, int8_t mention_all, RustBuffer reply_id, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_typing(void*_Nonnull ptr, RustBuffer topic_id
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_update_extra(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustBuffer extra, RustBuffer callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_download_file(void*_Nonnull ptr, RustBuffer file_url, uint64_t callback
 );
@@ -133,7 +137,11 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_members(void*_Nonn
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic_owner(void*_Nonnull ptr, RustBuffer topic_id
 );
-RustBuffer uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, int8_t blocking
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_users(void*_Nonnull ptr, RustBuffer user_ids
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_join_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer message, RustBuffer source
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_quit_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
@@ -153,11 +161,19 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_send_chat_request_via_connec
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_allow_guest_chat(void*_Nonnull ptr, int8_t allow
 );
+void uniffi_restsend_sdk_fn_method_client_set_callback(void*_Nonnull ptr, RustBuffer callback, RustCallStatus *_Nonnull out_status
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_extra(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer extra
+);
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_mute(void*_Nonnull ptr, RustBuffer topic_id, int8_t mute
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_read(void*_Nonnull ptr, RustBuffer topic_id
 );
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_remark(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer remark
+);
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_sticky(void*_Nonnull ptr, RustBuffer topic_id, int8_t sticky
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_conversation_tags(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer tags
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_set_user_block(void*_Nonnull ptr, RustBuffer user_id, int8_t block
 );
@@ -171,7 +187,7 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic(void*_Nonnull p
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer duration
 );
-void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, int64_t last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
+void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
 void uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
 );
@@ -358,6 +374,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_accept_topic_join(void
 uint16_t uniffi_restsend_sdk_checksum_method_client_add_topic_admin(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_method_client_add_topic_member(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_app_active(void
     
 );
@@ -367,7 +386,7 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_app_deactivate(void
 uint16_t uniffi_restsend_sdk_checksum_method_client_cancel_send(void
     
 );
-uint16_t uniffi_restsend_sdk_checksum_method_client_clean_history(void
+uint16_t uniffi_restsend_sdk_checksum_method_client_clean_messages(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_connect(void
@@ -427,6 +446,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_do_send_voice(void
 uint16_t uniffi_restsend_sdk_checksum_method_client_do_typing(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_method_client_do_update_extra(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_download_file(void
     
 );
@@ -452,6 +474,12 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_owner(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_get_user(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_users(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_join_topic(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_quit_topic(void
@@ -481,13 +509,25 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_send_chat_request_via_connec
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_allow_guest_chat(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_callback(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_extra(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_mute(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_read(void
     
 );
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_remark(void
+    
+);
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_sticky(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_tags(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_user_block(void
@@ -559,7 +599,7 @@ uint16_t uniffi_restsend_sdk_checksum_method_callback_on_topic_read(void
 uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_updated(void
     
 );
-uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversations_removed(void
+uint16_t uniffi_restsend_sdk_checksum_method_callback_on_conversation_removed(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress(void
@@ -575,6 +615,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_sent(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_progress(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_attachment_upload(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_messagecallback_on_ack(void

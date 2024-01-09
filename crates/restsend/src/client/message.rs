@@ -1,6 +1,7 @@
 use super::Client;
 use crate::callback::MessageCallback;
 use crate::models::chat_log::Attachment;
+use crate::models::conversation::Extra;
 use crate::services::conversation::send_request;
 use crate::services::response::APISendResponse;
 use crate::Result;
@@ -9,6 +10,7 @@ use restsend_macros::export_wasm_or_ffi;
 
 #[cfg(not(target_family = "wasm"))]
 pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Result<Attachment> {
+    use log::warn;
     use std::io::Write;
 
     let file_path = Client::temp_path(root_path, Some("history_*.json".to_string()));
@@ -20,30 +22,35 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
 
     drop(file);
 
-    log::warn!(
+    warn!(
         "save logs file_path:{} size:{} file:{:?}",
-        file_path,
-        file_size,
-        file_path
+        file_path, file_size, file_path
     );
     Ok(Attachment::from_local(file_name, &file_path, false))
 }
 
-#[cfg(target_family = "wasm")]
+#[allow(unused)]
 pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     use wasm_bindgen::JsValue;
     let file_size = data.len() as i64;
-    let data = JsValue::from_str(&data);
-    let file_stream = web_sys::Blob::new_with_str_sequence_and_options(
-        &data,
+    let array: js_sys::Array = js_sys::Array::new();
+    array.push(&JsValue::from_str(&data));
+
+    match web_sys::Blob::new_with_str_sequence_and_options(
+        &array,
         web_sys::BlobPropertyBag::new().type_("application/json"),
-    )?;
-    Ok(Attachment::from_blob(
-        file_stream,
-        Some(file_name.to_string()),
-        false,
-        file_size,
-    ))
+    ) {
+        Ok(blob) => Ok(Attachment::from_blob(
+            blob,
+            Some(file_name.to_string()),
+            false,
+            file_size,
+        )),
+        Err(e) => {
+            web_sys::console::error_1(&e);
+            return Err(e.into());
+        }
+    }
 }
 
 #[export_wasm_or_ffi]
@@ -101,11 +108,13 @@ impl Client {
         attachment: Attachment,
         duration: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_voice(&topic_id, &duration, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -116,11 +125,13 @@ impl Client {
         attachment: Attachment,
         duration: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_video(&topic_id, &duration, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -130,11 +141,13 @@ impl Client {
         topic_id: String,
         attachment: Attachment,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_file(&topic_id, attachment)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -146,11 +159,13 @@ impl Client {
         longitude: String,
         address: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_location(&topic_id, &latitude, &longitude, &address)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -161,11 +176,13 @@ impl Client {
         url: String,
         placeholder: String,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         reply_id: Option<String>,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_link(&topic_id, &url, &placeholder)
             .mentions(mentions)
+            .mention_all(mention_all)
             .reply_id(reply_id);
         self.send_chat_request_via_connection(req, callback).await
     }
@@ -183,20 +200,22 @@ impl Client {
     pub async fn do_send_logs(
         &self,
         topic_id: String,
+        source_topic_id: String,
         log_ids: Vec<String>,
         mentions: Option<Vec<String>>,
+        mention_all: bool,
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let file_name = "Chat history";
         let mut items = Vec::new();
         for log_id in log_ids.iter() {
-            if let Some(log) = self.store.get_chat_log(&topic_id, log_id) {
+            if let Some(log) = self.store.get_chat_log(&source_topic_id, log_id).await {
                 items.push(log.to_string());
             }
         }
 
         let data = serde_json::json!({
-            "topicId": topic_id,
+            "topicId": source_topic_id,
             "ownerId": self.user_id,
             "createdAt": chrono::Local::now().to_rfc3339(),
             "logIds": log_ids,
@@ -209,12 +228,14 @@ impl Client {
         #[cfg(target_family = "wasm")]
         let attachment = save_logs_to_blob(&file_name, data)?;
 
-        let req = ChatRequest::new_logs(&topic_id, attachment).mentions(mentions);
+        let req = ChatRequest::new_logs(&topic_id, attachment)
+            .mentions(mentions)
+            .mention_all(mention_all);
         self.send_chat_request_via_connection(req, callback).await
     }
 
-    pub fn cancel_send(&self, req_id: String) {
-        self.store.cancel_send(&req_id)
+    pub fn cancel_send(&self, chat_id: String) {
+        self.store.cancel_send(&chat_id)
     }
 
     pub async fn do_typing(&self, topic_id: String) -> Result<()> {
@@ -248,6 +269,19 @@ impl Client {
         callback: Option<Box<dyn MessageCallback>>,
     ) -> Result<String> {
         let req = ChatRequest::new_chat_with_content(&topic_id, content);
+        self.send_chat_request_via_connection(req, callback).await
+    }
+
+    pub async fn do_update_extra(
+        &self,
+        topic_id: String,
+        chat_id: String,
+        extra: Option<Extra>,
+        callback: Option<Box<dyn MessageCallback>>,
+    ) -> Result<String> {
+        let req = ChatRequest::new_chat(&topic_id, crate::models::ContentType::UpdateExtra)
+            .text(&chat_id)
+            .extra(extra);
         self.send_chat_request_via_connection(req, callback).await
     }
 }

@@ -1,4 +1,4 @@
-use super::omit_empty;
+use super::{conversation::Extra, omit_empty};
 use crate::{request::ChatRequest, storage::StoreModel, utils::now_millis};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
@@ -26,12 +26,15 @@ pub enum ContentType {
     TopicKickout,
     TopicJoin,
     TopicNotice,
+    TopicUpdate,
     TopicKnock,
     TopicKnockAccept,
     TopicKnockReject,
     TopicSilent,
     TopicSilentMember,
     TopicChangeOwner,
+    ConversationUpdate,
+    UpdateExtra,
     Unknown(String),
 }
 
@@ -58,12 +61,15 @@ impl From<ContentType> for String {
             ContentType::TopicKickout => "topic.kickout",
             ContentType::TopicJoin => "topic.join",
             ContentType::TopicNotice => "topic.notice",
+            ContentType::TopicUpdate => "topic.update",
             ContentType::TopicKnock => "topic.knock",
             ContentType::TopicKnockAccept => "topic.knock.accept",
             ContentType::TopicKnockReject => "topic.knock.reject",
             ContentType::TopicSilent => "topic.silent",
             ContentType::TopicSilentMember => "topic.silent.member",
             ContentType::TopicChangeOwner => "topic.changeowner",
+            ContentType::ConversationUpdate => "conversation.update",
+            ContentType::UpdateExtra => "update.extra",
             ContentType::Unknown(v) => return v.clone(),
         }
         .to_string()
@@ -92,12 +98,15 @@ impl From<String> for ContentType {
             "topic.kickout" => ContentType::TopicKickout,
             "topic.join" => ContentType::TopicJoin,
             "topic.notice" => ContentType::TopicNotice,
+            "topic.update" => ContentType::TopicUpdate,
             "topic.knock" => ContentType::TopicKnock,
             "topic.knock.accept" => ContentType::TopicKnockAccept,
             "topic.knock.reject" => ContentType::TopicKnockReject,
             "topic.silent" => ContentType::TopicSilent,
             "topic.silent.member" => ContentType::TopicSilentMember,
             "topic.changeowner" => ContentType::TopicChangeOwner,
+            "conversation.update" => ContentType::ConversationUpdate,
+            "update.extra" => ContentType::UpdateExtra,
             _ => ContentType::Unknown(value),
         }
     }
@@ -147,6 +156,9 @@ pub struct Attachment {
     #[serde(skip)]
     pub file: Option<web_sys::Blob>,
 }
+
+unsafe impl Send for Attachment {}
+unsafe impl Sync for Attachment {}
 
 #[export_wasm_or_ffi]
 /// create attachment from url, without upload to server
@@ -198,11 +210,7 @@ impl Attachment {
         is_private: bool,
         size: i64,
     ) -> Self {
-        #[cfg(target_family = "wasm")]
-        use wasm_bindgen::JsCast;
-
         let file_name = file_name.unwrap_or("<blob>".to_string());
-
         Attachment {
             file_name: file_name.clone(),
             file_path: file_name,
@@ -229,6 +237,7 @@ pub struct Content {
     pub checksum: u32,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub text: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -259,16 +268,29 @@ pub struct Content {
     #[serde(default)]
     pub mentions: Vec<String>,
 
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub mention_all: bool,
+
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub reply: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub reply_content: Option<String>,
+
     #[serde(skip)]
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub attachment: Option<Attachment>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub extra: Option<Extra>,
 }
 
 impl Content {
@@ -331,6 +353,7 @@ impl ChatLog {
         }
     }
 }
+
 impl FromStr for ChatLog {
     type Err = serde_json::Error;
 
@@ -342,6 +365,20 @@ impl FromStr for ChatLog {
 impl ToString for ChatLog {
     fn to_string(&self) -> String {
         serde_json::to_string(self).unwrap_or_default()
+    }
+}
+
+impl ToString for ChatLogStatus {
+    fn to_string(&self) -> String {
+        match self {
+            ChatLogStatus::Uploading => "uploading".to_string(),
+            ChatLogStatus::Sending => "sending".to_string(),
+            ChatLogStatus::Sent => "sent".to_string(),
+            ChatLogStatus::Downloading => "downloading".to_string(),
+            ChatLogStatus::Received => "received".to_string(),
+            ChatLogStatus::Read => "read".to_string(),
+            ChatLogStatus::SendFailed => "sendFailed".to_string(),
+        }
     }
 }
 

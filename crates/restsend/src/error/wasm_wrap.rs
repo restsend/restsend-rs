@@ -1,4 +1,4 @@
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum ClientError {
     #[error("auth: invalid password")]
     InvalidPassword(String),
@@ -28,8 +28,6 @@ pub enum ClientError {
     WebsocketError(String),
     #[error("http: {0}")]
     HTTP(String),
-    #[error("json: {0}")]
-    JSON(#[from] serde_json::Error),
     #[error("cancel: {0}")]
     UserCancel(String),
     #[error("storage: {0}")]

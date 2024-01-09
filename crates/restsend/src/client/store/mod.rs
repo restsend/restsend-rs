@@ -9,7 +9,6 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use log::debug;
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::{HashMap, VecDeque},
@@ -107,7 +106,7 @@ pub(super) struct ClientStore {
     outgoings: PendingRequests,
     upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
-    message_storage: Arc<Storage>,
+    pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
 }
 
@@ -132,6 +131,26 @@ impl ClientStore {
         }
     }
 
+    pub fn new_with_storage(
+        _root_path: &str,
+        endpoint: &str,
+        token: &str,
+        user_id: &str,
+        message_storage: Arc<Storage>,
+    ) -> Self {
+        Self {
+            user_id: user_id.to_string(),
+            endpoint: endpoint.to_string(),
+            token: token.to_string(),
+            tmps: Mutex::new(VecDeque::new()),
+            outgoings: Arc::new(Mutex::new(HashMap::new())),
+            upload_tasks: Mutex::new(HashMap::new()),
+            msg_tx: Mutex::new(None),
+            message_storage,
+            callback: Arc::new(Mutex::new(None)),
+        }
+    }
+
     pub(super) fn migrate(&self) -> Result<()> {
         prepare(&self.message_storage)
     }
@@ -146,19 +165,18 @@ impl ClientStore {
         let mut expired = Vec::new();
         let now = now_millis();
 
-        for (req_id, pending) in outgoings.iter() {
+        for (chat_id, pending) in outgoings.iter() {
             if pending.is_expired() {
-                expired.push(req_id.clone());
+                expired.push(chat_id.clone());
             } else {
                 if pending.need_retry(now) {
-                    debug!("retry send: {}", req_id);
-                    self.try_send(req_id.clone());
+                    self.try_send(chat_id.clone());
                 }
             }
         }
 
-        for req_id in expired {
-            if let Some(pending) = outgoings.remove(&req_id) {
+        for chat_id in expired {
+            if let Some(pending) = outgoings.remove(&chat_id) {
                 pending
                     .callback
                     .map(|cb| cb.on_fail("send expired".to_string()));

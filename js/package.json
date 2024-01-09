@@ -1,6 +1,7 @@
 {
   "name": "restsend-wasm",
-  "version": "0.1.0",
+  "description": "A client for the retsend server",
+  "version": "1.0.0",
   "files": [
     "restsend_wasm_bg.wasm",
     "restsend_wasm.js",

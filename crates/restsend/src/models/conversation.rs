@@ -2,7 +2,27 @@ use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
-use std::str::FromStr;
+use std::{collections::HashMap, str::FromStr};
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+pub struct Tag {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub id: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub r#type: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub label: String,
+}
+
+pub type Tags = Vec<Tag>;
+pub type Extra = HashMap<String, String>;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +34,10 @@ pub struct Conversation {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub updated_at: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub start_seq: i64,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
@@ -30,6 +54,10 @@ pub struct Conversation {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub attendee: String,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub members: i64,
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
@@ -68,7 +96,24 @@ pub struct Conversation {
     pub last_message_at: String,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Extra>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic_extra: Option<Extra>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Tags>,
+
+    #[serde(default)]
     pub cached_at: i64,
+
     #[serde(default)]
     pub is_partial: bool,
 }
@@ -82,6 +127,7 @@ impl Conversation {
         }
     }
 }
+
 impl FromStr for Conversation {
     type Err = serde_json::Error;
 
@@ -110,7 +156,6 @@ impl From<&ChatRequest> for Conversation {
         Conversation {
             topic_id: req.topic_id.clone(),
             last_seq: req.seq,
-            attendee: req.attendee.clone(),
             is_partial: true,
             updated_at: req.created_at.clone(),
             ..Default::default()

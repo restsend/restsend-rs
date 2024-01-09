@@ -1,0 +1,1422 @@
+<html>
+
+<head>
+    <title>RestSend Demo</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://unpkg.com/alpinejs" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script type="module">
+        import init, { signin, Client, setLogging } from "./pkg/restsend_wasm.js";
+        init().then(() => {
+            window.signin = signin
+            window.Client = Client
+            setLogging('info')
+        });
+    </script>
+    <script>
+        function bytesToSize(bytes) {
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes === 0) return '0 Byte';
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+        }
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('modalData', {
+                open: false,
+                innerHTML: '',
+                logs: null,
+                toggle() {
+                    this.open = !this.open
+                }
+            })
+
+            Alpine.directive('content', (el, { expression }, { evaluate }) => {
+                let content = evaluate(expression)
+                content.size = bytesToSize(content.size)
+
+                let node = document.createElement('div')
+                let modalData = Alpine.store('modalData')
+
+                if (content) {
+                    if (content.type == 'update.extra') {
+
+                        node.className = "hidden"
+                        node.innerHTML = ''
+                    }
+                    else if (content.type == 'logs') {
+                        node.innerHTML = `<div class="w-48 p-4 rounded-md border border-gray-200 cursor-pointer text-gray-800 bg-gray-50 hover:bg-gray-200">
+                                        <div class="flex items-center justify-between w-full mt-0">
+                                        <div class="space-y-2">
+                                           <p class="text-base">${content.placeholder} </p>
+                                           <p class="text-sm">size:${content.size}</p>
+                                        </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-10 h-10 text-gray-800">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                    </svg>
+                                    </div>
+                            </div>`
+
+                        node.addEventListener('click', () => {
+                            modalData.toggle()
+                            let logsString = ''
+                            let logsObject = ''
+                            fetch(content.text).then(response => response.json())
+                                .then(jsonData => {
+                                    logsString = JSON.stringify(jsonData);
+                                    logsObject = JSON.parse(logsString);
+                                    const items = logsObject.items.map(logsString => JSON.parse(logsString));
+                                    modalData.innerHTML = `<div class="w-full h-auto text-gray-700 px-4">
+                                     <div class="flex items-center justify-between w-full">
+                                          <p class="text-gray-800"> <span class="font-semibold"> ${logsObject.ownerId} </span>Chat history</p>
+                                        <p class="text-gray-500 text-sm">${(logsObject.createdAt).slice(0, 10)}</p>
+                                     </div>  
+
+                                     <div> 
+                                        <ul class="text-sm text-gray-700 py-2  mt-5">
+                                            ${items.map(item =>
+                                        `<li class="py-3 border-b border-text-200">
+                                                    <div class="flex w-full items-center space-x-4 text-gray-500 text-xs"> <p class="text-gray-700 font-semibold">${item.senderId}</p> <p>${(item.createdAt).replace("T", " ").split("+")[0]}</p> </div>  
+                                                   <p class="mt-1.5 text-gray-800">${item.content.text} <span class="text-gray-400 text-xs">(${item.content.type})</span> </p>
+                                                    </li>`).join('')}
+                                            </ul>
+                                        </div>
+                                         
+                            </div>`
+                                    modalData.logs = logsObject
+                                })
+                                .catch(error => {
+                                    console.error('Error:', error);
+                                });
+                        })
+
+                    }
+
+                    else if (content.type == 'image') {
+                        let url = content.thumbnail || content.text;
+                        node.innerHTML = `<img class="max-w-[200px] max-h-[200px]  rounded-md shadow cursor-pointer" src='${url}'/>`
+                        node.addEventListener('click', () => {
+                            modalData.toggle()
+                            modalData.innerHTML = `<img class="w-full h-auto rounded-md shadow" src='${content.text}'/>`
+                        })
+                    }
+
+                    else if (content.type == 'file') {
+                        let url = content.text;
+                        node.innerHTML =
+                            `<div class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow cursor-pointer relative">  
+                   <p id="loading-bar-${url}" style="display: none;" class="absolute top-0 left-0 h-full w-full flex justify-center items-center text-gray-700 bg-gray-200 bg-opacity-60 rounded-md"> 
+                   <svg t="1704027290240" class="icon animate-spin" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4259" width="25" height="25"><path d="M782.065 901.684c10.893 18.387 4.797 42.97-14.29 53.363-18.687 10.893-42.47 4.497-53.064-14.29-11.392-18.388-4.796-42.471 13.691-53.364 19.387-10.792 42.77-4.197 53.663 14.29z m-230.342 83.243c0 21.285-17.588 39.073-39.673 39.073-21.285 0-39.073-17.388-39.073-39.073v-27.382c0-21.785 17.887-39.173 39.073-39.173 21.785 0 39.673 17.388 39.673 39.173v27.382z m-241.135-44.17c-11.093 19.287-35.176 25.383-53.664 14.49-18.987-10.693-25.682-34.576-14.49-53.663l29.08-50.866c11.193-18.687 35.176-25.182 54.163-14.49 18.388 10.893 25.183 35.176 13.99 53.664l-29.08 50.865zM123.416 782.765c-18.987 10.593-43.27 4.197-53.664-14.49-11.092-18.388-4.796-42.77 13.99-53.664l78.147-45.269c18.688-10.392 42.971-4.496 53.664 14.49 10.592 18.388 4.097 42.771-14.49 53.664l-77.647 45.269zM40.272 551.823c-21.785 0-39.073-17.588-39.073-39.074 0-21.785 17.288-39.373 39.073-39.373H161.99c21.785 0 39.074 17.588 39.074 39.074 0 21.785-17.289 39.373-39.074 39.373H40.272z m43.57-241.535c-18.986-10.593-25.182-34.576-13.99-53.364 10.393-18.987 34.577-25.382 53.664-14.49l132.31 76.848c18.686 10.692 24.882 34.576 14.49 53.063-11.093 18.987-35.177 25.083-53.564 14.49l-132.91-76.547z m158.592-187.072l92.137 159.99c11.193 18.688 35.176 25.383 53.863 14.29 18.688-10.592 24.883-34.876 13.99-53.663l-92.536-159.69c-10.593-18.488-34.576-25.183-53.064-14.29-18.987 10.892-25.082 34.975-14.39 53.363z m230.643-82.644c0-21.285 17.887-39.373 39.073-39.373 21.785 0 39.673 17.688 39.673 39.373v184.274c0 21.785-17.588 39.373-39.673 39.673-21.286 0-39.073-17.288-39.073-39.673V40.572z m241.135 43.57c11.192-18.987 34.876-25.182 53.663-14.49 18.987 10.593 25.683 34.577 14.49 53.664l-92.337 159.99c-10.393 18.688-34.976 25.283-53.663 14.49-18.687-10.892-24.883-35.176-14.29-53.963l92.137-159.69z m187.671 158.292l-160.19 92.337c-18.687 10.593-25.183 34.577-14.49 53.663 11.092 18.388 35.176 24.584 53.663 14.29l160.29-92.336c18.388-10.593 25.183-34.577 13.991-53.364-10.793-18.987-34.876-25.782-53.264-14.59z m82.344 230.942c21.985 0 39.373 17.588 39.073 39.373 0 21.486-16.988 39.074-39.073 39.074H799.753c-21.285 0-39.173-17.588-39.173-39.373 0-21.486 17.888-39.074 39.173-39.074h184.474z" fill="#333333" p-id="4260"></path></svg>
+                 </p>
+                 <div class="pr-6">
+           <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
+           <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+       </div>
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600"> <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+</div>`
+                        node.addEventListener('click', async () => {
+                            const loadingElement = document.getElementById('loading-bar-' + url)
+                            loadingElement.style.display = 'flex'
+
+                            try {
+                                const response = await fetch(content.text);
+                                const blob = await response.blob();
+                                const url = URL.createObjectURL(blob);
+
+                                const a = document.createElement('a');
+                                a.style.display = 'none';
+                                a.href = url;
+                                a.download = content.placeholder;
+
+                                a.addEventListener('click', () => {
+                                    setTimeout(() => {
+                                        loadingElement.style.display = 'none'
+                                    }, 500)
+                                });
+
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(url);
+                            } catch (error) {
+                                console.error('Error:', error);
+                            }
+                        });
+                    }
+
+                    else if (content.type == 'link') {
+                        node.innerHTML = `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
+                    }
+
+                    // else if (content.type == 'text' || (content.type).includes('custom' || 'custom.image')) {
+                    else {
+                        node.innerHTML = `<p class="w-full">${content.text}</p>`
+                    }
+                }
+                el.appendChild(node)
+            })
+        });
+    </script>
+
+<body>
+    <style>
+        .text-overflow-ellipsis {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+        }
+
+        input[type="file"] {
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        input[type="file"]+label::after {
+            content: '';
+            margin-left: 5px;
+        }
+
+        .scroll-bar {
+            width: 100%;
+        }
+
+        .scroll-bar::-webkit-scrollbar {
+            height: 4px;
+            width: 4px;
+        }
+
+        .z-index {
+            z-index: 30;
+        }
+
+        /* .scroll-bar::-webkit-scrollbar-track {
+            background-color: #f6f7f7e4;
+        } */
+
+        .scroll-bar::-webkit-scrollbar-thumb {
+            background-color: #b0b0b0;
+            border-radius: 20px;
+        }
+    </style>
+
+    <script>
+        class MessageBlocks {
+            constructor(endpoint, self) {
+                this.self = self
+                this.endpoint = endpoint
+                this.msgs = {}
+                this.blocks = []
+            }
+
+            getAvatar(userId) {
+                return `${this.endpoint}/api/avatar/${userId}`;
+            }
+            get firstItemSeq() {
+                if (this.blocks.length == 0 || this.blocks[0].items.length == 0) {
+                    return 0
+                }
+                return this.blocks[0].items[0].seq
+            }
+
+            updateItem(chatId, { type, content, recall, replyContent }) {
+                // console.log('update item', chatId, {type, content, recall})
+                for (let idx = 0; idx < this.blocks.length; idx++) {
+                    const block = this.blocks[idx];
+                    let found = block.items.findIndex((item) => item.id == chatId)
+
+                    if (found !== -1) {
+                        if (!type) {
+                            block.items.splice(found, 1)
+                            if (block.items.length == 0) {
+                                this.blocks.splice(idx, 1)
+                            }
+                        } else {
+                            block.items[found].type = type
+                            block.items[found].content = content
+                            block.items[found].recall = recall
+                            block.items[found].replyContent = replyContent
+                        }
+                        break
+                    }
+                }
+            }
+
+            getOrCreateBlock(item) {
+                let firstBlock = this.blocks.length > 0 ? this.blocks[0] : null;
+                let lastBlock = this.blocks.length > 0 ? this.blocks[this.blocks.length - 1] : null;
+                let itemTime = new Date(item.createdAt).getTime()
+
+                if (firstBlock) {
+                    let blockTime = new Date(firstBlock.createdAt).getTime()
+                    if (itemTime < blockTime) {
+                        if (itemTime + 5 * 60 * 1000 < blockTime) {
+                            // create new block
+                            firstBlock = {
+                                title: item.remark || item.senderId,
+                                avatar: this.getAvatar(item.senderId),
+                                isSelf: item.senderId == this.self,
+                                senderId: item.senderId,
+                                items: [],
+                                id: item.id,
+                                seq: item.seq,
+                                createdAt: item.createdAt,
+                            };
+                            this.blocks.unshift(firstBlock);
+                        }
+                        if (firstBlock.senderId == item.senderId) {
+                            return firstBlock
+                        }
+                    }
+                }
+
+                if (lastBlock) {
+                    let blockTime = new Date(firstBlock.createdAt).getTime()
+                    if (blockTime - itemTime < 5 * 60 * 1000) {
+                        if (lastBlock.senderId == item.senderId) {
+                            return lastBlock
+                        }
+                    }
+                }
+
+                lastBlock = {
+                    title: item.remark || item.senderId,
+                    avatar: this.getAvatar(item.senderId),
+                    isSelf: item.senderId == this.self,
+                    senderId: item.senderId,
+                    items: [],
+                    id: item.id,
+                    seq: item.seq,
+                    createdAt: item.createdAt,
+                };
+                this.blocks.push(lastBlock);
+                return lastBlock
+            }
+
+            appendMessageWithBlock(block, item) {
+                let lastItem = block.items.length > 0 ? block.items[block.items.length - 1] : undefined
+                if (lastItem) {
+                    lastItem.isLast = false
+                }
+                let idx = block.items.findIndex((i) => {
+                    item.createdAt > i.createdAt
+                })
+                if (idx >= 0) {
+                    block.items.splice(idx, 0, item)
+                } else {
+                    item.isLast = true
+                    block.items.push(item)
+                }
+            }
+
+            appendMessages(items) {
+                if (!items) {
+                    return
+                }
+                for (var idx = items.length - 1; idx >= 0; idx--) {
+                    let item = {
+                        type: items[idx].content.type,
+                        content: items[idx].content,
+                        replyContent: (items[idx].content.replyContent),
+                        isLast: false,
+                        seq: items[idx].seq,
+                        id: items[idx].id,
+                        recall: items[idx].recall,
+                        senderId: items[idx].senderId,
+                        createdAt: new Date(items[idx].createdAt),
+                        placeholder: items[idx].placeholder || null,
+                        size: items[idx].size || null,
+                    }
+                    if (this.msgs[items[idx].id]) {
+                        this.updateItem(items[idx].id, {
+                            type: item.type,
+                            content: items[idx].content,
+                            recall: item.recall,
+                            replyContent: (items[idx].content.replyContent),
+                        })
+                        continue
+                    }
+                    if (!item.type) {
+                        continue
+                    }
+                    this.msgs[item.id] = item
+                    let block = this.getOrCreateBlock(item)
+                    this.appendMessageWithBlock(block, item)
+                }
+            }
+        };
+
+        const demoApp = {
+            endpoint: 'https://chat.ruzhila.cn',
+            userid: 'bob',
+            password: 'bob:demo',
+            logs: [],
+            current: null,
+            conversations: [],
+            conversation: null,
+            message: '',
+            self: null,
+            reference: null,
+            showCheckbox: false,
+            showRemarkInput: false,
+            signined: false,
+            open: false,
+            showList: false,
+            logIds: null,
+            showOperation: false,
+            forwardLogs: null,
+            selectedMessages: [],
+            messageBlocks: null,
+
+            init: async function () {
+                console.info = (text) => this.logText(text, 'info')
+                console.debug = (text) => this.logText(text, 'debug')
+                console.warn = (text) => this.logText(text, 'warn')
+            },
+
+            logText: function (text) {
+                this.logs.push(text)
+            },
+            timeAgo: function (time) {
+                return moment(time).fromNow();
+            },
+
+            onClearLogs: function () {
+                this.logs = []
+            },
+            doSignin: async function () {
+                let endpoint = this.endpoint.trimEnd('/')
+                if (this.current) {
+                    this.current.shutdown()
+                    this.conversations = []
+                    this.conversation = null
+                }
+
+                let info = await signin(endpoint, this.userid, this.password)
+                this.self = info.userId
+                this.messageBlocks = new MessageBlocks(endpoint, this.self)
+
+                client = new Client(info);
+                client.onconnected = () => {
+                    // syncs conversations
+                    this.doSyncConversations()
+                }
+
+                client.onconversationsupdated = this.onConversationsUpdated.bind(this)
+                client.ontopicmessage = this.onTopicMessage.bind(this)
+                await client.connect();
+                this.current = client;
+                this.signined = true
+            },
+
+            onTopicMessage: function (topicId, req) {
+                if (this.conversation) {
+                    if (topicId == this.conversation.topicId) {
+                        // set read
+                        return true
+                    }
+                }
+                return false
+            },
+            doMute: function (conversation) {
+                conversation.mute = !conversation.mute
+                this.current.setConversationMute(conversation.topicId, conversation.mute).then();
+            },
+            doSticky: function (conversation) {
+                conversation.sticky = !conversation.sticky
+                this.current.setConversationSticky(conversation.topicId, conversation.sticky).then();
+            },
+            onConversationsUpdated: function (items) {
+                let hintCurrent = undefined
+                items.forEach((item) => {
+                    let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
+                    if (item.multiple) {
+                        item.title = `${item.remark || item.name || item.topicId}`
+                    } else {
+                        item.title = item.remark || item.name || item.attendee
+                    }
+
+                    if (index >= 0) {
+                        if (this.conversations[index].updatedAt != item.updatedAt) {
+                            this.conversations.splice(index, 1);
+                            this.conversations.unshift(item)
+                        } else {
+                            this.conversations[index] = item
+                        }
+                    } else {
+                        this.conversations.push(item)
+                    }
+
+                    if (this.conversation && this.conversation.topicId == item.topicId) {
+                        hintCurrent = item
+                    }
+                })
+                if (hintCurrent) {
+                    this.updateConversation(hintCurrent);
+                }
+            },
+
+            doSyncConversations: function () {
+                this.current.syncConversations({
+                    onsuccess: (updatedAt, count) => {
+                        this.logText(`sync conversations success: ${count}`)
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync conversations failed: ${reason}`)
+                    }
+                }).then();
+            },
+
+            onSelectConversation: function (conversation) {
+                this.messageBlocks = new MessageBlocks(this.endpoint.trimEnd('/'), this.self);
+                this.updateConversation(conversation);
+                // set read when conversation is selected
+                // via http api
+                this.current.setConversationRead(conversation.topicId).then();
+                this.onSelectCategory('conversation')
+            },
+
+            updateConversation: function (conversation) {
+                let limit = undefined
+                if (this.conversation) {
+                    limit = conversation.lastSeq - this.conversation.lastSeq
+                }
+
+                this.conversation = conversation
+                const lastSeq = conversation.lastSeq
+                if (limit === 0) { //the messages are not changed
+                    return
+                }
+
+                this.current.syncChatLogs(conversation.topicId, lastSeq, {
+                    limit,
+                    onsuccess: (r) => {
+                        const el = document.getElementById('messages')
+                        let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
+                        this.messageBlocks.appendMessages(r.items)
+
+                        // scroll to bottom
+                        if (scrollToEnd) {
+                            setTimeout(() => {
+                                const el = document.getElementById('messages')
+                                if (el) {
+                                    el.scrollTop = el.scrollHeight
+                                }
+                            }, 0)
+                        }
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync messages failed: ${reason}`)
+                    }
+                }).then();
+            },
+
+            onScrollMessages(event) {
+                if (event.target.scrollTop > 0) {
+                    return
+                }
+
+                let firstItemSeq = this.messageBlocks.firstItemSeq
+                if (firstItemSeq == 0) {
+                    return
+                }
+                // sync older messages
+                this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
+                    onsuccess: (r) => {
+                        // console.log('sync older messages', firstItemSeq, r)
+                        const el = document.getElementById('messages')
+                        const currentScrollHeight = el.scrollHeight
+                        // console.log('currentScrollHeight', r)
+                        this.messageBlocks.appendMessages(r.items)
+                        setTimeout(() => {
+                            if (el) {
+                                el.scrollTop = el.scrollHeight - currentScrollHeight;
+                            }
+                        }, 200)
+                    },
+                    onfail: (reason) => {
+                        this.logText(`sync messages failed: ${reason}`)
+                    }
+                }).then();
+            },
+
+            doRemark: async function (conservation) {
+                if (!this.conversation) {
+                    return
+                }
+                this.showRemarkInput = false
+                await this.current.setConversationRemark(this.conversation.topicId, conservation.title);
+
+            },
+            renderReply: function (content) {
+                if (!content) {
+                    return
+                }
+                if (content.type == 'update.extra') {
+                    return ''
+                }
+                if (content.type == 'logs') {
+                    return `<div class="w-32 p-3 rounded-md border bg-gray-50 cursor-pointer text-gray-800">
+                                        <div class="flex items-center justify-between w-full mt-0">
+                                        <div class="space-y-1 text-xs">
+                                           <p>${content.placeholder} </p>
+                                           <p>size:${content.size}</p>
+                                        </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                    </svg>
+                                    </div>
+                            </div>`
+                }
+                if (content.type == 'image') {
+                    let url = content.thumbnail || content.text;
+                    return `<div class="max-w-[90px]"><img class="rounded-md shadow" src='${url}'/></div>`
+                }
+                if (content.type == 'link') {
+                    return `<a class="underline text-blue-400">${content.text}</a>`
+                }
+                if (content.type == 'file') {
+                    return `<a class="flex p-3 w-full rounded-md border shadow justify-between bg-white shadow space-x-6">
+                      <div>
+                        <p class="text-gray-900 text-base w-28 text-wrap"> ${content.placeholder}</p>
+                        <p class="text-gray-500 text-xs mt-2">${content.size}</p>
+                     </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" data-slot="icon" class="w-10 h-10 text-blue-600">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" /></svg>
+</a>`
+                }
+                return content.text
+            },
+
+
+            getMessageClass(block, item) {
+                let classList = []
+                if (item.isLast === true) {
+                    classList.push(block.isSelf ? 'rounded-br-none ' : 'rounded-bl-none')
+                }
+                if (block.isSelf) {
+                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-blue-600 text-white px-4 py-2')
+                } else {
+                    classList.push(item.type == 'image' || item.type == 'file' || item.type == 'logs' ? '' : 'bg-gray-200 text-gray-800 px-4 py-2')
+                }
+
+                if (item.type == 'recall' || item.type == '') {
+                    classList.push('hidden')
+                }
+                return classList.join(' ')
+            },
+
+            doSendMessage: async function () {
+                if (!this.message || !this.conversation) {
+                    return
+                }
+                let thisPtr = this;
+                if (this.message.startsWith('https://') || this.message.startsWith('http://')) {
+                    await this.current.doSendLink(this.conversation.topicId, this.message, {
+                        placeholder: 'link',
+                        reply: this.reference ? this.reference.id : undefined,
+                    });
+                    thisPtr.message = ''
+                } else {
+                    await this.current.doSendText(this.conversation.topicId, this.message, {
+                        reply: this.reference ? this.reference.id : undefined,
+                        onack: function (req) {
+                            thisPtr.message = ''
+                        },
+                        onfail: function (reason) {
+                            this.logText(`send message fail ${reason}`)
+                        }
+                    });
+                }
+                this.reference = null
+            },
+
+            doSendFiles: async function (event) {
+                if (!this.conversation) {
+                    return
+                }
+
+                let file = event.target.files[0]
+                if (file.type.startsWith('image/')) {
+                    await this.current.doSendImage(this.conversation.topicId, {
+                        file: event.target.files[0],
+                    })
+                } else {
+                    await this.current.doSendFile(this.conversation.topicId, { file: event.target.files[0] }, {
+                        size: (event.target.files[0].size),
+                        name: event.target.files[0].name,
+                        onprogress: (progress, total) => {
+                            console.log('progress', progress, total)
+                        },
+                        onattachmentuploaded: (attachment) => {
+                            console.log('attachment', attachment)
+                        },
+                        // reply: this.reference ? this.reference.id : undefined,
+                    })
+                }
+            },
+            doDeleteMessage: async function (message) {
+                if (!this.conversation) {
+                    return
+                }
+                let ids = []
+                for (let i = 0; i < message.length; i++) {
+                    ids.push(message[i].id)
+                }
+                await this.current.removeMessages(this.conversation.topicId, ids);
+                for (let i = 0; i < message.length; i++) {
+                    this.messageBlocks.updateItem(message[i].id, {
+                        type: '',
+                        content: '',
+                        replyContent: '',
+                    })
+                }
+                this.selectedMessages = []
+                this.showCheckbox = false
+            },
+            doForwardMessage: async function (targetConversation) {
+                if (!this.conversation) {
+                    return
+                }
+                let ids = []
+                for (let i = 0; i < this.logIds.length; i++) {
+                    ids.push(this.logIds[i].id)
+                }
+
+                this.showList = false
+                this.showCheckbox = false
+                let thisPtr = this;
+                await this.current.doSendLogs(targetConversation.topicId, this.conversation.topicId, ids, {
+                    onack: function (req) {
+                        thisPtr.logIds = []
+                        // thisPtr.showList = false
+                        // thisPtr.showCheckbox = false
+                    },
+                    onfail: function (reason) {
+                        this.logText(`forward message fail ${reason}`)
+                    }
+                }
+                );
+            },
+            doReferenceMessage: async function (message, block) {
+                if (!this.conversation) {
+                    return
+                }
+                if (this.reference) {
+                    this.reference = null
+                }
+                this.reference = message
+            },
+
+            doReCallMessage: async function (block, message) {
+                if (!this.conversation) {
+                    return
+                }
+                let thisPtr = this;
+                await this.current.doRecall(this.conversation.topicId, message.id, {
+                    onack: function (req) {
+                        thisPtr.message = ''
+                        thisPtr.messageBlocks.updateItem(message.id, {
+                            type: 'recall',
+                            content: '',
+                            replyContent: '',
+                        })
+                    },
+                    onfail: function (reason) {
+                        this.logText(`recall message fail ${reason}`)
+                    }
+                }
+                );
+            },
+            cleanHistory: async function () {
+                if (!this.conversation) {
+                    return
+                }
+
+                let thisPtr = this;
+                await this.current.cleanMessages(this.conversation.topicId);
+                this.messageBlocks = null
+            },
+
+            doSelectMessage: function (message, event) {
+                if (event.target.checked) {
+                    let index = this.selectedMessages.findIndex((m) => m.seq > message.seq)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 0, message)
+                    } else {
+                        this.selectedMessages.push(message)
+                    }
+                } else {
+                    let index = this.selectedMessages.findIndex((m) => m.id == message.id)
+                    if (index >= 0) {
+                        this.selectedMessages.splice(index, 1)
+                    }
+                }
+            },
+
+            formatDateTime: function (time) {
+                const datetime = new Date(time);
+                const today = new Date();
+                if (datetime.toDateString() === today.toDateString()) {
+
+                    const hours = String(datetime.getHours()).padStart(2, "0");
+                    const minutes = String(datetime.getMinutes()).padStart(2, "0");
+                    return `${hours}:${minutes}`;
+                } else {
+                    const year = datetime.getFullYear();
+                    const month = String(datetime.getMonth() + 1).padStart(2, "0");
+                    const day = String(datetime.getDate()).padStart(2, "0");
+                    return `${year}-${month}-${day}`;
+                }
+            },
+            lastMessageClass: function (item) {
+                if (!item || item.type == '') {
+                    return ''
+                }
+                if (item.type == 'update.extra') {
+                    return ''
+                }
+                if (item.type == 'logs') {
+                    return '[ Logs ]'
+                }
+                if (item.type == 'recall') {
+                    return 'The message was recalled'
+                }
+                if (item.type == 'image') {
+                    return '[ image ]'
+                }
+                if (item.type == 'file') {
+                    return '[ file ]'
+                }
+                return item.text
+            },
+            doGroupMembers: function (conversation) {
+                if (!conversation) {
+                    return
+                }
+                if (conversation.multiple) {
+                    return `${conversation.title}(${conversation.members})`
+                } else {
+                    return conversation.title
+                }
+            },
+            onSelectCategory: function (block) {
+                const userListElement = document.getElementById('userList')
+                const conversationElement = document.getElementById('conversation')
+                const logsBlocksElement = document.getElementById('logsBlocks')
+
+                if (block == 'userList') {
+                    userListElement.className = 'block'
+                    conversationElement.className = 'hidden'
+                    logsBlocksElement.className = 'hidden'
+                } else if (block == 'conversation') {
+                    userListElement.className = 'hidden md:block'
+                    conversationElement.className = 'flex w-full xl:flex-1 md:px-4'
+                    logsBlocksElement.className = 'hidden md:block md:w-80'
+                } else if (block == 'logsBlocks') {
+                    userListElement.className = 'hidden md:block'
+                    conversationElement.className = 'hidden md:block'
+                    logsBlocksElement.className = 'block shrink-0'
+                }
+            },
+            doSwitchAccount: function (user) {
+                this.userid = user
+                this.password = user + ':demo'
+                this.doSignin()
+            }
+        }
+    </script>
+
+    <div class="h-screen overflow-y-auto mx-auto max-w-7xl pb-4 sm:py-4 sm:px-6" x-data="demoApp">
+        <template x-if="!signined">
+            <div class="flex bg-gray-50 fixed left-0 top-0 h-full w-full z-40 justify-center items-center">
+                <div class="space-y-4 py-8 px-20 bg-white rounded-xl shadow">
+                    <div>
+                        <label for="endpoint" class="block text-sm font-medium leading-6 text-gray-900">Endpoint</label>
+                        <div class="mt-2">
+                            <input id="endpoint" name="endpoint" type="text" required x-model="endpoint"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="userid" class="block text-sm font-medium leading-6 text-gray-900">User ID</label>
+                        <div class="mt-2">
+                            <input id="userid" name="userid" type="text" required x-model="userid"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium leading-6 text-gray-900">Password</label>
+                        <div class="mt-2 flex gap-x-2">
+                            <input id="password" name="password" type="text" required x-model="password"
+                                class="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6">
+                        </div>
+                    </div>
+                    <div class="pt-4">
+                        <button type="button" @click="doSignin()"
+                            class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign
+                            in</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <div
+            class="mx-auto h-auto w-full max-w-7xl lg:flex relative md:mt-6 md:p-6 pr-0 shadow bg-gray-50 border border-gray-100 rounded-md">
+            <!-- Left sidebar & main wrapper -->
+            <template x-if="$store.modalData.open">
+                <div class="scroll-bar fixed w-full rounded left-0 top-0 justify-center items-center h-full flex z-20 mx-auto bg-gray-500 bg-opacity-50">
+                    <div
+                        class="scroll-bar max-w-4xl max-h-[calc(100vh-8rem)] mx-auto overflow-y-auto bg-white bg-white shadow-md w-full pb-6 px-4 rounded">
+                        <div
+                            class="flex items-center sticky top-0  bg-white justify-end w-full pb-1 my-2 border-b pt-3">
+                            <button type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer"
+                                    @click="$store.modalData.toggle()">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg> </button>
+                        </div>
+                        <div x-html="$store.modalData.innerHTML"> </div>
+                    </div>
+                </div>
+            </template>
+            <div class="flex-1 xl:flex">
+                <div id="userList">
+                    <div
+                        class="border-b h-[calc(100vh-9rem)] md:h-[calc(100vh-12rem)] border-gray-200 px-2 py-5 xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
+                        <template x-for="item in conversations">
+                            <li class="flex p-2 py-3  hover:bg-gray-200 rounded-md cursor-pointer relative group border-b border-gray-100"
+                                @click="onSelectConversation(item)">
+                                <div class="flex min-w-0 items-center relative shrink-0">
+                                    <img class="h-10 w-10 flex-none rounded-full bg-gray-50" :src="item.icon" alt="">
+                                    <template x-if="item.unread>0 && item.unread <= 99 && !item.mute">
+                                        <div class="text-[10px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md"
+                                            x-text="item.unread"></div>
+                                    </template>
+                                    <template x-if="item.unread > 99 && !item.mute">
+                                        <div
+                                            class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[19px] h-[19px] absolute top-0 right-0 p-[2px] shadow-md">
+                                            99+</div>
+                                    </template>
+
+                                    <template x-if="item.mute && item.unread>0">
+                                        <div
+                                            class="text-[9px] text-white bg-red-500 font-semibold text-center rounded-full w-[12px] h-[12px] absolute top-0.5 right-0.5 p-[2px] shadow-md">
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="sm:flex sm:flex-col pl-2 w-full">
+                                    <div class="flex w-full justify-between">
+                                        <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
+                                            x-text="doGroupMembers(item)"></p>
+                                        <div
+                                            class="absolute right-1 top-1 z-10 flex items-center space-x-1 text-gray-500">
+                                            <button class="hover:text-gray-600 invisible group-hover:visible"
+                                                :class="item.sticky?'hidden':'block'" @click="doSticky(item)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M5 5V4h14v1zm6.5 15V9.608l-3.1 3.1L7.692 12L12 7.692L16.308 12l-.708.708l-3.1-3.1V20z" />
+                                                </svg>
+                                            </button>
+
+                                            <button
+                                                class="hover:text-gray-600  rotate-180 text-gray-400 invisible group-hover:visible"
+                                                :class="item.sticky?'block':'hidden'" @click="doSticky(item)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M22.11 21.46L2.39 1.73L1.11 3l6 6H5l7 7l1.06-1.05L16.11 18H5v2h13.11l2.73 2.73zM11 5h2v4.8l2.6 2.6L19 9h-4V3H9v2.8l2 2z" />
+                                                </svg>
+                                            </button>
+                                            <button class="hover:text-gray-600"
+                                                :class="item.mute?'visible':'invisible'">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" data-slot="icon"
+                                                    class="w-5 h-5 text-gray-500" @click="doMute(item)">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="flex items-center justify-between w-full text-xs leading-5 text-gray-500 mt-1">
+                                        <div class="flex items-center">
+                                            <template x-if="item.mute && item.unread>0 && item.unread <= 99">
+                                                <p x-text="`[${item.unread}]`" class="pr-0.5"></p>
+                                            </template>
+                                            <template x-if="item.unread >99  && item.mute">
+                                                <p x-text="[`[99+]`]" class="pr-0.5"></p>
+                                            </template>
+                                            <p x-text="lastMessageClass(item.lastMessage)" class="truncate"
+                                                :class="item.mute && item.unread>0 ? 'w-[110px]':'w-28'"></p>
+                                        </div>
+                                        <p class="w-12 flex justify-end">
+                                            <time x-text="formatDateTime(item.updatedAt)" class="shrink-0"></time>
+                                        </p>
+                                    </div>
+                                </div>
+                            </li>
+                        </template>
+                    </div>
+                    <div class="py-3 border-t border-gray-200 flex justify-between border-r px-3">
+                        <div class="flex items-center space-x-2">
+                            <img :src="`${endpoint}/api/avatar/${userid}`" alt="" class="w-6 h-6 rounded-full">
+                            <p x-text="userid" class="font-semibold capitalize"></p>
+                        </div>
+
+                        <div class="relative group">
+                            <svg t="1704186583339" class="icon text-gray-800" viewBox="0 0 1024 1024" version="1.1"
+                                xmlns="http://www.w3.org/2000/svg" p-id="4268" width="22" height="22">
+                                <path
+                                    d="M759 335c0-137-111-248-248-248S263 198 263 335c0 82.8 40.6 156.2 103 201.2-0.4 0.2-0.7 0.3-0.9 0.4-44.7 18.9-84.8 46-119.3 80.6-34.5 34.5-61.5 74.7-80.4 119.5C146.9 780.5 137 827 136 874.8c-0.1 4.5 3.5 8.2 8 8.2h59.9c4.3 0 7.9-3.5 8-7.8 2-77.2 32.9-149.5 87.6-204.3C356 614.2 431 583 511 583c137 0 248-111 248-248zM511 507c-95 0-172-77-172-172s77-172 172-172 172 77 172 172-77 172-172 172zM616 728h264c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H703.5l47.2-60.1c1.1-1.4 1.7-3.2 1.7-4.9 0-4.4-3.6-8-8-8h-72.6c-4.9 0-9.5 2.3-12.6 6.1l-68.5 87.1c-4.4 5.6-6.8 12.6-6.8 19.8 0.1 17.7 14.4 32 32.1 32zM856 792H592c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h176.5l-47.2 60.1c-1.1 1.4-1.7 3.2-1.7 4.9 0 4.4 3.6 8 8 8h72.6c4.9 0 9.5-2.3 12.6-6.1l68.5-87.1c4.4-5.6 6.8-12.6 6.8-19.8-0.1-17.7-14.4-32-32.1-32z"
+                                    p-id="4269"></path>
+                            </svg>
+                            <div class="pb-4 absolute invisible group-hover:visible bottom-3 right-1">
+                                <div x-data="{items: ['alice', 'bob', 'guido','vitalik'] }">
+                                    <ul class="shadow px-1 rounded-md text-gray-700 bg-white py-1">
+                                        <template x-for="item in items">
+                                            <li x-text="item"
+                                                class="px-8 py-1.5 hover:bg-indigo-50 cursor-pointer capitalize rounded"
+                                                :class="userid==item?'bg-indigo-100':''" @click="doSwitchAccount(item)">
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="conversation" class="hidden md:flex">
+                    <template x-if="conversation">
+                        <div class="rounded-lg bg-white shadow relative w-full">
+                            <template x-if="showList">
+                                <div id="forwords"
+                                    class="scroll-bar absolute z-20 overflow-y-auto bg-white bg-white w-full h-full py-3 px-4">
+                                    <div class="flex items-center my-2 justify-end text-gray-700">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke-width="1.5" stroke="currentColor" class="w-6 h-6 cursor-pointer"
+                                            x-on:click="()=>{ 
+                                                showCheckbox=false;
+                                                showList=false;
+                                                logIds=[]}">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                        </svg>
+                                    </div>
+
+                                    <template x-for="item in conversations">
+                                        <li class="flex w-full my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
+                                            @click="doForwardMessage(item)">
+                                            <div class="flex w-full items-center space-x-3 ">
+                                                <img class="h-8 w-8 flex-none rounded-full bg-gray-50" :src="item.icon"
+                                                    alt="">
+                                                <p class="text-sm leading-6 text-gray-900 w-40 overflow-hidden text-ellipsis whitespace-nowrap"
+                                                    x-text="doGroupMembers(item)"></p>
+                                            </div>
+                                        </li>
+                                    </template>
+                                </div>
+                            </template>
+
+
+                            <div
+                                class="flex-1 p-3 justify-between flex flex-col h-[calc(100vh-6rem)] md:h-[calc(100vh-8rem)] relative">
+                                <template x-if="showCheckbox">
+                                    <div class="absolute bottom-1 h-28 z-20 left-0 px-10 w-full bg-white">
+                                        <div
+                                            class="flex items-center justify-center w-full mt-10 space-x-6 bg-white p-4 rounded-full shadow-md border relative">
+                                            <p class="text-gray-600 text-sm">total:
+                                                <span x-text="selectedMessages.length"></span>
+                                            </p>
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500"
+                                                x-on:click="()=>{showList=true;logIds=selectedMessages}">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+                                                    <path fill="none" stroke="currentColor" stroke-linecap="round"
+                                                        stroke-linejoin="round" stroke-width="1.5"
+                                                        d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button" class="w-5 h-5 text-gray-800 hover:text-indigo-500"
+                                                @click="doDeleteMessage(selectedMessages)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                </svg>
+                                            </button>
+
+                                            <button type="button"
+                                                x-on:click="()=>{ showCheckbox=false; selectedMessages=[] }"
+                                                class="bg-gray-100 rounded-full p-1 hover:bg-grtay-200 text-gray-800 absolute right-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M6 18 18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div class="flex sm:items-center justify-between border-b border-gray-200 pb-1">
+                                    <div class="relative flex items-center space-x-4">
+                                        <div class="relative">
+                                            <img :src="conversation.icon" alt="" class="w-10 h-10 rounded-full">
+                                        </div>
+                                        <div class="flex flex-col leading-tight">
+                                            <div class="text-xl flex items-center group">
+                                                <template x-if="!showRemarkInput">
+                                                    <span class="text-gray-700 text-lg font-semibold max-w-xs truncate"
+                                                        x-text="doGroupMembers(conversation)"></span>
+                                                </template>
+
+                                                <template x-if="showRemarkInput">
+                                                    <input type="text" x-ref="remarkInput" placeholder="name"
+                                                        x-model="conversation.title"
+                                                        class="text-gray-800 w-40 h-7 px-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:border-indigo-600"
+                                                        x-on:blur="showRemarkInput=false"
+                                                        @change="doRemark(conversation)">
+                                                </template>
+
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor"
+                                                    class="w-6 h-6 invisible group-hover:visible text-gray-800 cursor-pointer ml-1"
+                                                    x-on:click="()=>{
+                                                            showRemarkInput=true;
+                                                            setTimeout(()=>{ $refs.remarkInput.focus()}, 0)
+                                                        }">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                </svg>
+                                            </div>
+                                            <span class="text-sm mt-1 text-gray-400"
+                                                x-text="conversation.topicId"></span>
+                                        </div>
+                                    </div>
+                                    <button class="relative group">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                            stroke-width="1.5" stroke="currentColor" data-slot="icon"
+                                            class="w-6 h-6 shrink-0">
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                                        </svg>
+
+                                        <div
+                                            class="absolute top-10 md:top-6 z-10 -left-32 bg-white hidden group-hover:block w-40 rounded-md shadow-md py-1.5 text-sm text-gray-700 leading-tight">
+                                            <p class="bg-white space-y-2">
+
+                                            <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800 border-b border-gray-50"
+                                                @click="cleanHistory">
+                                                <p class="w-10">Clean </p>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                                    stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                                        d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                                                </svg>
+                                            </div>
+
+
+                                            <template x-if="conversation.mute">
+                                                <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800"
+                                                    @click="doMute(conversation)">
+                                                    <p class="w-10">Unmute</p>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5 ">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+                                                    </svg>
+                                                </div>
+                                            </template>
+                                            <template x-if="!conversation.mute">
+                                                <div class="flex items-center space-x-5 justify-center py-2 hover:bg-gray-100 text-gray-700 hover:text-gay-800"
+                                                    @click="doMute(conversation)">
+                                                    <p class="w-10">Mute</p>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="M9.143 17.082a24.248 24.248 0 0 0 3.844.148m-3.844-.148a23.856 23.856 0 0 1-5.455-1.31 8.964 8.964 0 0 0 2.3-5.542m3.155 6.852a3 3 0 0 0 5.667 1.97m1.965-2.277L21 21m-4.225-4.225a23.81 23.81 0 0 0 3.536-1.003A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6.53 6.53m10.245 10.245L6.53 6.53M3 3l3.53 3.53" />
+                                                    </svg>
+                                                </div>
+                                            </template>
+                                            </p>
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <!-- h-[calc( 100vh-22rem)] -->
+                                <div id="messages" @scrollend="onScrollMessages($event)"
+                                    :class="showCheckbox?'pl-8 py-3':'p-3'"
+                                    class="scroll-bar flex  flex-col space-y-4 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
+                                    <template x-for="block in messageBlocks?.blocks">
+                                        <div class="chat-message relative">
+                                            <template x-if="block.createdAt">
+                                                <p class="text-xs text-gray-400 shrink-0 text-center">
+                                                    <time :datetime="block.createdAt"
+                                                        x-text="timeAgo(block.createdAt)"></time>
+                                                </p>
+                                            </template>
+
+                                            <div class="flex items-end relative" :class="block.isSelf?'justify-end':''">
+                                                <div class="flex flex-col space-y-2 text-xs max-w-xs px-2 w-full"
+                                                    :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
+                                                    <template x-for="item in block.items">
+                                                        <div>
+                                                            <template x-if="item.recall==true">
+                                                                <div
+                                                                    class="text-gray-400 text-xs text-center flex items-center w-full">
+                                                                    <span> The message was recalled</span>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="item.type==='recall' && item.recall==false">
+                                                                <div
+                                                                    class="text-gray-400 text-xs text-center flex items-center w-full">
+                                                                    <template x-if="block.isSelf">
+                                                                        <p>You recalled a message</p>
+                                                                    </template>
+                                                                    <template x-if="!block.isSelf">
+                                                                        <p>The sender recalled a message</p>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                            <template
+                                                                x-if="item.content && item.type!='recall' && item.type!='update.extra'">
+                                                                <div class="md:flex md:items-end mt-2 space-x-3 group">
+                                                                    <template x-if="showCheckbox">
+                                                                        <div
+                                                                            class="absolute -left-9 mt-8 md:mt-0 md:-pt-2">
+                                                                            <input type="checkbox"
+                                                                                @click="doSelectMessage(item,event)"
+                                                                                class="w-5 h-5 text-gray-400 text-indigo-600 shrink-0 focus:outline-none rounded border border-indigo-500 focus:ring-0" />
+                                                                        </div>
+                                                                    </template>
+
+                                                                    <!-- <div> -->
+                                                                    <div class="flex items-center text-gray-500 space-x-2 bg-gray-50 px-2 py-1 rounded invisible group-hover:visible"
+                                                                        :class="block.isSelf? '':'order-2'">
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            x-on:click="()=>{ showList=true; logIds=[item]}">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <path fill="none" stroke="currentColor"
+                                                                                    stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    stroke-width="1.5"
+                                                                                    d="M1.75 13.25c.5-6 5.5-7.5 8-7v-3.5L14.25 8l-4.5 5.25v-3.5c-2.5-.5-6.5.5-8 3.5" />
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReferenceMessage(item)">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                viewBox="0 0 16 16">
+                                                                                <g fill="currentColor">
+                                                                                    <path
+                                                                                        d="M2 1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h9.586a2 2 0 0 1 1.414.586l2 2V2a1 1 0 0 0-1-1zm12-1a2 2 0 0 1 2 2v12.793a.5.5 0 0 1-.854.353l-2.853-2.853a1 1 0 0 0-.707-.293H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2z" />
+                                                                                    <path
+                                                                                        d="M7.066 4.76A1.665 1.665 0 0 0 4 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112zm4 0A1.665 1.665 0 0 0 8 5.668a1.667 1.667 0 0 0 2.561 1.406c-.131.389-.375.804-.777 1.22a.417.417 0 1 0 .6.58c1.486-1.54 1.293-3.214.682-4.112z" />
+                                                                                </g>
+                                                                            </svg>
+                                                                        </div>
+                                                                        <div class="w-[14px] h-[14px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doReCallMessage(block,item)"
+                                                                            :class="block.isSelf?'':'hidden'">
+
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                                                                            </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="doDeleteMessage([item])">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5" stroke="currentColor"
+                                                                                data-slot="icon">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                                            </svg>
+                                                                        </div>
+
+                                                                        <div class="w-[16px] h-[16px] cursor-pointer hover:text-gray-800"
+                                                                            @click="showCheckbox=true">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none" viewBox="0 0 24 24"
+                                                                                stroke-width="1.5"
+                                                                                stroke="currentColor">
+                                                                                <path stroke-linecap="round"
+                                                                                    stroke-linejoin="round"
+                                                                                    d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
+                                                                    <!-- </div> -->
+                                                                    <div class="flex flex-col"
+                                                                        :class="block.isSelf?'items-end':'items-start'">
+                                                                        <div x-content="item.content" id="touch"
+                                                                            class="rounded-lg whitespace-wrap break-all inline-block"
+                                                                            :class="getMessageClass(block, item)">
+                                                                        </div>
+
+                                                                        <template x-if="item.replyContent">
+                                                                            <div
+                                                                                class="bg-gray-100 mt-1 p-2 rounded text-gray-500 flex space-x-1">
+                                                                                <span
+                                                                                    x-text="JSON.parse(item.replyContent).senderId">
+                                                                                </span>:&nbsp;
+                                                                                <span
+                                                                                    class="max-w-[100px] md:max-w-[140px] max-h-[140px] truncate"
+                                                                                    x-html="renderReply(JSON.parse(item.replyContent))">
+                                                                                </span>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                                <img :src="block.avatar" :alt="block.title" class="w-6 h-6 rounded-full"
+                                                    :class="block.isSelf?'order-2':'order-1'">
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="border-t border-gray-200 mb-2 sm:mb-0 shrink-0">
+                                    <div class="relative rounded-md py-2">
+                                        <template x-if="reference">
+                                            <div
+                                                class="border-l-4 border-gray-400 px-2 py-1 mb-0.5 text-gray-500 bg-gray-100 w-full text-xs relative">
+                                                <p class="text-overflow-ellipsis pr-3 cursor-default"
+                                                    x-html="renderReply(reference.content)">
+                                                </p>
+
+                                                <p class="absolute right-0.5 top-0.5 cursor-pointer hover:text-gray-800 text-gray-500"
+                                                    @click="reference=null">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                        viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                        class="w-5 h-5">
+                                                        <path stroke-linecap="round" stroke-linejoin="round"
+                                                            d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                    </svg>
+                                                </p>
+
+                                            </div>
+                                        </template>
+                                        <input type="text" placeholder="Write your message!" x-model="message" autofocus
+                                            x-on:keydown.enter="doSendMessage"
+                                            class="w-full focus:outline-none border-none focus:ring-0  focus:placeholder-gray-400 text-sm text-gray-600 px-0 bg-white placeholder-gray-700 rounded-md py-1">
+                                        <div class="mt-2 w-full justify-between bottom-0 items-center flex">
+
+                                            <div class="flex items-center w-full space-x-4">
+                                                <button type="button"
+                                                    class="relative rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
+                                                    <input type="file" id="fileInput" class="h-5 w-6 opacity-0"
+                                                        @change="doSendFiles(event)" />
+                                                    <label for="fileInput"
+                                                        class="cursor-pointer absolute z-10 top-0 left-0 h-6 w-6 ">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                            class="text-gray-600 hover:text-gray-400">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                                                        </svg>
+                                                    </label>
+                                                </button>
+                                                <!-- <button type="button"
+                                                    class="relative w-6 rounded-full transition duration-500 ease-in-out text-gray-500  focus:outline-none">
+                                                    <input type="file" id="imageInput" class="h-5 w-6 opacity-0"
+                                                        @change="doSendImages(event)" />
+                                                    <label for="imageInput"
+                                                        class="cursor-pointer absolute z-10 top-0 h-6 w-6 left-0">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                            viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"
+                                                            data-slot="icon" class="text-gray-600 hover:text-gray-400">
+                                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                                d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                        </svg>
+                                                    </label>
+                                                </button> -->
+
+                                            </div>
+
+                                            <button type="button" @click="doSendMessage"
+                                                class="inline-flex items-center justify-center text-sm rounded-lg px-4 py-1.5 mr-1 transition duration-500 ease-in-out text-blue-500 bg-blue-100 hover:bg-blue-200 focus:outline-none">
+                                                <span class="font-bold">Send</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"
+                                                    fill="currentColor" class="h-6 w-6 ml-2 transform rotate-90">
+                                                    <path
+                                                        d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z">
+                                                    </path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <!-- logs h-screen -->
+            <div id="logsBlocks"
+                class="shrink-0 border-t relative border-gray-200 lg:w-80 lg:border-l lg:border-t-0 hidden md:block">
+                <div
+                    class="flex items-center w-full lg:w-80 justify-between pl-4 pr-1 pb-2 pt-3 md:pt-0 border-b border-gray-200 pr-4">
+                    <p>Logs</p>
+
+                    <button class="cursor-pointer" @click="onClearLogs">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" data-slot="icon" class="w-6 h-6 text-gray-700">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div
+                    class="scroll-bar flex items-start space-x-3 overflow-y-auto h-[calc(100vh-9rem)] md:h-[calc(100vh-10rem)] p-2 mt-2 pr-6">
+                    <div class="">
+                        <template x-for="item in logs">
+                            <div class="text-gray-500 hover:bg-gray-200 px-2 py-1 rounded text-wrap">
+                                <span x-text="item" class="text-wrap text-[12px]"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-gray-800 fixed bottom-0 left-0 right-0 md:hidden">
+            <div class="flex items-center justify-between p-4 px-12 bg-white rounded shadow-md">
+                <button @click="onSelectCategory('userList')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+                    </svg>
+                </button>
+                <button @click="onSelectCategory('logsBlocks')">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                        stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

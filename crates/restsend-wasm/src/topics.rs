@@ -1,6 +1,6 @@
-use crate::js_util::get_string;
-
 use super::Client;
+use crate::js_util::get_string;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -18,24 +18,48 @@ impl Client {
         members: Vec<String>,
         name: Option<String>,
         icon: Option<String>,
-    ) -> JsValue {
-        self.inner
-            .create_topic(members, name, icon)
-            .await
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("create_topic failed"))
-            .unwrap_or(JsValue::UNDEFINED)
+    ) -> Result<JsValue, JsValue> {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let r = self.inner.create_topic(members, name, icon).await?;
+        r.serialize(serializer).map_err(|e| e.into())
     }
+
+    /// Join a topic
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `message` - message
+    /// * `source` - source
+    pub async fn joinTopic(
+        &self,
+        topicId: String,
+        message: Option<String>,
+        source: Option<String>,
+    ) -> Result<(), JsValue> {
+        self.inner.join_topic(topicId, message, source).await?;
+        Ok(())
+    }
+
+    /// Add user into topic
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `userId` - user id
+    /// #Return
+    /// * `TopicMember` || `undefined`
+    pub async fn addMember(&self, topicId: String, userId: String) -> Result<JsValue, JsValue> {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let r = self.inner.add_topic_member(topicId, userId).await?;
+        r.serialize(serializer).map_err(|e| e.into())
+    }
+
     /// Get topic info
     /// #Arguments
     /// * `topicId` - topic id
     /// #Return
     /// * `Topic` || `undefined`
-    pub async fn getTopic(&self, topicId: String) -> JsValue {
-        self.inner
-            .get_topic(topicId)
-            .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+    pub async fn getTopic(&self, topicId: String) -> Result<JsValue, JsValue> {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let r = self.inner.get_topic(topicId).await?;
+        r.serialize(serializer).map_err(|e| e.into())
     }
     /// Get topic admins
     /// #Arguments
@@ -43,10 +67,11 @@ impl Client {
     /// #Return
     /// * `Vec<User>` || `undefined`
     pub async fn getTopicAdmins(&self, topicId: String) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_topic_admins(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_admins failed")))
+            .and_then(|v| v.serialize(serializer).ok())
             .unwrap_or(JsValue::UNDEFINED)
     }
     /// Get topic owner
@@ -55,10 +80,11 @@ impl Client {
     /// #Return
     /// * `User` || `undefined`
     pub async fn getTopicOwner(&self, topicId: String) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_topic_owner(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_owner failed")))
+            .and_then(|v| v.serialize(serializer).ok())
             .unwrap_or(JsValue::UNDEFINED)
     }
     /// Get topic members
@@ -68,12 +94,18 @@ impl Client {
     /// * `limit` - limit
     /// #Return
     /// * `ListUserResult` || `undefined`
-    pub async fn getTopicMembers(&self, topicId: String, updatedAt: String, limit: u32) -> JsValue {
-        self.inner
+    pub async fn getTopicMembers(
+        &self,
+        topicId: String,
+        updatedAt: String,
+        limit: u32,
+    ) -> Result<JsValue, JsValue> {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let r = self
+            .inner
             .get_topic_members(topicId, updatedAt, limit)
-            .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_members failed")))
-            .unwrap_or(JsValue::UNDEFINED)
+            .await?;
+        r.serialize(serializer).map_err(|e| e.into())
     }
     /// Get topic knocks
     /// #Arguments
@@ -81,10 +113,11 @@ impl Client {
     /// #Return
     /// * `Vec<TopicKnock>`
     pub async fn getTopicKnocks(&self, topicId: String) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
             .get_topic_knocks(topicId)
             .await
-            .and_then(|v| Some(serde_wasm_bindgen::to_value(&v).expect("get_topic_knocks failed")))
+            .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
             .unwrap_or(JsValue::UNDEFINED)
     }
     /// Update topic info
@@ -101,7 +134,7 @@ impl Client {
                 get_string(&option, "icon"),
             )
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Update topic notice
     /// #Arguments
@@ -111,7 +144,7 @@ impl Client {
         self.inner
             .update_topic_notice(topicId, text)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Silence topic
@@ -126,7 +159,7 @@ impl Client {
         self.inner
             .silent_topic(topicId, duration)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Silent topic member
@@ -143,7 +176,7 @@ impl Client {
         self.inner
             .silent_topic_member(topicId, userId, duration)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Add topic admin
@@ -154,7 +187,7 @@ impl Client {
         self.inner
             .add_topic_admin(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Remove topic admin
@@ -165,7 +198,7 @@ impl Client {
         self.inner
             .remove_topic_admin(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Transfer topic
@@ -176,17 +209,14 @@ impl Client {
         self.inner
             .transfer_topic(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Quit topic
     /// #Arguments
     /// * `topicId` - topic id
     pub async fn quitTopic(&self, topicId: String) -> Result<(), JsValue> {
-        self.inner
-            .quit_topic(topicId)
-            .await
-            .map_err(|e| JsValue::from(e.to_string()))
+        self.inner.quit_topic(topicId).await.map_err(|e| e.into())
     }
 
     /// Dismiss topic
@@ -196,7 +226,7 @@ impl Client {
         self.inner
             .dismiss_topic(topicId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Accept topic join
@@ -213,7 +243,7 @@ impl Client {
         self.inner
             .accept_topic_join(topicId, userId, memo)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Decline topic join
@@ -230,7 +260,7 @@ impl Client {
         self.inner
             .decline_topic_join(topicId, userId, message)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Remove topic member
@@ -241,6 +271,6 @@ impl Client {
         self.inner
             .remove_topic_member(topicId, userId)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 }

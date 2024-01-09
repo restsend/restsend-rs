@@ -1,15 +1,33 @@
 use super::Client;
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
 #[wasm_bindgen]
 impl Client {
     /// Get user info
-    pub fn getUser(&self, userId: String) -> JsValue {
+    /// #Arguments
+    /// * `userId` - user id
+    /// * `blocking` - blocking fetch from server
+    /// #Return
+    /// User info
+    pub async fn getUser(&self, userId: String, blocking: Option<bool>) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         self.inner
-            .get_user(userId)
-            .map(|v| serde_wasm_bindgen::to_value(&v).expect("get_user failed"))
+            .get_user(userId, blocking.unwrap_or_default())
+            .await
+            .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
             .unwrap_or(JsValue::UNDEFINED)
+    }
+    /// Get multiple users info
+    /// #Arguments
+    /// * `userIds` - Array of user id
+    /// #Return
+    /// Array of user info
+    pub async fn getUsers(&self, userIds: Vec<String>) -> JsValue {
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let users = self.inner.get_users(userIds).await;
+        users.serialize(serializer).unwrap_or(JsValue::UNDEFINED)
     }
     /// Set user remark name
     /// #Arguments
@@ -19,7 +37,7 @@ impl Client {
         self.inner
             .set_user_remark(userId, remark)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Set user star
     /// #Arguments
@@ -29,7 +47,7 @@ impl Client {
         self.inner
             .set_user_star(userId, star)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
     /// Set user block
     /// #Arguments
@@ -39,7 +57,7 @@ impl Client {
         self.inner
             .set_user_block(userId, block)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 
     /// Set allow guest chat
@@ -49,6 +67,6 @@ impl Client {
         self.inner
             .set_allow_guest_chat(allow)
             .await
-            .map_err(|e| JsValue::from(e.to_string()))
+            .map_err(|e| e.into())
     }
 }

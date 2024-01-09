@@ -1,4 +1,5 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
+use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::models::ChatLogStatus;
 use crate::{
     callback::MessageCallback,
@@ -13,9 +14,9 @@ impl ClientStore {
         let (msg_tx, mut msg_rx) = unbounded_channel::<String>();
         self.msg_tx.lock().unwrap().replace(msg_tx.clone());
 
-        while let Some(req_id) = msg_rx.recv().await {
+        while let Some(chat_id) = msg_rx.recv().await {
             let outgoings = self.outgoings.lock().unwrap();
-            if let Some(pending) = outgoings.get(&req_id) {
+            if let Some(pending) = outgoings.get(&chat_id) {
                 if pending.is_expired() {
                     continue;
                 }
@@ -30,7 +31,22 @@ impl ClientStore {
         req: ChatRequest,
         callback: CallbackRef,
     ) -> Vec<Option<ChatRequest>> {
-        info!("process_incoming: {:?}", req);
+        let content_type = match req.content.as_ref() {
+            Some(content) => content.r#type.clone(),
+            None => req.r#type.clone(),
+        };
+
+        let chat_id = if req.chat_id.is_empty() {
+            "".to_string()
+        } else {
+            format!("chat_id:{} ", req.chat_id)
+        };
+
+        info!(
+            "process_incoming, type:{} topic_id:{} seq:{} {}",
+            content_type, req.topic_id, req.seq, chat_id
+        );
+
         let topic_id = req.topic_id.clone();
         let chat_id = req.chat_id.clone();
         let ack_seq = req.seq.clone();
@@ -43,9 +59,11 @@ impl ClientStore {
                     ChatLogStatus::SendFailed
                 };
 
-                if let Some(pending) = self.peek_pending_request(&req.id).await {
+                if let Some(pending) = self.peek_pending_request(&req.chat_id).await {
                     match status {
                         ChatLogStatus::Sent => {
+                            let mut req = req;
+                            req.content = pending.req.content.clone();
                             pending.callback.map(|cb| cb.on_ack(req));
                         }
                         ChatLogStatus::SendFailed => {
@@ -58,42 +76,17 @@ impl ClientStore {
                 }
 
                 self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
+                    .await
                     .ok();
                 vec![]
             }
             ChatRequestType::Chat => {
-                let r = self.save_incoming_chat_log(&req);
-                match r {
-                    Ok(_) => match self.update_conversation_from_chat(&req) {
-                        Ok(conversation) => {
-                            if !conversation.is_partial {
-                                callback
-                                    .lock()
-                                    .unwrap()
-                                    .as_ref()
-                                    .map(|cb| cb.on_conversations_updated(vec![conversation]));
-                            } else {
-                                self.fetch_conversation(&topic_id);
-                            }
-                        }
-                        Err(e) => {
-                            warn!("update_conversation_from_chat failed: {:?}", e);
-                        }
-                    },
-                    Err(e) => {
-                        warn!(
-                            "save_incoming_chat_log failed, req_id:{} topic_id:{} err:{}",
-                            req.id, req.topic_id, e
-                        );
+                match req.attendee_profile.as_ref() {
+                    Some(profile) => {
+                        self.update_user(profile.clone()).await.ok();
                     }
-                }
-
-                if let Err(e) = self
-                    .fetch_or_update_user(&req.attendee, req.attendee_profile.clone())
-                    .await
-                {
-                    warn!("fetch_or_update_user failed: {:?}", e);
-                }
+                    None => {}
+                };
 
                 let topic_id = req.topic_id.clone();
                 let created_at = req.created_at.clone();
@@ -104,9 +97,14 @@ impl ClientStore {
                     .unwrap()
                     .as_ref()
                     .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()));
-                match r {
+
+                let resps = match r {
                     Some(true) => {
-                        if let Err(e) = self.update_conversation_read(&topic_id, &created_at) {
+                        let last_read_seq = Some(req.seq);
+                        if let Err(e) = self
+                            .update_conversation_read(&topic_id, &created_at, last_read_seq)
+                            .await
+                        {
                             warn!(
                                 "update_conversation_read failed, topic_id:{} error: {:?}",
                                 topic_id, e
@@ -115,12 +113,39 @@ impl ClientStore {
                         vec![resp, Some(ChatRequest::new_read(&topic_id))]
                     }
                     _ => vec![resp],
+                };
+
+                let r = self.save_incoming_chat_log(&req).await;
+                match r {
+                    Ok(_) => match merge_conversation_from_chat(self.message_storage.clone(), &req)
+                        .await
+                    {
+                        Ok(conversation) => {
+                            if !conversation.is_partial {
+                                if let Some(cb) = callback.lock().unwrap().as_ref() {
+                                    cb.on_conversations_updated(vec![conversation]);
+                                }
+                            } else {
+                                self.fetch_conversation(&topic_id).await;
+                            }
+                        }
+                        Err(e) => {
+                            warn!("update_conversation_from_chat failed: {:?}", e);
+                        }
+                    },
+                    Err(e) => {
+                        warn!(
+                            "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
+                            req.chat_id, req.topic_id, e
+                        );
+                    }
                 }
+                resps
             }
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
-                self.set_conversation_read_local(&topic_id);
+                self.set_conversation_read_local(&topic_id).await;
                 callback
                     .lock()
                     .unwrap()
@@ -135,8 +160,8 @@ impl ClientStore {
         }
     }
 
-    pub async fn handle_send_fail(&self, req_id: &str) {
-        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(req_id) {
+    pub async fn handle_send_fail(&self, chat_id: &str) {
+        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(chat_id) {
             pending.did_retry();
             pending.is_expired()
         } else {
@@ -144,7 +169,7 @@ impl ClientStore {
         };
 
         if peek {
-            if let Some(pending) = self.peek_pending_request(&req_id).await {
+            if let Some(pending) = self.peek_pending_request(&chat_id).await {
                 pending
                     .callback
                     .map(|cb| cb.on_fail("request timeout".to_string()));
@@ -152,14 +177,9 @@ impl ClientStore {
         }
     }
 
-    pub async fn handle_send_success(&self, req_id: &str) {
-        // TODO: update database status
-        info!("handle_send_success: {}", req_id);
-    }
-
-    pub async fn peek_pending_request(&self, req_id: &str) -> Option<PendingRequest> {
+    pub async fn peek_pending_request(&self, chat_id: &str) -> Option<PendingRequest> {
         let mut outgoings = self.outgoings.lock().unwrap();
-        outgoings.remove(req_id)
+        outgoings.remove(chat_id)
     }
 
     pub async fn add_pending_request(
@@ -167,42 +187,50 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
-        let req_id = req.id.clone();
+        let chat_id = req.chat_id.clone();
         let pending_request = PendingRequest::new(req, callback);
         match ChatRequestType::from(&pending_request.req.r#type) {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db
-                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req) {
-                    warn!("save_outgoing_chat_log failed: req_id:{} err:{}", req_id, e);
+                if let Err(e) = self.save_outgoing_chat_log(&pending_request.req).await {
+                    warn!(
+                        "save_outgoing_chat_log failed: chat_id:{} err:{}",
+                        chat_id, e
+                    );
                 }
                 // process
                 let pending_request = match pending_request.has_attachment() {
                     true => match self.submit_upload(pending_request).await {
                         Ok(req) => req,
-                        Err(_) => return,
+                        Err(e) => {
+                            warn!("submit_upload failed: chat_id:{} err:{}", chat_id, e);
+                            return ();
+                        }
                     },
                     false => pending_request,
                 };
                 self.outgoings
                     .lock()
                     .unwrap()
-                    .insert(req_id.clone(), pending_request);
+                    .insert(chat_id.clone(), pending_request);
 
-                self.try_send(req_id);
+                self.try_send(chat_id);
             }
         }
     }
 
-    pub(super) fn try_send(&self, req_id: String) {
-        let tx = self.msg_tx.lock().unwrap();
-        match tx.as_ref() {
-            Some(tx) => {
-                tx.send(req_id).unwrap();
-            }
+    pub(super) fn try_send(&self, chat_id: String) {
+        match self.msg_tx.lock().unwrap().as_ref() {
+            Some(tx) => match tx.send(chat_id.clone()) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("try_send failed: {:?} chat_id:{}", e.to_string(), chat_id);
+                }
+            },
             None => {
                 let mut tmps = self.tmps.lock().unwrap();
-                tmps.push_back(req_id);
+                tmps.push_back(chat_id);
             }
         }
     }
@@ -212,24 +240,34 @@ impl ClientStore {
         let tx = self.msg_tx.lock().unwrap();
         match tx.as_ref() {
             Some(tx) => {
-                while let Some(req_id) = tmps.pop_front() {
-                    tx.send(req_id).unwrap();
+                while let Some(chat_id) = tmps.pop_front() {
+                    match tx.send(chat_id.clone()) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            warn!(
+                                "flush_offline_requests failed:  {:?} chat_id:{}",
+                                e.to_string(),
+                                chat_id
+                            );
+                            break;
+                        }
+                    }
                 }
             }
             None => {}
         }
     }
 
-    pub fn cancel_send(&self, req_id: &str) {
+    pub fn cancel_send(&self, chat_id: &str) {
         let mut outgoings = self.outgoings.lock().unwrap();
-        if let Some(pending) = outgoings.remove(req_id) {
+        if let Some(pending) = outgoings.remove(chat_id) {
             pending
                 .callback
                 .map(|cb| cb.on_fail("cancel send".to_string()));
         }
 
         let mut uploadings = self.upload_tasks.lock().unwrap();
-        if let Some(task) = uploadings.remove(req_id) {
+        if let Some(task) = uploadings.remove(chat_id) {
             task.abort();
         }
     }

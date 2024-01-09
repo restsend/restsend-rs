@@ -1,5 +1,4 @@
 use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
-use crate::utils::{elapsed, now_millis};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
@@ -47,7 +46,7 @@ pub(super) fn make_get_request(
     );
 
     match auth_token {
-        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
+        Some(token) => req.header(AUTHORIZATION, format!("Bearer {}", token)),
         None => req,
     }
 }
@@ -73,15 +72,12 @@ pub(super) fn make_post_request(
     let req = req.build().unwrap().post(&url);
 
     let req = match content_type {
-        Some(content_type) => req.header(
-            CONTENT_TYPE,
-            HeaderValue::from_bytes(content_type.as_bytes()).unwrap(),
-        ),
+        Some(content_type) => req.header(CONTENT_TYPE, content_type),
         None => req,
     };
 
     let req = match auth_token {
-        Some(token) => req.header(AUTHORIZATION, HeaderValue::from_str(&token).unwrap()),
+        Some(token) => req.header(AUTHORIZATION, format!("Bearer {}", token)),
         None => req,
     };
     match body {
@@ -98,7 +94,22 @@ where
     let url = resp.url().to_string();
 
     match status {
-        reqwest::StatusCode::OK => Ok(resp.json::<T>().await?),
+        reqwest::StatusCode::OK => {
+            let full = resp.bytes().await?;
+            let r = serde_json::from_slice(&full);
+            match r {
+                Ok(v) => Ok(v),
+                Err(e) => {
+                    info!(
+                        "decode with {} error: {} body:{}",
+                        url,
+                        e,
+                        String::from_utf8_lossy(&full)
+                    );
+                    Err(HTTP(e.to_string()).into())
+                }
+            }
+        }
         _ => {
             let body = resp.text().await?;
             let msg = serde_json::from_str::<serde_json::Value>(&body)
@@ -108,7 +119,7 @@ where
                 })
                 .unwrap_or(status.to_string());
 
-            warn!("response with {} error: {}", url, msg);
+            warn!("response with {} error: {} {}", url, msg, body);
 
             match status {
                 reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string()).into()),
@@ -129,7 +140,6 @@ pub(super) async fn api_call<R>(
 where
     R: serde::de::DeserializeOwned,
 {
-    let st = now_millis();
     let req = make_post_request(
         endpoint,
         &format!("{}{}", API_PREFIX, uri),
@@ -140,13 +150,5 @@ where
     );
 
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
-    let status = resp.status();
-
-    info!(
-        "api url:{} status:{} usage: {:?}",
-        resp.url().to_string(),
-        status,
-        elapsed(st)
-    );
     handle_response::<R>(resp).await
 }

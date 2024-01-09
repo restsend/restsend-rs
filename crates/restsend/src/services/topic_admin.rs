@@ -1,5 +1,5 @@
 use super::api_call;
-use crate::models::TopicKnock;
+use crate::models::{TopicKnock, TopicMember};
 use crate::Result;
 
 pub async fn update_topic_notice(
@@ -214,4 +214,19 @@ pub async fn transfer_topic(
     )
     .await
     .map(|_: bool| ())
+}
+
+pub async fn add_topic_member(
+    endpoint: &str,
+    token: &str,
+    topic_id: &str,
+    user_id: &str,
+) -> Result<TopicMember> {
+    api_call(
+        endpoint,
+        &format!("/topic/admin/add_member/{}/{}", topic_id, user_id),
+        token,
+        None,
+    )
+    .await
 }

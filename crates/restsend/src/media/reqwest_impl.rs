@@ -1,6 +1,5 @@
 use crate::callback::{DownloadCallback, UploadCallback};
 use crate::error::ClientError::{StdError, UserCancel, HTTP};
-use crate::media::HumanReadable;
 use crate::models::Attachment;
 use crate::services::response::Upload;
 use crate::services::{handle_response, make_get_request, make_post_request};
@@ -9,6 +8,7 @@ use crate::Result;
 use futures_util::TryStreamExt;
 use log::info;
 use reqwest::multipart;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::AsyncWriteExt;
 use tokio::select;
@@ -24,9 +24,8 @@ pub async fn upload_file(
 ) -> Result<Option<Upload>> {
     let file = tokio::fs::File::open(attachment.file_path.clone()).await?;
     let total = file.metadata().await?.len();
-
-    let (progress_tx, mut progress_rx) = unbounded_channel::<(u64, u64)>();
-
+    let callback = Arc::new(Mutex::new(callback));
+    let callback_ref = callback.clone();
     let upload_runner = async move {
         let form = multipart::Form::new();
         let mut last_progress_time = now_millis();
@@ -35,7 +34,7 @@ pub async fn upload_file(
             tokio_util::io::ReaderStream::new(file).map_ok(move |buf| {
                 let sent = buf.len() as u64;
                 if elapsed(last_progress_time) > Duration::from_millis(300) {
-                    progress_tx.send((total_sent, total)).ok();
+                    callback_ref.lock().unwrap().on_progress(total_sent, total);
                     last_progress_time = now_millis();
                 }
                 total_sent += sent;
@@ -50,14 +49,6 @@ pub async fn upload_file(
         let private_part = multipart::Part::text(format!("{}", attachment.is_private as u32));
         let form = form.part("file", file_part).part("private", private_part);
 
-        info!(
-            "upload url:{} file_path:{} size:{} private:{}",
-            uploader_url,
-            attachment.file_path,
-            total.human_readable(),
-            attachment.is_private,
-        );
-
         let req = make_post_request(
             "",
             &uploader_url,
@@ -67,37 +58,38 @@ pub async fn upload_file(
             Some(Duration::from_secs(super::MEDIA_TIMEOUT_SECS)),
         );
 
-        let resp = req.multipart(form).send().await?;
-        info!("upload {} response: {:?}", uploader_url, resp);
+        let resp = match req.multipart(form).send().await {
+            Ok(resp) => resp,
+            Err(e) => {
+                let reason = format!("upload failed: {}", e.to_string());
+                return Err(HTTP(reason));
+            }
+        };
+
+        info!("upload {} response: {}", uploader_url, resp.status());
         handle_response::<Upload>(resp).await
     };
 
-    callback.on_progress(0, total);
+    callback.lock().unwrap().on_progress(0, total);
 
     select! {
         _ = cancel => {
-            callback.on_fail(UserCancel("canceled".to_string()).into());
+            info!("upload runner cancel");
+            callback.lock().unwrap().on_fail(UserCancel("canceled".to_string()).into());
             Err(UserCancel("canceled".to_string()).into())
         },
-        _ = async {
-            loop {
-                if let Some((sent, total)) = progress_rx.recv().await {
-                    callback.on_progress(sent, total);
-                }
-            }
-        } => {
-            Ok(None)
-        },
         r = upload_runner => {
+            info!("upload runner finished");
+            let cb = callback.lock().unwrap();
             match r {
                 Ok(r) => {
-                    callback.on_progress(total, total);
-                    callback.on_success(r.clone());
+                    cb.on_progress(total, total);
+                    cb.on_success(r.clone());
                     Ok(Some(r))
                 },
                 Err(e) => {
                     let reason = format!("upload failed: {}", e.to_string());
-                    callback.on_fail(HTTP(reason.clone()).into());
+                    cb.on_fail(HTTP(reason.clone()).into());
                     Err(HTTP(reason).into())
                 }
             }
@@ -160,8 +152,13 @@ pub async fn download_file(
         },
         _ = async {
             loop {
-                if let Some((sent, total)) = progress_rx.recv().await {
-                    callback.on_progress(sent, total);
+                match progress_rx.recv().await {
+                    Some((sent, total)) => {
+                        callback.on_progress(sent, total);
+                    },
+                    None => {
+                        break;
+                    }
                 }
             }
         } => {

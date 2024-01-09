@@ -1,8 +1,9 @@
 use crate::{
     callback::MessageCallbackWasmWrap,
-    js_util::{get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
+    js_util::{get_bool, get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
     Client,
 };
+use restsend_sdk::models::conversation::Extra;
 use wasm_bindgen::prelude::*;
 
 #[allow(non_snake_case)]
@@ -22,21 +23,26 @@ impl Client {
     ///     * `placeholder` String - The placeholder of the content, optional
     ///     * `width` Number - The width of the content, only for image/video, optional
     ///     * `height` Number - The height of the content, only for image/video, optional
+    ///     * `reply` String - The reply message id, optional
+    ///     * `mentions` Array - Mention to users, optional
+    ///     * `mentionsAll` Boolean - Mention to all users, optional
     /// * `option` - The send option
     /// # Return
     /// The message id
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.doSend(topicId, {
     ///     type: 'wx.text',
     ///     text: 'hello',
     /// }, {
     ///     mentions: undefined, // The mention user id list, optional
+    ///     mentionAll:  false, // Mention all users, optional
     ///     reply:  undefined, // The reply message id, optional
     ///     onsent:  () => {}, // The callback when message sent
     ///     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+    ///     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
     ///     onack:  (req:ChatRequest)  => {}, // The callback when message acked
     ///     onfail:  (reason:String)  => {} // The callback when message failed
     /// });
@@ -47,10 +53,10 @@ impl Client {
         content: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let content = match js_value_to_content(content) {
-            Some(v) => v,
-            None => return Err(JsValue::from_str("invalid content format")),
-        };
+        let mut content = js_value_to_content(content)?;
+        content.mentions = get_vec_strings(&option, "mentions").unwrap_or(content.mentions);
+        content.reply = get_string(&option, "reply").unwrap_or(content.reply);
+        content.mention_all = get_bool(&option, "mentionAll");
 
         self.inner
             .do_send(
@@ -59,16 +65,13 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send typing status
     /// # Arguments
     /// * `topicId` - The topic id    
     pub async fn doTyping(&self, topicId: String) -> Result<(), JsValue> {
-        self.inner
-            .do_typing(topicId)
-            .await
-            .map_err(|e| e.to_string().into())
+        self.inner.do_typing(topicId).await.map_err(|e| e.into())
     }
     /// Recall message
     /// # Arguments
@@ -87,7 +90,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send voice message
     /// # Arguments
@@ -96,6 +99,7 @@ impl Client {
     /// * `option` - The send option
     ///     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
     ///     * `mentions` Array - The mention user id list, optional
+    ///     * `mentionAll` boolean, // Mention all users, optional
     ///     * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -105,25 +109,18 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_voice(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send video message
@@ -133,6 +130,7 @@ impl Client {
     /// * `option` - The send option
     ///    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
     ///    * `mentions` Array - The mention user id list, optional
+    ///    * `mentionAll` boolean, // Mention all users, optional
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -142,25 +140,18 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_video(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send file message
@@ -170,6 +161,7 @@ impl Client {
     /// * `option` - The send option
     ///    * `size` Number - The size of the content, only for file, optional
     ///    * `mentions` Array - The mention user id list, optional
+    ///    * `mentionAll` boolean, // Mention all users, optional
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -179,24 +171,17 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_file(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send location message
@@ -207,6 +192,7 @@ impl Client {
     /// * `address` - The address
     /// * `option` - The send option
     ///   * `mentions` Array - The mention user id list, optional
+    ///   * `mentionAll` boolean, // Mention all users, optional
     ///   * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -225,11 +211,12 @@ impl Client {
                 longitude,
                 address,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     /// Send link message
     /// # Arguments
@@ -238,6 +225,7 @@ impl Client {
     /// * `option` - The send option
     ///  * `placeholder` String - The placeholder of the content, optional
     ///  * `mentions` Array - The mention user id list, optional
+    ///  * `mentionAll` boolean, // Mention all users, optional
     ///  * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
@@ -253,11 +241,12 @@ impl Client {
                 url,
                 get_string(&option, "placeholder").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send invite message
@@ -270,18 +259,21 @@ impl Client {
     pub async fn doSendLogs(
         &self,
         topicId: String,
+        sourceTopicId: String,
         logIds: Vec<String>,
         option: JsValue,
     ) -> Result<String, JsValue> {
         self.inner
             .do_send_logs(
                 topicId,
+                sourceTopicId,
                 logIds,
                 get_vec_strings(&option, "mentions"),
+                get_bool(&option, "mentionAll"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
 
     /// Send text message
@@ -293,7 +285,7 @@ impl Client {
     /// The message id
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.sendText(topicId, text, {
     ///     mentions: [] || undefined, // The mention user id list, optional
@@ -319,7 +311,7 @@ impl Client {
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
     }
     ///
     /// Send image message
@@ -331,7 +323,7 @@ impl Client {
     /// * `option` - The send option
     /// # Example
     /// ```javascript
-    /// const client = new Client(endpoint, userId, token);
+    /// const client = new Client(info);
     /// await client.connect();
     /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
     /// ```
@@ -341,23 +333,40 @@ impl Client {
         attachment: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let attachment = match js_value_to_attachment(&attachment) {
-            Some(v) => v,
-            None => {
-                return Err(JsValue::from_str(
-                    "invalid format, must has any of {file:File, url:String}",
-                ))
-            }
-        };
         self.inner
             .do_send_image(
                 topicId,
-                attachment,
+                js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),
             )
             .await
-            .map_err(|e| e.to_string().into())
+            .map_err(|e| e.into())
+    }
+    /// Update sent chat message's extra
+    /// # Arguments
+    /// * `topicId` - The topic id
+    /// * `chatId` - The chat id
+    /// * `extra` - The extra, optional
+    /// * `option` - The send option
+    /// # Return
+    /// The message id
+    pub async fn doUpdateExtra(
+        &self,
+        topicId: String,
+        chatId: String,
+        extra: JsValue,
+        option: JsValue,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .do_update_extra(
+                topicId,
+                chatId,
+                serde_wasm_bindgen::from_value::<Extra>(extra).ok(),
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
+            )
+            .await
+            .map_err(|e| e.into())
     }
 }

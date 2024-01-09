@@ -55,13 +55,13 @@ pub fn get_bool(obj: &JsValue, key: &str) -> bool {
     false
 }
 
-pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
+pub fn js_value_to_attachment(obj: &JsValue) -> Result<Attachment, JsValue> {
     let url = get_string(obj, "url");
     let is_private = get_bool(obj, "private");
     let size = get_f64(obj, "size") as i64;
 
     match url {
-        Some(v) => return Some(Attachment::from_url(&v, is_private, size)),
+        Some(v) => return Ok(Attachment::from_url(&v, is_private, size)),
         None => {}
     }
     match js_sys::Reflect::get(&obj, &JsValue::from_str("file")) {
@@ -71,7 +71,7 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
                 let file_name = f.name();
                 let file_size = f.size() as i64;
 
-                return Some(Attachment::from_blob(
+                return Ok(Attachment::from_blob(
                     f.into(),
                     Some(file_name),
                     is_private,
@@ -81,7 +81,7 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
                 match v.dyn_into::<web_sys::Blob>() {
                     Ok(b) => {
                         let file_size = b.size() as i64;
-                        return Some(Attachment::from_blob(b, None, is_private, file_size));
+                        return Ok(Attachment::from_blob(b, None, is_private, file_size));
                     }
                     Err(_) => {}
                 }
@@ -89,21 +89,31 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Option<Attachment> {
         }
         Err(_) => {}
     }
-    None
+    Err(JsValue::from_str(
+        "invalid attachment format, must be url or file",
+    ))
 }
 
-pub fn js_value_to_content(obj: JsValue) -> Option<Content> {
-    let attachment = js_sys::Reflect::get(&obj, &JsValue::from_str("attachment"))
-        .map(|v| js_value_to_attachment(&v).unwrap_or_default())
-        .ok();
-
-    let mut content = match serde_wasm_bindgen::from_value::<Content>(obj).ok() {
-        Some(v) => v,
-        None => return None,
-    };
-
-    if let Some(attachment) = attachment {
-        content.attachment = Some(attachment);
+pub fn peek_attachment(obj: JsValue) -> Result<(JsValue, Option<Attachment>), JsValue> {
+    let key = JsValue::from_str("attachment");
+    match js_sys::Reflect::get(&obj, &key) {
+        Ok(v) => {
+            if v.is_undefined() || v.is_null() {
+                return Ok((obj, None));
+            }
+            let attachment = js_value_to_attachment(&v)?;
+            let obj = obj.dyn_into::<js_sys::Object>().unwrap();
+            js_sys::Reflect::delete_property(&obj, &key).ok();
+            Ok((obj.into(), Some(attachment)))
+        }
+        Err(_) => Ok((obj, None)),
     }
-    Some(content)
+}
+
+pub fn js_value_to_content(obj: JsValue) -> Result<Content, JsValue> {
+    let (obj, attachment) = peek_attachment(obj)?;
+    let mut content = serde_wasm_bindgen::from_value::<Content>(obj)?;
+
+    content.attachment = attachment;
+    Ok(content)
 }

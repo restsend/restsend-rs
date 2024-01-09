@@ -3,13 +3,12 @@ use super::{
     Client,
 };
 use crate::{
-    callback::Callback,
     request::{ChatRequest, ChatRequestType},
     utils::{sleep, spwan_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
 };
-use log::{debug, info, warn};
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
     sync::{
@@ -39,7 +38,7 @@ impl ToString for ConnectionStatus {
     fn to_string(&self) -> String {
         match self {
             ConnectionStatus::Broken => "broken".to_string(),
-            ConnectionStatus::ConnectNow => "connect_now".to_string(),
+            ConnectionStatus::ConnectNow => "connectNow".to_string(),
             ConnectionStatus::Connected => "connected".to_string(),
             ConnectionStatus::Connecting => "connecting".to_string(),
             ConnectionStatus::Shutdown => "shutdown".to_string(),
@@ -182,7 +181,6 @@ impl WebSocketCallback for ConnectionInner {
     }
 
     fn on_message(&self, message: String) {
-        debug!("websocket message: {}", message);
         self.connect_state_ref.did_sent_or_recvived();
 
         let req = match ChatRequest::try_from(message) {
@@ -197,9 +195,12 @@ impl WebSocketCallback for ConnectionInner {
             ChatRequestType::Nop => {
                 return;
             }
-            _ => {
-                self.incoming_tx.send(req).unwrap();
-            }
+            _ => match self.incoming_tx.send(req) {
+                Ok(_) => {}
+                Err(e) => {
+                    warn!("websocket send to incoming_tx failed: {}", e);
+                }
+            },
         }
     }
 }
@@ -210,13 +211,12 @@ impl Client {
         self.state.last_state.lock().unwrap().to_string()
     }
 
-    pub async fn connect(&self, callback: Box<dyn Callback>) {
+    pub async fn connect(&self) {
         serve_connection(
             &self.endpoint,
             &self.token,
             self.store.clone(),
             self.state.clone(),
-            callback,
         )
         .await;
     }
@@ -241,13 +241,9 @@ async fn serve_connection(
     token: &str,
     store: ClientStoreRef,
     state: ConnectStateRef,
-    callback: Box<dyn Callback>,
 ) {
     let url = WebsocketOption::url_from_endpoint(endpoint);
     let opt = WebsocketOption::new(&url, token);
-
-    store.callback.lock().unwrap().replace(callback);
-
     let state_ref = state.clone();
     let store_ref = store.clone();
     let callback_ref = store_ref.callback.clone();
@@ -274,12 +270,12 @@ async fn serve_connection(
 
                 let sender_loop = async {
                     while let Some(message) = outgoing_rx.recv().await {
-                        if let Err(_) = conn.send((&message).into()).await {
-                            store_ref.handle_send_fail(&message.id).await;
+                        if let Err(e) = conn.send((&message).into()).await {
+                            warn!("send fail {:?}", e);
+                            store_ref.handle_send_fail(&message.chat_id).await;
                             break;
                         }
                         state_ref.did_sent_or_recvived();
-                        store_ref.handle_send_success(&message.id).await;
                     }
                 };
 
@@ -293,6 +289,7 @@ async fn serve_connection(
                             warn!("keepalive_runner send failed: {:?}", e);
                             break;
                         }
+                        state_ref.did_sent_or_recvived();
                     }
                 };
 
@@ -337,7 +334,7 @@ async fn serve_connection(
                         for resp in resps {
                             if let Some(resp) = resp {
                                 if let Err(e) = conn.send((&resp).into()).await {
-                                    warn!("websocket send failed: {}", e);
+                                    warn!("websocket send failed: {:?}", e);
                                     break;
                                 }
                             }
@@ -358,11 +355,15 @@ async fn serve_connection(
 
         select! {
             _ = async {
-                sleep(Duration::from_secs(1)).await;
-                store_ref.process_timeout_requests();
-            } =>{}
+                loop {
+                    sleep(Duration::from_secs(1)).await;
+                    store_ref.process_timeout_requests();
+                };
+            } =>{
+                warn!("connection shutdown timeout");
+            }
             _ = conn_loop => {
-                warn!("connect shutdown");
+                warn!("connection shutdown conn_loop");
             },
             _ = async {
                 loop {
@@ -375,7 +376,9 @@ async fn serve_connection(
                         _ => {}
                     }
                 }
-            } => {}
+            } => {
+                warn!("connection shutdown conn_state_ref");
+            }
         };
     });
 }

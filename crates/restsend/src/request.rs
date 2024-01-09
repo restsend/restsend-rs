@@ -1,3 +1,4 @@
+use crate::models::conversation::Extra;
 use crate::models::Attachment;
 use crate::models::{omit_empty, Content, ContentType, User};
 use crate::utils::random_text;
@@ -55,7 +56,7 @@ pub struct ChatRequest {
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
-    pub id: String,
+    pub chat_id: String,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
@@ -78,10 +79,6 @@ pub struct ChatRequest {
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
-    pub chat_id: String,
-
-    #[serde(skip_serializing_if = "String::is_empty")]
-    #[serde(default)]
     pub created_at: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -95,15 +92,20 @@ pub struct ChatRequest {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub unreadable: bool,
 }
 
 impl ChatRequest {
     pub fn new_response(req: &ChatRequest, code: u32) -> Option<Self> {
-        if req.id == "" {
+        if req.chat_id == "" {
             return None;
         }
         Some(ChatRequest {
             r#type: String::from(ChatRequestType::Response),
+            chat_id: req.chat_id.clone(),
             topic_id: req.topic_id.clone(),
             code,
             ..Default::default()
@@ -127,7 +129,6 @@ impl ChatRequest {
     pub fn new_chat_with_content(topic_id: &str, content: Content) -> Self {
         ChatRequest {
             r#type: String::from(ChatRequestType::Chat),
-            id: random_text(crate::REQ_ID_LEN),
             topic_id: String::from(topic_id),
             chat_id: random_text(crate::CHAT_ID_LEN),
             content: Some(content),
@@ -137,7 +138,6 @@ impl ChatRequest {
     pub fn new_chat(topic_id: &str, r#type: ContentType) -> Self {
         ChatRequest {
             r#type: String::from(ChatRequestType::Chat),
-            id: random_text(crate::REQ_ID_LEN),
             topic_id: String::from(topic_id),
             chat_id: random_text(crate::CHAT_ID_LEN),
             content: Some(Content {
@@ -194,16 +194,7 @@ impl ChatRequest {
     }
 
     pub fn new_recall(topic_id: &str, chat_id: &str) -> Self {
-        ChatRequest {
-            r#type: String::from(ChatRequestType::Chat),
-            topic_id: String::from(topic_id),
-            chat_id: String::from(chat_id),
-            content: Some(Content {
-                r#type: String::from(ContentType::Recall),
-                ..Default::default()
-            }),
-            ..Default::default()
-        }
+        Self::new_chat(topic_id, ContentType::Recall).text(&chat_id)
     }
 
     pub fn thumbnail(&self, thumbnail: &str) -> Self {
@@ -275,6 +266,26 @@ impl ChatRequest {
             ..self.clone()
         }
     }
+
+    pub fn mention_all(&self, mention_all: bool) -> Self {
+        ChatRequest {
+            content: Some(Content {
+                mention_all: mention_all,
+                ..self.content.clone().unwrap_or(Content::default())
+            }),
+            ..self.clone()
+        }
+    }
+    pub fn extra(&self, extra: Option<Extra>) -> Self {
+        ChatRequest {
+            content: Some(Content {
+                extra,
+                ..self.content.clone().unwrap_or(Content::default())
+            }),
+            ..self.clone()
+        }
+    }
+
     pub fn attachment(&self, attachment: Attachment) -> Self {
         if !attachment.url.is_empty() {
             return ChatRequest {
@@ -297,7 +308,6 @@ impl ChatRequest {
     pub fn make_response(&self, code: u32) -> Self {
         ChatRequest {
             r#type: String::from(ChatRequestType::Response),
-            id: self.id.clone(),
             code,
             topic_id: self.topic_id.clone(),
             seq: self.seq,
@@ -350,13 +360,12 @@ fn test_chat_request_decode() {
 fn test_chat_request_encode() {
     let mut req = ChatRequest::new_text("greeting", "hello");
     req.chat_id = "mock_chat_id".to_string();
-    req.id = "mock_req_id".to_string();
 
     let data: String = req.into();
     assert!(data.contains("hello"));
     assert!(data.contains("greeting"));
-
+    println!("{}", data);
     assert!(data.eq_ignore_ascii_case(
-        r#"{"type":"chat","id":"mock_req_id","topicId":"greeting","chatId":"mock_chat_id","content":{"type":"text","text":"hello"}}"#
+        r#"{"type":"chat","chatId":"mock_chat_id","topicId":"greeting","content":{"type":"text","text":"hello"}}"#
     ));
 }

@@ -15,9 +15,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "wasm-pack build && vite build",
+    "build": "wasm-pack build",
+    "dist": "wasm-pack build -d ../../js",
     "wasm_test": "wasm-pack test --firefox --headless",
-    "test": "wasm-pack build && vitest --run "
+    "test": "wasm-pack build && vitest --run"
   },
   "author": "admin@restsend.com",
   "license": "ISC"

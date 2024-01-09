@@ -1,11 +1,10 @@
-use restsend_macros::export_wasm_or_ffi;
-
 use crate::{
-    models::{Conversation, GetChatLogsResult, GetConversationsResult},
+    models::{Content, Conversation, GetChatLogsResult},
     request::ChatRequest,
     services::response::Upload,
     Error,
 };
+use restsend_macros::export_wasm_or_ffi;
 
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
@@ -30,7 +29,7 @@ pub trait Callback: Send + Sync {
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
-    fn on_conversations_removed(&self, conversatio_id: String) {}
+    fn on_conversation_removed(&self, conversatio_id: String) {}
 }
 
 #[allow(unused_variables)]
@@ -54,6 +53,9 @@ pub trait DownloadCallback: Send + Sync {
 pub trait MessageCallback: Send + Sync {
     fn on_sent(&self) {}
     fn on_progress(&self, progress: u64, total: u64) {}
+    fn on_attachment_upload(&self, result: Upload) -> Option<Content> {
+        None
+    }
     fn on_ack(&self, req: ChatRequest) {}
     fn on_fail(&self, reason: String) {}
 }

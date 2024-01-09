@@ -3,11 +3,12 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::DownloadCallback,
+    callback::{Callback, DownloadCallback},
     error::ClientError,
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
     services::user::set_allow_guest_chat,
+    storage::Storage,
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};
@@ -38,7 +39,14 @@ impl Client {
             // for unit test
             "".to_string()
         } else {
-            format!("{}/{}{}", root_path, db_name, DB_SUFFIX)
+            let root_path = if root_path.ends_with('/') {
+                root_path.to_string()
+            } else if !root_path.is_empty() {
+                format!("{}/", root_path)
+            } else {
+                "".to_string()
+            };
+            format!("{}{}{}", root_path, db_name, DB_SUFFIX)
         }
     }
 
@@ -48,6 +56,36 @@ impl Client {
             file_name = file_name.replace("*", &utils::random_text(TEMP_FILENAME_LEN));
         }
         format!("{}/tmp/{}", root_path, file_name)
+    }
+}
+
+impl Client {
+    pub fn new_with_storage(
+        root_path: String,
+        info: &AuthInfo,
+        storage: Arc<Storage>,
+    ) -> Arc<Self> {
+        let store = ClientStore::new_with_storage(
+            &root_path,
+            &info.endpoint,
+            &info.token,
+            &info.user_id,
+            storage,
+        );
+
+        let store_ref = Arc::new(store);
+        if let Err(e) = store_ref.migrate() {
+            warn!("migrate database fail!! {:?}", e)
+        }
+
+        Arc::new(Self {
+            root_path: root_path.to_string(),
+            user_id: info.user_id.to_string(),
+            token: info.token.to_string(),
+            endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
+            store: store_ref,
+            state: Arc::new(ConnectState::new()),
+        })
     }
 }
 
@@ -79,8 +117,16 @@ impl Client {
         })
     }
 
-    pub fn get_user(&self, user_id: String) -> Option<User> {
-        self.store.get_user(&user_id)
+    pub fn set_callback(&self, callback: Option<Box<dyn Callback>>) {
+        *self.store.callback.lock().unwrap() = callback;
+    }
+
+    pub async fn get_user(&self, user_id: String, blocking: bool) -> Option<User> {
+        self.store.get_user(&user_id, blocking).await
+    }
+
+    pub async fn get_users(&self, user_ids: Vec<String>) -> Vec<User> {
+        self.store.get_users(user_ids).await
     }
 
     pub async fn set_user_remark(&self, user_id: String, remark: String) -> Result<()> {
