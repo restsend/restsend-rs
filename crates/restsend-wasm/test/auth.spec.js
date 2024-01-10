@@ -3,9 +3,9 @@ const { Client, signup, signin } = await import('../pkg/restsend_wasm.js');
 import { endpoint } from './common.js'
 
 describe('Client auth', function () {
-    describe('#constructor', function () {
-        it('should create a client instance', function () {
-            var client = new Client({
+    describe('#constructor', async function () {
+        it('should create a client instance', async function () {
+            var client = await Client.createAsync({
                 endpoint: 'endpoint_value', userId: 'user_id_value', token: 'token_value'
             })
             assert.ok(client)

@@ -27,11 +27,15 @@ pub struct QueryResult<T: StoreModel> {
     pub items: Vec<T>,
 }
 
+#[cfg(not(feature = "indexeddb"))]
 #[cfg(target_family = "wasm")]
 pub type Storage = memory::InMemoryStorage;
 
 #[cfg(not(target_family = "wasm"))]
 pub type Storage = sqlite::SqliteStorage;
+
+#[cfg(feature = "indexeddb")]
+pub type Storage = indexeddb::IndexeddbStorage;
 
 #[async_trait]
 pub trait Table<T: StoreModel>: Send + Sync {

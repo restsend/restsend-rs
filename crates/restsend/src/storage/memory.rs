@@ -2,7 +2,7 @@ use super::{QueryOption, QueryResult, StoreModel};
 use async_trait::async_trait;
 use std::{
     collections::{BTreeMap, HashMap},
-    ops::{Bound, Range},
+    ops::Bound,
     sync::{Arc, Mutex},
 };
 #[derive(Debug, Default)]
@@ -18,7 +18,7 @@ impl TableInner {
 
     fn insert(&mut self, key: String, sort_key: i64, value: String) {
         self.data.insert(key.clone(), value.clone());
-        let mut indices = self.index.entry(sort_key).or_insert_with(Vec::new);
+        let indices = self.index.entry(sort_key).or_insert_with(Vec::new);
         if indices.iter().find(|v| v == &&key).is_none() {
             indices.push(key);
         }
@@ -26,7 +26,7 @@ impl TableInner {
 
     fn remove(&mut self, key: &str, sort_key: i64) {
         self.data.remove(key);
-        let mut indices = match self.index.get_mut(&sort_key) {
+        let indices = match self.index.get_mut(&sort_key) {
             Some(v) => v,
             None => return,
         };

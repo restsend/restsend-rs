@@ -46,6 +46,38 @@ impl Client {
             Err(_) => AuthInfo::default(),
         };
         let inner = restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info);
+        Self::create(inner)
+    }
+    #[wasm_bindgen]
+    pub async fn createAsync(info: JsValue, db_name: Option<String>) -> Client {
+        let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info) {
+            Ok(v) => v,
+            Err(_) => AuthInfo::default(),
+        };
+        let db_name = db_name.unwrap_or_default();
+        let store = Arc::new(restsend_sdk::storage::Storage::new_async(&db_name).await);
+        let inner = restsend_sdk::client::Client::new_with_storage("".to_string(), &info, store);
+        Client::create(inner)
+    }
+    /// get the current connection status
+    /// return: connecting, connected, broken, shutdown
+    #[wasm_bindgen(getter)]
+    pub fn connectionStatus(&self) -> String {
+        self.inner.connection_status()
+    }
+
+    pub async fn shutdown(&self) {
+        self.inner.shutdown()
+    }
+
+    pub async fn connect(&self) -> Result<(), JsValue> {
+        self.inner.connect().await;
+        Ok(())
+    }
+}
+
+impl Client {
+    pub fn create(inner: Arc<restsend_sdk::client::Client>) -> Self {
         let c = Client {
             cb_on_connected: Arc::new(Mutex::new(None)),
             cb_on_connecting: Arc::new(Mutex::new(None)),
@@ -78,21 +110,5 @@ impl Client {
         });
         inner.set_callback(Some(cb));
         c
-    }
-
-    /// get the current connection status
-    /// return: connecting, connected, broken, shutdown
-    #[wasm_bindgen(getter)]
-    pub fn connectionStatus(&self) -> String {
-        self.inner.connection_status()
-    }
-
-    pub async fn shutdown(&self) {
-        self.inner.shutdown()
-    }
-
-    pub async fn connect(&self) -> Result<(), JsValue> {
-        self.inner.connect().await;
-        Ok(())
     }
 }

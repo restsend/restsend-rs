@@ -8,16 +8,23 @@ description = "A client for the retsend server"
 crate-type = ["cdylib"]
 
 [features]
-default = ["auth", "conversation", "topic", "message"]
+default = ["auth", "conversation", "topic", "message", "restsend-sdk/web"]
 auth = []
 conversation = []
 topic = []
 message = []
-livechat = ["conversation", "message"]
+livechat = ["conversation", "message", "restsend-sdk/web"]
+indexeddb = [
+    "auth",
+    "conversation",
+    "topic",
+    "message",
+    "restsend-sdk/indexeddb",
+]
 
 [dependencies]
 serde = "1.0.195"
-restsend-sdk = { path = "../restsend", features = ["web"] }
+restsend-sdk = { path = "../restsend" }
 wasm-bindgen = "0.2.89"
 wasm-bindgen-futures = "0.4.39"
 serde-wasm-bindgen = "0.6.3"
