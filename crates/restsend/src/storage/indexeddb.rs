@@ -28,7 +28,7 @@ pub struct IndexeddbStorage {
 
 #[derive(Serialize, Deserialize)]
 struct ValueItem {
-    sortkey: i64,
+    sortkey: f64,
     partition: String,
     key: String,
     value: String,
@@ -51,32 +51,6 @@ impl IndexeddbStorage {
 
     pub fn make_table(&self, db_name: &str) -> crate::Result<()> {
         self.memory_storage.make_table(db_name)?;
-
-        let idb = web_sys::window()
-            .ok_or(ClientError::Storage("window is none".to_string()))?
-            .indexed_db()?
-            .ok_or(ClientError::Storage("indexed_db is none".to_string()))?;
-        let open_req = idb.open_with_u32(db_name, self.last_version.unwrap_or(1))?;
-        let p = Promise::new(&mut |resolve, reject| {
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let result = e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
-                    .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
-                    .unwrap_or(JsValue::UNDEFINED);
-                resolve.call1(&JsValue::null(), &result).ok();
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
-                let _ = reject.call1(&JsValue::null(), &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
-
-            open_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
-
-            open_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
-        });
         Ok(())
     }
 
@@ -88,7 +62,7 @@ impl IndexeddbStorage {
             return self.memory_storage.table(name);
         }
         let db_name = format!("{}-{}", self.db_prefix, name);
-        match IndexeddbTable::from(name.to_string()) {
+        match IndexeddbTable::from(name.to_string(), self.last_version.unwrap_or(1)) {
             Ok(v) => v,
             Err(_) => self.memory_storage.table(name),
         }
@@ -110,14 +84,14 @@ where
 
 #[allow(dead_code)]
 impl<T: StoreModel + 'static> IndexeddbTable<T> {
-    pub fn from(table_name: String) -> crate::Result<Box<dyn super::Table<T>>> {
+    pub fn from(table_name: String, version: u32) -> crate::Result<Box<dyn super::Table<T>>> {
         //TODO: sadly, ugly hack to make sure the table is created
         let idb = web_sys::window()
             .ok_or(ClientError::Storage("window is none".to_string()))?
             .indexed_db()?
             .ok_or(ClientError::Storage("indexed_db is none".to_string()))?;
 
-        let open_req = idb.open_with_u32(&table_name, 1)?;
+        let open_req = idb.open_with_u32(&table_name, version)?;
         let db_result = Arc::new(Mutex::new(None));
         let last_error = Arc::new(Mutex::new(None));
         let table_name_ref = table_name.to_string();
@@ -157,6 +131,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let tx = Arc::new(Mutex::new(Some(tx)));
         let tx_ref = tx.clone();
+        let table_name_ref = table_name.to_string();
         let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
             let result = e
                 .target()
@@ -173,6 +148,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let last_error_ref = last_error.clone();
         let tx_ref = tx.clone();
+        let table_name_ref = table_name.to_string();
         let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
             last_error_ref.lock().unwrap().replace(e.into());
             tx_ref.lock().unwrap().take().map(|tx| tx.send(()).ok());
@@ -245,10 +221,14 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
+
             let index = store.index("partition+sortkey").ok()?;
+
             let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
-                &js_sys::Array::of2(&partition.into(), &"-Infinity".into()).into(),
-                &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
+                &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
+                    .into(),
+                &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into())
+                    .into(),
             )
             .ok()?;
 
@@ -341,7 +321,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 None => 0,
             },
         } - option.limit as i64)
-            .max(0);
+            .max(0) as f64;
         {
             let store = self
                 .db
@@ -352,25 +332,26 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
+
             let index = store.index("partition+sortkey").ok()?;
-            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::upper_bound_with_open(
                 &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
-                &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
+                true,
             )
             .ok()?;
 
             let cursor_req = index.open_cursor_with_range(&query_range).ok()?;
-
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
             let items_ref = items.clone();
             let limit = option.limit;
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let cursor = match e
+                let result = e
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok())
-                {
+                    .and_then(|cursor_req| cursor_req.result().ok());
+
+                let cursor = match result {
                     Some(result) => match result.dyn_into::<web_sys::IdbCursorWithValue>() {
                         Ok(v) => v,
                         Err(e) => {
@@ -511,49 +492,11 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         self.wait_opened().await?;
+        let value = match value {
+            None => return self.remove(partition, key).await,
+            Some(v) => v,
+        };
 
-        if let Some(v) = value {
-            let store = self
-                .db
-                .lock()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-                .and_then(|tx| tx.object_store(&self.table_name))?;
-
-            let value = ValueItem {
-                sortkey: v.sort_key(),
-                partition: partition.to_string(),
-                key: key.to_string(),
-                value: v.to_string(),
-            };
-
-            serde_wasm_bindgen::to_value(&value)
-                .map(|item| store.put(&item))
-                .map(|_| ())
-                .map_err(|e| ClientError::Storage(e.to_string()))
-        } else {
-            self.remove(partition, key).await
-        }
-    }
-
-    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
-        self.wait_opened().await?;
-        if !key.is_empty() {
-            let store = self
-                .db
-                .lock()
-                .unwrap()
-                .as_ref()
-                .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-                .and_then(|tx| tx.object_store(&self.table_name))?;
-            let query_keys = js_sys::Array::new();
-            query_keys.push(&partition.into());
-            query_keys.push(&key.into());
-            return store.delete(&key.into()).map(|_| ()).map_err(Into::into);
-        }
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
             let store = self
@@ -564,13 +507,83 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))?;
-            let index = store.index("partition+sortkey")?;
-            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
-                &js_sys::Array::of2(&partition.into(), &"-Infinity".into()).into(),
-                &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
-            )?;
 
-            let cursor_req = index.open_cursor_with_range(&query_range)?;
+            let item = ValueItem {
+                sortkey: value.sort_key() as f64,
+                partition: partition.to_string(),
+                key: key.to_string(),
+                value: value.to_string(),
+            };
+
+            let item = serde_wasm_bindgen::to_value(&item)
+                .map_err(|e| ClientError::Storage(e.to_string()))?;
+            let put_req = store.put(&item)?;
+
+            let tx = Arc::new(Mutex::new(Some(tx)));
+            let tx_ref = tx.clone();
+
+            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+                tx_ref
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .and_then(|tx| tx.send(Ok(())).ok());
+            })
+                as Box<dyn FnMut(web_sys::Event)>);
+
+            put_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+            on_success_callback.forget();
+
+            let tx_ref = tx.clone();
+            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+                tx_ref
+                    .lock()
+                    .unwrap()
+                    .take()
+                    .and_then(|tx| tx.send(Err(ClientError::Storage(e.message()))).ok());
+            }) as Box<dyn FnMut(DomException)>);
+            put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+            on_error_callback.forget();
+        }
+        match rx.await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            _ => Ok(()),
+        }
+    }
+
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
+        self.wait_opened().await?;
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        {
+            let store = self
+                .db
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
+                .and_then(|tx| tx.object_store(&self.table_name))?;
+
+            let cursor_req = if !key.is_empty() {
+                let query_keys = js_sys::Array::new();
+                query_keys.push(&partition.into());
+                query_keys.push(&key.into());
+                store.delete(&key.into())
+            } else {
+                let index = store.index("partition+sortkey")?;
+                let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
+                    &js_sys::Array::of2(
+                        &partition.into(),
+                        &js_sys::Number::NEGATIVE_INFINITY.into(),
+                    ),
+                    &js_sys::Array::of2(
+                        &partition.into(),
+                        &js_sys::Number::POSITIVE_INFINITY.into(),
+                    ),
+                )?;
+                index.open_cursor_with_range(&query_range)
+            }?;
 
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
@@ -689,16 +702,12 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     }
 
     async fn clear(&self) -> crate::Result<()> {
-        let tx = self
-            .db
+        self.db
             .lock()
             .unwrap()
             .as_ref()
             .unwrap()
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
-        tx.object_store(&self.table_name)
-            .and_then(|store| store.clear())
-            .map(|_| ())
+            .delete_object_store(&self.table_name)
             .map_err(Into::into)
     }
 }

@@ -2,7 +2,7 @@ use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
-use log::{info, warn};
+use log::{debug, info, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     ClientBuilder, RequestBuilder, Response,
@@ -149,6 +149,13 @@ where
         None,
     );
 
+    let st = crate::utils::now_millis();
     let resp = req.send().await.map_err(|e| HTTP(e.to_string()))?;
+    debug!(
+        "response with {} status: {} usage: {:?}",
+        resp.url(),
+        resp.status(),
+        crate::utils::elapsed(st)
+    );
     handle_response::<R>(resp).await
 }

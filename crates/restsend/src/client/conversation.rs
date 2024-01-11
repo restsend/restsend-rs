@@ -8,7 +8,7 @@ use crate::services::conversation::{
 };
 use crate::utils::{now_millis, spwan_task};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
-use log::{info, warn};
+use log::{debug, warn};
 use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
@@ -86,7 +86,7 @@ impl Client {
                     callback.on_success(r);
                     return;
                 }
-                info!(
+                debug!(
                     "sync_chat_logs local_logs.len: {} start_seq: {} limit: {} local_logs.end_sort_value:{}",
                     local_logs.items.len(),
                     start_seq,

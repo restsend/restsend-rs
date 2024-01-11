@@ -63,6 +63,7 @@ describe('Conversations', async function () {
         let logsCount = 0
         let syncMax = 100
         let items = []
+        let syncCount = 0
         let syncLogs = async () => {
             await vitalik.syncChatLogs(guidoTopic.topicId, undefined, {
                 limit: 10,
@@ -77,6 +78,10 @@ describe('Conversations', async function () {
                     if (!r.hasMore || logsCount >= syncMax) {
                         return
                     }
+                    syncCount += 1
+                    if (syncCount > 10) {
+                        assert.fail('syncCount > 10')
+                    }
                     setTimeout(() => {
                         syncLogs().then()
                     }, 0)
@@ -86,6 +91,7 @@ describe('Conversations', async function () {
         await syncLogs()
         await waitUntil(() => logsCount >= syncMax, 3000)
         expect(logsCount).toEqual(syncMax)
+
         expect(items.length).toEqual(syncMax)
         expect(items.slice(0, sendIds.length)).toEqual(sendIds)
 
@@ -103,7 +109,7 @@ describe('Conversations', async function () {
 
         let syncDone = false
         let newItems = []
-
+        setLogging('debug')
         await vitalik.syncChatLogs(guidoTopic.topicId, recallSeq, {
             limit: 10,
             onsuccess: (r) => {
@@ -113,6 +119,7 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
+        console.log(newItems)
         expect(newItems[0].content.type).toEqual('recall')
         expect(newItems[0].content.text).toEqual(recallId)
         expect(newItems[1].recall).toBe(false)
