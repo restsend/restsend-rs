@@ -1,7 +1,7 @@
 use super::{QueryOption, QueryResult, StoreModel};
 use crate::{error::ClientError, Result};
 use async_trait::async_trait;
-use log::{error, info};
+use log::error;
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
@@ -85,17 +85,17 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-    ) -> Vec<T> {
+    ) -> Option<Vec<T>> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
-        let conn = conn.as_mut().unwrap();
+        let conn = conn.as_mut()?;
 
         let stmt = format!("SELECT value FROM {} WHERE partition = ?", self.name);
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let mut stmt = conn.prepare(&stmt).ok()?;
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
             Err(_) => {
-                return vec![];
+                return None;
             }
             Ok(rows) => rows,
         };
@@ -118,9 +118,9 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             }
         }
 
-        items
+        Some(items)
     }
-    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
             None => match self.last(partition).await {
@@ -140,22 +140,13 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         );
 
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let rows = stmt.query(&[
-            &partition,
-            format!("{}", start_sort_value).as_str(),
-            format!("{}", option.limit).as_str(),
-        ]);
-
-        let mut rows = match rows {
-            Err(_) => {
-                return QueryResult {
-                    start_sort_value: start_sort_value,
-                    end_sort_value: 0,
-                    items: vec![],
-                };
-            }
-            Ok(rows) => rows,
-        };
+        let mut rows = stmt
+            .query(&[
+                &partition,
+                format!("{}", start_sort_value).as_str(),
+                format!("{}", option.limit).as_str(),
+            ])
+            .ok()?;
 
         let mut items: Vec<T> = vec![];
 
@@ -181,11 +172,11 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             (0, 0)
         };
 
-        QueryResult {
+        Some(QueryResult {
             start_sort_value,
             end_sort_value,
             items,
-        }
+        })
     }
 
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
@@ -221,7 +212,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()> {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -234,34 +225,26 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 );
                 let mut stmt = conn.prepare(&stmt).unwrap();
                 let value = v.to_string();
-                let r = stmt.execute(params![&partition, &key, &value, v.sort_key()]);
-                match r {
-                    Ok(_) => {}
-                    Err(e) => {
-                        info!("{} set {} failed: {}", self.name, key, e);
-                    }
-                }
+                stmt.execute(params![&partition, &key, &value, v.sort_key()])
+                    .map(|_| ())
+                    .map_err(|e| {
+                        ClientError::Storage(format!("{} set {} failed: {}", self.name, key, e))
+                    })
             }
-            None => {
-                self.remove(partition, key).await;
-            }
+            None => self.remove(partition, key).await,
         }
     }
 
-    async fn remove(&self, partition: &str, key: &str) {
+    async fn remove(&self, partition: &str, key: &str) -> Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!("DELETE FROM {} WHERE partition = ? AND key = ?", self.name);
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let r = stmt.execute(&[&partition, &key]);
-        match r {
-            Ok(_) => {}
-            Err(e) => {
-                info!("{} remove {} failed: {}", self.name, key, e);
-            }
-        }
+        stmt.execute(&[&partition, &key]).map(|_| ()).map_err(|e| {
+            ClientError::Storage(format!("{} remove {} failed: {}", self.name, key, e))
+        })
     }
 
     async fn last(&self, partition: &str) -> Option<T> {
@@ -296,18 +279,16 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(_) => None,
         }
     }
-    async fn clear(&self) {
+    async fn clear(&self) -> Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!("DELETE FROM {}", self.name);
         let mut stmt = conn.prepare(&stmt).unwrap();
-        let r = stmt.execute([]);
-        match r {
-            Ok(_) => {}
-            Err(_) => {}
-        }
+        stmt.execute([])
+            .map(|_| ())
+            .map_err(|e| ClientError::Storage(format!("{} clear failed: {}", self.name, e)))
     }
 }
 
@@ -338,19 +319,19 @@ async fn test_store_i32() {
     storage.make_table("tests").unwrap();
 
     let t = storage.table::<i32>("tests");
-    t.set("", "1", Some(&1)).await;
-    t.set("", "2", Some(&2)).await;
+    t.set("", "1", Some(&1)).await.ok();
+    t.set("", "2", Some(&2)).await.ok();
 
     let not_exist_3 = t.get("", "3").await;
     assert_eq!(not_exist_3, None);
     let value_2 = t.get("", "2").await;
     assert_eq!(value_2, Some(2));
 
-    t.remove("", "2").await;
+    t.remove("", "2").await.ok();
     let value_2 = t.get("", "2").await;
     assert_eq!(value_2, None);
 
-    t.clear().await;
+    t.clear().await.ok();
     let value_1 = t.get("", "1").await;
     assert_eq!(value_1, None);
 }
@@ -360,7 +341,7 @@ async fn test_sqlite_query() {
     storage.make_table("test").unwrap();
     let table = storage.table::<i32>("test");
     for i in 0..500 {
-        table.set("", &i.to_string(), Some(&i)).await;
+        table.set("", &i.to_string(), Some(&i)).await.ok();
     }
     {
         let v = table
@@ -372,7 +353,8 @@ async fn test_sqlite_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 499);
@@ -391,7 +373,8 @@ async fn test_sqlite_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 490);
@@ -410,7 +393,8 @@ async fn test_sqlite_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 480);

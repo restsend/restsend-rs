@@ -6,7 +6,7 @@ setLogging('info')
 describe('Messages', async function () {
     it('#setup callback', async () => {
         let info = await signin(endpoint, 'guido', 'guido:demo')
-        let client = await Client.createAsync(info)
+        let client = new Client(info)
         let isConnected = false
         client.onconnected = () => {
             isConnected = true

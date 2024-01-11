@@ -14,7 +14,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id).await {
                 u.remark = remark.to_string();
-                t.set("", user_id, Some(&u)).await;
+                t.set("", user_id, Some(&u)).await.ok();
             }
         }
 
@@ -26,7 +26,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id).await {
                 u.is_star = star;
-                t.set("", user_id, Some(&u)).await;
+                t.set("", user_id, Some(&u)).await.ok();
             }
         }
 
@@ -38,7 +38,7 @@ impl ClientStore {
             let t = self.message_storage.table::<User>("users");
             if let Some(mut u) = t.get("", user_id).await {
                 u.is_blocked = block;
-                t.set("", user_id, Some(&u)).await;
+                t.set("", user_id, Some(&u)).await.ok();
             }
         }
         set_user_block(&self.endpoint, &self.token, &user_id, block).await
@@ -157,6 +157,6 @@ pub(super) async fn update_user_with_storage(storage: &Storage, mut user: User) 
     user.cached_at = now_millis();
 
     let t = storage.table::<User>("users");
-    t.set("", &user_id, Some(&user)).await;
+    t.set("", &user_id, Some(&user)).await.ok();
     Ok(user)
 }

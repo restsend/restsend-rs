@@ -298,7 +298,7 @@ impl Client {
     pub async fn filter_conversation(
         &self,
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
-    ) -> Vec<Conversation> {
+    ) -> Option<Vec<Conversation>> {
         self.store.filter_conversation(predicate).await
     }
 }

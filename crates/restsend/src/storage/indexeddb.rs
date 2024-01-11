@@ -7,11 +7,10 @@ use js_sys::Promise;
 use serde::Deserialize;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::vec;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::wasm_bindgen::closure::Closure;
-use web_sys::wasm_bindgen::JsValue;
 use web_sys::DomException;
 use web_sys::IdbDatabase;
 use web_sys::IdbIndexParameters;
@@ -22,7 +21,9 @@ use web_sys::IdbRequest;
 use web_sys::IdbTransactionMode;
 
 pub struct IndexeddbStorage {
-    db: Arc<Mutex<IdbDatabase>>,
+    last_version: Option<u32>,
+    db_prefix: String,
+    memory_storage: super::memory::InMemoryStorage,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -34,13 +35,28 @@ struct ValueItem {
 }
 
 impl IndexeddbStorage {
-    pub async fn open_db(db_name: &str, version: Option<u32>) -> crate::Result<IdbDatabase> {
+    #[allow(dead_code)]
+    pub async fn new_async(db_name: &str) -> Self {
+        Self::new(db_name)
+    }
+
+    pub fn new(db_name: &str) -> Self {
+        let memory_storage = super::memory::InMemoryStorage::new(db_name);
+        IndexeddbStorage {
+            last_version: None,
+            db_prefix: db_name.to_string(),
+            memory_storage,
+        }
+    }
+
+    pub fn make_table(&self, db_name: &str) -> crate::Result<()> {
+        self.memory_storage.make_table(db_name)?;
+
         let idb = web_sys::window()
             .ok_or(ClientError::Storage("window is none".to_string()))?
             .indexed_db()?
             .ok_or(ClientError::Storage("indexed_db is none".to_string()))?;
-
-        let open_req = idb.open_with_u32(db_name, version.unwrap_or(1))?;
+        let open_req = idb.open_with_u32(db_name, self.last_version.unwrap_or(1))?;
         let p = Promise::new(&mut |resolve, reject| {
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
                 let result = e
@@ -61,48 +77,6 @@ impl IndexeddbStorage {
             open_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
         });
-        JsFuture::from(p)
-            .await?
-            .dyn_into::<IdbDatabase>()
-            .map_err(Into::into)
-    }
-
-    #[allow(dead_code)]
-    pub async fn new_async(db_name: &str) -> Self {
-        let db = Self::open_db(db_name, None).await.unwrap();
-        IndexeddbStorage {
-            db: Arc::new(Mutex::new(db)),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn new(_db_name: &str) -> Self {
-        todo!()
-    }
-
-    pub fn make_table(&self, name: &str) -> crate::Result<()> {
-        let db = self
-            .db
-            .lock()
-            .map_err(|e| ClientError::Storage(e.to_string()))?;
-        let key_path_id = js_sys::Array::new();
-        key_path_id.push(&"partition".into());
-        key_path_id.push(&"key".into());
-        let mut create_params = IdbObjectStoreParameters::new();
-        let db_store = db.create_object_store_with_optional_parameters(
-            name,
-            &create_params.key_path(Some(&key_path_id)),
-        )?;
-        let key_path_sortkey = js_sys::Array::new();
-        key_path_sortkey.push(&"partition".into());
-        key_path_sortkey.push(&"sortkey".into());
-        let mut params = IdbIndexParameters::new();
-        db_store.create_index_with_str_sequence_and_optional_parameters(
-            "partition+sortkey",
-            &key_path_sortkey,
-            &params.unique(true),
-        )?;
-
         Ok(())
     }
 
@@ -110,8 +84,14 @@ impl IndexeddbStorage {
     where
         T: StoreModel + 'static,
     {
-        let table = IndexeddbTable::from(name.to_string(), self.db.clone());
-        table
+        if self.db_prefix.is_empty() {
+            return self.memory_storage.table(name);
+        }
+        let db_name = format!("{}-{}", self.db_prefix, name);
+        match IndexeddbTable::from(name.to_string()) {
+            Ok(v) => v,
+            Err(_) => self.memory_storage.table(name),
+        }
     }
 }
 
@@ -120,24 +100,129 @@ pub(super) struct IndexeddbTable<T>
 where
     T: StoreModel,
 {
+    opened_rx: Arc<Mutex<Option<tokio::sync::oneshot::Receiver<()>>>>,
+    opened_tx: Arc<Mutex<Option<tokio::sync::oneshot::Sender<()>>>>,
     table_name: String,
-    db: Arc<Mutex<IdbDatabase>>,
+    last_error: Arc<Mutex<Option<ClientError>>>,
+    db: Arc<Mutex<Option<IdbDatabase>>>,
     _phantom: std::marker::PhantomData<T>,
 }
 
 #[allow(dead_code)]
 impl<T: StoreModel + 'static> IndexeddbTable<T> {
-    pub fn from(table_name: String, db: Arc<Mutex<IdbDatabase>>) -> Box<dyn super::Table<T>> {
-        Box::new(IndexeddbTable {
-            table_name,
-            db,
+    pub fn from(table_name: String) -> crate::Result<Box<dyn super::Table<T>>> {
+        //TODO: sadly, ugly hack to make sure the table is created
+        let idb = web_sys::window()
+            .ok_or(ClientError::Storage("window is none".to_string()))?
+            .indexed_db()?
+            .ok_or(ClientError::Storage("indexed_db is none".to_string()))?;
+
+        let open_req = idb.open_with_u32(&table_name, 1)?;
+        let db_result = Arc::new(Mutex::new(None));
+        let last_error = Arc::new(Mutex::new(None));
+        let table_name_ref = table_name.to_string();
+        let on_upgradeneeded_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let db = e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
+                .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
+                .unwrap_or(JsValue::UNDEFINED)
+                .dyn_into::<IdbDatabase>()
+                .unwrap();
+
+            let key_path_id = js_sys::Array::new();
+            key_path_id.push(&"partition".into());
+            key_path_id.push(&"key".into());
+            let mut create_params = IdbObjectStoreParameters::new();
+            let db_store = db
+                .create_object_store_with_optional_parameters(
+                    &table_name_ref,
+                    &create_params.key_path(Some(&key_path_id)),
+                )
+                .unwrap();
+
+            let key_path_sortkey = js_sys::Array::new();
+            key_path_sortkey.push(&"partition".into());
+            key_path_sortkey.push(&"sortkey".into());
+            let mut params = IdbIndexParameters::new();
+            db_store
+                .create_index_with_str_sequence_and_optional_parameters(
+                    "partition+sortkey",
+                    &key_path_sortkey,
+                    &params.unique(false),
+                )
+                .unwrap();
+        }) as Box<dyn FnMut(web_sys::Event)>);
+        let db_result_ref = db_result.clone();
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let tx = Arc::new(Mutex::new(Some(tx)));
+        let tx_ref = tx.clone();
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let result = e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
+                .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
+                .unwrap_or(JsValue::UNDEFINED);
+            db_result_ref
+                .lock()
+                .unwrap()
+                .replace(result.dyn_into::<IdbDatabase>().unwrap());
+
+            tx_ref.lock().unwrap().take().map(|tx| tx.send(()).ok());
+        }) as Box<dyn FnMut(web_sys::Event)>);
+
+        let last_error_ref = last_error.clone();
+        let tx_ref = tx.clone();
+        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            last_error_ref.lock().unwrap().replace(e.into());
+            tx_ref.lock().unwrap().take().map(|tx| tx.send(()).ok());
+        }) as Box<dyn FnMut(DomException)>);
+
+        open_req.set_onupgradeneeded(Some(on_upgradeneeded_callback.as_ref().unchecked_ref()));
+        on_upgradeneeded_callback.forget();
+
+        open_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+        on_success_callback.forget();
+
+        open_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+        on_error_callback.forget();
+
+        Ok(Box::new(IndexeddbTable {
+            opened_rx: Arc::new(Mutex::new(Some(rx))),
+            opened_tx: tx,
+            table_name: table_name.to_string(),
+            db: db_result.clone(),
+            last_error: last_error.clone(),
             _phantom: std::marker::PhantomData,
-        })
+        }))
     }
 }
 
 unsafe impl<T: StoreModel> Send for IndexeddbTable<T> {}
 unsafe impl<T: StoreModel> Sync for IndexeddbTable<T> {}
+
+impl<T: StoreModel> IndexeddbTable<T> {
+    async fn wait_opened(&self) -> crate::Result<()> {
+        loop {
+            if self.last_error.lock().unwrap().is_some() {
+                return Err(self.last_error.lock().unwrap().as_ref().unwrap().clone());
+            }
+            if self.db.lock().unwrap().is_some() {
+                return Ok(());
+            }
+
+            let rx = self.opened_rx.lock().unwrap().take();
+            match rx {
+                Some(rx) => {
+                    return rx
+                        .await
+                        .map_err(|_| ClientError::Storage("wait_opened rx error".to_string()));
+                }
+                _ => {}
+            }
+        }
+    }
+}
 
 #[async_trait]
 impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
@@ -145,36 +230,29 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-    ) -> Vec<T> {
+    ) -> Option<Vec<T>> {
+        self.wait_opened().await.ok()?;
+
         let items = Arc::new(Mutex::new(Some(vec![])));
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => return items.lock().unwrap().take().unwrap_or_default(),
-            };
-            let index = match store.index("partition+sortkey") {
-                Ok(v) => v,
-                Err(_) => return items.lock().unwrap().take().unwrap_or_default(),
-            };
-            let query_range: IdbKeyRange = match web_sys::IdbKeyRange::bound(
+                .ok()?;
+            let index = store.index("partition+sortkey").ok()?;
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
                 &js_sys::Array::of2(&partition.into(), &"-Infinity".into()).into(),
                 &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
-            ) {
-                Ok(v) => v,
-                Err(_) => return items.lock().unwrap().take().unwrap_or_default(),
-            };
+            )
+            .ok()?;
 
-            let cursor_req = match index.open_cursor_with_range(&query_range) {
-                Ok(v) => v,
-                Err(_) => return items.lock().unwrap().take().unwrap_or_default(),
-            };
+            let cursor_req = index.open_cursor_with_range(&query_range).ok()?;
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
             let items_ref = items.clone();
@@ -247,11 +325,13 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
             on_success_callback.forget();
         }
         rx.await.ok();
-        let x = items.lock().unwrap().take().unwrap_or_default();
-        x
+        let items = items.lock().unwrap().take().unwrap_or_default();
+        Some(items)
     }
 
-    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
+        self.wait_opened().await.ok()?;
+
         let (tx, rx) = tokio::sync::oneshot::channel();
         let items = Arc::new(Mutex::new(Some(Vec::<T>::new())));
         let start_sort_value = (match option.start_sort_value {
@@ -263,56 +343,23 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         } - option.limit as i64)
             .max(0);
         {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => {
-                    return QueryResult {
-                        start_sort_value: 0,
-                        end_sort_value: 0,
-                        items: Vec::new(),
-                    }
-                }
-            };
-            let index = match store.index("partition+sortkey") {
-                Ok(v) => v,
-                Err(_) => {
-                    return QueryResult {
-                        start_sort_value: 0,
-                        end_sort_value: 0,
-                        items: Vec::new(),
-                    }
-                }
-            };
-            let query_range: IdbKeyRange = match web_sys::IdbKeyRange::bound(
+                .ok()?;
+            let index = store.index("partition+sortkey").ok()?;
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
                 &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
                 &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
-            ) {
-                Ok(v) => v,
-                Err(_) => {
-                    return QueryResult {
-                        start_sort_value: 0,
-                        end_sort_value: 0,
-                        items: Vec::new(),
-                    }
-                }
-            };
+            )
+            .ok()?;
 
-            let cursor_req = match index.open_cursor_with_range(&query_range) {
-                Ok(v) => v,
-                Err(_) => {
-                    return QueryResult {
-                        start_sort_value: 0,
-                        end_sort_value: 0,
-                        items: Vec::new(),
-                    }
-                }
-            };
+            let cursor_req = index.open_cursor_with_range(&query_range).ok()?;
 
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
@@ -397,26 +444,26 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         let mut items = items.lock().unwrap().take().unwrap_or_default();
         items.reverse();
 
-        QueryResult {
+        Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
             items,
-        }
+        })
     }
 
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
+        self.wait_opened().await.ok()?;
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => return None,
-            };
+                .ok()?;
 
             let query_keys = js_sys::Array::new();
             query_keys.push(&partition.into());
@@ -462,18 +509,18 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         }
     }
 
-    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
+        self.wait_opened().await?;
+
         if let Some(v) = value {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-                .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => return,
-            };
+                .and_then(|tx| tx.object_store(&self.table_name))?;
 
             let value = ValueItem {
                 sortkey: v.sort_key(),
@@ -484,58 +531,46 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
 
             serde_wasm_bindgen::to_value(&value)
                 .map(|item| store.put(&item))
-                .ok();
+                .map(|_| ())
+                .map_err(|e| ClientError::Storage(e.to_string()))
         } else {
-            self.remove(partition, key).await;
+            self.remove(partition, key).await
         }
     }
 
-    async fn remove(&self, partition: &str, key: &str) {
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
+        self.wait_opened().await?;
         if !key.is_empty() {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-                .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => return,
-            };
+                .and_then(|tx| tx.object_store(&self.table_name))?;
             let query_keys = js_sys::Array::new();
             query_keys.push(&partition.into());
             query_keys.push(&key.into());
-            store.delete(&key.into()).ok();
-            return;
+            return store.delete(&key.into()).map(|_| ()).map_err(Into::into);
         }
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
-            let store = match self
+            let store = self
                 .db
                 .lock()
                 .unwrap()
+                .as_ref()
+                .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-                .and_then(|tx| tx.object_store(&self.table_name))
-            {
-                Ok(v) => v,
-                Err(_) => return,
-            };
-            let index = match store.index("partition+sortkey") {
-                Ok(v) => v,
-                Err(_) => return,
-            };
-            let query_range: IdbKeyRange = match web_sys::IdbKeyRange::bound(
+                .and_then(|tx| tx.object_store(&self.table_name))?;
+            let index = store.index("partition+sortkey")?;
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
                 &js_sys::Array::of2(&partition.into(), &"-Infinity".into()).into(),
                 &js_sys::Array::of2(&partition.into(), &"Infinity".into()).into(),
-            ) {
-                Ok(v) => v,
-                Err(_) => return,
-            };
+            )?;
 
-            let cursor_req = match index.open_cursor_with_range(&query_range) {
-                Ok(v) => v,
-                Err(_) => return,
-            };
+            let cursor_req = index.open_cursor_with_range(&query_range)?;
 
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
@@ -584,15 +619,22 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
             cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
         }
-        rx.await.ok();
+        match rx.await {
+            Ok(Ok(_)) => Ok(()),
+            Ok(Err(e)) => Err(e),
+            _ => Ok(()),
+        }
     }
 
     async fn last(&self, partition: &str) -> Option<T> {
+        self.wait_opened().await.ok()?;
         let (tx, rx) = tokio::sync::oneshot::channel();
         {
             let store = self
                 .db
                 .lock()
+                .unwrap()
+                .as_ref()
                 .unwrap()
                 .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
                 .and_then(|tx| tx.object_store(&self.table_name))
@@ -646,18 +688,17 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         }
     }
 
-    async fn clear(&self) {
-        let tx = match self
+    async fn clear(&self) -> crate::Result<()> {
+        let tx = self
             .db
             .lock()
             .unwrap()
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-        {
-            Ok(v) => v,
-            Err(_) => return,
-        };
+            .as_ref()
+            .unwrap()
+            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
         tx.object_store(&self.table_name)
             .and_then(|store| store.clear())
-            .ok();
+            .map(|_| ())
+            .map_err(Into::into)
     }
 }

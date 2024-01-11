@@ -16,7 +16,7 @@ export async function waitUntil(fn, timeout) {
 
 export async function authClient(username, password, withWebSocket = false) {
     let info = await signin(endpoint, username, password)
-    let client = await Client.createAsync(info)
+    let client = new Client(info)
 
     if (withWebSocket) {
         await client.connect()

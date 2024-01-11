@@ -107,13 +107,9 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-    ) -> Vec<T> {
+    ) -> Option<Vec<T>> {
         let mut data = self.data.lock().unwrap();
-        let mut table = data.get_mut(partition);
-        let mut table = match table {
-            Some(table) => table,
-            None => return vec![],
-        };
+        let mut table = data.get_mut(partition)?;
         let mut items = Vec::<T>::new();
         for (_, v) in table.data.iter() {
             let v = match T::from_str(v) {
@@ -125,23 +121,13 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
                 None => {}
             }
         }
-        items
+        Some(items)
     }
 
-    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T> {
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         let mut data = self.data.lock().unwrap();
         let mut items = Vec::<T>::new();
-        let mut table = data.get_mut(partition);
-        let mut table = match table {
-            Some(table) => table,
-            None => {
-                return QueryResult {
-                    start_sort_value: 0,
-                    end_sort_value: 0,
-                    items,
-                }
-            }
-        };
+        let mut table = data.get_mut(partition)?;
 
         let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
@@ -185,11 +171,11 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
 
         items.reverse();
 
-        QueryResult {
+        Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
             items,
-        }
+        })
     }
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
@@ -197,7 +183,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         table?.get(&key).and_then(|v| T::from_str(v).ok())
     }
 
-    async fn set(&self, partition: &str, key: &str, value: Option<&T>) {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         match value {
             Some(v) => {
                 let mut data = self.data.lock().unwrap();
@@ -213,14 +199,13 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
                     }
                     None => {}
                 }
+                Ok(())
             }
-            None => {
-                self.remove(partition, key).await;
-            }
+            None => self.remove(partition, key).await,
         }
     }
 
-    async fn remove(&self, partition: &str, key: &str) {
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         match table {
@@ -235,6 +220,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
             }
             None => {}
         };
+        Ok(())
     }
 
     async fn last(&self, partition: &str) -> Option<T> {
@@ -243,8 +229,9 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         table?.last().and_then(|v| T::from_str(v).ok())
     }
 
-    async fn clear(&self) {
+    async fn clear(&self) -> crate::Result<()> {
         self.data.lock().unwrap().clear();
+        Ok(())
     }
 }
 
@@ -300,7 +287,8 @@ async fn test_memory_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 499);
@@ -319,7 +307,8 @@ async fn test_memory_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 490);
@@ -338,7 +327,8 @@ async fn test_memory_query() {
                     keyword: None,
                 },
             )
-            .await;
+            .await
+            .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
         assert_eq!(v.start_sort_value, 480);

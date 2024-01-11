@@ -201,10 +201,17 @@ impl Client {
     ///
     pub async fn filterConversation(&self, predicate: JsValue) -> JsValue {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
-        let items = self
+
+        let items = match self
             .inner
             .filter_conversation(Box::new(move |c| Some(c)))
-            .await;
+            .await
+        {
+            Some(v) => v,
+            None => {
+                vec![]
+            }
+        };
 
         let vals = js_sys::Array::new();
         for item in &items {

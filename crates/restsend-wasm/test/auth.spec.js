@@ -5,7 +5,7 @@ import { endpoint } from './common.js'
 describe('Client auth', function () {
     describe('#constructor', async function () {
         it('should create a client instance', async function () {
-            var client = await Client.createAsync({
+            var client = new Client({
                 endpoint: 'endpoint_value', userId: 'user_id_value', token: 'token_value'
             })
             assert.ok(client)

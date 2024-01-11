@@ -40,24 +40,23 @@ pub struct Client {
 #[wasm_bindgen]
 impl Client {
     #[wasm_bindgen(constructor)]
-    pub fn new(info: JsValue) -> Self {
+    pub fn new(info: JsValue, db_name: Option<String>) -> Self {
         let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info) {
             Ok(v) => v,
             Err(_) => AuthInfo::default(),
         };
-        let inner = restsend_sdk::client::Client::new("".to_string(), "".to_string(), &info);
+        #[cfg(feature = "indexeddb")]
+        let inner = restsend_sdk::client::Client::new(
+            "".to_string(),
+            db_name.unwrap_or(info.user_id.clone()),
+            &info,
+        );
+
+        #[cfg(not(feature = "indexeddb"))]
+        let inner =
+            restsend_sdk::client::Client::new("".to_string(), db_name.unwrap_or_default(), &info);
+
         Self::create(inner)
-    }
-    #[wasm_bindgen]
-    pub async fn createAsync(info: JsValue, db_name: Option<String>) -> Client {
-        let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info) {
-            Ok(v) => v,
-            Err(_) => AuthInfo::default(),
-        };
-        let db_name = db_name.unwrap_or_default();
-        let store = Arc::new(restsend_sdk::storage::Storage::new_async(&db_name).await);
-        let inner = restsend_sdk::client::Client::new_with_storage("".to_string(), &info, store);
-        Client::create(inner)
     }
     /// get the current connection status
     /// return: connecting, connected, broken, shutdown

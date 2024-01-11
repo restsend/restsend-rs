@@ -31,7 +31,9 @@ pub(crate) async fn merge_conversation(
 
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
-    t.set("", &conversation.topic_id, Some(&conversation)).await;
+    t.set("", &conversation.topic_id, Some(&conversation))
+        .await
+        .ok();
     Ok(conversation)
 }
 
@@ -70,7 +72,9 @@ pub(super) async fn merge_conversation_from_chat(
     }
 
     conversation.cached_at = now_millis();
-    t.set("", &conversation.topic_id, Some(&conversation)).await;
+    t.set("", &conversation.topic_id, Some(&conversation))
+        .await
+        .ok();
     Ok(conversation)
 }
 
@@ -114,7 +118,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.remark = remark.clone();
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
             }
         }
 
@@ -132,7 +136,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.sticky = sticky;
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
             }
         }
 
@@ -146,7 +150,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.mute = mute;
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
             }
         }
 
@@ -169,7 +173,7 @@ impl ClientStore {
 
                 conversation.last_read_seq = conversation.last_seq;
                 conversation.unread = 0;
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
                 Some(conversation)
             }
             _ => None,
@@ -200,7 +204,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.tags = tags.clone();
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
             }
         }
 
@@ -221,7 +225,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>("conversations");
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.extra = extra.clone();
-                t.set("", topic_id, Some(&conversation)).await;
+                t.set("", topic_id, Some(&conversation)).await.ok();
             }
         }
 
@@ -237,7 +241,7 @@ impl ClientStore {
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
             let t = self.message_storage.table::<Conversation>("conversations");
-            t.remove("", topic_id).await;
+            t.remove("", topic_id).await.ok();
         }
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
@@ -307,7 +311,7 @@ impl ClientStore {
         if let Some(mut conversation) = t.get("", topic_id).await {
             conversation.last_read_seq = last_read_seq.unwrap_or(conversation.last_seq);
             conversation.updated_at = updated_at.to_string();
-            t.set("", topic_id, Some(&conversation)).await;
+            t.set("", topic_id, Some(&conversation)).await.ok();
         }
         Ok(())
     }
@@ -318,7 +322,7 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.status = ChatLogStatus::Sending;
         log.sender_id = self.user_id.clone();
-        t.set(&log.topic_id, &log.id, Some(&log)).await;
+        t.set(&log.topic_id, &log.id, Some(&log)).await.ok();
 
         Ok(())
     }
@@ -338,7 +342,7 @@ impl ClientStore {
             if let Some(seq) = seq {
                 log.seq = seq;
             }
-            t.set(topic_id, chat_id, Some(&log)).await;
+            t.set(topic_id, chat_id, Some(&log)).await.ok();
         }
         Ok(())
     }
@@ -388,7 +392,9 @@ impl ClientStore {
                             let mut recall_log = recall_log.clone();
                             recall_log.recall = true;
                             recall_log.content = Content::new(ContentType::None);
-                            t.set(&topic_id, &recall_chat_id, Some(&recall_log)).await;
+                            t.set(&topic_id, &recall_chat_id, Some(&recall_log))
+                                .await
+                                .ok();
                         }
                         None => return Ok(()),
                     }
@@ -404,7 +410,7 @@ impl ClientStore {
                     match t.get(&topic_id, update_chat_id).await {
                         Some(mut log) => {
                             log.content.extra = extra.clone();
-                            t.set(&topic_id, &update_chat_id, Some(&log)).await;
+                            t.set(&topic_id, &update_chat_id, Some(&log)).await.ok();
                         }
                         None => {}
                     }
@@ -424,8 +430,7 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
-        t.set(&log.topic_id, &log.id, Some(&log)).await;
-        Ok(())
+        t.set(&log.topic_id, &log.id, Some(&log)).await
     }
 
     pub(crate) async fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
@@ -440,7 +445,8 @@ impl ClientStore {
                             log.recall = true;
                             log.content = Content::new(ContentType::None);
                             t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
-                                .await;
+                                .await
+                                .ok();
                         }
                     }
                     None => {}
@@ -454,7 +460,8 @@ impl ClientStore {
                             let mut log = update_log.clone();
                             log.content.extra = chat_log.content.extra.clone();
                             t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
-                                .await;
+                                .await
+                                .ok();
                         }
                     }
                     None => {}
@@ -464,8 +471,7 @@ impl ClientStore {
             _ => Some(chat_log),
         };
 
-        t.set(&chat_log.topic_id, &chat_log.id, item).await;
-        Ok(())
+        t.set(&chat_log.topic_id, &chat_log.id, item).await
     }
 
     pub async fn get_chat_logs(
@@ -492,7 +498,10 @@ impl ClientStore {
                 limit,
             };
 
-            let result = t.query(topic_id, &option).await;
+            let result = match t.query(topic_id, &option).await {
+                Some(result) => result,
+                None => break,
+            };
             if result.items.len() == 0 {
                 break;
             }
@@ -530,7 +539,7 @@ impl ClientStore {
     pub async fn remove_messages(&self, topic_id: &str, chat_ids: &[String]) {
         let t = self.message_storage.table::<ChatLog>("chat_logs");
         for chat_id in chat_ids {
-            t.remove(topic_id, chat_id).await;
+            t.remove(topic_id, chat_id).await.ok();
         }
     }
 
@@ -550,13 +559,20 @@ impl ClientStore {
             start_sort_value,
             limit,
         };
-        Ok(t.query("", &option).await)
+        match t.query("", &option).await {
+            Some(result) => Ok(result),
+            None => Ok(QueryResult {
+                start_sort_value: 0,
+                end_sort_value: 0,
+                items: vec![],
+            }),
+        }
     }
 
     pub async fn filter_conversation(
         &self,
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
-    ) -> Vec<Conversation> {
+    ) -> Option<Vec<Conversation>> {
         let t = self.message_storage.table("conversations");
         t.filter("", Box::new(move |c| predicate(c))).await
     }

@@ -43,13 +43,13 @@ pub trait Table<T: StoreModel>: Send + Sync {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-    ) -> Vec<T>;
-    async fn query(&self, partition: &str, option: &QueryOption) -> QueryResult<T>;
+    ) -> Option<Vec<T>>;
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>>;
     async fn get(&self, partition: &str, key: &str) -> Option<T>;
-    async fn set(&self, partition: &str, key: &str, value: Option<&T>);
-    async fn remove(&self, partition: &str, key: &str);
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()>;
+    async fn remove(&self, partition: &str, key: &str) -> Result<()>;
     async fn last(&self, partition: &str) -> Option<T>;
-    async fn clear(&self);
+    async fn clear(&self) -> Result<()>;
 }
 
 pub fn prepare(storage: &Storage) -> Result<()> {
