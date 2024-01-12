@@ -1,30 +1,24 @@
 use super::{QueryOption, QueryResult, StoreModel};
-use crate::{error::ClientError, Result};
+use crate::error::ClientError;
 use async_trait::async_trait;
-use log::error;
 use rusqlite::{params, Connection};
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 
 type Session = Arc<Mutex<Option<Connection>>>;
 pub struct SqliteStorage {
+    tables: Mutex<HashSet<String>>,
     conn: Session,
 }
 
 impl SqliteStorage {
     pub fn new(db_name: &str) -> Self {
-        let conn = Connection::open(db_name);
-        match conn {
-            Err(e) => {
-                error!("open sqlite connection failed: {} -> {}", db_name, e);
-                return SqliteStorage {
-                    conn: Arc::new(Mutex::new(None)),
-                };
-            }
-            Ok(conn) => {
-                return SqliteStorage {
-                    conn: Arc::new(Mutex::new(Some(conn))),
-                };
-            }
+        let conn = Connection::open(db_name).ok();
+        SqliteStorage {
+            tables: Mutex::new(HashSet::new()),
+            conn: Arc::new(Mutex::new(conn)),
         }
     }
 
@@ -32,7 +26,7 @@ impl SqliteStorage {
         Self::new(db_name)
     }
 
-    pub fn make_table(&self, name: &str) -> Result<()> {
+    fn make_table<T>(&self) -> crate::Result<()> {
         let db = self.conn.clone();
         let mut conn = db.lock().unwrap();
         if conn.is_none() {
@@ -41,22 +35,29 @@ impl SqliteStorage {
             ));
         }
         let conn = conn.as_mut().unwrap();
+        let tbl_name = super::table_name::<T>();
         let create_sql = format!(
             "CREATE TABLE IF NOT EXISTS {0} (partition TEXT, key TEXT, value TEXT, sort_by INTEGER);
             CREATE UNIQUE INDEX IF NOT EXISTS idx_{0}_partition_ikey ON {0} (partition, key);
             CREATE INDEX IF NOT EXISTS idx_{0}_sort_by ON {0} (sort_by);",
-            name
+            tbl_name
         );
-        conn.execute_batch(&create_sql)
-            .map_err(|e| ClientError::Storage(format!("create table {} failed: {}", name, e)))?;
+        conn.execute_batch(&create_sql).map_err(|e| {
+            ClientError::Storage(format!("create table {} failed: {}", tbl_name, e))
+        })?;
+        self.tables.lock().unwrap().insert(tbl_name.clone());
         Ok(())
     }
 
-    pub fn table<T>(&self, name: &str) -> Box<dyn super::Table<T>>
+    pub fn table<T>(&self) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
-        let table = SqliteTable::new(self.conn.clone(), name);
+        let tbl_name = super::table_name::<T>();
+        if self.tables.lock().unwrap().get(&tbl_name).is_none() {
+            self.make_table::<T>().unwrap();
+        }
+        let table = SqliteTable::new(self.conn.clone(), &tbl_name);
         Box::new(table)
     }
 }
@@ -212,7 +213,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()> {
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         match value {
             Some(v) => {
                 let db = self.session.clone();
@@ -235,7 +236,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    async fn remove(&self, partition: &str, key: &str) -> Result<()> {
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -279,7 +280,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(_) => None,
         }
     }
-    async fn clear(&self) -> Result<()> {
+    async fn clear(&self) -> crate::Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -304,11 +305,13 @@ pub fn test_prepare() {
     let test_file = "test_prepare.db";
     {
         let storage = SqliteStorage::new(test_file);
-        storage.make_table("tests").unwrap();
+        storage.make_table::<SqliteStorage>().unwrap();
     }
     {
         let storage = SqliteStorage::new(test_file);
-        storage.make_table("tests").expect("prepare sqlite failed");
+        storage
+            .make_table::<SqliteStorage>()
+            .expect("prepare sqlite failed");
     }
     std::fs::remove_file(test_file).unwrap_or(());
 }
@@ -316,9 +319,9 @@ pub fn test_prepare() {
 #[tokio::test]
 async fn test_store_i32() {
     let storage = SqliteStorage::new(":memory:");
-    storage.make_table("tests").unwrap();
+    storage.make_table::<i32>().unwrap();
 
-    let t = storage.table::<i32>("tests");
+    let t = storage.table::<i32>();
     t.set("", "1", Some(&1)).await.ok();
     t.set("", "2", Some(&2)).await.ok();
 
@@ -338,8 +341,8 @@ async fn test_store_i32() {
 #[tokio::test]
 async fn test_sqlite_query() {
     let storage = SqliteStorage::new(":memory:");
-    storage.make_table("test").unwrap();
-    let table = storage.table::<i32>("test");
+    storage.make_table::<i32>().unwrap();
+    let table = storage.table::<i32>();
     for i in 0..500 {
         table.set("", &i.to_string(), Some(&i)).await.ok();
     }

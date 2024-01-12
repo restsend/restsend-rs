@@ -11,7 +11,7 @@ use log::warn;
 impl ClientStore {
     pub async fn set_user_remark(&self, user_id: &str, remark: &str) -> Result<()> {
         {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             if let Some(mut u) = t.get("", user_id).await {
                 u.remark = remark.to_string();
                 t.set("", user_id, Some(&u)).await.ok();
@@ -23,7 +23,7 @@ impl ClientStore {
 
     pub async fn set_user_star(&self, user_id: &str, star: bool) -> Result<()> {
         {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             if let Some(mut u) = t.get("", user_id).await {
                 u.is_star = star;
                 t.set("", user_id, Some(&u)).await.ok();
@@ -35,7 +35,7 @@ impl ClientStore {
 
     pub async fn set_user_block(&self, user_id: &str, block: bool) -> Result<()> {
         {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             if let Some(mut u) = t.get("", user_id).await {
                 u.is_blocked = block;
                 t.set("", user_id, Some(&u)).await.ok();
@@ -46,7 +46,7 @@ impl ClientStore {
 
     pub async fn get_user(&self, user_id: &str, blocking: bool) -> Option<User> {
         let u = {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
@@ -82,7 +82,7 @@ impl ClientStore {
         let mut missing_ids = vec![];
         let mut pending_users = HashMap::new();
         {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             for user_id in user_ids {
                 let u = t.get("", &user_id).await.unwrap_or(User::new(&user_id));
                 if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
@@ -107,7 +107,7 @@ impl ClientStore {
 
     pub async fn fetch_user(&self, user_id: &str) -> Result<User> {
         let u = {
-            let t = self.message_storage.table::<User>("users");
+            let t = self.message_storage.table::<User>();
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
@@ -146,7 +146,7 @@ impl ClientStore {
 }
 
 pub(super) async fn update_user_with_storage(storage: &Storage, mut user: User) -> Result<User> {
-    let t = storage.table::<User>("users");
+    let t = storage.table::<User>();
 
     let user_id = user.user_id.clone();
     if let Some(old_user) = t.get("", &user_id).await {
@@ -156,7 +156,7 @@ pub(super) async fn update_user_with_storage(storage: &Storage, mut user: User) 
     user.is_partial = false;
     user.cached_at = now_millis();
 
-    let t = storage.table::<User>("users");
+    let t = storage.table::<User>();
     t.set("", &user_id, Some(&user)).await.ok();
     Ok(user)
 }

@@ -21,6 +21,7 @@ use web_sys::IdbOpenDbRequest;
 use web_sys::IdbRequest;
 use web_sys::IdbTransactionMode;
 
+const LAST_DB_VERSION: u32 = 1;
 pub struct IndexeddbStorage {
     last_version: Option<u32>,
     db_prefix: String,
@@ -49,24 +50,20 @@ impl IndexeddbStorage {
             memory_storage,
         }
     }
-
-    pub fn make_table(&self, db_name: &str) -> crate::Result<()> {
-        self.memory_storage.make_table(db_name)?;
-        Ok(())
-    }
-
-    pub fn table<T>(&self, name: &str) -> Box<dyn super::Table<T>>
+    pub fn table<T>(&self) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
         if self.db_prefix.is_empty() {
-            return self.memory_storage.table(name);
+            return self.memory_storage.table::<T>();
         }
-        let db_name = format!("{}-{}", self.db_prefix, name);
-        match IndexeddbTable::from(db_name.to_string(), self.last_version.unwrap_or(1)) {
-            Ok(v) => v,
-            Err(_) => self.memory_storage.table(name),
-        }
+        let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
+
+        IndexeddbTable::from(
+            tbl_name.to_string(),
+            self.last_version.unwrap_or(LAST_DB_VERSION),
+        )
+        .unwrap_or(self.memory_storage.table::<T>())
     }
 }
 

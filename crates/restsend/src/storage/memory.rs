@@ -63,23 +63,21 @@ impl InMemoryStorage {
         Self::new(db_name)
     }
 
-    pub fn make_table(&self, name: &str) -> crate::Result<()> {
+    fn make_table<T>(&self) -> Table {
+        let tbl_name = super::table_name::<T>();
         let mut tables = self.tables.lock().unwrap();
-        match tables.get(name) {
-            Some(_) => return Ok(()),
-            None => {}
-        };
-        tables.insert(name.to_string(), Table::default());
-        Ok(())
+        if let Some(t) = tables.get(&tbl_name) {
+            return t.clone();
+        }
+        let t = Table::default();
+        tables.insert(tbl_name, t.clone());
+        t
     }
-    pub fn table<T>(&self, _name: &str) -> Box<dyn super::Table<T>>
+    pub fn table<T>(&self) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
-        let tables = self.tables.lock().unwrap();
-        let t = tables.get(_name).unwrap().clone();
-        let table = MemoryTable::from(t);
-        table
+        MemoryTable::from(self.make_table::<T>())
     }
 }
 
@@ -255,8 +253,8 @@ async fn test_memory_table() {
 #[tokio::test]
 async fn test_memory_storage() {
     let storage = InMemoryStorage::new("");
-    storage.make_table("test").unwrap();
-    let table = storage.table::<i32>("test");
+    storage.make_table::<i32>();
+    let table = storage.table::<i32>();
     table.set("", "1", Some(&1)).await;
     table.set("", "2", Some(&2)).await;
     table.set("", "3", Some(&3)).await;
@@ -272,8 +270,8 @@ async fn test_memory_storage() {
 #[tokio::test]
 async fn test_memory_query() {
     let storage = InMemoryStorage::new("");
-    storage.make_table("test").unwrap();
-    let table = storage.table::<i32>("test");
+    storage.make_table::<i32>();
+    let table = storage.table::<i32>();
     for i in 0..500 {
         table.set("", &i.to_string(), Some(&i)).await;
     }

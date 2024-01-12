@@ -52,16 +52,12 @@ pub trait Table<T: StoreModel>: Send + Sync {
     async fn clear(&self) -> Result<()>;
 }
 
-pub fn prepare(storage: &Storage) -> Result<()> {
-    let tables = vec!["topics", "users", "messages", "conversations", "chat_logs"];
-    for table in tables {
-        storage.make_table(table)?;
+pub(super) fn table_name<T>() -> String {
+    let full_name = std::any::type_name::<T>();
+    let parts: Vec<&str> = full_name.split("::").collect();
+    match parts.last() {
+        Some(v) => v,
+        None => full_name,
     }
-    Ok(())
-}
-
-#[test]
-pub fn test_storage_prepare() {
-    let storage = Storage::new(":memory:");
-    prepare(&storage).unwrap();
+    .into()
 }

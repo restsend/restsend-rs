@@ -12,7 +12,6 @@ use crate::{
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};
-use log::warn;
 use restsend_macros::export_wasm_or_ffi;
 use std::{path::Path, sync::Arc};
 use tokio::sync::oneshot;
@@ -73,17 +72,12 @@ impl Client {
             storage,
         );
 
-        let store_ref = Arc::new(store);
-        if let Err(e) = store_ref.migrate() {
-            warn!("migrate database fail!! {:?}", e)
-        }
-
         Arc::new(Self {
             root_path: root_path.to_string(),
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
-            store: store_ref,
+            store: Arc::new(store),
             state: Arc::new(ConnectState::new()),
         })
     }
@@ -101,18 +95,13 @@ impl Client {
             &info.token,
             &info.user_id,
         );
-        let store_ref = Arc::new(store);
-
-        if let Err(e) = store_ref.migrate() {
-            warn!("migrate database fail!! {:?}", e)
-        }
 
         Arc::new(Self {
             root_path: root_path.to_string(),
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
-            store: store_ref,
+            store: Arc::new(store),
             state: Arc::new(ConnectState::new()),
         })
     }

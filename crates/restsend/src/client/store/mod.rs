@@ -1,9 +1,8 @@
 use self::attachments::UploadTask;
 use crate::callback::Callback;
 use crate::models::Attachment;
-use crate::storage::{prepare, Storage};
+use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
-use crate::Result;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -149,10 +148,6 @@ impl ClientStore {
             message_storage,
             callback: Arc::new(Mutex::new(None)),
         }
-    }
-
-    pub(super) fn migrate(&self) -> Result<()> {
-        prepare(&self.message_storage)
     }
 
     pub(crate) fn process_timeout_requests(&self) {
