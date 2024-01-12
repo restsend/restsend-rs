@@ -78,3 +78,93 @@ pub(super) fn table_name<T>() -> String {
     }
     .into()
 }
+
+#[tokio::test]
+async fn test_store_i32() {
+    let storage = Storage::new(":memory:");
+
+    let t = storage.table::<i32>().await;
+    t.set("", "1", Some(&1)).await.ok();
+    t.set("", "2", Some(&2)).await.ok();
+
+    let not_exist_3 = t.get("", "3").await;
+    assert_eq!(not_exist_3, None);
+    let value_2 = t.get("", "2").await;
+    assert_eq!(value_2, Some(2));
+
+    t.remove("", "2").await.ok();
+    let value_2 = t.get("", "2").await;
+    assert_eq!(value_2, None);
+
+    t.clear().await.ok();
+    let value_1 = t.get("", "1").await;
+    assert_eq!(value_1, None);
+}
+#[tokio::test]
+async fn test_store_query() {
+    let storage = Storage::new(":memory:");
+    let table = storage.table::<i32>().await;
+    for i in 0..500 {
+        table.set("", &i.to_string(), Some(&i)).await.ok();
+    }
+    {
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: None,
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await
+            .expect("query failed");
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 499);
+        assert_eq!(v.end_sort_value, 490);
+
+        assert_eq!(v.items[0], 499);
+        assert_eq!(v.items[9], 490);
+    }
+    {
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(490),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await
+            .expect("query failed");
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 490);
+        assert_eq!(v.end_sort_value, 481);
+
+        assert_eq!(v.items[0], 490);
+        assert_eq!(v.items[9], 481);
+    }
+    {
+        let v = table
+            .query(
+                "",
+                &QueryOption {
+                    start_sort_value: Some(480),
+                    limit: 10,
+                    keyword: None,
+                },
+            )
+            .await
+            .expect("query failed");
+
+        assert_eq!(v.items.len(), 10);
+        assert_eq!(v.start_sort_value, 480);
+        assert_eq!(v.end_sort_value, 471);
+
+        assert_eq!(v.items[0], 480);
+        assert_eq!(v.items[9], 471);
+    }
+}
