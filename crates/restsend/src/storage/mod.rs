@@ -37,6 +37,23 @@ pub type Storage = sqlite::SqliteStorage;
 #[cfg(feature = "indexeddb")]
 pub type Storage = indexeddb::IndexeddbStorage;
 
+#[cfg(target_family = "wasm")]
+#[async_trait(?Send)]
+pub trait Table<T: StoreModel>: Send + Sync {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Option<Vec<T>>;
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>>;
+    async fn get(&self, partition: &str, key: &str) -> Option<T>;
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()>;
+    async fn remove(&self, partition: &str, key: &str) -> Result<()>;
+    async fn last(&self, partition: &str) -> Option<T>;
+    async fn clear(&self) -> Result<()>;
+}
+
+#[cfg(not(target_family = "wasm"))]
 #[async_trait]
 pub trait Table<T: StoreModel>: Send + Sync {
     async fn filter(

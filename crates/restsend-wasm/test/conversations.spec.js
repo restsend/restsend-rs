@@ -37,7 +37,7 @@ describe('Conversations', async function () {
         expect(cbCount).toEqual(3)
         expect(conversations.length).toEqual(cbCount)
     })
-    setLogging('debug')
+
     it('#sync sync last logs', async () => {
         await vitalik.connect()
         await waitUntil(() => vitalik.connectionStatus === 'connected', 3000)
@@ -119,7 +119,6 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
-        console.log(newItems)
         expect(newItems[0].content.type).toEqual('recall')
         expect(newItems[0].content.text).toEqual(recallId)
         expect(newItems[1].recall).toBe(false)
@@ -127,9 +126,7 @@ describe('Conversations', async function () {
     })
 
     it('#filter conversations', async () => {
-        setLogging('info')
         let conversations = await vitalik.filterConversation(c => {
-            console.log(c.attendee === 'guido')
             return c.attendee === 'guido'
         })
         expect(conversations.length).toEqual(1)

@@ -49,7 +49,7 @@ impl SqliteStorage {
         Ok(())
     }
 
-    pub fn table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn table<T>(&self) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
@@ -321,7 +321,7 @@ async fn test_store_i32() {
     let storage = SqliteStorage::new(":memory:");
     storage.make_table::<i32>().unwrap();
 
-    let t = storage.table::<i32>();
+    let t = storage.table::<i32>().await;
     t.set("", "1", Some(&1)).await.ok();
     t.set("", "2", Some(&2)).await.ok();
 
@@ -342,7 +342,7 @@ async fn test_store_i32() {
 async fn test_sqlite_query() {
     let storage = SqliteStorage::new(":memory:");
     storage.make_table::<i32>().unwrap();
-    let table = storage.table::<i32>();
+    let table = storage.table::<i32>().await;
     for i in 0..500 {
         table.set("", &i.to_string(), Some(&i)).await.ok();
     }

@@ -46,10 +46,10 @@ impl TableInner {
         self.index.clear();
     }
 }
-type Table = Arc<Mutex<HashMap<String, TableInner>>>;
+type TableInnerRef = Arc<Mutex<HashMap<String, TableInner>>>;
 
 pub struct InMemoryStorage {
-    tables: Mutex<HashMap<String, Table>>,
+    tables: Mutex<HashMap<String, TableInnerRef>>,
 }
 
 impl InMemoryStorage {
@@ -63,17 +63,17 @@ impl InMemoryStorage {
         Self::new(db_name)
     }
 
-    fn make_table<T>(&self) -> Table {
+    fn make_table<T>(&self) -> TableInnerRef {
         let tbl_name = super::table_name::<T>();
         let mut tables = self.tables.lock().unwrap();
         if let Some(t) = tables.get(&tbl_name) {
             return t.clone();
         }
-        let t = Table::default();
+        let t = TableInnerRef::default();
         tables.insert(tbl_name, t.clone());
         t
     }
-    pub fn table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn table<T>(&self) -> Box<dyn super::Table<T>>
     where
         T: StoreModel + 'static,
     {
@@ -86,12 +86,12 @@ pub(super) struct MemoryTable<T>
 where
     T: StoreModel,
 {
-    data: Table,
+    data: TableInnerRef,
     _phantom: std::marker::PhantomData<T>,
 }
 
 impl<T: StoreModel + 'static> MemoryTable<T> {
-    pub fn from(t: Table) -> Box<dyn super::Table<T>> {
+    pub fn from(t: TableInnerRef) -> Box<dyn super::Table<T>> {
         Box::new(MemoryTable {
             data: t,
             _phantom: std::marker::PhantomData,
@@ -99,8 +99,7 @@ impl<T: StoreModel + 'static> MemoryTable<T> {
     }
 }
 
-#[async_trait]
-impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
+impl<T: StoreModel> MemoryTable<T> {
     async fn filter(
         &self,
         partition: &str,
@@ -233,9 +232,69 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     }
 }
 
+#[cfg(target_family = "wasm")]
+#[async_trait(?Send)]
+impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Option<Vec<T>> {
+        Self::filter(self, partition, predicate).await
+    }
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
+        Self::query(self, partition, option).await
+    }
+    async fn get(&self, partition: &str, key: &str) -> Option<T> {
+        Self::get(self, partition, key).await
+    }
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
+        Self::set(self, partition, key, value).await
+    }
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
+        Self::remove(self, partition, key).await
+    }
+    async fn last(&self, partition: &str) -> Option<T> {
+        Self::last(self, partition).await
+    }
+    async fn clear(&self) -> crate::Result<()> {
+        Self::clear(self).await
+    }
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[async_trait]
+impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
+    async fn filter(
+        &self,
+        partition: &str,
+        predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+    ) -> Option<Vec<T>> {
+        Self::filter(self, partition, predicate).await
+    }
+    async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
+        Self::query(self, partition, option).await
+    }
+    async fn get(&self, partition: &str, key: &str) -> Option<T> {
+        Self::get(self, partition, key).await
+    }
+    async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
+        Self::set(self, partition, key, value).await
+    }
+    async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
+        Self::remove(self, partition, key).await
+    }
+    async fn last(&self, partition: &str) -> Option<T> {
+        Self::last(self, partition).await
+    }
+    async fn clear(&self) -> crate::Result<()> {
+        Self::clear(self).await
+    }
+}
+
 #[tokio::test]
 async fn test_memory_table() {
-    let t = Table::default();
+    let t = TableInnerRef::default();
     let table = MemoryTable::from(t);
     table.set("", "1", Some(&1)).await;
     table.set("", "2", Some(&2)).await;
@@ -254,7 +313,7 @@ async fn test_memory_table() {
 async fn test_memory_storage() {
     let storage = InMemoryStorage::new("");
     storage.make_table::<i32>();
-    let table = storage.table::<i32>();
+    let table = storage.table::<i32>().await;
     table.set("", "1", Some(&1)).await;
     table.set("", "2", Some(&2)).await;
     table.set("", "3", Some(&3)).await;
@@ -271,7 +330,7 @@ async fn test_memory_storage() {
 async fn test_memory_query() {
     let storage = InMemoryStorage::new("");
     storage.make_table::<i32>();
-    let table = storage.table::<i32>();
+    let table = storage.table::<i32>().await;
     for i in 0..500 {
         table.set("", &i.to_string(), Some(&i)).await;
     }
