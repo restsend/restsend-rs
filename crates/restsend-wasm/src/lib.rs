@@ -45,14 +45,6 @@ impl Client {
             Ok(v) => v,
             Err(_) => AuthInfo::default(),
         };
-        #[cfg(feature = "indexeddb")]
-        let inner = restsend_sdk::client::Client::new(
-            "".to_string(),
-            db_name.unwrap_or(info.user_id.clone()),
-            &info,
-        );
-
-        #[cfg(not(feature = "indexeddb"))]
         let inner =
             restsend_sdk::client::Client::new("".to_string(), db_name.unwrap_or_default(), &info);
 

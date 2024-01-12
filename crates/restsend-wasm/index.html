@@ -397,7 +397,7 @@
                 this.self = info.userId
                 this.messageBlocks = new MessageBlocks(endpoint, this.self)
 
-                client = new Client(info);
+                client = new Client(info, this.userid);
                 client.onconnected = () => {
                     // syncs conversations
                     this.doSyncConversations()
@@ -865,7 +865,8 @@
             class="mx-auto h-auto w-full max-w-7xl lg:flex relative md:mt-6 md:p-6 pr-0 shadow bg-gray-50 border border-gray-100 rounded-md">
             <!-- Left sidebar & main wrapper -->
             <template x-if="$store.modalData.open">
-                <div class="scroll-bar fixed w-full rounded left-0 top-0 justify-center items-center h-full flex z-20 mx-auto bg-gray-500 bg-opacity-50">
+                <div
+                    class="scroll-bar fixed w-full rounded left-0 top-0 justify-center items-center h-full flex z-20 mx-auto bg-gray-500 bg-opacity-50">
                     <div
                         class="scroll-bar max-w-4xl max-h-[calc(100vh-8rem)] mx-auto overflow-y-auto bg-white bg-white shadow-md w-full pb-6 px-4 rounded">
                         <div

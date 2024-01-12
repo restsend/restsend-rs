@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use js_sys::Promise;
 use serde::Deserialize;
 use serde::Serialize;
+use std::io::Cursor;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::vec;
@@ -62,7 +63,7 @@ impl IndexeddbStorage {
             return self.memory_storage.table(name);
         }
         let db_name = format!("{}-{}", self.db_prefix, name);
-        match IndexeddbTable::from(name.to_string(), self.last_version.unwrap_or(1)) {
+        match IndexeddbTable::from(db_name.to_string(), self.last_version.unwrap_or(1)) {
             Ok(v) => v,
             Err(_) => self.memory_storage.table(name),
         }
@@ -218,21 +219,12 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .unwrap()
                 .as_ref()
                 .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
+                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
 
             let index = store.index("partition+sortkey").ok()?;
-
-            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
-                &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
-                    .into(),
-                &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into())
-                    .into(),
-            )
-            .ok()?;
-
-            let cursor_req = index.open_cursor_with_range(&query_range).ok()?;
+            let cursor_req = index.open_cursor().ok()?;
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
             let items_ref = items.clone();
@@ -241,18 +233,9 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
                     .and_then(|cursor_req| cursor_req.result().ok())
+                    .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
                 {
-                    Some(result) => match result.dyn_into::<web_sys::IdbCursorWithValue>() {
-                        Ok(v) => v,
-                        Err(e) => {
-                            tx_ref
-                                .lock()
-                                .unwrap()
-                                .take()
-                                .and_then(|tx| tx.send(Err(e.into())).ok());
-                            return;
-                        }
-                    },
+                    Some(v) => v,
                     None => {
                         tx_ref
                             .lock()
@@ -262,8 +245,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                         return;
                     }
                 };
-
-                match cursor.value() {
+                let r = match cursor.value() {
                     Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
                         Ok(v) => {
                             if let Ok(Some(item)) =
@@ -272,20 +254,14 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                                 items_ref.lock().unwrap().as_mut().unwrap().push(item);
                             }
                             cursor.continue_().ok();
+                            None
                         }
-                        Err(e) => {
-                            tx_ref.lock().unwrap().take().and_then(|tx| {
-                                tx.send(Err(ClientError::Storage(e.to_string()))).ok()
-                            });
-                        }
+                        Err(e) => Some(Err(ClientError::Storage(e.to_string()))),
                     },
-                    Err(e) => {
-                        tx_ref
-                            .lock()
-                            .unwrap()
-                            .take()
-                            .and_then(|tx| tx.send(Err(e.into())).ok());
-                    }
+                    Err(e) => Some(Err(e.into())),
+                };
+                if let Some(r) = r {
+                    tx_ref.lock().unwrap().take().and_then(|tx| tx.send(r).ok());
                 }
             })
                 as Box<dyn FnMut(web_sys::Event)>);
@@ -329,13 +305,15 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .unwrap()
                 .as_ref()
                 .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
+                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
 
             let index = store.index("partition+sortkey").ok()?;
-            let query_range: IdbKeyRange = web_sys::IdbKeyRange::upper_bound_with_open(
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound_with_lower_open(
                 &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
+                &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into())
+                    .into(),
                 true,
             )
             .ok()?;
@@ -346,23 +324,13 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
             let items_ref = items.clone();
             let limit = option.limit;
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let result = e
+                let cursor = match e
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok());
-
-                let cursor = match result {
-                    Some(result) => match result.dyn_into::<web_sys::IdbCursorWithValue>() {
-                        Ok(v) => v,
-                        Err(e) => {
-                            tx_ref
-                                .lock()
-                                .unwrap()
-                                .take()
-                                .and_then(|tx| tx.send(Err(e.into())).ok());
-                            return;
-                        }
-                    },
+                    .and_then(|cursor_req| cursor_req.result().ok())
+                    .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
+                {
+                    Some(v) => v,
                     None => {
                         tx_ref
                             .lock()
@@ -373,35 +341,29 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                     }
                 };
 
-                match cursor.value() {
+                let r = match cursor.value() {
                     Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
                         Ok(v) => {
+                            let mut items_count = 0;
                             if let Ok(item) = T::from_str(&v.value) {
                                 if let Some(items) = items_ref.lock().unwrap().as_mut() {
                                     items.push(item);
-                                    if items.len() >= limit as usize {
-                                        tx_ref
-                                            .lock()
-                                            .unwrap()
-                                            .take()
-                                            .and_then(|tx| tx.send(Ok(())).ok());
-                                    }
+                                    items_count = items.len();
                                 }
                             }
+                            if items_count >= limit as usize {
+                                Some(Ok(()))
+                            } else {
+                                cursor.continue_().ok();
+                                None
+                            }
                         }
-                        Err(e) => {
-                            tx_ref.lock().unwrap().take().and_then(|tx| {
-                                tx.send(Err(ClientError::Storage(e.to_string()))).ok()
-                            });
-                        }
+                        Err(e) => Some(Err(ClientError::Storage(e.to_string()))),
                     },
-                    Err(e) => {
-                        tx_ref
-                            .lock()
-                            .unwrap()
-                            .take()
-                            .and_then(|tx| tx.send(Err(e.into())).ok());
-                    }
+                    Err(e) => Some(Err(e.into())),
+                };
+                if let Some(r) = r {
+                    tx_ref.lock().unwrap().take().and_then(|tx| tx.send(r).ok());
                 }
             })
                 as Box<dyn FnMut(web_sys::Event)>);
@@ -442,7 +404,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .unwrap()
                 .as_ref()
                 .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
+                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
 
@@ -518,10 +480,11 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
             let item = serde_wasm_bindgen::to_value(&item)
                 .map_err(|e| ClientError::Storage(e.to_string()))?;
             let put_req = store.put(&item)?;
-
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
-
+            let sortkey = value.sort_key();
+            let key_ref = key.to_string();
+            let partition_ref = partition.to_string();
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
                 tx_ref
                     .lock()
@@ -582,37 +545,45 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                         &js_sys::Number::POSITIVE_INFINITY.into(),
                     ),
                 )?;
-                index.open_cursor_with_range(&query_range)
+                index.open_key_cursor_with_range(&query_range)
             }?;
 
             let tx = Arc::new(Mutex::new(Some(tx)));
             let tx_ref = tx.clone();
+            let partition = partition.to_string();
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let result = e
+                let cursor = match e
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .map(|v| v.result().unwrap_or(JsValue::UNDEFINED));
-                match result {
-                    Some(v) => match v.dyn_into::<web_sys::IdbCursorWithValue>() {
-                        Ok(cursor) => {
-                            cursor.delete().ok();
-                            cursor.continue_().ok();
-                        }
-                        Err(e) => {
-                            tx_ref
-                                .lock()
-                                .unwrap()
-                                .take()
-                                .and_then(|tx| tx.send(Err(e.into())).ok());
-                        }
-                    },
+                    .and_then(|cursor_req| cursor_req.result().ok())
+                    .and_then(|result| result.dyn_into::<web_sys::IdbCursor>().ok())
+                {
+                    Some(v) => v,
                     None => {
                         tx_ref
                             .lock()
                             .unwrap()
                             .take()
                             .and_then(|tx| tx.send(Ok(())).ok());
+                        return;
                     }
+                };
+
+                let r = match cursor.key() {
+                    Ok(keys) => match keys.dyn_into::<js_sys::Array>() {
+                        Ok(v) => {
+                            if v.get(0).as_string().unwrap_or_default() == partition {
+                                cursor.delete().ok();
+                            }
+                            cursor.continue_().ok();
+                            None
+                        }
+                        Err(e) => Some((Err(e.into()))),
+                    },
+                    Err(e) => Some((Err(e.into()))),
+                };
+                if let Some(r) = r {
+                    tx_ref.lock().unwrap().take().and_then(|tx| tx.send(r).ok());
                 }
             })
                 as Box<dyn FnMut(web_sys::Event)>);
@@ -649,15 +620,22 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
                 .unwrap()
                 .as_ref()
                 .unwrap()
-                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
+                .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
                 .and_then(|tx| tx.object_store(&self.table_name))
                 .ok()?;
 
             let index = store.index("partition+sortkey").ok()?;
-            let key_range =
-                IdbKeyRange::upper_bound_with_open(&JsValue::from_str(partition), true).ok()?;
+            let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
+                &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into()),
+                &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into()),
+            )
+            .ok()?;
+
             let cursor_request = index
-                .open_cursor_with_range_and_direction(&key_range, web_sys::IdbCursorDirection::Prev)
+                .open_cursor_with_range_and_direction(
+                    &query_range,
+                    web_sys::IdbCursorDirection::Prev,
+                )
                 .ok()?;
 
             let tx = Arc::new(Mutex::new(Some(tx)));

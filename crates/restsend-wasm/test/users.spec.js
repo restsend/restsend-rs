@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { authClient } from './common.js'
-import { setLogging } from '../pkg/restsend_wasm.js'
 
 describe('Users', function () {
     describe('#get user info', async function () {

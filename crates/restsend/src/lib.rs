@@ -15,6 +15,9 @@ mod websocket;
 
 #[allow(unused)]
 const USER_AGENT: &str = "restsend-sdk/0.0.2"; // ios/android
+#[cfg(target_family = "wasm")]
+const DB_SUFFIX: &str = "";
+#[cfg(not(target_family = "wasm"))]
 const DB_SUFFIX: &str = ".sqlite3";
 
 const CHAT_ID_LEN: usize = 10;

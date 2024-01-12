@@ -37,6 +37,7 @@ describe('Conversations', async function () {
         expect(cbCount).toEqual(3)
         expect(conversations.length).toEqual(cbCount)
     })
+    setLogging('debug')
     it('#sync sync last logs', async () => {
         await vitalik.connect()
         await waitUntil(() => vitalik.connectionStatus === 'connected', 3000)
@@ -109,7 +110,6 @@ describe('Conversations', async function () {
 
         let syncDone = false
         let newItems = []
-        setLogging('debug')
         await vitalik.syncChatLogs(guidoTopic.topicId, recallSeq, {
             limit: 10,
             onsuccess: (r) => {

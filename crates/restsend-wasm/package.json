@@ -1,6 +1,6 @@
 {
   "name": "resetsend-sdk",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Restsend Javascript/Wasm SDK",
   "files": [
     "dist"
@@ -15,10 +15,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "wasm-pack build",
-    "dist": "wasm-pack build -d ../../js",
-    "wasm_test": "wasm-pack test --firefox --headless",
-    "test": "wasm-pack build && vitest --run"
+    "build": "wasm-pack build -t web -- --no-default-features --features indexeddb",
+    "dist": "wasm-pack build -d ../../js -t web -- --no-default-features --features indexeddb",
+    "wasm_test": "wasm-pack test --firefox --headless -- --no-default-features --features indexeddb",
+    "test": "wasm-pack build  -- --no-default-features --features indexeddb && vitest --run"
   },
   "author": "admin@restsend.com",
   "license": "ISC"

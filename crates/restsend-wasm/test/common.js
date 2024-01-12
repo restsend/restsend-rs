@@ -14,23 +14,9 @@ export async function waitUntil(fn, timeout) {
     }
 }
 
-async function clearDatabase(name) {
-    await new Promise((resolve, reject) => {
-        let req = window.indexedDB.deleteDatabase(name)
-        req.onsuccess = resolve
-        req.onerror = reject
-    })
-}
 export async function authClient(username, password, withWebSocket = false) {
-    if (typeof window.indexedDB !== 'undefined') {
-        let tbls = ["topics", "users", "messages", "conversations", "chat_logs"]
-        for (let tbl of tbls) {
-            await clearDatabase(`${username}-${tbl}`)
-            console.log(`clear ${username}-${tbl}`)
-        }
-    }
     let info = await signin(endpoint, username, password)
-    let client = new Client(info)
+    let client = new Client(info, username)
 
     if (withWebSocket) {
         await client.connect()

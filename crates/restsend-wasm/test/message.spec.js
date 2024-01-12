@@ -2,11 +2,10 @@ import { describe, it, expect } from 'vitest'
 const { Client, signin, setLogging } = await import('../pkg/restsend_wasm.js')
 import { waitUntil, authClient, endpoint } from './common.js'
 
-setLogging('info')
 describe('Messages', async function () {
     it('#setup callback', async () => {
         let info = await signin(endpoint, 'guido', 'guido:demo')
-        let client = new Client(info)
+        let client = new Client(info, 'guido')
         let isConnected = false
         client.onconnected = () => {
             isConnected = true
