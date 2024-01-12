@@ -1,6 +1,6 @@
 [package]
 name = "restsend-wasm"
-version = "1.0.0"
+version = "1.0.2"
 edition = "2021"
 description = "A client for the retsend server"
 

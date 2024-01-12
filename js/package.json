@@ -1,0 +1,15 @@
+{
+  "name": "restsend-wasm",
+  "description": "A client for the retsend server",
+  "version": "1.0.2",
+  "files": [
+    "restsend_wasm_bg.wasm",
+    "restsend_wasm.js",
+    "restsend_wasm.d.ts"
+  ],
+  "module": "restsend_wasm.js",
+  "types": "restsend_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
