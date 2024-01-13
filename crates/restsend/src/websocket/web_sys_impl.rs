@@ -3,13 +3,14 @@ use crate::error::ClientError;
 use crate::utils::elapsed;
 use crate::utils::now_millis;
 use crate::Result;
+use js_sys::Promise;
 use log::warn;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tokio::sync::oneshot;
 use wasm_bindgen::closure::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
+use wasm_bindgen_futures::JsFuture;
 use web_sys::{ErrorEvent, Event, MessageEvent, WebSocket};
 
 pub struct WebSocketImpl {
@@ -25,23 +26,7 @@ impl WebSocketImpl {
 
     pub async fn send(&self, message: String) -> Result<()> {
         if let Some(ws) = self.ws.lock().unwrap().as_ref() {
-            match ws.send_with_str(&message) {
-                Ok(_) => {}
-                Err(e) => {
-                    // get error message from JsValue
-                    let reason = match e.dyn_into::<js_sys::Error>() {
-                        Ok(e) => e.message().as_string(),
-                        Err(e) => e.as_string(),
-                    }
-                    .unwrap_or("send error".to_string());
-                    return Err(ClientError::HTTP(format!(
-                        "websocket send error: {}",
-                        reason
-                    )));
-                }
-            }
-        } else {
-            warn!("websocket is not connected, discard message: {:?}", message);
+            ws.send_with_str(&message)?;
         }
         Ok(())
     }
@@ -91,81 +76,77 @@ impl WebSocketImpl {
         };
 
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
+        self.ws.lock().unwrap().replace(ws.clone());
 
-        let callback_ref = callback.clone();
-        let onopen_callback = Closure::<dyn FnMut()>::new(move || {
-            callback_ref
-                .lock()
-                .unwrap()
-                .as_ref()
-                .on_connected(elapsed(st));
-        });
-        ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
-        onopen_callback.forget();
+        let p = Promise::new(&mut move |_, reject| {
+            let callback_ref = callback.clone();
+            let onopen_callback = Closure::<dyn FnMut()>::new(move || {
+                callback_ref
+                    .lock()
+                    .unwrap()
+                    .as_ref()
+                    .on_connected(elapsed(st));
+            });
+            ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
+            onopen_callback.forget();
 
-        let callback_ref = callback.clone();
-        let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
-            if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
-                let array = js_sys::Uint8Array::new(&abuf);
-                let len = array.byte_length() as usize;
-                let mut buf = vec![0u8; len];
-                array.copy_to(&mut buf[..]);
-                let message = String::from_utf8(buf);
-                match message {
-                    Ok(message) => {
-                        callback_ref.lock().unwrap().as_ref().on_message(message);
+            let callback_ref = callback.clone();
+            let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
+                if let Ok(abuf) = e.data().dyn_into::<js_sys::ArrayBuffer>() {
+                    let array = js_sys::Uint8Array::new(&abuf);
+                    let len = array.byte_length() as usize;
+                    let mut buf = vec![0u8; len];
+                    array.copy_to(&mut buf[..]);
+                    let message = String::from_utf8(buf);
+                    match message {
+                        Ok(message) => {
+                            callback_ref.lock().unwrap().as_ref().on_message(message);
+                        }
+                        Err(_) => {}
                     }
-                    Err(_) => {}
-                }
-            } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
-                let message = txt.as_string();
-                match message {
-                    Some(message) => {
-                        callback_ref.lock().unwrap().as_ref().on_message(message);
+                } else if let Ok(txt) = e.data().dyn_into::<js_sys::JsString>() {
+                    let message = txt.as_string();
+                    match message {
+                        Some(message) => {
+                            callback_ref.lock().unwrap().as_ref().on_message(message);
+                        }
+                        None => {}
                     }
-                    None => {}
                 }
-            }
+            });
+            ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
+            onmessage_callback.forget();
+
+            let callback_ref = callback.clone();
+            let reject_ref = reject.clone();
+            let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
+                let reason = e.message();
+                warn!("error event error: {:?}", reason);
+                callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
+                reject_ref.call1(&JsValue::NULL, &e).ok();
+            });
+            ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
+            onerror_callback.forget();
+
+            let callback_ref = callback.clone();
+            let reject_ref = reject.clone();
+            let onclose_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
+                //get code and reason from e
+                let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
+                    Ok(v) => v.as_string().unwrap_or_default(),
+                    Err(e) => {
+                        format!("{:?}", e)
+                    }
+                };
+                warn!("close event error: {}", reason);
+                callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
+                reject_ref.call1(&JsValue::NULL, &e).ok();
+            });
+
+            ws.set_onclose(Some(onclose_callback.as_ref().unchecked_ref()));
+            onclose_callback.forget();
         });
-        ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
-        onmessage_callback.forget();
-
-        let (close_tx, close_rx) = oneshot::channel::<()>();
-        let callback_ref = callback.clone();
-        let close_tx = Arc::new(Mutex::new(Some(close_tx)));
-        let close_tx_ref = close_tx.clone();
-        let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-            let reason = e.message();
-            warn!("error event error: {:?}", reason);
-            callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
-            if let Some(close_tx) = close_tx.lock().unwrap().take() {
-                close_tx.send(()).ok();
-            }
-        });
-        ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
-        onerror_callback.forget();
-
-        let callback_ref = callback.clone();
-        let onclose_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
-            //get code and reason from e
-            let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
-                Ok(v) => v.as_string().unwrap_or_default(),
-                Err(e) => {
-                    format!("{:?}", e)
-                }
-            };
-            warn!("close event error: {}", reason);
-            callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
-            if let Some(close_tx_ref) = close_tx_ref.lock().unwrap().take() {
-                close_tx_ref.send(()).ok();
-            }
-        });
-
-        ws.set_onclose(Some(onclose_callback.as_ref().unchecked_ref()));
-        onclose_callback.forget();
-
-        self.ws.lock().unwrap().replace(ws);
-        close_rx.await.ok();
+        JsFuture::from(p).await.ok();
         warn!("websocket closed: lifetime:{:?}", elapsed(st));
         Ok(())
     }
