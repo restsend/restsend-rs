@@ -11,10 +11,10 @@
     ```
 3. import `restsend_wasm.js` in your project
     ```javascript
-    import * as restsend_wasm from 'restsend_wasm.js';
-    restsend_wasm.then(m => {
-        const info = m.signin(endpoint, userId, password)
-        let client = new m.Client(endpoint, userId, info.token)
-        ...
+    import restsendWasm from 'restsend_wasm.js';
+    restsendWasm().then(m => {
+        m.signin(endpoint, userId, password).then(info => {
+            let client = new m.Client(info)
+        })
     })
     ```
