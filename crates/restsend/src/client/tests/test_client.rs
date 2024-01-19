@@ -3,7 +3,7 @@ use crate::{
     client::{tests::TEST_ENDPOINT, Client},
     models::{ChatLogStatus, Conversation},
     request::ChatRequest,
-    services::auth::login_with_password,
+    services::auth::{login_with_password, signup},
     utils::check_until,
     utils::init_log,
 };
@@ -104,13 +104,29 @@ async fn test_client_connected() {
 #[tokio::test]
 async fn test_client_send_message() {
     init_log("INFO".to_string(), true);
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "guido1".to_string(),
+        "guido:demo".to_string(),
+    )
+    .await
+    .ok();
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "guido2".to_string(),
+        "guido:demo".to_string(),
+    )
+    .await
+    .ok();
+
     let info = login_with_password(
         TEST_ENDPOINT.to_string(),
-        "guido".to_string(),
+        "guido1".to_string(),
         "guido:demo".to_string(),
     )
     .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
+    let topic_id = c.create_chat("guido2".to_string()).await.unwrap().topic_id;
 
     let is_connected = Arc::new(AtomicBool::new(false));
     let is_recv_message = Arc::new(AtomicBool::new(false));
@@ -142,15 +158,9 @@ async fn test_client_send_message() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
-    c.do_send_text(
-        "guido:alice".to_string(),
-        "hello".to_string(),
-        None,
-        None,
-        Some(msg_cb),
-    )
-    .await
-    .unwrap();
+    c.do_send_text(topic_id, "hello".to_string(), None, None, Some(msg_cb))
+        .await
+        .unwrap();
 
     check_until(Duration::from_secs(3), || is_sent.load(Ordering::Relaxed))
         .await
@@ -168,7 +178,7 @@ async fn test_client_send_message() {
     let logs = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
 
     assert!(logs.items.len() == 1);
-    assert_eq!(logs.items[0].sender_id, "guido");
+    assert_eq!(logs.items[0].sender_id, "guido1");
     assert_eq!(logs.items[0].status, ChatLogStatus::Sent);
 
     let is_ack = Arc::new(AtomicBool::new(false));

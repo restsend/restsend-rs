@@ -485,7 +485,7 @@
 
                 this.conversation = conversation
                 const lastSeq = conversation.lastSeq
-                if (!fetchLogs) { //the messages are not changed
+                if (!fetchLogs && limit === 0) { //the messages are not changed
                     return
                 }
 

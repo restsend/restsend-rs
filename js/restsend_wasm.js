@@ -343,6 +343,56 @@ export class Client {
         wasm.__wbg_client_free(ptr);
     }
     /**
+    * Create a new client
+    * # Arguments
+    * * `info` - AuthInfo
+    * * `db_name` - database name (optional), create an indexeddb when set it
+    * @param {any} info
+    * @param {string | undefined} [db_name]
+    */
+    constructor(info, db_name) {
+        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_new(addHeapObject(info), ptr0, len0);
+        this.__wbg_ptr = ret >>> 0;
+        return this;
+    }
+    /**
+    * get the current connection status
+    * return: connecting, connected, broken, shutdown
+    * @returns {string}
+    */
+    get connectionStatus() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.client_connectionStatus(retptr, this.__wbg_ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            deferred1_0 = r0;
+            deferred1_1 = r1;
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
+    * @returns {Promise<void>}
+    */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return takeObject(ret);
+    }
+    /**
     * Set the callback when connection connected
     * @param {any} cb
     */
@@ -744,56 +794,6 @@ export class Client {
     */
     filterConversation(predicate) {
         const ret = wasm.client_filterConversation(this.__wbg_ptr, addHeapObject(predicate));
-        return takeObject(ret);
-    }
-    /**
-    * Create a new client
-    * # Arguments
-    * * `info` - AuthInfo
-    * * `db_name` - database name (optional), create an indexeddb when set it
-    * @param {any} info
-    * @param {string | undefined} [db_name]
-    */
-    constructor(info, db_name) {
-        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_new(addHeapObject(info), ptr0, len0);
-        this.__wbg_ptr = ret >>> 0;
-        return this;
-    }
-    /**
-    * get the current connection status
-    * return: connecting, connected, broken, shutdown
-    * @returns {string}
-    */
-    get connectionStatus() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-            wasm.client_connectionStatus(retptr, this.__wbg_ptr);
-            var r0 = getInt32Memory0()[retptr / 4 + 0];
-            var r1 = getInt32Memory0()[retptr / 4 + 1];
-            deferred1_0 = r0;
-            deferred1_1 = r1;
-            return getStringFromWasm0(r0, r1);
-        } finally {
-            wasm.__wbindgen_add_to_stack_pointer(16);
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-    * @returns {Promise<void>}
-    */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
-        return takeObject(ret);
-    }
-    /**
-    * @returns {Promise<void>}
-    */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
         return takeObject(ret);
     }
     /**
@@ -1848,10 +1848,6 @@ function __wbg_get_imports() {
         const ret = typeof(getObject(arg0)) === 'string';
         return ret;
     };
-    imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
-        const ret = new Error(getStringFromWasm0(arg0, arg1));
-        return addHeapObject(ret);
-    };
     imports.wbg.__wbindgen_cb_drop = function(arg0) {
         const obj = takeObject(arg0).original;
         if (obj.cnt-- == 1) {
@@ -1874,6 +1870,10 @@ function __wbg_get_imports() {
     imports.wbg.__wbindgen_is_null = function(arg0) {
         const ret = getObject(arg0) === null;
         return ret;
+    };
+    imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
+        const ret = new Error(getStringFromWasm0(arg0, arg1));
+        return addHeapObject(ret);
     };
     imports.wbg.__wbindgen_is_bigint = function(arg0) {
         const ret = typeof(getObject(arg0)) === 'bigint';
@@ -2635,32 +2635,32 @@ function __wbg_get_imports() {
         const ret = wasm.memory;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1346 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_52);
+    imports.wbg.__wbindgen_closure_wrapper1207 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_52);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1347 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1208 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1348 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1209 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1349 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1210 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1353 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1214 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1355 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 634, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1216 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 602, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper2366 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 886, __wbg_adapter_66);
+    imports.wbg.__wbindgen_closure_wrapper2362 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 885, __wbg_adapter_66);
         return addHeapObject(ret);
     };
 

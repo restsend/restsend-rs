@@ -129,27 +129,33 @@ impl Client {
         }
         .max(MAX_CONVERSATION_LIMIT);
 
-        let local_updated_at = self.store.get_last_conversation_updated_at().await;
         let updated_at = updated_at.unwrap_or_default();
-        if !updated_at.is_empty() && local_updated_at.is_some() {
-            match self.store.get_conversations(&updated_at, limit).await {
-                Ok(r) => {
-                    if r.items.len() == limit as usize {
-                        let updated_at = r
-                            .items
-                            .last()
-                            .map(|c| c.updated_at.clone())
-                            .unwrap_or_default();
-                        let count = r.items.len() as u32;
-                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                            cb.on_conversations_updated(r.items);
+        if !updated_at.is_empty() {
+            if let Ok(t) = chrono::DateTime::parse_from_rfc3339(&updated_at) {
+                if t.timestamp_millis() > 0
+                    && now_millis() - t.timestamp_millis()
+                        <= 1000 * crate::CONVERSATION_CACHE_EXPIRE_SECS
+                {
+                    match self.store.get_conversations(&updated_at, limit).await {
+                        Ok(r) => {
+                            if r.items.len() == limit as usize {
+                                let updated_at = r
+                                    .items
+                                    .last()
+                                    .map(|c| c.updated_at.clone())
+                                    .unwrap_or_default();
+                                let count = r.items.len() as u32;
+                                if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                                    cb.on_conversations_updated(r.items);
+                                }
+                                callback.on_success(updated_at, count as u32);
+                                return;
+                            }
                         }
-                        callback.on_success(updated_at, count as u32);
-                        return;
+                        Err(e) => {
+                            warn!("sync_conversations failed: {:?}", e);
+                        }
                     }
-                }
-                Err(e) => {
-                    warn!("sync_conversations failed: {:?}", e);
                 }
             }
         }

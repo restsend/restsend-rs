@@ -19,29 +19,48 @@ use crate::{
     },
     models::{Content, ContentType, GetChatLogsResult},
     request::ChatRequest,
-    services::auth::login_with_password,
+    services::auth::{login_with_password, signup},
     utils::{check_until, init_log},
 };
 
 #[tokio::test]
 async fn test_client_fetch_logs() {
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "bob1".to_string(),
+        "bob:demo".to_string(),
+    )
+    .await
+    .ok();
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "bob2".to_string(),
+        "bob:demo".to_string(),
+    )
+    .await
+    .ok();
+
     let info = login_with_password(
         TEST_ENDPOINT.to_string(),
-        "bob".to_string(),
+        "bob1".to_string(),
         "bob:demo".to_string(),
     )
     .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
-    let topic_id = "bob:alice";
+    let topic_id = c
+        .create_chat("bob2".to_string())
+        .await
+        .expect("create chat failed")
+        .topic_id;
 
-    let local_logs = c.store.get_chat_logs("bob:alice", None, 10).await.unwrap();
+    let local_logs = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
     assert_eq!(local_logs.items.len(), 0);
     let mut last_seq = 0;
     let send_count = 2;
     for i in 0..send_count {
         let req = ChatRequest::new_text(
-            topic_id,
-            &format!("hello from rust unittest bob->alice {}", i),
+            &topic_id,
+            &format!("hello from rust unittest bob1->bob2 {}", i),
         );
         let resp = c
             .send_chat_request(topic_id.to_string(), req)
@@ -78,7 +97,7 @@ async fn test_client_fetch_logs() {
     let r = result.lock().unwrap().take().unwrap();
     let local_logs = c
         .store
-        .get_chat_logs(topic_id, None, send_count)
+        .get_chat_logs(&topic_id, None, send_count)
         .await
         .unwrap();
     assert_eq!(r.start_seq, local_logs.start_sort_value);
@@ -197,14 +216,37 @@ impl Drop for TopicGuard {
 #[tokio::test]
 async fn test_client_sync_logs() {
     init_log("INFO".to_string(), true);
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "vivian1".to_string(),
+        "vivian:demo".to_string(),
+    )
+    .await
+    .ok();
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "vivian2".to_string(),
+        "vivian:demo".to_string(),
+    )
+    .await
+    .ok();
+    signup(
+        TEST_ENDPOINT.to_string(),
+        "vivian3".to_string(),
+        "vivian:demo".to_string(),
+    )
+    .await
+    .ok();
+
     let info = login_with_password(
         TEST_ENDPOINT.to_string(),
-        "vitalik".to_string(),
-        "vitalik:demo".to_string(),
+        "vivian1".to_string(),
+        "vivian:demo".to_string(),
     )
-    .await;
+    .await
+    .expect("login failed");
 
-    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
+    let c = Client::new("".to_string(), "".to_string(), &info);
     let recv_message_count = Arc::new(AtomicI64::new(0));
     c.set_callback(Some(Box::new(TestCallbackImpl {
         last_topic_id: Arc::new(Mutex::new("".to_string())),
@@ -222,7 +264,7 @@ async fn test_client_sync_logs() {
     .await
     .unwrap();
 
-    let members = vec!["alice".to_string(), "bob".to_string()];
+    let members = vec!["vivian2".to_string(), "vivian3".to_string()];
 
     let topic = c
         .create_topic(members, None, None)

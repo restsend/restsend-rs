@@ -36,7 +36,7 @@ pub async fn signup(endpoint: String, email: String, password: String) -> Result
         "password": password,
         "remember": true,
     });
-    signin_or_signup(&endpoint, "/auth/signup", &email, data.to_string()).await
+    signin_or_signup(&endpoint, "/auth/register", &email, data.to_string()).await
 }
 
 #[export_wasm_or_ffi]
