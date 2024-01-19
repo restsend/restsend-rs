@@ -19,6 +19,27 @@ pub struct GetChatLogsResult {
     pub items: Vec<ChatLog>,
 }
 
+impl GetChatLogsResult {
+    pub fn from_local_logs(qr: QueryResult<ChatLog>, start_seq: i64) -> Self {
+        GetChatLogsResult {
+            has_more: qr.end_sort_value > start_seq + 1,
+            start_seq: qr.start_sort_value,
+            end_seq: qr.end_sort_value,
+            items: qr.items,
+        }
+    }
+}
+impl From<ListChatLogResult> for GetChatLogsResult {
+    fn from(lr: ListChatLogResult) -> Self {
+        Self {
+            has_more: lr.has_more,
+            start_seq: lr.items.first().map(|c| c.seq).unwrap_or(0),
+            end_seq: lr.items.last().map(|c| c.seq).unwrap_or(0),
+            items: lr.items,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
@@ -100,3 +121,5 @@ pub use topic::Topic;
 pub use topic::TopicNotice;
 pub use topic_member::TopicMember;
 pub use user::{AuthInfo, User, UserProfile};
+
+use crate::storage::QueryResult;

@@ -5,8 +5,8 @@ use crate::utils::now_millis;
 use crate::Result;
 use js_sys::Promise;
 use log::warn;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::closure::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
@@ -14,18 +14,18 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{ErrorEvent, Event, MessageEvent, WebSocket};
 
 pub struct WebSocketImpl {
-    ws: Mutex<Option<web_sys::WebSocket>>,
+    ws: RefCell<Option<web_sys::WebSocket>>,
 }
 
 impl WebSocketImpl {
     pub fn new() -> Self {
         WebSocketImpl {
-            ws: Mutex::new(None),
+            ws: RefCell::new(None),
         }
     }
 
     pub async fn send(&self, message: String) -> Result<()> {
-        if let Some(ws) = self.ws.lock().unwrap().as_ref() {
+        if let Some(ws) = self.ws.borrow().as_ref() {
             ws.send_with_str(&message)?;
         }
         Ok(())
@@ -55,7 +55,7 @@ impl WebSocketImpl {
 
         callback.on_connecting();
 
-        let callback = Arc::new(Mutex::new(callback));
+        let callback = Rc::new(callback);
         let callback_ref = callback.clone();
         let ws = match WebSocket::new(&url) {
             Ok(ws) => ws,
@@ -66,26 +66,18 @@ impl WebSocketImpl {
                 }
                 .unwrap_or("create Websocket fail".to_string());
 
-                callback_ref
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .on_net_broken(reason.clone());
+                callback_ref.on_net_broken(reason.clone());
                 return Err(ClientError::HTTP(reason));
             }
         };
 
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
-        self.ws.lock().unwrap().replace(ws.clone());
+        self.ws.borrow_mut().replace(ws.clone());
 
         let p = Promise::new(&mut move |_, reject| {
             let callback_ref = callback.clone();
             let onopen_callback = Closure::<dyn FnMut()>::new(move || {
-                callback_ref
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .on_connected(elapsed(st));
+                callback_ref.on_connected(elapsed(st));
             });
             ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
             onopen_callback.forget();
@@ -100,7 +92,7 @@ impl WebSocketImpl {
                     let message = String::from_utf8(buf);
                     match message {
                         Ok(message) => {
-                            callback_ref.lock().unwrap().as_ref().on_message(message);
+                            callback_ref.on_message(message);
                         }
                         Err(_) => {}
                     }
@@ -108,7 +100,7 @@ impl WebSocketImpl {
                     let message = txt.as_string();
                     match message {
                         Some(message) => {
-                            callback_ref.lock().unwrap().as_ref().on_message(message);
+                            callback_ref.on_message(message);
                         }
                         None => {}
                     }
@@ -122,7 +114,7 @@ impl WebSocketImpl {
             let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
                 let reason = e.message();
                 warn!("error event error: {:?}", reason);
-                callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
+                callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();
             });
             ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
@@ -139,7 +131,7 @@ impl WebSocketImpl {
                     }
                 };
                 warn!("close event error: {}", reason);
-                callback_ref.lock().unwrap().as_ref().on_net_broken(reason);
+                callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();
             });
 

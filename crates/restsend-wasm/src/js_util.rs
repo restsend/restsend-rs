@@ -1,7 +1,8 @@
 use crate::CallbackFunction;
 use js_sys::JsString;
 use restsend_sdk::models::{Attachment, Content};
-use std::sync::{Arc, Mutex};
+use std::cell::RefCell;
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -10,10 +11,10 @@ pub fn get_function(cb: &JsValue, key: &str) -> CallbackFunction {
     let value = js_sys::Reflect::get(&cb, &property_key);
     if let Ok(v) = value {
         if let Ok(v) = v.dyn_into::<js_sys::Function>() {
-            return Arc::new(Mutex::new(Some(v)));
+            return Rc::new(RefCell::new(Some(v)));
         }
     }
-    Arc::new(Mutex::new(None))
+    Rc::new(RefCell::new(None))
 }
 
 pub fn get_vec_strings(obj: &JsValue, key: &str) -> Option<Vec<String>> {

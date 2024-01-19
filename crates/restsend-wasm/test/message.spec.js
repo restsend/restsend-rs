@@ -19,8 +19,6 @@ describe('Messages', async function () {
         let guido = await authClient('guido', 'guido:demo', true)
         expect(guido.connectionStatus).toBe('connected')
     })
-    bob.onconversationsupdated = async (items) => {
-    }
 
     it('#send text message', async () => {
         let isSent = false
@@ -33,7 +31,7 @@ describe('Messages', async function () {
             onack: (req) => {
                 isAck = true
             },
-            onerror: (e) => {
+            onfail: (e) => {
                 isFail = true
             }
         })

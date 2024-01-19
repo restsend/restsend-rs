@@ -256,7 +256,11 @@ impl ClientStore {
         }
     }
 
-    pub(crate) async fn get_conversation(&self, topic_id: &str) -> Option<Conversation> {
+    pub(crate) async fn get_conversation(
+        &self,
+        topic_id: &str,
+        blocking: bool,
+    ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         let conversation = t
             .get("", topic_id)
@@ -266,19 +270,19 @@ impl ClientStore {
         if conversation.is_partial
             || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
         {
-            self.fetch_conversation(topic_id).await;
+            self.fetch_conversation(topic_id, blocking).await;
         }
         Some(conversation)
     }
 
-    pub(super) async fn fetch_conversation(&self, topic_id: &str) {
+    pub(super) async fn fetch_conversation(&self, topic_id: &str, blocking: bool) {
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
         let topic_id = topic_id.to_string();
         let message_storage = self.message_storage.clone();
         let callback = self.callback.clone();
 
-        spwan_task(async move {
+        let runner = async move {
             match get_conversation(&endpoint, &token, &topic_id).await {
                 Ok(c) => {
                     let c = match merge_conversation(message_storage, c).await {
@@ -297,7 +301,12 @@ impl ClientStore {
                     return;
                 }
             };
-        });
+        };
+        if blocking {
+            runner.await;
+        } else {
+            spwan_task(runner);
+        }
     }
 
     pub(super) async fn update_conversation_read(

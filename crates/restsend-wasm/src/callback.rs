@@ -32,7 +32,7 @@ impl MessageCallbackWasmWrap {
 
 impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     fn on_sent(&self) {
-        if let Some(cb) = self.cb_on_sent.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_sent.borrow().as_ref() {
             cb.call0(&JsValue::NULL)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -40,7 +40,7 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     }
 
     fn on_progress(&self, progress: u64, total: u64) {
-        if let Some(cb) = self.cb_on_progress.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_progress.borrow().as_ref() {
             cb.call2(
                 &JsValue::NULL,
                 &JsValue::from_f64(progress as f64),
@@ -52,7 +52,7 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     }
 
     fn on_attachment_upload(&self, result: Upload) -> Option<Content> {
-        if let Some(cb) = self.cb_on_attachment_upload.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_attachment_upload.borrow().as_ref() {
             let result = serde_wasm_bindgen::to_value(&result).unwrap_or(JsValue::UNDEFINED);
             match cb.call1(&JsValue::NULL, &result) {
                 Ok(r) => match serde_wasm_bindgen::from_value(r) {
@@ -70,7 +70,7 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     }
 
     fn on_ack(&self, req: ChatRequest) {
-        if let Some(cb) = self.cb_on_ack.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_ack.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &req)
@@ -80,7 +80,7 @@ impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
     }
 
     fn on_fail(&self, reason: String) {
-        if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_fail.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -107,7 +107,7 @@ impl SyncChatLogsCallbackWasmWrap {
 
 impl restsend_sdk::callback::SyncChatLogsCallback for SyncChatLogsCallbackWasmWrap {
     fn on_success(&self, r: restsend_sdk::models::GetChatLogsResult) {
-        if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_success.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let r = r.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &r)
@@ -117,7 +117,7 @@ impl restsend_sdk::callback::SyncChatLogsCallback for SyncChatLogsCallbackWasmWr
     }
 
     fn on_fail(&self, e: restsend_sdk::Error) {
-        if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_fail.borrow().as_ref() {
             let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &e)
                 .err()
@@ -145,7 +145,7 @@ impl SyncConversationsCallbackWasmWrap {
 
 impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCallbackWasmWrap {
     fn on_success(&self, updated_at: String, count: u32) {
-        if let Some(cb) = self.cb_on_success.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_success.borrow().as_ref() {
             let arg1 = JsValue::from_str(&updated_at);
             let arg2 = JsValue::from_f64(count as f64);
             cb.call2(&JsValue::NULL, &arg1, &arg2)
@@ -155,7 +155,7 @@ impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCall
     }
 
     fn on_fail(&self, e: restsend_sdk::Error) {
-        if let Some(cb) = self.cb_on_fail.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_fail.borrow().as_ref() {
             let e = serde_wasm_bindgen::to_value(&e.to_string()).unwrap_or(JsValue::UNDEFINED);
             cb.call1(&JsValue::NULL, &e)
                 .err()
@@ -183,14 +183,14 @@ unsafe impl Sync for CallbackWasmWrap {}
 
 impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     fn on_connected(&self) {
-        if let Some(cb) = self.cb_on_connected.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_connected.borrow().as_ref() {
             cb.call0(&JsValue::NULL)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
         }
     }
     fn on_connecting(&self) {
-        if let Some(cb) = self.cb_on_connecting.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_connecting.borrow().as_ref() {
             cb.call0(&JsValue::NULL)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -198,7 +198,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
 
     fn on_net_broken(&self, reason: String) {
-        if let Some(cb) = self.cb_on_net_broken.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_net_broken.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -206,7 +206,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
 
     fn on_kickoff_by_other_client(&self, reason: String) {
-        if let Some(cb) = self.cb_on_kickoff_by_other_client.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_kickoff_by_other_client.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -214,7 +214,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
 
     fn on_token_expired(&self, reason: String) {
-        if let Some(cb) = self.cb_on_token_expired.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_token_expired.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -222,7 +222,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
     }
 
     fn on_system_request(&self, req: ChatRequest) -> Option<ChatRequest> {
-        if let Some(cb) = self.cb_on_system_request.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_system_request.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             match cb.call1(&JsValue::NULL, &req) {
@@ -239,7 +239,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         None
     }
     fn on_unknown_request(&self, req: ChatRequest) -> Option<ChatRequest> {
-        if let Some(cb) = self.cb_on_unknown_request.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_unknown_request.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let req = req.serialize(serializer).unwrap_or(JsValue::UNDEFINED);
             match cb.call1(&JsValue::NULL, &req) {
@@ -256,7 +256,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         None
     }
     fn on_topic_typing(&self, topic_id: String, message: Option<String>) {
-        if let Some(cb) = self.cb_on_topic_typing.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_topic_typing.borrow().as_ref() {
             let message = message.unwrap_or_default();
             cb.call2(
                 &JsValue::NULL,
@@ -270,7 +270,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
 
     // if return true, will send `has read` to server
     fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
-        if let Some(cb) = self.cb_on_topic_message.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_topic_message.borrow().as_ref() {
             let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::UNDEFINED);
             match cb.call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req) {
                 Ok(result) => {
@@ -286,7 +286,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         return false;
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
-        if let Some(cb) = self.cb_on_topic_read.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_topic_read.borrow().as_ref() {
             let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::UNDEFINED);
             cb.call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req)
                 .err()
@@ -294,7 +294,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         }
     }
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
-        if let Some(cb) = self.cb_on_conversations_updated.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_conversations_updated.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let conversations = conversations
                 .serialize(serializer)
@@ -305,7 +305,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         }
     }
     fn on_conversation_removed(&self, conversatio_id: String) {
-        if let Some(cb) = self.cb_on_conversation_removed.lock().unwrap().as_ref() {
+        if let Some(cb) = self.cb_on_conversation_removed.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&conversatio_id))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -321,8 +321,7 @@ impl Client {
     pub fn set_onconnected(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_connected
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -331,8 +330,7 @@ impl Client {
     pub fn set_onconnecting(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_connecting
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -341,8 +339,7 @@ impl Client {
     pub fn set_ontokenexpired(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_token_expired
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -361,8 +358,7 @@ impl Client {
     pub fn set_onbroken(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_net_broken
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -381,8 +377,7 @@ impl Client {
     pub fn set_onkickoff(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_kickoff_by_other_client
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -403,8 +398,7 @@ impl Client {
     pub fn set_onsystemrequest(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_system_request
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -425,8 +419,7 @@ impl Client {
     pub fn set_onunknownrequest(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_unknown_request
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -447,8 +440,7 @@ impl Client {
     pub fn set_ontopictyping(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_topic_typing
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -471,8 +463,7 @@ impl Client {
     pub fn set_ontopicmessage(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_topic_message
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -492,8 +483,7 @@ impl Client {
     pub fn set_ontopicread(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_topic_read
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -512,8 +502,7 @@ impl Client {
     pub fn set_onconversationsupdated(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_conversations_updated
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }
@@ -532,8 +521,7 @@ impl Client {
     pub fn set_onconversationsremoved(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_conversation_removed
-                .lock()
-                .unwrap()
+                .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }
     }

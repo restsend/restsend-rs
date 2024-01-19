@@ -130,26 +130,6 @@ impl ClientStore {
         }
     }
 
-    pub fn new_with_storage(
-        _root_path: &str,
-        endpoint: &str,
-        token: &str,
-        user_id: &str,
-        message_storage: Arc<Storage>,
-    ) -> Self {
-        Self {
-            user_id: user_id.to_string(),
-            endpoint: endpoint.to_string(),
-            token: token.to_string(),
-            tmps: Mutex::new(VecDeque::new()),
-            outgoings: Arc::new(Mutex::new(HashMap::new())),
-            upload_tasks: Mutex::new(HashMap::new()),
-            msg_tx: Mutex::new(None),
-            message_storage,
-            callback: Arc::new(Mutex::new(None)),
-        }
-    }
-
     pub(crate) fn process_timeout_requests(&self) {
         if self.outgoings.lock().unwrap().len() == 0 {
             return;

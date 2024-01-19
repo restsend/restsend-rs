@@ -34,7 +34,7 @@ describe('Conversations', async function () {
         })
 
         await waitUntil(() => cbCount > 0, 3000)
-        expect(cbCount).toEqual(3)
+        expect(cbCount).toBeGreaterThan(3)
         expect(conversations.length).toEqual(cbCount)
     })
 

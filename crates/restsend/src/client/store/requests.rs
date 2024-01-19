@@ -58,7 +58,6 @@ impl ClientStore {
                 } else {
                     ChatLogStatus::SendFailed
                 };
-
                 if let Some(pending) = self.peek_pending_request(&req.chat_id).await {
                     match status {
                         ChatLogStatus::Sent => {
@@ -68,7 +67,7 @@ impl ClientStore {
                         }
                         ChatLogStatus::SendFailed => {
                             let reason =
-                                req.message.unwrap_or(format!("send failed: {:?}", status));
+                                req.message.unwrap_or(format!("send failed: {}", req.code));
                             pending.callback.map(|cb| cb.on_fail(reason));
                         }
                         _ => {}
@@ -126,7 +125,7 @@ impl ClientStore {
                                     cb.on_conversations_updated(vec![conversation]);
                                 }
                             } else {
-                                self.fetch_conversation(&topic_id).await;
+                                self.fetch_conversation(&topic_id, false).await;
                             }
                         }
                         Err(e) => {

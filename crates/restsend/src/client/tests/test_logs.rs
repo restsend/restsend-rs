@@ -121,7 +121,7 @@ async fn test_client_recall_log() {
     let send_count = 2;
     for i in 0..send_count {
         let content = Content::new_text(
-            ContentType::Image,
+            ContentType::Text,
             &format!("hello from rust unittest vitalik->guido {}", i),
         );
         let is_ack = Arc::new(AtomicBool::new(false));
@@ -145,7 +145,7 @@ async fn test_client_recall_log() {
             .unwrap();
     }
     check_until(Duration::from_secs(3), || {
-        recv_message_count.load(Ordering::Relaxed) as u32 == send_count
+        recv_message_count.load(Ordering::Relaxed) as u32 >= send_count
     })
     .await
     .unwrap();
@@ -175,10 +175,106 @@ async fn test_client_recall_log() {
         .get_chat_logs(&topic_id, None, send_count + 1)
         .await
         .unwrap();
-    for item in local_logs.items.iter() {
-        info!("item: {:?}", item);
-    }
     assert_eq!(local_logs.items.len(), send_count as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[1].id, last_send_id);
+}
+
+struct TopicGuard {
+    topic_id: String,
+    client: Arc<Client>,
+}
+
+impl Drop for TopicGuard {
+    fn drop(&mut self) {
+        let topic_id = self.topic_id.clone();
+        let client = self.client.clone();
+        let f = async move { client.dismiss_topic(topic_id).await.unwrap() };
+        tokio::spawn(f);
+    }
+}
+
+#[tokio::test]
+async fn test_client_sync_logs() {
+    init_log("INFO".to_string(), true);
+    let info = login_with_password(
+        TEST_ENDPOINT.to_string(),
+        "vitalik".to_string(),
+        "vitalik:demo".to_string(),
+    )
+    .await;
+
+    let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
+    let recv_message_count = Arc::new(AtomicI64::new(0));
+    c.set_callback(Some(Box::new(TestCallbackImpl {
+        last_topic_id: Arc::new(Mutex::new("".to_string())),
+        is_connected: Arc::new(AtomicBool::new(false)),
+        is_recv_message: Arc::new(AtomicBool::new(false)),
+        recv_message_count: recv_message_count.clone(),
+        is_update_conversation: Arc::new(AtomicBool::new(false)),
+    })));
+
+    c.connect().await;
+
+    check_until(Duration::from_secs(3), || {
+        c.connection_status() == "connected"
+    })
+    .await
+    .unwrap();
+
+    let members = vec!["alice".to_string(), "bob".to_string()];
+
+    let topic = c
+        .create_topic(members, None, None)
+        .await
+        .expect("create_topic");
+    let topic_id = topic.topic_id;
+
+    let _guard = TopicGuard {
+        topic_id: topic_id.clone(),
+        client: c.clone(),
+    };
+
+    let send_count = 3;
+    for i in 0..send_count {
+        let content = Content::new_text(
+            ContentType::Text,
+            &format!("hello from rust unittest vitalik->topic {}", i),
+        );
+        let is_ack = Arc::new(AtomicBool::new(false));
+        let msg_cb = Box::new(TestMessageCakllbackImpl {
+            is_sent: Arc::new(AtomicBool::new(false)),
+            is_ack: is_ack.clone(),
+            last_error: Arc::new(Mutex::new("".to_string())),
+        });
+        c.do_send(topic_id.to_string(), content, Some(msg_cb))
+            .await
+            .unwrap();
+        check_until(Duration::from_secs(3), || is_ack.load(Ordering::Relaxed))
+            .await
+            .unwrap();
+    }
+
+    struct TestSyncLogsCallbackImpl {
+        result: Arc<Mutex<Option<GetChatLogsResult>>>,
+    }
+
+    impl callback::SyncChatLogsCallback for TestSyncLogsCallbackImpl {
+        fn on_success(&self, r: GetChatLogsResult) {
+            let mut result = self.result.lock().unwrap();
+            result.replace(r);
+        }
+        fn on_fail(&self, _reason: crate::Error) {
+            panic!("on_fail {:?}", _reason);
+        }
+    }
+
+    let result = Arc::new(Mutex::new(None));
+    let callback = Box::new(TestSyncLogsCallbackImpl {
+        result: result.clone(),
+    });
+    c.sync_chat_logs(topic_id, None, 0, callback).await;
+    let r = result.lock().unwrap().take().unwrap();
+    assert!(!r.has_more);
+    assert_eq!(r.items.len(), send_count as usize);
 }

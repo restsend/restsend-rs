@@ -8,7 +8,6 @@ use crate::{
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
     services::user::set_allow_guest_chat,
-    storage::Storage,
     DB_SUFFIX, TEMP_FILENAME_LEN,
 };
 use crate::{utils, Result};
@@ -59,34 +58,7 @@ impl Client {
 }
 
 impl Client {
-    pub fn new_with_storage(
-        root_path: String,
-        info: &AuthInfo,
-        storage: Arc<Storage>,
-    ) -> Arc<Self> {
-        let store = ClientStore::new_with_storage(
-            &root_path,
-            &info.endpoint,
-            &info.token,
-            &info.user_id,
-            storage,
-        );
-
-        Arc::new(Self {
-            root_path: root_path.to_string(),
-            user_id: info.user_id.to_string(),
-            token: info.token.to_string(),
-            endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
-            store: Arc::new(store),
-            state: Arc::new(ConnectState::new()),
-        })
-    }
-}
-
-#[export_wasm_or_ffi]
-impl Client {
-    #[uniffi::constructor]
-    pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {
+    pub fn new_not_sync(root_path: String, db_name: String, info: &AuthInfo) -> Self {
         let db_path = Self::db_path(&root_path, &db_name);
         let store = ClientStore::new(
             &root_path,
@@ -96,14 +68,22 @@ impl Client {
             &info.user_id,
         );
 
-        Arc::new(Self {
+        Self {
             root_path: root_path.to_string(),
             user_id: info.user_id.to_string(),
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
             store: Arc::new(store),
             state: Arc::new(ConnectState::new()),
-        })
+        }
+    }
+}
+
+#[export_wasm_or_ffi]
+impl Client {
+    #[uniffi::constructor]
+    pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {
+        Arc::new(Self::new_not_sync(root_path, db_name, info))
     }
 
     pub fn set_callback(&self, callback: Option<Box<dyn Callback>>) {

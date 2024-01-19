@@ -6,7 +6,7 @@ use crate::services::conversation::create_chat;
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
-use crate::utils::{now_millis, spwan_task};
+use crate::utils::now_millis;
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
 use log::{debug, warn};
 use restsend_macros::export_wasm_or_ffi;
@@ -61,10 +61,11 @@ impl Client {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit }.min(MAX_LOGS_LIMIT);
         let start_seq = self
             .store
-            .get_conversation(&topic_id)
+            .get_conversation(&topic_id, true)
             .await
             .map(|c| c.start_seq)
             .unwrap_or(0);
+
         match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
             Ok(local_logs) => {
                 let mut need_fetch = local_logs.items.len() < limit as usize;
@@ -77,13 +78,7 @@ impl Client {
                 }
 
                 if !need_fetch {
-                    let r = GetChatLogsResult {
-                        has_more: local_logs.end_sort_value > start_seq,
-                        start_seq: local_logs.start_sort_value,
-                        end_seq: local_logs.end_sort_value,
-                        items: local_logs.items,
-                    };
-                    callback.on_success(r);
+                    callback.on_success(GetChatLogsResult::from_local_logs(local_logs, start_seq));
                     return;
                 }
                 debug!(
@@ -98,46 +93,26 @@ impl Client {
                 warn!("sync_chat_logs failed: {:?}", e);
             }
         }
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
 
-        let current_user_id = self.user_id.clone();
-        let topic_id = topic_id.to_string();
-        let store_ref = self.store.clone();
-
-        spwan_task(async move {
-            match get_chat_logs_desc(&endpoint, &token, &topic_id, last_seq, limit).await {
-                Ok((lr, _)) => {
-                    let now = now_millis();
-                    let mut items = Vec::new();
-                    for c in &lr.items {
-                        let mut c = c.clone();
-                        c.cached_at = now;
-                        c.status = if c.sender_id == current_user_id {
-                            ChatLogStatus::Sent
-                        } else {
-                            ChatLogStatus::Received
-                        };
-                        match store_ref.save_chat_log(&c).await {
-                            Ok(_) => items.push(c),
-                            Err(_) => {}
-                        };
-                    }
-
-                    let r = GetChatLogsResult {
-                        has_more: lr.has_more,
-                        start_seq: lr.items.first().map(|c| c.seq).unwrap_or(0),
-                        end_seq: lr.items.last().map(|c| c.seq).unwrap_or(0),
-                        items,
+        match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
+            Ok((mut lr, _)) => {
+                let now = now_millis();
+                for c in lr.items.iter_mut() {
+                    c.cached_at = now;
+                    c.status = if c.sender_id == self.user_id {
+                        ChatLogStatus::Sent
+                    } else {
+                        ChatLogStatus::Received
                     };
-                    callback.on_success(r);
+                    self.store.save_chat_log(&c).await.ok();
                 }
-                Err(e) => {
-                    warn!("sync_chat_logs failed: {:?}", e);
-                    callback.on_fail(e);
-                }
-            };
-        });
+                callback.on_success(lr.into());
+            }
+            Err(e) => {
+                warn!("sync_chat_logs failed: {:?}", e);
+                callback.on_fail(e);
+            }
+        };
     }
 
     pub async fn sync_conversations(
@@ -179,70 +154,41 @@ impl Client {
             }
         }
 
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
+        let mut first_updated_at: Option<String> = None;
+        let limit = MAX_CONVERSATION_LIMIT;
+        let mut count = 0;
+        let mut offset = 0;
 
-        spwan_task(async move {
-            let mut first_updated_at: Option<String> = None;
-            let limit = MAX_CONVERSATION_LIMIT;
-            let mut count = 0;
-            let mut offset = 0;
-
-            loop {
-                let r = get_conversations(&endpoint, &token, &updated_at, offset, limit).await;
-                match r {
-                    Ok(lr) => {
-                        count += lr.items.len();
-                        offset = lr.offset;
-                        if first_updated_at.is_none() && !lr.items.is_empty() {
-                            first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
-                        }
-                        let conversations = store_ref.merge_conversations(lr.items).await;
-                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                            cb.on_conversations_updated(conversations);
-                        }
-                        if !lr.has_more {
-                            callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
-                            break;
-                        }
+        loop {
+            let r =
+                get_conversations(&self.endpoint, &self.token, &updated_at, offset, limit).await;
+            match r {
+                Ok(lr) => {
+                    count += lr.items.len();
+                    offset = lr.offset;
+                    if first_updated_at.is_none() && !lr.items.is_empty() {
+                        first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
                     }
-                    Err(e) => {
-                        warn!("sync_conversations failed: {:?}", e);
-                        callback.on_fail(e);
+                    let conversations = store_ref.merge_conversations(lr.items).await;
+                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                        cb.on_conversations_updated(conversations);
+                    }
+                    if !lr.has_more {
+                        callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
                         break;
                     }
                 }
-                // .map(|lr| {
-                //     count += lr.items.len();
-                //     offset = lr.offset;
-                //     if first_updated_at.is_none() && !lr.items.is_empty() {
-                //         first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
-                //     }
-                //     let conversations = store_ref.merge_conversations(lr.items).await;
-                //     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                //         cb.on_conversations_updated(conversations);
-                //     }
-                //     lr.has_more
-                // });
-                // match r {
-                //     Ok(has_more) => {
-                //         if !has_more {
-                //             callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
-                //             break;
-                //         }
-                //     }
-                //     Err(e) => {
-                //         warn!("sync_all_conversations failed: {:?}", e);
-                //         callback.on_fail(e);
-                //         break;
-                //     }
-                // }
+                Err(e) => {
+                    warn!("sync_conversations failed: {:?}", e);
+                    callback.on_fail(e);
+                    break;
+                }
             }
-        });
+        }
     }
 
-    pub async fn get_conversation(&self, topic_id: String) -> Option<Conversation> {
-        self.store.get_conversation(&topic_id).await
+    pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {
+        self.store.get_conversation(&topic_id, blocking).await
     }
 
     pub async fn remove_conversation(&self, topic_id: String) {

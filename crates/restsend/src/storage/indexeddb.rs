@@ -1,26 +1,16 @@
-use super::QueryOption;
-use super::QueryResult;
-use super::StoreModel;
+use super::{QueryOption, QueryResult, StoreModel};
 use crate::error::ClientError;
 use async_trait::async_trait;
 use js_sys::Promise;
 use reqwest::Client;
-use serde::Deserialize;
-use serde::Serialize;
-use std::io::Cursor;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::vec;
+use serde::{Deserialize, Serialize};
+use std::{borrow::Borrow, cell::RefCell, io::Cursor, rc::Rc, time::Duration, vec};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::DomException;
-use web_sys::IdbDatabase;
-use web_sys::IdbIndexParameters;
-use web_sys::IdbKeyRange;
-use web_sys::IdbObjectStoreParameters;
-use web_sys::IdbOpenDbRequest;
-use web_sys::IdbRequest;
-use web_sys::IdbTransactionMode;
+use web_sys::{
+    DomException, IdbDatabase, IdbIndexParameters, IdbKeyRange, IdbObjectStoreParameters,
+    IdbOpenDbRequest, IdbRequest, IdbTransactionMode,
+};
 
 const LAST_DB_VERSION: u32 = 1;
 pub struct IndexeddbStorage {
@@ -208,9 +198,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let index = store.index("partition+sortkey").ok()?;
         let cursor_req = index.open_cursor().ok()?;
 
-        let items = Arc::new(Mutex::new(Some(vec![])));
+        let items = Rc::new(RefCell::new(Some(vec![])));
         let items_clone = items.clone();
-        let predicate = Arc::new(Mutex::new(predicate));
+        let predicate = Rc::new(predicate);
 
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
@@ -232,10 +222,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 let r = match cursor.value() {
                     Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
                         Ok(v) => {
-                            if let Ok(Some(item)) = T::from_str(&v.value)
-                                .map(|item| predicate_ref.lock().unwrap()(item))
+                            if let Ok(Some(item)) =
+                                T::from_str(&v.value).map(|item| predicate_ref(item))
                             {
-                                items_ref.lock().unwrap().as_mut().unwrap().push(item);
+                                items_ref.borrow_mut().as_mut().unwrap().push(item);
                             }
                             cursor.continue_().ok();
                             Ok(())
@@ -264,12 +254,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             on_success_callback.forget();
         });
         JsFuture::from(p).await.ok()?;
-        let items = items.lock().unwrap().take();
-        items
+        items.take()
     }
 
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
-        let items = Arc::new(Mutex::new(Some(Vec::<T>::new())));
+        let items = Rc::new(RefCell::new(Some(Vec::<T>::new())));
         let start_sort_value = (match option.start_sort_value {
             Some(v) => v,
             None => match self.last(partition).await {
@@ -320,7 +309,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         Ok(v) => {
                             let mut items_count = 0;
                             if let Ok(item) = T::from_str(&v.value) {
-                                if let Some(items) = items_ref.lock().unwrap().as_mut() {
+                                if let Some(items) = items_ref.borrow_mut().as_mut() {
                                     items.push(item);
                                     items_count = items.len();
                                 }
@@ -358,7 +347,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         });
         JsFuture::from(p).await.ok()?;
 
-        let mut items = items.lock().unwrap().take().unwrap_or_default();
+        let mut items = items.take().unwrap_or_default();
         items.reverse();
 
         Some(QueryResult {

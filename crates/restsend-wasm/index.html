@@ -470,14 +470,14 @@
 
             onSelectConversation: function (conversation) {
                 this.messageBlocks = new MessageBlocks(this.endpoint.trimEnd('/'), this.self);
-                this.updateConversation(conversation);
+                this.updateConversation(conversation, true);
                 // set read when conversation is selected
                 // via http api
                 this.current.setConversationRead(conversation.topicId).then();
                 this.onSelectCategory('conversation')
             },
 
-            updateConversation: function (conversation) {
+            updateConversation: function (conversation, fetchLogs = false) {
                 let limit = undefined
                 if (this.conversation) {
                     limit = conversation.lastSeq - this.conversation.lastSeq
@@ -485,7 +485,7 @@
 
                 this.conversation = conversation
                 const lastSeq = conversation.lastSeq
-                if (limit === 0) { //the messages are not changed
+                if (!fetchLogs) { //the messages are not changed
                     return
                 }
 
@@ -886,7 +886,7 @@
             <div class="flex-1 xl:flex">
                 <div id="userList">
                     <div
-                        class="border-b h-[calc(100vh-9rem)] md:h-[calc(100vh-12rem)] border-gray-200 px-2 py-5 xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
+                        class="scroll-bar overflow-y-auto border-b h-[calc(100vh-9rem)] md:h-[calc(100vh-12rem)] border-gray-200 px-2 py-5 xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
                         <template x-for="item in conversations">
                             <li class="flex p-2 py-3  hover:bg-gray-200 rounded-md cursor-pointer relative group border-b border-gray-100"
                                 @click="onSelectConversation(item)">
