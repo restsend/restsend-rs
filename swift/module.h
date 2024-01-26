@@ -123,9 +123,9 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_do_update_extra(void*_Nonnul
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_download_file(void*_Nonnull ptr, RustBuffer file_url, uint64_t callback
 );
-RustBuffer uniffi_restsend_sdk_fn_method_client_get_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_chat_log(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer chat_id
 );
-RustBuffer uniffi_restsend_sdk_fn_method_client_get_conversation(void*_Nonnull ptr, RustBuffer topic_id, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_conversation(void*_Nonnull ptr, RustBuffer topic_id, int8_t blocking
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_get_topic(void*_Nonnull ptr, RustBuffer topic_id
 );
@@ -187,11 +187,13 @@ void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic(void*_Nonnull p
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_silent_topic_member(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id, RustBuffer duration
 );
-void uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer last_seq, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer last_seq, uint32_t limit, uint64_t callback
 );
-void uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, uint64_t callback, RustCallStatus *_Nonnull out_status
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull ptr, RustBuffer updated_at, uint32_t limit, int8_t sync_logs, uint64_t callback
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_transfer_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
+);
+void* _Nonnull uniffi_restsend_sdk_fn_method_client_try_sync_chat_logs(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer last_seq, uint32_t limit
 );
 void* _Nonnull uniffi_restsend_sdk_fn_method_client_update_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer name, RustBuffer icon
 );
@@ -555,6 +557,9 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_sync_conversations(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_transfer_topic(void
+    
+);
+uint16_t uniffi_restsend_sdk_checksum_method_client_try_sync_chat_logs(void
     
 );
 uint16_t uniffi_restsend_sdk_checksum_method_client_update_topic(void

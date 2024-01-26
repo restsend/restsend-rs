@@ -179,3 +179,27 @@ impl From<&Topic> for Conversation {
         }
     }
 }
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversationUpdateFields {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub sticky: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub mute: Option<bool>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Extra>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Tags>,
+}

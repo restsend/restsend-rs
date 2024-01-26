@@ -1,7 +1,7 @@
 use super::{is_cache_expired, ClientStore};
 use crate::{
     models::{
-        conversation::{Extra, Tags},
+        conversation::{ConversationUpdateFields, Extra, Tags},
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
     },
     request::ChatRequest,
@@ -46,6 +46,25 @@ pub(super) async fn merge_conversation_from_chat(
     if let Some(content) = req.content.as_ref() {
         match ContentType::from(content.r#type.clone()) {
             ContentType::None | ContentType::Recall => {}
+            ContentType::ConversationUpdate => {
+                match serde_json::from_str::<ConversationUpdateFields>(&content.text) {
+                    Ok(fields) => {
+                        conversation.updated_at = req.created_at.clone();
+                        if fields.extra.is_some() {
+                            conversation.extra = fields.extra;
+                        }
+                        if fields.tags.is_some() {
+                            conversation.tags = fields.tags;
+                        }
+                        if fields.remark.is_some() {
+                            conversation.remark = fields.remark;
+                        }
+                        conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
+                        conversation.mute = fields.mute.unwrap_or(conversation.mute);
+                    }
+                    Err(_) => {}
+                }
+            }
             _ => {
                 if req.seq > conversation.last_read_seq
                     && !req.unreadable

@@ -51,6 +51,18 @@ impl Client {
         None
     }
 
+    async fn try_sync_chat_logs(&self, topic_id: String, last_seq: Option<i64>, limit: u32) {
+        struct DummySyncChatLogsCallback {}
+        impl SyncChatLogsCallback for DummySyncChatLogsCallback {}
+        self.sync_chat_logs(
+            topic_id,
+            last_seq,
+            limit,
+            Box::new(DummySyncChatLogsCallback {}),
+        )
+        .await;
+    }
+
     pub async fn sync_chat_logs(
         &self,
         topic_id: String,
@@ -119,6 +131,7 @@ impl Client {
         &self,
         updated_at: Option<String>,
         limit: u32,
+        sync_logs: bool,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
@@ -144,6 +157,12 @@ impl Client {
                                     .last()
                                     .map(|c| c.updated_at.clone())
                                     .unwrap_or_default();
+
+                                if sync_logs {
+                                    for c in r.items.iter() {
+                                        self.try_sync_chat_logs(c.topic_id.clone(), None, 0).await
+                                    }
+                                }
                                 let count = r.items.len() as u32;
                                 if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
                                     cb.on_conversations_updated(r.items);
@@ -176,6 +195,13 @@ impl Client {
                         first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
                     }
                     let conversations = store_ref.merge_conversations(lr.items).await;
+
+                    if sync_logs {
+                        for c in conversations.iter() {
+                            self.try_sync_chat_logs(c.topic_id.clone(), None, 0).await
+                        }
+                    }
+
                     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
                         cb.on_conversations_updated(conversations);
                     }
