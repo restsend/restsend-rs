@@ -93,9 +93,6 @@ pub struct ChatRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
 
-    #[serde(skip_serializing_if = "omit_empty")]
-    #[serde(default)]
-    pub unreadable: bool,
 }
 
 impl ChatRequest {

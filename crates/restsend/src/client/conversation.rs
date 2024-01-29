@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
@@ -51,16 +53,48 @@ impl Client {
         None
     }
 
-    async fn try_sync_chat_logs(&self, topic_id: String, last_seq: Option<i64>, limit: u32) {
-        struct DummySyncChatLogsCallback {}
-        impl SyncChatLogsCallback for DummySyncChatLogsCallback {}
-        self.sync_chat_logs(
-            topic_id,
-            last_seq,
-            limit,
-            Box::new(DummySyncChatLogsCallback {}),
-        )
-        .await;
+    async fn try_sync_chat_logs(&self, mut conversation: Conversation) -> Option<Conversation> {
+        match self.store.get_last_log(&conversation.topic_id).await {
+            Some(log) => {
+                if log.seq >= conversation.last_seq {
+                    return None;
+                }
+            }
+            None => {}
+        }
+
+        if conversation.last_seq <= conversation.start_seq {
+            return None;
+        }
+
+        let r = self
+            .fetch_chat_logs_desc(
+                conversation.topic_id.clone(),
+                Some(conversation.last_seq),
+                0,
+            )
+            .await
+            .ok()?;
+        // get first readable messasge
+        let mut first_readable = None;
+        for c in r.items.iter() {
+            if c.content.unreadable {
+                first_readable = Some(c.clone());
+                break;
+            }
+        }
+        let last_seq = r.items.first().map(|c| c.seq).unwrap_or_default();
+        if last_seq > conversation.last_seq {
+            conversation.last_seq = last_seq;
+        }
+
+        first_readable.map(|c| {
+            conversation.updated_at = c.created_at.clone();
+            conversation.last_message = Some(c.content.clone());
+            conversation.last_sender_id = c.sender_id.clone();
+        });
+
+        Some(conversation)
     }
 
     pub async fn sync_chat_logs(
@@ -71,12 +105,12 @@ impl Client {
         callback: Box<dyn SyncChatLogsCallback>,
     ) {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit }.min(MAX_LOGS_LIMIT);
-        let start_seq = self
+
+        let conversation = self
             .store
             .get_conversation(&topic_id, true)
             .await
-            .map(|c| c.start_seq)
-            .unwrap_or(0);
+            .unwrap_or_default();
 
         match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
             Ok(local_logs) => {
@@ -86,17 +120,20 @@ impl Client {
                     && local_logs.items.len() > 0
                     && local_logs.items.len() < limit as usize
                 {
-                    need_fetch = local_logs.end_sort_value != start_seq + 1;
+                    need_fetch = local_logs.end_sort_value != conversation.start_seq + 1;
                 }
 
                 if !need_fetch {
-                    callback.on_success(GetChatLogsResult::from_local_logs(local_logs, start_seq));
+                    callback.on_success(GetChatLogsResult::from_local_logs(
+                        local_logs,
+                        conversation.start_seq,
+                    ));
                     return;
                 }
                 debug!(
                     "sync_chat_logs local_logs.len: {} start_seq: {} limit: {} local_logs.end_sort_value:{}",
                     local_logs.items.len(),
-                    start_seq,
+                    conversation.start_seq,
                     limit,
                     local_logs.end_sort_value
                 )
@@ -106,6 +143,22 @@ impl Client {
             }
         }
 
+        match self.fetch_chat_logs_desc(topic_id, last_seq, limit).await {
+            Ok(lr) => {
+                callback.on_success(lr);
+            }
+            Err(e) => {
+                callback.on_fail(e);
+            }
+        }
+    }
+
+    async fn fetch_chat_logs_desc(
+        &self,
+        topic_id: String,
+        last_seq: Option<i64>,
+        limit: u32,
+    ) -> Result<GetChatLogsResult> {
         match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
             Ok((mut lr, _)) => {
                 let now = now_millis();
@@ -118,15 +171,20 @@ impl Client {
                     };
                     self.store.save_chat_log(&c).await.ok();
                 }
-                callback.on_success(lr.into());
+                Ok(lr.into())
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);
-                callback.on_fail(e);
+                Err(e)
             }
-        };
+        }
     }
-
+    // sync workflows:
+    // 1. load all conversations from local db
+    // 2. fetch conversations from server with updated_at until has_more is false
+    //     2.1. merge conversations from server to local db
+    // 3. if sync_logs is true, sync chat logs for all conversations
+    // 1. load all conversations from local db
     pub async fn sync_conversations(
         &self,
         updated_at: Option<String>,
@@ -142,71 +200,69 @@ impl Client {
         }
         .max(MAX_CONVERSATION_LIMIT);
 
-        let updated_at = updated_at.unwrap_or_default();
-        if !updated_at.is_empty() {
-            if let Ok(t) = chrono::DateTime::parse_from_rfc3339(&updated_at) {
-                if t.timestamp_millis() > 0
-                    && now_millis() - t.timestamp_millis()
-                        <= 1000 * crate::CONVERSATION_CACHE_EXPIRE_SECS
-                {
-                    match self.store.get_conversations(&updated_at, limit).await {
-                        Ok(r) => {
-                            if r.items.len() == limit as usize {
-                                let updated_at = r
-                                    .items
-                                    .last()
-                                    .map(|c| c.updated_at.clone())
-                                    .unwrap_or_default();
+        let fetch_local = updated_at.clone().and_then(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s).ok().and_then(|t| {
+                Some(
+                    t.timestamp_millis() > 0
+                        && now_millis() - t.timestamp_millis()
+                            <= 1000 * crate::CONVERSATION_CACHE_EXPIRE_SECS,
+                )
+            })
+        });
 
-                                if sync_logs {
-                                    for c in r.items.iter() {
-                                        self.try_sync_chat_logs(c.topic_id.clone(), None, 0).await
-                                    }
-                                }
-                                let count = r.items.len() as u32;
-                                if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                                    cb.on_conversations_updated(r.items);
-                                }
-                                callback.on_success(updated_at, count as u32);
-                                return;
-                            }
-                        }
-                        Err(e) => {
-                            warn!("sync_conversations failed: {:?}", e);
+        let mut first_updated_at = updated_at.clone().unwrap_or_default();
+        let mut conversations = HashMap::new();
+
+        if fetch_local.unwrap_or(false) {
+            log::info!("fetch conversations from local db");
+            loop {
+                match store_ref.get_conversations(&first_updated_at, limit).await {
+                    Ok(r) => {
+                        first_updated_at = r
+                            .items
+                            .last()
+                            .map(|c| c.updated_at.clone())
+                            .unwrap_or_default();
+
+                        r.items.iter().for_each(|c| {
+                            conversations.insert(c.topic_id.clone(), c.clone());
+                        });
+
+                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                            cb.on_conversations_updated(r.items);
                         }
                     }
+                    Err(_) => break,
                 }
             }
         }
 
-        let mut first_updated_at: Option<String> = None;
-        let limit = MAX_CONVERSATION_LIMIT;
-        let mut count = 0;
         let mut offset = 0;
+        let mut last_updated_at = updated_at.clone().unwrap_or_default();
+        let updated_at = updated_at.unwrap_or_default();
 
         loop {
-            let r =
-                get_conversations(&self.endpoint, &self.token, &updated_at, offset, limit).await;
-            match r {
+            match get_conversations(&self.endpoint, &self.token, &updated_at, offset, limit).await {
                 Ok(lr) => {
-                    count += lr.items.len();
                     offset = lr.offset;
-                    if first_updated_at.is_none() && !lr.items.is_empty() {
-                        first_updated_at = Some(lr.items.first().unwrap().updated_at.clone());
-                    }
-                    let conversations = store_ref.merge_conversations(lr.items).await;
 
-                    if sync_logs {
-                        for c in conversations.iter() {
-                            self.try_sync_chat_logs(c.topic_id.clone(), None, 0).await
-                        }
+                    if last_updated_at.is_empty() && !lr.items.is_empty() {
+                        last_updated_at = lr.items.first().unwrap().updated_at.clone();
                     }
+
+                    let new_conversations = store_ref.merge_conversations(lr.items).await;
+                    log::info!(
+                        "sync conversations from remote: {}",
+                        new_conversations.len()
+                    );
+                    new_conversations.iter().for_each(|c| {
+                        conversations.insert(c.topic_id.clone(), c.clone());
+                    });
 
                     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                        cb.on_conversations_updated(conversations);
+                        cb.on_conversations_updated(new_conversations);
                     }
                     if !lr.has_more {
-                        callback.on_success(first_updated_at.unwrap_or_default(), count as u32);
                         break;
                     }
                 }
@@ -217,6 +273,36 @@ impl Client {
                 }
             }
         }
+
+        let count = conversations.len() as u32;
+        if sync_logs {
+            log::info!("sync conversations logs from remote");
+            let mut synced_conversations = vec![];
+            for (_, c) in conversations.into_iter() {
+                match self.try_sync_chat_logs(c).await {
+                    Some(c) => {
+                        synced_conversations.push(c);
+                        if synced_conversations.len() >= 10 {
+                            // TODO: make this configurable
+                            if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                                log::info!("sync conversations logs from remote and save to local");
+                                cb.on_conversations_updated(synced_conversations);
+                            }
+                            synced_conversations = vec![];
+                        }
+                    }
+                    None => {}
+                }
+            }
+
+            if !synced_conversations.is_empty() {
+                if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                    log::info!("sync conversations logs from remote and save to local");
+                    cb.on_conversations_updated(synced_conversations);
+                }
+            }
+        }
+        callback.on_success(last_updated_at, count);
     }
 
     pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {

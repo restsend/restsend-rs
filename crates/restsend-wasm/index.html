@@ -459,6 +459,7 @@
 
             doSyncConversations: function () {
                 this.current.syncConversations({
+                    syncLogs: true,
                     onsuccess: (updatedAt, count) => {
                         this.logText(`sync conversations success: ${count}`)
                     },

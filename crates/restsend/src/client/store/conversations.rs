@@ -26,12 +26,31 @@ pub(crate) async fn merge_conversation(
         conversation.unread = old_conversation.unread;
     }
 
+    if let Some(log) =
+        get_conversation_last_message(message_storage.clone(), &conversation.topic_id).await
+    {
+        if !log.content.unreadable {
+            conversation.last_message = Some(log.content.clone());
+            conversation.last_message_at = log.created_at.clone();
+            conversation.last_sender_id = log.sender_id;
+            conversation.updated_at = log.created_at;
+        }
+    }
+
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
     t.set("", &conversation.topic_id, Some(&conversation))
         .await
         .ok();
     Ok(conversation)
+}
+
+async fn get_conversation_last_message(
+    message_storage: Arc<Storage>,
+    topic_id: &str,
+) -> Option<ChatLog> {
+    let t = message_storage.table::<ChatLog>().await;
+    t.last(topic_id).await
 }
 
 pub(super) async fn merge_conversation_from_chat(
@@ -67,7 +86,7 @@ pub(super) async fn merge_conversation_from_chat(
             }
             _ => {
                 if req.seq > conversation.last_read_seq
-                    && !req.unreadable
+                    && !content.unreadable
                     && !req.chat_id.is_empty()
                 {
                     conversation.unread += 1;
@@ -78,8 +97,8 @@ pub(super) async fn merge_conversation_from_chat(
 
     if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
-
-        if !req.unreadable && !req.chat_id.is_empty() {
+        let unreadable = req.content.as_ref().map(|v| v.unreadable).unwrap_or(false);
+        if !unreadable && !req.chat_id.is_empty() {
             conversation.last_sender_id = req.attendee.clone();
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();
@@ -559,6 +578,11 @@ impl ClientStore {
     pub async fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
         let t = self.message_storage.table().await;
         t.get(topic_id, chat_id).await
+    }
+
+    pub async fn get_last_log(&self, topic_id: &str) -> Option<ChatLog> {
+        let t = self.message_storage.table().await;
+        t.last(topic_id).await
     }
 
     pub async fn remove_messages(&self, topic_id: &str, chat_ids: &[String]) {

@@ -291,6 +291,10 @@ pub struct Content {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub extra: Option<Extra>,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub unreadable: bool,
 }
 
 impl Content {
