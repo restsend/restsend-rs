@@ -27,14 +27,13 @@ pub(crate) async fn merge_conversation(
     }
 
     if let Some(log) =
-        get_conversation_last_message(message_storage.clone(), &conversation.topic_id).await
+        get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
+            .await
     {
-        if !log.content.unreadable {
-            conversation.last_message = Some(log.content.clone());
-            conversation.last_message_at = log.created_at.clone();
-            conversation.last_sender_id = log.sender_id;
-            conversation.updated_at = log.created_at;
-        }
+        conversation.last_message = Some(log.content.clone());
+        conversation.last_message_at = log.created_at.clone();
+        conversation.last_sender_id = log.sender_id;
+        conversation.updated_at = log.created_at;
     }
 
     conversation.is_partial = false;
@@ -45,12 +44,29 @@ pub(crate) async fn merge_conversation(
     Ok(conversation)
 }
 
-async fn get_conversation_last_message(
+async fn get_conversation_last_readable_message(
     message_storage: Arc<Storage>,
     topic_id: &str,
 ) -> Option<ChatLog> {
     let t = message_storage.table::<ChatLog>().await;
-    t.last(topic_id).await
+    let last_log = t.last(topic_id).await?;
+    if !last_log.content.unreadable {
+        return Some(last_log);
+    }
+
+    let option = QueryOption {
+        keyword: None,
+        start_sort_value: Some(last_log.seq),
+        limit: 10,
+    };
+
+    let result = t.query(topic_id, &option).await?;
+    for log in result.items.into_iter() {
+        if !log.content.unreadable {
+            return Some(log);
+        }
+    }
+    None
 }
 
 pub(super) async fn merge_conversation_from_chat(
@@ -597,7 +613,7 @@ impl ClientStore {
         updated_at: &str,
         limit: u32,
     ) -> Result<QueryResult<Conversation>> {
-        let t = self.message_storage.table().await;
+        let t = self.message_storage.table::<Conversation>().await;
 
         let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
             .map(|v| v.timestamp_millis())
@@ -608,14 +624,30 @@ impl ClientStore {
             start_sort_value,
             limit,
         };
-        match t.query("", &option).await {
-            Some(result) => Ok(result),
-            None => Ok(QueryResult {
+
+        let mut result = match t.query("", &option).await {
+            Some(result) => result,
+            None => QueryResult {
                 start_sort_value: 0,
                 end_sort_value: 0,
                 items: vec![],
-            }),
+            },
+        };
+
+        for conversation in &mut result.items {
+            if let Some(log) = get_conversation_last_readable_message(
+                self.message_storage.clone(),
+                &conversation.topic_id,
+            )
+            .await
+            {
+                conversation.last_message = Some(log.content.clone());
+                conversation.last_message_at = log.created_at.clone();
+                conversation.last_sender_id = log.sender_id;
+                conversation.updated_at = log.created_at;
+            }
         }
+        Ok(result)
     }
 
     pub async fn filter_conversation(

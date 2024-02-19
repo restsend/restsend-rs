@@ -125,6 +125,65 @@ describe('Conversations', async function () {
         expect(newItems[1].content.type).toEqual('text')
     })
 
+    it('#get conversation last message', async () => {
+        let lastMessage = undefined
+        vitalik.onconversationsupdated = async (items) => {
+            items.filter((c) => c.topicId === guidoTopic.topicId).forEach((c) => {
+                lastMessage = c.lastMessage
+            })
+        }
+        let syncDone = false
+        await vitalik.syncConversations({
+            onsuccess(updatedAt, count) {
+                syncDone = true
+            },
+        })
+        await waitUntil(() => syncDone, 3000)
+        expect(syncDone).toBe(true)
+        console.log('lastMessage', lastMessage)
+        expect(lastMessage.type).toEqual('')
+
+        vitalik.onconversationsupdated = async (items) => {
+        }
+
+        let isAck = false
+        let updateExtraId = await vitalik.doSendText(guidoTopic.topicId, `hello guido will update extra`, {
+            onack: () => {
+                isAck = true
+            },
+            onfail: (reason) => {
+                assert.fail(reason)
+            }
+        })
+
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+
+        await vitalik.doUpdateExtra(guidoTopic.topicId, updateExtraId, { 'tag is': 'me' }, {
+            onack: (req) => {
+                isAck = true
+            },
+        })
+        await waitUntil(() => isAck, 3000)
+        expect(isAck).toBe(true)
+
+        vitalik.onconversationsupdated = async (items) => {
+            items.filter((c) => c.topicId === guidoTopic.topicId).forEach((c) => {
+                lastMessage = c.lastMessage
+            })
+        }
+        syncDone = false
+        await vitalik.syncConversations({
+            onsuccess(updatedAt, count) {
+                syncDone = true
+            },
+        })
+        await waitUntil(() => syncDone, 3000)
+        expect(syncDone).toBe(true)
+        expect(lastMessage.type).toEqual('text')
+        expect(lastMessage.extra).toEqual({ 'tag is': 'me' })
+    })
+
     it('#filter conversations', async () => {
         let conversations = await vitalik.filterConversation(c => {
             return c.attendee === 'guido'
