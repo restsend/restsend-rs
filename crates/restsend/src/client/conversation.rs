@@ -123,9 +123,10 @@ impl Client {
                 }
 
                 info!(
-                    "sync_chat_logs local_logs.len: {} start_seq: {} limit: {} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
+                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
                     local_logs.items.len(),
                     conversation.start_seq,
+                    last_seq,
                     limit,
                     local_logs.end_sort_value,
                     need_fetch,

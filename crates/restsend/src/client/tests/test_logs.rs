@@ -319,4 +319,9 @@ async fn test_client_sync_logs() {
     let r = result.lock().unwrap().take().unwrap();
     assert!(!r.has_more);
     assert_eq!(r.items.len(), send_count as usize);
+    let mut last_seq = r.items.first().unwrap().seq;
+    r.items.iter().for_each(|v| {
+        assert!(last_seq >= v.seq);
+        last_seq = v.seq;
+    });
 }

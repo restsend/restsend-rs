@@ -283,7 +283,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         )
         .ok()?;
 
-        let cursor_req = index.open_cursor_with_range(&query_range).ok()?;
+        let cursor_req = index
+            .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Next)
+            .ok()?;
         let limit = option.limit;
         let items_clone = items.clone();
         let p = Promise::new(&mut move |resolve, reject| {

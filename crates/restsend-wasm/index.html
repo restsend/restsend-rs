@@ -397,7 +397,7 @@
                 this.self = info.userId
                 this.messageBlocks = new MessageBlocks(endpoint, this.self)
 
-                client = new Client(info, this.userid);
+                client = new Client(info);//, this.userid);
                 client.onconnected = () => {
                     // syncs conversations
                     this.doSyncConversations()
@@ -427,6 +427,7 @@
                 conversation.sticky = !conversation.sticky
                 this.current.setConversationSticky(conversation.topicId, conversation.sticky).then();
             },
+
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
                 items.forEach((item) => {
@@ -436,9 +437,10 @@
                     } else {
                         item.title = item.remark || item.name || item.attendee
                     }
+                    item.lastUpdatedAt = new Date(item.lastMessageAt || item.updatedAt || item.createdAt)
 
                     if (index >= 0) {
-                        if (this.conversations[index].updatedAt != item.updatedAt) {
+                        if (this.conversations[index].lastUpdatedAt != item.lastUpdatedAt) {
                             this.conversations.splice(index, 1);
                             this.conversations.unshift(item)
                         } else {
@@ -455,6 +457,10 @@
                 if (hintCurrent) {
                     this.updateConversation(hintCurrent);
                 }
+                // sort by lastUpdatedAt
+                this.conversations.sort((a, b) => {
+                    return b.lastUpdatedAt - a.lastUpdatedAt
+                })
             },
 
             doSyncConversations: function () {
@@ -957,7 +963,7 @@
                                                 :class="item.mute && item.unread>0 ? 'w-[110px]':'w-28'"></p>
                                         </div>
                                         <p class="w-12 flex justify-end">
-                                            <time x-text="formatDateTime(item.updatedAt)" class="shrink-0"></time>
+                                            <time x-text="formatDateTime(item.lastUpdatedAt)" class="shrink-0"></time>
                                         </p>
                                     </div>
                                 </div>

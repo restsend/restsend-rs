@@ -1,4 +1,4 @@
-use super::omit_empty;
+use super::{conversation::Extra, omit_empty};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,6 @@ impl TopicNotice {
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Topic {
-    // 群id
     pub id: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -88,6 +87,10 @@ pub struct Topic {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notice: Option<TopicNotice>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Extra>,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]

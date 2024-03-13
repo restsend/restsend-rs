@@ -100,6 +100,16 @@ pub(super) async fn merge_conversation_from_chat(
                     Err(_) => {}
                 }
             }
+            ContentType::TopicUpdate => {
+                match serde_json::from_str::<crate::models::Topic>(&content.text) {
+                    Ok(topic) => {
+                        conversation.name = topic.name;
+                        conversation.icon = topic.icon;
+                        conversation.topic_extra = topic.extra;
+                    }
+                    Err(_) => {}
+                }
+            }
             _ => {
                 if req.seq > conversation.last_read_seq
                     && !content.unreadable
@@ -562,6 +572,7 @@ impl ClientStore {
                 Some(result) => result,
                 None => break,
             };
+
             if result.items.len() == 0 {
                 break;
             }
