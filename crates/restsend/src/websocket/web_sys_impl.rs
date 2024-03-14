@@ -11,7 +11,7 @@ use wasm_bindgen::closure::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{ErrorEvent, Event, MessageEvent, WebSocket};
+use web_sys::{Event, MessageEvent, WebSocket};
 
 pub struct WebSocketImpl {
     ws: RefCell<Option<web_sys::WebSocket>>,
@@ -111,8 +111,13 @@ impl WebSocketImpl {
 
             let callback_ref = callback.clone();
             let reject_ref = reject.clone();
-            let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: ErrorEvent| {
-                let reason = e.message();
+            let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
+                let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
+                    Ok(v) => v.as_string().unwrap_or_default(),
+                    Err(e) => {
+                        format!("{:?}", e)
+                    }
+                };
                 warn!("error event error: {:?}", reason);
                 callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();
