@@ -63,7 +63,10 @@ impl Client {
     pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()
     }
-
+    /// connect immediately if the connection is broken    
+    pub fn app_active(&self) {
+        self.inner.app_active();
+    }
     pub async fn shutdown(&self) {
         self.inner.shutdown()
     }

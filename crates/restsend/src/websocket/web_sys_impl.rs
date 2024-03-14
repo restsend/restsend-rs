@@ -65,11 +65,15 @@ impl WebSocketImpl {
                     Err(e) => e.as_string(),
                 }
                 .unwrap_or("create Websocket fail".to_string());
-
+                warn!("create Websocket fail: {}", reason);
                 callback_ref.on_net_broken(reason.clone());
                 return Err(ClientError::HTTP(reason));
             }
         };
+
+        if ws.is_undefined() {
+            return Err(ClientError::HTTP("create Websocket fail".to_string()));
+        }
 
         ws.set_binary_type(web_sys::BinaryType::Arraybuffer);
         self.ws.borrow_mut().replace(ws.clone());
@@ -113,11 +117,10 @@ impl WebSocketImpl {
             let reject_ref = reject.clone();
             let onerror_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
                 let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
-                    Ok(v) => v.as_string().unwrap_or_default(),
-                    Err(e) => {
-                        format!("{:?}", e)
-                    }
-                };
+                    Ok(v) => v.as_string(),
+                    Err(e) => e.as_string(),
+                }
+                .unwrap_or_default();
                 warn!("error event error: {:?}", reason);
                 callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();
@@ -130,11 +133,10 @@ impl WebSocketImpl {
             let onclose_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
                 //get code and reason from e
                 let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
-                    Ok(v) => v.as_string().unwrap_or_default(),
-                    Err(e) => {
-                        format!("{:?}", e)
-                    }
-                };
+                    Ok(v) => v.as_string(),
+                    Err(e) => e.as_string(),
+                }
+                .unwrap_or_default();
                 warn!("close event error: {}", reason);
                 callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();

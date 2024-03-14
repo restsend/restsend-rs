@@ -59,7 +59,7 @@ pub(super) type ConnectStateRef = Arc<ConnectState>;
 
 impl ConnectState {
     pub fn new() -> Self {
-        let (state_tx, _) = broadcast::channel(1);
+        let (state_tx, _) = broadcast::channel(32);
         Self {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
@@ -74,6 +74,10 @@ impl ConnectState {
         self.must_shutdown.store(true, Ordering::Relaxed);
         *self.last_state.lock().unwrap() = ConnectionStatus::Shutdown;
         self.state_tx.send(ConnectionStatus::Shutdown).ok();
+    }
+
+    pub fn did_connect_now(&self) {
+        self.state_tx.send(ConnectionStatus::ConnectNow).ok();
     }
 
     pub fn is_must_shutdown(&self) -> bool {
@@ -222,11 +226,7 @@ impl Client {
     }
 
     pub fn app_active(&self) {
-        self.state.state_tx.send(ConnectionStatus::ConnectNow).ok();
-    }
-
-    pub fn app_deactivate(&self) {
-        warn!("app_deactivate not implemented")
+        self.state.did_connect_now();
     }
 
     pub fn shutdown(&self) {
@@ -242,16 +242,17 @@ async fn serve_connection(
     store_ref: ClientStoreRef,
     state_ref: ConnectStateRef,
 ) {
-    let url = WebsocketOption::url_from_endpoint(endpoint);
-    let opt = WebsocketOption::new(&url, token);
     let callback_ref = store_ref.callback.clone();
 
-    info!("connect websocket url: {}", url);
     let conn_state_ref = state_ref.state_tx.clone();
 
     let conn_loop = async {
         while !state_ref.is_must_shutdown() {
             state_ref.wait_for_next_connect().await;
+
+            let url = WebsocketOption::url_from_endpoint(endpoint);
+            let opt = WebsocketOption::new(&url, token);
+            info!("connect websocket url: {}", url);
 
             let (incoming_tx, mut incoming_rx) = unbounded_channel();
 
@@ -367,8 +368,13 @@ async fn serve_connection(
                 let mut conn_state_rx = conn_state_ref.subscribe();
                 let st = conn_state_rx.recv().await;
                 match st {
-                    Ok(ConnectionStatus::Shutdown) | Err(_) => {
+                    Err(e) => {
+                        warn!("connection shutdown conn_state_ref err {:?}", e);
                         break
+                    }
+                    Ok(ConnectionStatus::Shutdown)  => {
+                        warn!("connection shutdown conn_state_ref");
+                        break;
                     }
                     _ => {}
                 }

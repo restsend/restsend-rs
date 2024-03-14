@@ -1,12 +1,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
-export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
-export function logout(a: number, b: number, c: number, d: number): number;
 export function __wbg_client_free(a: number): void;
 export function client_new(a: number, b: number, c: number): number;
 export function client_connectionStatus(a: number, b: number): void;
+export function client_app_active(a: number): void;
 export function client_shutdown(a: number): number;
 export function client_connect(a: number): number;
 export function client_doSend(a: number, b: number, c: number, d: number, e: number): number;
@@ -35,6 +33,19 @@ export function client_setConversationRead(a: number, b: number, c: number): num
 export function client_setConversationTags(a: number, b: number, c: number, d: number): number;
 export function client_setConversationExtra(a: number, b: number, c: number, d: number): number;
 export function client_filterConversation(a: number, b: number): number;
+export function client_set_onconnected(a: number, b: number): void;
+export function client_set_onconnecting(a: number, b: number): void;
+export function client_set_ontokenexpired(a: number, b: number): void;
+export function client_set_onbroken(a: number, b: number): void;
+export function client_set_onkickoff(a: number, b: number): void;
+export function client_set_onsystemrequest(a: number, b: number): void;
+export function client_set_onunknownrequest(a: number, b: number): void;
+export function client_set_ontopictyping(a: number, b: number): void;
+export function client_set_ontopicmessage(a: number, b: number): void;
+export function client_set_ontopicread(a: number, b: number): void;
+export function client_set_onconversationsupdated(a: number, b: number): void;
+export function client_set_onconversationsremoved(a: number, b: number): void;
+export function setLogging(a: number, b: number): void;
 export function client_createTopic(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function client_joinTopic(a: number, b: number, c: number, d: number, e: number, f: number, g: number): number;
 export function client_addMember(a: number, b: number, c: number, d: number, e: number): number;
@@ -61,19 +72,9 @@ export function client_setUserRemark(a: number, b: number, c: number, d: number,
 export function client_setUserStar(a: number, b: number, c: number, d: number): number;
 export function client_setUserBlock(a: number, b: number, c: number, d: number): number;
 export function client_setAllowGuestChat(a: number, b: number): number;
-export function client_set_onconnected(a: number, b: number): void;
-export function client_set_onconnecting(a: number, b: number): void;
-export function client_set_ontokenexpired(a: number, b: number): void;
-export function client_set_onbroken(a: number, b: number): void;
-export function client_set_onkickoff(a: number, b: number): void;
-export function client_set_onsystemrequest(a: number, b: number): void;
-export function client_set_onunknownrequest(a: number, b: number): void;
-export function client_set_ontopictyping(a: number, b: number): void;
-export function client_set_ontopicmessage(a: number, b: number): void;
-export function client_set_ontopicread(a: number, b: number): void;
-export function client_set_onconversationsupdated(a: number, b: number): void;
-export function client_set_onconversationsremoved(a: number, b: number): void;
-export function setLogging(a: number, b: number): void;
+export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
+export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
+export function logout(a: number, b: number, c: number, d: number): number;
 export function __wbg_intounderlyingsink_free(a: number): void;
 export function intounderlyingsink_write(a: number, b: number): number;
 export function intounderlyingsink_close(a: number): number;

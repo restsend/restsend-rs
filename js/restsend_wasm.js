@@ -241,6 +241,33 @@ function __wbg_adapter_64(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures__invoke1_mut__he4d116b84973670a(arg0, arg1, addHeapObject(arg2));
 }
 
+let cachedUint32Memory0 = null;
+
+function getUint32Memory0() {
+    if (cachedUint32Memory0 === null || cachedUint32Memory0.byteLength === 0) {
+        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
+    }
+    return cachedUint32Memory0;
+}
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    const mem = getUint32Memory0();
+    for (let i = 0; i < array.length; i++) {
+        mem[ptr / 4 + i] = addHeapObject(array[i]);
+    }
+    WASM_VECTOR_LEN = array.length;
+    return ptr;
+}
+/**
+* @param {string | undefined} [level]
+*/
+export function setLogging(level) {
+    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    wasm.setLogging(ptr0, len0);
+}
+
 /**
 * Signin with userId and password or token
 * @param {string} endpoint
@@ -295,33 +322,6 @@ export function logout(endpoint, token) {
     return takeObject(ret);
 }
 
-let cachedUint32Memory0 = null;
-
-function getUint32Memory0() {
-    if (cachedUint32Memory0 === null || cachedUint32Memory0.byteLength === 0) {
-        cachedUint32Memory0 = new Uint32Array(wasm.memory.buffer);
-    }
-    return cachedUint32Memory0;
-}
-
-function passArrayJsValueToWasm0(array, malloc) {
-    const ptr = malloc(array.length * 4, 4) >>> 0;
-    const mem = getUint32Memory0();
-    for (let i = 0; i < array.length; i++) {
-        mem[ptr / 4 + i] = addHeapObject(array[i]);
-    }
-    WASM_VECTOR_LEN = array.length;
-    return ptr;
-}
-/**
-* @param {string | undefined} [level]
-*/
-export function setLogging(level) {
-    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    wasm.setLogging(ptr0, len0);
-}
-
 function handleError(f, args) {
     try {
         return f.apply(this, args);
@@ -329,7 +329,7 @@ function handleError(f, args) {
         wasm.__wbindgen_exn_store(addHeapObject(e));
     }
 }
-function __wbg_adapter_421(arg0, arg1, arg2, arg3) {
+function __wbg_adapter_422(arg0, arg1, arg2, arg3) {
     wasm.wasm_bindgen__convert__closures__invoke2_mut__h26de80423724072a(arg0, arg1, addHeapObject(arg2), addHeapObject(arg3));
 }
 
@@ -388,6 +388,12 @@ export class Client {
             wasm.__wbindgen_add_to_stack_pointer(16);
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
+    }
+    /**
+    * connect immediately if the connection is broken
+    */
+    app_active() {
+        wasm.client_app_active(this.__wbg_ptr);
     }
     /**
     * @returns {Promise<void>}
@@ -940,6 +946,189 @@ export class Client {
         return takeObject(ret);
     }
     /**
+    * Set the callback when connection connected
+    * @param {any} cb
+    */
+    set onconnected(cb) {
+        wasm.client_set_onconnected(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when connection connecting
+    * @param {any} cb
+    */
+    set onconnecting(cb) {
+        wasm.client_set_onconnecting(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when connection token expired
+    * @param {any} cb
+    */
+    set ontokenexpired(cb) {
+        wasm.client_set_ontokenexpired(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when connection broken
+    * # Arguments
+    * * `reason` String - The reason of the connection broken
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onnetbroken = (reason) => {
+    * console.log(reason);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set onbroken(cb) {
+        wasm.client_set_onbroken(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when kickoff by other client
+    * # Arguments
+    * * `reason` String - The reason of the kickoff
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onkickoff = (reason) => {
+    * console.log(reason);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set onkickoff(cb) {
+        wasm.client_set_onkickoff(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when receive system request
+    * # Arguments
+    *  * `req` - The request object, the return value is the response object
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onsystemrequest = (req) => {
+    *    if (req.type === 'get') {
+    *       return {type:'resp', code: 200}
+    *   }
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set onsystemrequest(cb) {
+        wasm.client_set_onsystemrequest(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when receive unknown request
+    * # Arguments
+    *  * `req` - The request object, the return value is the response object
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onunknownrequest = (req) => {
+    *   if (req.type === 'get') {
+    *      return {type:'resp', code: 200}
+    *  }
+    * }
+    * @param {any} cb
+    */
+    set onunknownrequest(cb) {
+        wasm.client_set_onunknownrequest(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when receive typing event
+    * # Arguments
+    * * `topicId` String - The topic id
+    * * `message` ChatRequest - The message
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.ontyping = (topicId, message) => {
+    *  console.log(topicId, message);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set ontopictyping(cb) {
+        wasm.client_set_ontopictyping(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when receive new message
+    * # Arguments
+    * * `topicId` String - The topic id
+    * * `message` ChatRequest - The message
+    * # Return
+    * * `true` - If return true, will send `has read` to server
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.ontopicmessage = (topicId, message) => {
+    * console.log(topicId, message);
+    * return true;
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set ontopicmessage(cb) {
+        wasm.client_set_ontopicmessage(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when receive read event
+    * # Arguments
+    * * `topicId` String - The topic id
+    * * `message` ChatRequest - The message
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.ontopicread = (topicId, message) => {
+    * console.log(topicId, message);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set ontopicread(cb) {
+        wasm.client_set_ontopicread(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when conversations updated
+    * # Arguments
+    * * `conversations` - The conversation list
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onconversationsupdated = (conversations) => {
+    * console.log(conversations);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set onconversationsupdated(cb) {
+        wasm.client_set_onconversationsupdated(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
+    * Set the callback when conversations removed
+    * # Arguments
+    * * `conversationId` - The conversation id
+    * # Example
+    * ```javascript
+    * const client = new Client(info);
+    * await client.connect();
+    * client.onconversationsremoved = (conversationId) => {
+    * console.log(conversationId);
+    * }
+    * ```
+    * @param {any} cb
+    */
+    set onconversationsremoved(cb) {
+        wasm.client_set_onconversationsremoved(this.__wbg_ptr, addHeapObject(cb));
+    }
+    /**
     * Create a new topic
     * #Arguments
     *   name: String,
@@ -1380,189 +1569,6 @@ export class Client {
         const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return takeObject(ret);
     }
-    /**
-    * Set the callback when connection connected
-    * @param {any} cb
-    */
-    set onconnected(cb) {
-        wasm.client_set_onconnected(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when connection connecting
-    * @param {any} cb
-    */
-    set onconnecting(cb) {
-        wasm.client_set_onconnecting(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when connection token expired
-    * @param {any} cb
-    */
-    set ontokenexpired(cb) {
-        wasm.client_set_ontokenexpired(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when connection broken
-    * # Arguments
-    * * `reason` String - The reason of the connection broken
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onnetbroken = (reason) => {
-    * console.log(reason);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set onbroken(cb) {
-        wasm.client_set_onbroken(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when kickoff by other client
-    * # Arguments
-    * * `reason` String - The reason of the kickoff
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onkickoff = (reason) => {
-    * console.log(reason);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set onkickoff(cb) {
-        wasm.client_set_onkickoff(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when receive system request
-    * # Arguments
-    *  * `req` - The request object, the return value is the response object
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onsystemrequest = (req) => {
-    *    if (req.type === 'get') {
-    *       return {type:'resp', code: 200}
-    *   }
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set onsystemrequest(cb) {
-        wasm.client_set_onsystemrequest(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when receive unknown request
-    * # Arguments
-    *  * `req` - The request object, the return value is the response object
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onunknownrequest = (req) => {
-    *   if (req.type === 'get') {
-    *      return {type:'resp', code: 200}
-    *  }
-    * }
-    * @param {any} cb
-    */
-    set onunknownrequest(cb) {
-        wasm.client_set_onunknownrequest(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when receive typing event
-    * # Arguments
-    * * `topicId` String - The topic id
-    * * `message` ChatRequest - The message
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.ontyping = (topicId, message) => {
-    *  console.log(topicId, message);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set ontopictyping(cb) {
-        wasm.client_set_ontopictyping(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when receive new message
-    * # Arguments
-    * * `topicId` String - The topic id
-    * * `message` ChatRequest - The message
-    * # Return
-    * * `true` - If return true, will send `has read` to server
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.ontopicmessage = (topicId, message) => {
-    * console.log(topicId, message);
-    * return true;
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set ontopicmessage(cb) {
-        wasm.client_set_ontopicmessage(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when receive read event
-    * # Arguments
-    * * `topicId` String - The topic id
-    * * `message` ChatRequest - The message
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.ontopicread = (topicId, message) => {
-    * console.log(topicId, message);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set ontopicread(cb) {
-        wasm.client_set_ontopicread(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when conversations updated
-    * # Arguments
-    * * `conversations` - The conversation list
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onconversationsupdated = (conversations) => {
-    * console.log(conversations);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set onconversationsupdated(cb) {
-        wasm.client_set_onconversationsupdated(this.__wbg_ptr, addHeapObject(cb));
-    }
-    /**
-    * Set the callback when conversations removed
-    * # Arguments
-    * * `conversationId` - The conversation id
-    * # Example
-    * ```javascript
-    * const client = new Client(info);
-    * await client.connect();
-    * client.onconversationsremoved = (conversationId) => {
-    * console.log(conversationId);
-    * }
-    * ```
-    * @param {any} cb
-    */
-    set onconversationsremoved(cb) {
-        wasm.client_set_onconversationsremoved(this.__wbg_ptr, addHeapObject(cb));
-    }
 }
 
 const IntoUnderlyingByteSourceFinalization = (typeof FinalizationRegistry === 'undefined')
@@ -1876,6 +1882,10 @@ function __wbg_get_imports() {
         const ret = typeof(v) === 'boolean' ? (v ? 1 : 0) : 2;
         return ret;
     };
+    imports.wbg.__wbindgen_is_undefined = function(arg0) {
+        const ret = getObject(arg0) === undefined;
+        return ret;
+    };
     imports.wbg.__wbindgen_number_new = function(arg0) {
         const ret = arg0;
         return addHeapObject(ret);
@@ -1891,20 +1901,6 @@ function __wbg_get_imports() {
     };
     imports.wbg.__wbindgen_is_string = function(arg0) {
         const ret = typeof(getObject(arg0)) === 'string';
-        return ret;
-    };
-    imports.wbg.__wbindgen_number_get = function(arg0, arg1) {
-        const obj = getObject(arg1);
-        const ret = typeof(obj) === 'number' ? obj : undefined;
-        getFloat64Memory0()[arg0 / 8 + 1] = isLikeNone(ret) ? 0 : ret;
-        getInt32Memory0()[arg0 / 4 + 0] = !isLikeNone(ret);
-    };
-    imports.wbg.__wbindgen_is_undefined = function(arg0) {
-        const ret = getObject(arg0) === undefined;
-        return ret;
-    };
-    imports.wbg.__wbindgen_is_null = function(arg0) {
-        const ret = getObject(arg0) === null;
         return ret;
     };
     imports.wbg.__wbindgen_is_bigint = function(arg0) {
@@ -1928,9 +1924,19 @@ function __wbg_get_imports() {
         const ret = getObject(arg0) in getObject(arg1);
         return ret;
     };
+    imports.wbg.__wbindgen_number_get = function(arg0, arg1) {
+        const obj = getObject(arg1);
+        const ret = typeof(obj) === 'number' ? obj : undefined;
+        getFloat64Memory0()[arg0 / 8 + 1] = isLikeNone(ret) ? 0 : ret;
+        getInt32Memory0()[arg0 / 4 + 0] = !isLikeNone(ret);
+    };
     imports.wbg.__wbindgen_bigint_from_u64 = function(arg0) {
         const ret = BigInt.asUintN(64, arg0);
         return addHeapObject(ret);
+    };
+    imports.wbg.__wbindgen_is_null = function(arg0) {
+        const ret = getObject(arg0) === null;
+        return ret;
     };
     imports.wbg.__wbindgen_error_new = function(arg0, arg1) {
         const ret = new Error(getStringFromWasm0(arg0, arg1));
@@ -2574,7 +2580,7 @@ function __wbg_get_imports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_421(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_422(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -2667,28 +2673,28 @@ function __wbg_get_imports() {
         const ret = wasm.memory;
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1503 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 633, __wbg_adapter_52);
+    imports.wbg.__wbindgen_closure_wrapper1401 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 622, __wbg_adapter_52);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1504 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 633, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1402 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 622, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1505 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 633, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1403 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 622, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1509 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 633, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1407 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 622, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper1511 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 633, __wbg_adapter_55);
+    imports.wbg.__wbindgen_closure_wrapper1409 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 622, __wbg_adapter_55);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper2417 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 894, __wbg_adapter_64);
+    imports.wbg.__wbindgen_closure_wrapper2419 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 892, __wbg_adapter_64);
         return addHeapObject(ret);
     };
 
