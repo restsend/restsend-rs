@@ -123,7 +123,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         let sort_by_cond = match option.start_sort_value {
-            Some(v) => format!("AND sort_by < {}", v), // exclude start_sort_value
+            Some(v) => format!("AND sort_by <= {}", v), // exclude start_sort_value
             None => "".to_string(),
         };
 

@@ -127,7 +127,7 @@ impl<T: StoreModel> MemoryTable<T> {
         let mut table = data.get_mut(partition)?;
 
         let start_sort_value = match option.start_sort_value {
-            Some(v) => Bound::Excluded(v),
+            Some(v) => Bound::Included(v),
             None => Bound::Unbounded,
         };
 

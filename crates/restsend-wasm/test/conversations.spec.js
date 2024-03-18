@@ -174,7 +174,6 @@ describe('Conversations', async function () {
         }
         syncDone = false
         await vitalik.syncConversations({
-            syncChatLogs: true,
             onsuccess(updatedAt, count) {
             },
         })
