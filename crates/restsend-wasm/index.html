@@ -486,11 +486,11 @@
                 }
 
                 this.conversation = conversation
-                const lastSeq = fetchLogs ? undefined : conversation.lastSeq
                 if (!fetchLogs && limit === 0) { //the messages are not changed
                     return
                 }
 
+                const lastSeq = undefined
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
