@@ -259,14 +259,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         let items = Rc::new(RefCell::new(Some(Vec::<T>::new())));
-        let start_sort_value = (match option.start_sort_value {
-            Some(v) => v,
-            None => match self.last(partition).await {
-                Some(v) => v.sort_key(),
-                None => 0,
-            },
-        } - option.limit as i64)
-            .max(0) as f64;
+        let start_sort_value = match option.start_sort_value {
+            Some(v) => v as f64,
+            None => js_sys::Number::POSITIVE_INFINITY,
+        };
 
         let store = self
             .db
@@ -275,17 +271,17 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .ok()?;
 
         let index = store.index("partition+sortkey").ok()?;
-        let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound_with_lower_open(
-            &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
-            &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into())
+        let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
+            &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
                 .into(),
-            true,
+            &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
         )
         .ok()?;
 
         let cursor_req = index
-            .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Next)
+            .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Prev)
             .ok()?;
+
         let limit = option.limit;
         let items_clone = items.clone();
         let p = Promise::new(&mut move |resolve, reject| {
@@ -305,7 +301,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         return;
                     }
                 };
-
                 let r = match cursor.value() {
                     Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
                         Ok(v) => {
@@ -350,8 +345,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         JsFuture::from(p).await.ok()?;
 
         let mut items = items.take().unwrap_or_default();
-        items.reverse();
-
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),

@@ -141,11 +141,11 @@ async fn test_store_query() {
             .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
-        assert_eq!(v.start_sort_value, 490);
-        assert_eq!(v.end_sort_value, 481);
+        assert_eq!(v.start_sort_value, 489);
+        assert_eq!(v.end_sort_value, 480);
 
-        assert_eq!(v.items[0], 490);
-        assert_eq!(v.items[9], 481);
+        assert_eq!(v.items[0], 489);
+        assert_eq!(v.items[9], 480);
     }
     {
         let v = table
@@ -161,10 +161,10 @@ async fn test_store_query() {
             .expect("query failed");
 
         assert_eq!(v.items.len(), 10);
-        assert_eq!(v.start_sort_value, 480);
-        assert_eq!(v.end_sort_value, 471);
+        assert_eq!(v.start_sort_value, 479);
+        assert_eq!(v.end_sort_value, 470);
 
-        assert_eq!(v.items[0], 480);
-        assert_eq!(v.items[9], 471);
+        assert_eq!(v.items[0], 479);
+        assert_eq!(v.items[9], 470);
     }
 }

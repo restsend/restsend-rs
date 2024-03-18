@@ -294,26 +294,13 @@
                 return lastBlock
             }
 
-            appendMessageWithBlock(block, item) {
-                let lastItem = block.items.length > 0 ? block.items[block.items.length - 1] : undefined
-                if (lastItem) {
-                    lastItem.isLast = false
-                }
-                let idx = block.items.findIndex((i) => {
-                    item.createdAt > i.createdAt
-                })
-                if (idx >= 0) {
-                    block.items.splice(idx, 0, item)
-                } else {
-                    item.isLast = true
-                    block.items.push(item)
-                }
-            }
-
             appendMessages(items) {
                 if (!items) {
                     return
                 }
+                let lastBlock = null
+                let sortBlocks = new Map();
+
                 for (var idx = items.length - 1; idx >= 0; idx--) {
                     let item = {
                         type: items[idx].content.type,
@@ -341,16 +328,24 @@
                         continue
                     }
                     this.msgs[item.id] = item
-                    let block = this.getOrCreateBlock(item)
-                    this.appendMessageWithBlock(block, item)
+                    const block = this.getOrCreateBlock(item)
+                    block.items.push(item)
+                    sortBlocks.set(block.id, block)
                 }
+                sortBlocks.forEach((block, _) => {
+                    if (block.items.length > 0) {
+                        block.items[block.items.length - 1].isLast = false
+                        block.items.sort((a, b) => a.seq - b.seq)
+                        block.items[block.items.length - 1].isLast = true
+                    }
+                })
             }
         };
 
         const demoApp = {
             endpoint: 'https://chat.ruzhila.cn',
-            userid: 'bob',
-            password: 'bob:demo',
+            userid: 'guido',
+            password: 'guido:demo',
             logs: [],
             current: null,
             conversations: [],
@@ -485,13 +480,13 @@
             },
 
             updateConversation: function (conversation, fetchLogs = false) {
-                let limit = undefined
+                let limit = 20
                 if (this.conversation) {
                     limit = conversation.lastSeq - this.conversation.lastSeq
                 }
 
                 this.conversation = conversation
-                const lastSeq = conversation.lastSeq
+                const lastSeq = fetchLogs ? undefined : conversation.lastSeq
                 if (!fetchLogs && limit === 0) { //the messages are not changed
                     return
                 }
@@ -499,6 +494,7 @@
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
+                        console.log('updateConversation sync messages', lastSeq, r)
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -530,11 +526,11 @@
                 }
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
+                    limit: 20,
                     onsuccess: (r) => {
-                        // console.log('sync older messages', firstItemSeq, r)
+                        console.log('onScrollMessages sync messages', firstItemSeq, r)
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
-                        // console.log('currentScrollHeight', r)
                         this.messageBlocks.appendMessages(r.items)
                         setTimeout(() => {
                             if (el) {
@@ -1162,7 +1158,7 @@
                                 <div id="messages" @scrollend="onScrollMessages($event)"
                                     :class="showCheckbox?'pl-8 py-3':'p-3'"
                                     class="scroll-bar flex  flex-col space-y-4 overflow-y-auto flex-1  scrollbar-w-2 scrolling-touch">
-                                    <template x-for="block in messageBlocks?.blocks">
+                                    <template x-for="block in messageBlocks?.blocks" :key="block.id">
                                         <div class="chat-message relative">
                                             <template x-if="block.createdAt">
                                                 <p class="text-xs text-gray-400 shrink-0 text-center">
@@ -1174,7 +1170,7 @@
                                             <div class="flex items-end relative" :class="block.isSelf?'justify-end':''">
                                                 <div class="flex flex-col space-y-2 text-xs max-w-xs px-2 w-full"
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
-                                                    <template x-for="item in block.items">
+                                                    <template x-for="item in block.items" :key="item.id">
                                                         <div>
                                                             <template x-if="item.recall==true">
                                                                 <div

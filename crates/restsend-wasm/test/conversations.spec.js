@@ -140,7 +140,6 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
-        console.log('lastMessage', lastMessage)
         expect(lastMessage.type).toEqual('')
 
         vitalik.onconversationsupdated = async (items) => {
@@ -170,17 +169,19 @@ describe('Conversations', async function () {
         vitalik.onconversationsupdated = async (items) => {
             items.filter((c) => c.topicId === guidoTopic.topicId).forEach((c) => {
                 lastMessage = c.lastMessage
+                syncDone = true
             })
         }
         syncDone = false
         await vitalik.syncConversations({
+            syncChatLogs: true,
             onsuccess(updatedAt, count) {
-                syncDone = true
             },
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
         expect(lastMessage.type).toEqual('text')
+        console.log('lastMessage', lastMessage)
         expect(lastMessage.extra).toEqual({ 'tag is': 'me' })
     })
 

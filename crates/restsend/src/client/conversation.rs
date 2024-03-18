@@ -10,7 +10,7 @@ use crate::services::conversation::{
 };
 use crate::utils::{elapsed, now_millis};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
-use log::{debug, info, warn};
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
@@ -56,10 +56,16 @@ impl Client {
     pub(crate) async fn try_sync_chat_logs(
         &self,
         mut conversation: Conversation,
+        limit: Option<u32>,
     ) -> Option<Conversation> {
         match self.store.get_last_log(&conversation.topic_id).await {
             Some(log) => {
                 if log.seq >= conversation.last_seq {
+                    log::info!(
+                        "try_sync_chat_logs skip, log.seq: {} >= conversation.last_seq: {}",
+                        log.seq,
+                        conversation.last_seq
+                    );
                     return None;
                 }
             }
@@ -74,7 +80,7 @@ impl Client {
             .fetch_chat_logs_desc(
                 conversation.topic_id.clone(),
                 Some(conversation.last_seq),
-                0,
+                limit.unwrap_or_default(),
             )
             .await
             .ok()?;
@@ -174,7 +180,7 @@ impl Client {
                     };
                     self.store.save_chat_log(&c).await.ok();
                 }
-                debug!(
+                info!(
                     "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} usage:{:?}",
                     topic_id,
                     last_seq,
@@ -201,6 +207,7 @@ impl Client {
         updated_at: Option<String>,
         limit: u32,
         sync_logs: bool,
+        sync_logs_limit: Option<u32>,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
@@ -225,7 +232,6 @@ impl Client {
         let mut conversations = HashMap::new();
 
         if fetch_local.unwrap_or(false) {
-            log::info!("fetch conversations from local db");
             loop {
                 match store_ref.get_conversations(&first_updated_at, limit).await {
                     Ok(r) => {
@@ -281,16 +287,14 @@ impl Client {
 
         let count = conversations.len() as u32;
         if sync_logs {
-            log::info!("sync conversations logs from remote");
             let mut synced_conversations = vec![];
             for (_, c) in conversations.into_iter() {
-                match self.try_sync_chat_logs(c).await {
+                match self.try_sync_chat_logs(c, sync_logs_limit).await {
                     Some(c) => {
                         synced_conversations.push(c);
                         if synced_conversations.len() >= 10 {
                             // TODO: make this configurable
                             if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                                log::info!("sync conversations logs from remote and save to local");
                                 cb.on_conversations_updated(synced_conversations);
                             }
                             synced_conversations = vec![];

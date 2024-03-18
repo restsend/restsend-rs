@@ -126,21 +126,15 @@ impl<T: StoreModel> MemoryTable<T> {
         let mut items = Vec::<T>::new();
         let mut table = data.get_mut(partition)?;
 
-        let start_sort_value = (match option.start_sort_value {
-            Some(v) => v,
-            None => match table.last() {
-                Some(v) => match T::from_str(v) {
-                    Ok(v) => v.sort_key(),
-                    _ => 0,
-                },
-                None => 0,
-            },
-        } - option.limit as i64)
-            .max(0);
+        let start_sort_value = match option.start_sort_value {
+            Some(v) => Bound::Excluded(v),
+            None => Bound::Unbounded,
+        };
 
         let mut iter = table
             .index
-            .range((Bound::Excluded(start_sort_value), Bound::Unbounded));
+            .range((Bound::Unbounded, start_sort_value))
+            .rev();
 
         while let Some((_, indices)) = iter.next() {
             for index in indices {
@@ -165,8 +159,6 @@ impl<T: StoreModel> MemoryTable<T> {
                 break;
             }
         }
-
-        items.reverse();
 
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),

@@ -122,31 +122,23 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         Some(items)
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
-        let start_sort_value = (match option.start_sort_value {
-            Some(v) => v,
-            None => match self.last(partition).await {
-                Some(v) => v.sort_key(),
-                None => 0,
-            },
-        } - option.limit as i64)
-            .max(0);
+        let sort_by_cond = match option.start_sort_value {
+            Some(v) => format!("AND sort_by < {}", v), // exclude start_sort_value
+            None => "".to_string(),
+        };
 
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!(
-            "SELECT value FROM {} WHERE partition = ? AND sort_by > ? ORDER BY sort_by ASC LIMIT ?",
-            self.name
+            "SELECT value FROM {} WHERE partition = ? {} ORDER BY sort_by DESC LIMIT ?",
+            self.name, sort_by_cond,
         );
 
         let mut stmt = conn.prepare(&stmt).unwrap();
         let mut rows = stmt
-            .query(&[
-                &partition,
-                format!("{}", start_sort_value).as_str(),
-                format!("{}", option.limit).as_str(),
-            ])
+            .query(&[&partition, format!("{}", option.limit).as_str()])
             .ok()?;
 
         let mut items: Vec<T> = vec![];
@@ -163,7 +155,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 None => break,
             }
         }
-        items.reverse();
+
         let (start_sort_value, end_sort_value) = if items.len() > 0 {
             (
                 items.first().unwrap().sort_key(),

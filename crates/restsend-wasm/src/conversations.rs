@@ -1,7 +1,7 @@
 use super::Client;
 use crate::{
     callback::{SyncChatLogsCallbackWasmWrap, SyncConversationsCallbackWasmWrap},
-    js_util::{self, get_bool, get_string},
+    js_util::{self, get_bool, get_f64, get_string},
 };
 use restsend_sdk::models::conversation::{Extra, Tags};
 use serde::Serialize;
@@ -77,6 +77,7 @@ impl Client {
                 get_string(&option, "updatedAt"),
                 limit,
                 get_bool(&option, "syncLogs"),
+                Some(get_f64(&option, "syncLogsLimit") as u32),
                 Box::new(SyncConversationsCallbackWasmWrap::new(option)),
             )
             .await
