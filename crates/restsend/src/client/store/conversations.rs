@@ -35,7 +35,7 @@ pub(crate) async fn merge_conversation(
         conversation.last_sender_id = log.sender_id;
         conversation.updated_at = log.created_at;
     }
-
+    
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
     t.set("", &conversation.topic_id, Some(&conversation))
@@ -81,6 +81,9 @@ pub(super) async fn merge_conversation_from_chat(
     if let Some(content) = req.content.as_ref() {
         match ContentType::from(content.r#type.clone()) {
             ContentType::None | ContentType::Recall => {}
+            ContentType::TopicChangeOwner => {
+                conversation.topic_owner_id = Some(req.attendee.clone());
+            }
             ContentType::ConversationUpdate => {
                 match serde_json::from_str::<ConversationUpdateFields>(&content.text) {
                     Ok(fields) => {

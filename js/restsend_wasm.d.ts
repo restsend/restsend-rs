@@ -206,66 +206,6 @@ export class Client {
 */
   filterConversation(predicate: any): Promise<any>;
 /**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
-* @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
-*/
-  getUser(userId: string, blocking?: boolean): Promise<any>;
-/**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
-*/
-  getUsers(userIds: (string)[]): Promise<any>;
-/**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
-* @returns {Promise<void>}
-*/
-  setUserRemark(userId: string, remark: string): Promise<void>;
-/**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
-* @returns {Promise<void>}
-*/
-  setUserStar(userId: string, star: boolean): Promise<void>;
-/**
-* Set user block
-* #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
-* @returns {Promise<void>}
-*/
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-/**
-* Set allow guest chat
-* #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
-/**
 * Create a new topic
 * #Arguments
 *   name: String,
@@ -717,6 +657,66 @@ export class Client {
 */
   doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
 /**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
+/**
 * get the current connection status
 * return: connecting, connected, broken, shutdown
 */
@@ -983,6 +983,9 @@ export interface InitOutput {
   readonly client_app_active: (a: number) => void;
   readonly client_shutdown: (a: number) => number;
   readonly client_connect: (a: number) => number;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -997,15 +1000,6 @@ export interface InitOutput {
   readonly client_setConversationTags: (a: number, b: number, c: number, d: number) => number;
   readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
   readonly client_filterConversation: (a: number, b: number) => number;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUsers: (a: number, b: number, c: number) => number;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllowGuestChat: (a: number, b: number) => number;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -1038,6 +1032,12 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
   readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUsers: (a: number, b: number, c: number) => number;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly __wbg_intounderlyingsink_free: (a: number) => void;
   readonly intounderlyingsink_write: (a: number, b: number) => number;
   readonly intounderlyingsink_close: (a: number) => number;

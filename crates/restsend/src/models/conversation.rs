@@ -109,6 +109,10 @@ pub struct Conversation {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic_owner_id: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Tags>,
 
     #[serde(default)]

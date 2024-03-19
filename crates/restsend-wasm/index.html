@@ -34,7 +34,9 @@
 
             Alpine.directive('content', (el, { expression }, { evaluate }) => {
                 let content = evaluate(expression)
-                content.size = bytesToSize(content.size)
+                if (content.size) {
+                    content.size = bytesToSize(content.size)
+                }
 
                 let node = document.createElement('div')
                 let modalData = Alpine.store('modalData')
