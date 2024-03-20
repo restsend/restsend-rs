@@ -88,6 +88,7 @@ impl Client {
         for c in r.items.iter() {
             if !c.content.unreadable {
                 conversation.updated_at = c.created_at.clone();
+                conversation.last_message_at = c.created_at.clone();
                 conversation.last_message = Some(c.content.clone());
                 conversation.last_sender_id = c.sender_id.clone();
                 break;
