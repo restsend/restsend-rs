@@ -11,6 +11,8 @@ pub struct Login {
     pub token: String,
     #[serde(default)]
     pub profile: UserProfile,
+    #[serde(default)]
+    pub is_staff: bool,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Default, Clone)]

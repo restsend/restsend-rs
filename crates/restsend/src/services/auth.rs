@@ -103,6 +103,8 @@ async fn signin_or_signup(
         avatar: r.profile.avatar,
         name: r.display_name,
         token: r.token,
+        is_staff: r.is_staff,
+        private_extra: r.profile.private_extra,
     })
 }
 

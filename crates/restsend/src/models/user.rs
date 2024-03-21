@@ -1,4 +1,4 @@
-use super::omit_empty;
+use super::{conversation::Extra, omit_empty};
 use crate::storage::StoreModel;
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,13 @@ pub struct AuthInfo {
     pub avatar: String,
     pub name: String,
     pub token: String,
+
+    #[serde(default)]
+    pub is_staff: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub private_extra: Option<Extra>,
 }
 
 impl AuthInfo {
@@ -23,6 +30,8 @@ impl AuthInfo {
             token: token.to_string(),
             name: String::default(),
             avatar: String::default(),
+            is_staff: false,
+            private_extra: None,
         }
     }
 }
@@ -49,6 +58,10 @@ pub struct UserProfile {
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
     pub country: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub private_extra: Option<Extra>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -111,6 +124,18 @@ pub struct User {
     #[serde(default)]
     pub gender: String, // f/female, m/male
 
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub memo: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub extra: Option<Extra>,
+
+    #[serde(skip_serializing_if = "omit_empty")]
+    #[serde(default)]
+    pub is_staff: bool,
+
     #[serde(default)]
     pub cached_at: i64,
     #[serde(default)]
@@ -139,9 +164,14 @@ impl User {
         if user.remark != String::default() {
             new_user.remark = user.remark.clone();
         }
+
         new_user.is_contact = user.is_contact;
         new_user.is_star = user.is_star;
         new_user.is_blocked = user.is_blocked;
+        new_user.is_staff = user.is_staff;
+
+        new_user.extra = user.extra.clone();
+        new_user.memo = user.memo.clone();
         new_user.locale = user.locale.clone();
         new_user.city = user.city.clone();
         new_user.country = user.country.clone();
