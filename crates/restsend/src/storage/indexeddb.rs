@@ -399,11 +399,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             None => return self.remove(partition, key).await,
             Some(v) => v,
         };
-
-        let store = self
+        let tx = self
             .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-            .and_then(|tx| tx.object_store(&self.table_name))?;
+            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
+        let store = tx.object_store(&self.table_name)?;
 
         let item = ValueItem {
             sortkey: value.sort_key() as f64,
@@ -431,7 +430,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
         });
-        JsFuture::from(p).await.map(|_| ()).map_err(Into::into)
+
+        let r = JsFuture::from(p).await;
+        tx.commit().ok();
+        r.map(|_| ()).map_err(Into::into)
     }
 
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {

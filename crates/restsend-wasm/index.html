@@ -12,7 +12,7 @@
         init().then(() => {
             window.signin = signin
             window.Client = Client
-            setLogging('info')
+            setLogging('debug')
         });
     </script>
     <script>
@@ -394,7 +394,7 @@
                 this.self = info.userId
                 this.messageBlocks = new MessageBlocks(endpoint, this.self)
 
-                client = new Client(info);//, this.userid);
+                client = new Client(info, this.userid);
                 client.onconnected = () => {
                     // syncs conversations
                     this.doSyncConversations()
@@ -492,7 +492,7 @@
                     return
                 }
 
-                const lastSeq = undefined
+                const lastSeq = conversation.lastSeq
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {

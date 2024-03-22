@@ -61,7 +61,7 @@ impl Client {
         match self.store.get_last_log(&conversation.topic_id).await {
             Some(log) => {
                 if log.seq >= conversation.last_seq {
-                    log::info!(
+                    log::debug!(
                         "try_sync_chat_logs skip, log.seq: {} >= conversation.last_seq: {}",
                         log.seq,
                         conversation.last_seq
