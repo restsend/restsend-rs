@@ -68,7 +68,7 @@ impl Client {
         self.inner.app_active();
     }
     pub async fn shutdown(&self) {
-        self.inner.shutdown()
+        self.inner.shutdown().await
     }
 
     pub async fn connect(&self) -> Result<(), JsValue> {

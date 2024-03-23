@@ -1,10 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
-* @param {string | undefined} [level]
-*/
-export function setLogging(level?: string): void;
-/**
 * Signin with userId and password or token
 * @param {string} endpoint
 * @param {string} userId
@@ -28,6 +24,10 @@ export function signup(endpoint: string, userId: string, password: string): Prom
 * @returns {Promise<void>}
 */
 export function logout(endpoint: string, token: string): Promise<void>;
+/**
+* @param {string | undefined} [level]
+*/
+export function setLogging(level?: string): void;
 /**
 */
 export class Client {
@@ -964,6 +964,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_set_onconnected: (a: number, b: number) => void;
   readonly client_set_onconnecting: (a: number, b: number) => void;
   readonly client_set_ontokenexpired: (a: number, b: number) => void;
@@ -1021,9 +1024,6 @@ export interface InitOutput {
   readonly client_app_active: (a: number) => void;
   readonly client_shutdown: (a: number) => number;
   readonly client_connect: (a: number) => number;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -1063,8 +1063,8 @@ export interface InitOutput {
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
-  readonly wasm_bindgen__convert__closures__invoke0_mut__h97595aed88dfedd5: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke1_mut__h1b9bed1960288023: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h38505de2c8266140: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h29a92b0c763b07eb: (a: number, b: number, c: number) => void;
   readonly wasm_bindgen__convert__closures__invoke1_mut__h3ff81e0502a6935c: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;

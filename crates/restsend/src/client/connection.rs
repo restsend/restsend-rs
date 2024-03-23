@@ -32,6 +32,7 @@ pub enum ConnectionStatus {
     Connected,
     Connecting,
     Shutdown,
+    Shutdowned,
 }
 
 impl ToString for ConnectionStatus {
@@ -42,6 +43,7 @@ impl ToString for ConnectionStatus {
             ConnectionStatus::Connected => "connected".to_string(),
             ConnectionStatus::Connecting => "connecting".to_string(),
             ConnectionStatus::Shutdown => "shutdown".to_string(),
+            ConnectionStatus::Shutdowned => "shutdowned".to_string(),
         }
     }
 }
@@ -229,10 +231,28 @@ impl Client {
         self.state.did_connect_now();
     }
 
-    pub fn shutdown(&self) {
+    pub async fn shutdown(&self) {
         info!("shutdown websocket");
         self.state.did_shutdown();
         self.store.shutdown();
+
+        select! {
+            _ = async {
+                sleep(Duration::from_secs(1)).await;
+            } => {}
+            _ = async {
+                loop {
+                    let mut state_ref = self.state.state_tx.subscribe();
+                    let st = state_ref.recv().await;
+                    match st {
+                        Ok(ConnectionStatus::Shutdowned)  => {
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            } => {}
+        };
     }
 }
 
@@ -383,4 +403,6 @@ async fn serve_connection(
             warn!("connection shutdown conn_state_ref");
         }
     };
+
+    conn_state_ref.send(ConnectionStatus::Shutdowned).ok();
 }

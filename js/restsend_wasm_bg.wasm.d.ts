@@ -1,6 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
+export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
+export function logout(a: number, b: number, c: number, d: number): number;
 export function client_set_onconnected(a: number, b: number): void;
 export function client_set_onconnecting(a: number, b: number): void;
 export function client_set_ontokenexpired(a: number, b: number): void;
@@ -58,9 +61,6 @@ export function client_connectionStatus(a: number, b: number): void;
 export function client_app_active(a: number): void;
 export function client_shutdown(a: number): number;
 export function client_connect(a: number): number;
-export function signin(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number): number;
-export function signup(a: number, b: number, c: number, d: number, e: number, f: number): number;
-export function logout(a: number, b: number, c: number, d: number): number;
 export function client_createChat(a: number, b: number, c: number): number;
 export function client_cleanMessages(a: number, b: number, c: number): number;
 export function client_removeMessages(a: number, b: number, c: number, d: number, e: number): number;
@@ -100,8 +100,8 @@ export function intounderlyingbytesource_cancel(a: number): void;
 export function __wbindgen_malloc(a: number, b: number): number;
 export function __wbindgen_realloc(a: number, b: number, c: number, d: number): number;
 export const __wbindgen_export_2: WebAssembly.Table;
-export function wasm_bindgen__convert__closures__invoke0_mut__h97595aed88dfedd5(a: number, b: number): void;
-export function wasm_bindgen__convert__closures__invoke1_mut__h1b9bed1960288023(a: number, b: number, c: number): void;
+export function _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h38505de2c8266140(a: number, b: number): void;
+export function _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h29a92b0c763b07eb(a: number, b: number, c: number): void;
 export function wasm_bindgen__convert__closures__invoke1_mut__h3ff81e0502a6935c(a: number, b: number, c: number): void;
 export function __wbindgen_add_to_stack_pointer(a: number): number;
 export function __wbindgen_free(a: number, b: number, c: number): void;
