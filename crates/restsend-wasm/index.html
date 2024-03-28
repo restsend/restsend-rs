@@ -484,7 +484,8 @@
             updateConversation: function (conversation, fetchLogs = false) {
                 let limit = 20
                 if (this.conversation) {
-                    limit = conversation.lastSeq - this.conversation.lastSeq
+                    const lastSyncSeq = this.conversation.lastSyncSeq || this.conversation.lastSeq
+                    limit = conversation.lastSeq - lastSyncSeq
                 }
 
                 this.conversation = conversation
@@ -496,7 +497,9 @@
                 this.current.syncChatLogs(conversation.topicId, lastSeq, {
                     limit,
                     onsuccess: (r) => {
-                        console.log('updateConversation sync messages', lastSeq, r)
+                        const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
+                        this.conversation.lastSyncSeq = Math.max(lastSyncSeq, r.startSeq)
+
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
@@ -531,6 +534,9 @@
                     limit: 20,
                     onsuccess: (r) => {
                         console.log('onScrollMessages sync messages', firstItemSeq, r)
+                        const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
+                        this.conversation.lastSyncSeq = Math.max(lastSyncSeq, r.startSeq)
+
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
                         this.messageBlocks.appendMessages(r.items)
