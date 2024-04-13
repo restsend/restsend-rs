@@ -62,7 +62,7 @@ pub trait Table<T: StoreModel>: Send + Sync {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-        startPos: Option<i64>,
+        end_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<T>>;
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>>;
