@@ -188,6 +188,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
         let store = self
             .db
@@ -574,8 +576,10 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
-        Self::filter(self, partition, predicate).await
+        Self::filter(self, partition, predicate, end_sort_value, limit).await
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         Self::query(self, partition, option).await
@@ -604,6 +608,8 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
         None
     }

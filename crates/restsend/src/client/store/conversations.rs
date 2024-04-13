@@ -35,7 +35,7 @@ pub(crate) async fn merge_conversation(
         conversation.last_sender_id = log.sender_id;
         conversation.updated_at = log.created_at;
     }
-    
+
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
     t.set("", &conversation.topic_id, Some(&conversation))
@@ -667,8 +667,11 @@ impl ClientStore {
     pub async fn filter_conversation(
         &self,
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<Conversation>> {
         let t = self.message_storage.table().await;
-        t.filter("", Box::new(move |c| predicate(c))).await
+        t.filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
+            .await
     }
 }

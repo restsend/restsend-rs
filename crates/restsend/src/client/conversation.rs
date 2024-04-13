@@ -372,7 +372,11 @@ impl Client {
     pub async fn filter_conversation(
         &self,
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<Conversation>> {
-        self.store.filter_conversation(predicate).await
+        self.store
+            .filter_conversation(predicate, end_sort_value, limit)
+            .await
     }
 }

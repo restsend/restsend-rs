@@ -86,6 +86,8 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();

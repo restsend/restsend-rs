@@ -104,6 +104,8 @@ impl<T: StoreModel> MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition)?;
@@ -231,6 +233,8 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
         Self::filter(self, partition, predicate).await
     }
@@ -261,8 +265,10 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
+        end_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
-        Self::filter(self, partition, predicate).await
+        Self::filter(self, partition, predicate, end_sort_value, limit).await
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         Self::query(self, partition, option).await

@@ -203,12 +203,26 @@ impl Client {
     ///   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
     /// })
     ///
-    pub async fn filterConversation(&self, predicate: JsValue) -> JsValue {
+    pub async fn filterConversation(
+        &self,
+        predicate: JsValue,
+        lastUpdatedAt: JsValue,
+        limit: JsValue,
+    ) -> JsValue {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
+        let limit = limit.as_f64().map(|v| v as u32);
+        let lastUpdatedAt = lastUpdatedAt
+            .as_string()
+            .map(|v| {
+                chrono::DateTime::parse_from_rfc3339(&v)
+                    .ok()
+                    .map(|v| v.timestamp_millis())
+            })
+            .flatten();
 
         let items = match self
             .inner
-            .filter_conversation(Box::new(move |c| Some(c)))
+            .filter_conversation(Box::new(move |c| Some(c)), lastUpdatedAt, limit)
             .await
         {
             Some(v) => v,
