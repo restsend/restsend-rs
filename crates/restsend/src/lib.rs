@@ -26,6 +26,7 @@ const TEMP_FILENAME_LEN: usize = 12;
 const MAX_RECALL_SECS: i64 = 2 * 60; // 2 minutes
 const MAX_CONVERSATION_LIMIT: u32 = 100;
 const MAX_LOGS_LIMIT: u32 = 100;
+const MAX_SYNC_LOGS_MAX_COUNT: u32 = 200;
 const MAX_RETRIES: usize = 3;
 const MAX_SEND_IDLE_SECS: u64 = 120; // 2 minutes
 const MAX_CONNECT_INTERVAL_SECS: u64 = 5; // 5 seconds

@@ -24,6 +24,7 @@ pub struct WebsocketOption {
     pub url: String,
     pub token: String,
     pub handshake_timeout: Duration,
+    pub is_cross_domain: bool,
 }
 
 impl WebsocketOption {
@@ -33,11 +34,12 @@ impl WebsocketOption {
         url.replace("http", "ws")
     }
 
-    pub fn new(url: &str, token: &str) -> Self {
+    pub fn new(url: &str, token: &str, is_cross_domain: bool) -> Self {
         Self {
             url: url.to_string(),
             token: token.to_string(),
             handshake_timeout: Duration::from_secs(30), // default 30s
+            is_cross_domain,
         }
     }
 }

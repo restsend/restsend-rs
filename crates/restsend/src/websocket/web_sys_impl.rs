@@ -44,7 +44,8 @@ impl WebSocketImpl {
             None => "".to_string(),
         };
 
-        let is_cross_domain = current_host.is_empty() || !url.contains(&current_host);
+        let is_cross_domain =
+            current_host.is_empty() || !url.contains(&current_host) || opt.is_cross_domain;
 
         if is_cross_domain && !opt.token.is_empty() {
             let mut u = url::Url::parse(&url)

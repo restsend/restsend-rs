@@ -15,7 +15,12 @@ pub struct AuthInfo {
     pub token: String,
 
     #[serde(default)]
+    #[serde(skip_serializing_if = "omit_empty")]
     pub is_staff: bool,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "omit_empty")]
+    pub is_cross_domain: bool,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -31,6 +36,7 @@ impl AuthInfo {
             name: String::default(),
             avatar: String::default(),
             is_staff: false,
+            is_cross_domain: false,
             private_extra: None,
         }
     }

@@ -28,7 +28,7 @@ impl super::WebSocketCallback for WebSocketCallbackImpl {
 #[tokio::test]
 async fn test_websocket_bad_handshake() {
     let ws = super::WebSocket::new();
-    let opt = super::WebsocketOption::new(TEST_ENDPOINT, "");
+    let opt = super::WebsocketOption::new(TEST_ENDPOINT, "", false);
     let cb = Box::new(WebSocketCallbackImpl::default());
     let r = ws.serve(&opt, cb).await;
     assert!(r
@@ -41,7 +41,7 @@ async fn test_websocket_bad_handshake() {
 async fn test_websocket_handshake() {
     let ws = super::WebSocket::new();
     let url = super::WebsocketOption::url_from_endpoint(TEST_ENDPOINT);
-    let opt = super::WebsocketOption::new(&url, "");
+    let opt = super::WebsocketOption::new(&url, "", false);
     let cb = Box::new(WebSocketCallbackImpl::default());
     let r = ws.serve(&opt, cb).await;
     assert!(r

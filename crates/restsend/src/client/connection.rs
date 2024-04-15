@@ -222,8 +222,10 @@ impl Client {
         let store_ref = self.store.clone();
         let endpoint = self.endpoint.clone();
         let token = self.token.clone();
+        let is_cross_domain = self.is_cross_domain;
+
         spwan_task(async move {
-            serve_connection(&endpoint, &token, store_ref, state_ref).await;
+            serve_connection(&endpoint, &token, is_cross_domain, store_ref, state_ref).await;
         });
     }
 
@@ -259,6 +261,7 @@ impl Client {
 async fn serve_connection(
     endpoint: &str,
     token: &str,
+    is_cross_domain: bool,
     store_ref: ClientStoreRef,
     state_ref: ConnectStateRef,
 ) {
@@ -271,7 +274,7 @@ async fn serve_connection(
             state_ref.wait_for_next_connect().await;
 
             let url = WebsocketOption::url_from_endpoint(endpoint);
-            let opt = WebsocketOption::new(&url, token);
+            let opt = WebsocketOption::new(&url, token, is_cross_domain);
             info!("connect websocket url: {}", url);
 
             let (incoming_tx, mut incoming_rx) = unbounded_channel();

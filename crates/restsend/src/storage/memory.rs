@@ -104,20 +104,46 @@ impl<T: StoreModel> MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-        end_sort_value: Option<i64>,
+        start_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<T>> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition)?;
         let mut items = Vec::<T>::new();
-        for (_, v) in table.data.iter() {
-            let v = match T::from_str(v) {
-                Ok(v) => v,
-                _ => continue,
-            };
-            match predicate(v) {
-                Some(v) => items.push(v),
-                None => {}
+
+        let start_sort_value = match start_sort_value {
+            Some(v) => Bound::Included(v),
+            None => Bound::Unbounded,
+        };
+
+        let mut iter = table
+            .index
+            .range((Bound::Unbounded, start_sort_value))
+            .rev();
+
+        while let Some((_, indices)) = iter.next() {
+            for index in indices {
+                let v = match table.get(index) {
+                    Some(v) => match T::from_str(v) {
+                        Ok(v) => v,
+                        _ => continue,
+                    },
+                    None => continue,
+                };
+                match predicate(v) {
+                    Some(v) => items.push(v),
+                    None => {}
+                }
+                if let Some(limit) = limit {
+                    if items.len() >= limit as usize {
+                        break;
+                    }
+                }
+            }
+            if let Some(limit) = limit {
+                if items.len() >= limit as usize {
+                    break;
+                }
             }
         }
         Some(items)
@@ -236,7 +262,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         end_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<T>> {
-        Self::filter(self, partition, predicate).await
+        Self::filter(self, partition, predicate, end_sort_value, limit).await
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         Self::query(self, partition, option).await
@@ -265,10 +291,10 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-        end_sort_value: Option<i64>,
+        start_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<T>> {
-        Self::filter(self, partition, predicate, end_sort_value, limit).await
+        Self::filter(self, partition, predicate, start_sort_value, limit).await
     }
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>> {
         Self::query(self, partition, option).await

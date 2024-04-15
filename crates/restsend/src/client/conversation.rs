@@ -9,7 +9,7 @@ use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
 use crate::utils::{elapsed, now_millis};
-use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT};
+use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT, MAX_SYNC_LOGS_MAX_COUNT};
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 
@@ -209,6 +209,7 @@ impl Client {
         limit: u32,
         sync_logs: bool,
         sync_logs_limit: Option<u32>,
+        sync_logs_max_count: Option<u32>,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
@@ -218,6 +219,7 @@ impl Client {
             limit
         }
         .max(MAX_CONVERSATION_LIMIT);
+        let sync_logs_max_count = sync_logs_max_count.unwrap_or(MAX_SYNC_LOGS_MAX_COUNT);
 
         let fetch_local = updated_at.clone().and_then(|s| {
             chrono::DateTime::parse_from_rfc3339(&s).ok().and_then(|t| {
@@ -289,7 +291,7 @@ impl Client {
         let count = conversations.len() as u32;
         if sync_logs {
             let mut synced_conversations = vec![];
-            for (_, c) in conversations.into_iter() {
+            for (_, c) in conversations.into_iter().take(sync_logs_max_count as usize) {
                 match self.try_sync_chat_logs(c, sync_logs_limit).await {
                     Some(c) => {
                         synced_conversations.push(c);
@@ -377,6 +379,16 @@ impl Client {
     ) -> Option<Vec<Conversation>> {
         self.store
             .filter_conversation(predicate, end_sort_value, limit)
+            .await
+    }
+
+    pub async fn get_latest_conversations(
+        &self,
+        limit: u32,
+        with_sticky: bool,
+    ) -> Result<Vec<Conversation>> {
+        self.store
+            .get_latest_conversations(limit, with_sticky)
             .await
     }
 }

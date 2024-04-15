@@ -64,6 +64,8 @@ impl Client {
     /// #Arguments
     /// * `option` - option
     ///    * `syncLogs` - syncs logs, default false
+    ///    * `syncLogsLimit` - sync logs limit, per conversation, default 100
+    ///    * `syncLogsMaxCount` - sync logs max count, default 200
     ///    * `limit` - limit
     ///    * `updatedAt` String - updated_at optional
     ///    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
@@ -78,6 +80,7 @@ impl Client {
                 limit,
                 get_bool(&option, "syncLogs"),
                 Some(get_f64(&option, "syncLogsLimit") as u32),
+                Some(get_f64(&option, "syncLogsMaxCount") as u32),
                 Box::new(SyncConversationsCallbackWasmWrap::new(option)),
             )
             .await
@@ -190,6 +193,8 @@ impl Client {
     /// #Arguments
     /// * `predicate` - filter predicate
     ///     -> return true to keep the conversation
+    /// * `lastUpdatedAt` - last updated_at
+    /// * `limit` - limit
     /// #Return Array of Conversation
     /// #Example
     /// ```js
@@ -258,5 +263,30 @@ impl Client {
             }
         }
         vals.into()
+    }
+
+    pub async fn getLatestConversations(
+        &self,
+        limit: u32,
+        withSticky: Option<bool>,
+    ) -> Option<JsValue> {
+        let items = self
+            .inner
+            .get_latest_conversations(limit, withSticky.unwrap_or(true))
+            .await
+            .ok()?;
+        let vals = js_sys::Array::new();
+        for item in &items {
+            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+            match item.serialize(serializer) {
+                Ok(v) => {
+                    vals.push(&v);
+                }
+                Err(e) => {
+                    log::warn!("serialize conversation error: {:?}", e);
+                }
+            }
+        }
+        Some(vals.into())
     }
 }

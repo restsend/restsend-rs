@@ -188,9 +188,14 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-        end_sort_value: Option<i64>,
+        start_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<T>> {
+        let start_sort_value = match start_sort_value {
+            Some(v) => v as f64,
+            None => js_sys::Number::POSITIVE_INFINITY,
+        };
+
         let store = self
             .db
             .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
@@ -198,7 +203,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .ok()?;
 
         let index = store.index("partition+sortkey").ok()?;
-        let cursor_req = index.open_cursor().ok()?;
+        let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
+            &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
+                .into(),
+            &js_sys::Array::of2(&partition.into(), &start_sort_value.into()).into(),
+        )
+        .ok()?;
+
+        let cursor_req = index
+            .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Prev)
+            .ok()?;
 
         let items = Rc::new(RefCell::new(Some(vec![])));
         let items_clone = items.clone();

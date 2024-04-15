@@ -86,14 +86,22 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         &self,
         partition: &str,
         predicate: Box<dyn Fn(T) -> Option<T> + Send>,
-        _end_sort_value: Option<i64>,
-        _limit: Option<u32>,
+        start_sort_value: Option<i64>,
+        limit: Option<u32>,
     ) -> Option<Vec<T>> {
+        let sort_by_cond = match start_sort_value {
+            Some(v) => format!("AND sort_by <= {}", v), // exclude start_sort_value
+            None => "".to_string(),
+        };
+
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut()?;
 
-        let stmt = format!("SELECT value FROM {} WHERE partition = ?", self.name);
+        let stmt = format!(
+            "SELECT value FROM {} {} WHERE partition = ?",
+            self.name, sort_by_cond
+        );
         let mut stmt = conn.prepare(&stmt).ok()?;
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
@@ -118,6 +126,11 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                     };
                 }
                 None => break,
+            }
+            if let Some(limit) = limit {
+                if items.len() as u32 >= limit {
+                    break;
+                }
             }
         }
 

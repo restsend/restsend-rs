@@ -104,6 +104,7 @@ async fn signin_or_signup(
         name: r.display_name,
         token: r.token,
         is_staff: r.is_staff,
+        is_cross_domain: false,
         private_extra: r.profile.private_extra,
     })
 }
