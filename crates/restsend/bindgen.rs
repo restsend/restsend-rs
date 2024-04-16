@@ -7,8 +7,8 @@ use std::vec;
 use camino::Utf8Path;
 use clap::{Parser, ValueEnum};
 
-use uniffi_bindgen;
 use uniffi_bindgen::bindings::TargetLanguage;
+use uniffi_bindgen::{self, BindingGeneratorDefault};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -269,9 +269,13 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
     uniffi_bindgen::library_mode::generate_bindings(
         source,
         Some(crate_name.to_string()),
-        &vec![language],
+        &BindingGeneratorDefault {
+            target_languages: vec![TargetLanguage::Ruby],
+            try_format_code: false,
+        },
+        None,
         &out_dir,
-        args.format.unwrap_or_default(),
+        false,
     )
     .unwrap();
 

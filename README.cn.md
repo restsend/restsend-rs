@@ -1,17 +1,32 @@
 restsend client sdk
 =====
 
-restsend的客户端SDK,基于rust编写, 提供android和ios的sdk实现, 需要对rust版本有要求, 如果版本低于 `1.72.0` 需要先 `rustup update` 更新到rust版本
+Restsend 是一个安全的即时通讯系统, 服务端用go编写：
+- 单元测试覆盖率达到`80%`以上
+- 支持单机百万的并发连接, 并且支持集群部署
+- 高可靠协议设计，支持消息的可靠传输
+- 基于同步协议设计
+- 完整的`OpenAPI`和`Webhook`支持，服务端支持各种形式的扩展：
+  - 头像生成
+  - 账号和权限高度可扩展，现有的用户体系无需迁移
+  - 流控和内容检测
+- SDK基于`Rust`编写，提供`Android`和`iOS`、`WASM`的SDK实现, 单机能实现`10万`会话的渲染
+- 代码可以用`go module`管理，可以直接嵌入到现有的go项目中
+
+如果需要测试和体验，可以访问[在线demo](https://chat.ruzhila.cn?from=github) 也可以联系我：shenjint@fourz.cn
+
+
+restsend的客户端SDK,基于rust编写, 提供android和ios的sdk实现, 对rust版本有要求, 如果版本低于 `1.74.0` 需要先 `rustup update` 更新到rust版本
 查看rustc版本:
 
 ```shell
 mpi@mpis-Mac-mini restsend-sdk % rustc --version
-rustc 1.72.0 (5680fa18f 2023-08-23)
+rustc 1.77.2 (25ef9e3d8 2024-04-09)
 ```
 
 ## 代码依赖和环境准备
 
-- 需要`rust 1.72.0 (5680fa18f 2023-08-23)` 以上版本, 需要设置 [rsproxy.cn](https://rsproxy.cn) 加快编译速度
+- 需要`rust 1.72.0 (5680fa18f 2023-08-23) ` 以上版本, 需要设置 [rsproxy.cn](https://rsproxy.cn) 加快编译速度
 - ios 需要指定准备开发环境: (m1/m2 上使用)
 
     ```shell

@@ -1,6 +1,6 @@
 [package]
 name = "restsend-wasm"
-version = "1.0.2"
+version = "1.0.3"
 edition = "2021"
 description = "A client for the retsend server"
 
@@ -23,19 +23,19 @@ indexeddb = [
 ]
 
 [dependencies]
-serde = "1.0.195"
+serde = "1.0.197"
 restsend-sdk = { path = "../restsend" }
-wasm-bindgen = "0.2.89"
-wasm-bindgen-futures = "0.4.39"
-serde-wasm-bindgen = "0.6.3"
-futures-util = "0.3.29"
-futures = "0.3.29"
-js-sys = "0.3.66"
-web-sys = "0.3.66"
-chrono = "0.4.31"
-log = "0.4.20"
+wasm-bindgen = "0.2.92"
+wasm-bindgen-futures = "0.4.42"
+serde-wasm-bindgen = "0.6.5"
+futures-util = "0.3.30"
+futures = "0.3.30"
+js-sys = "0.3.69"
+web-sys = "0.3.69"
+chrono = "0.4.38"
+log = "0.4.21"
 [dev-dependencies]
-wasm-bindgen-test = "0.3.39"
+wasm-bindgen-test = "0.3.42"
 
 [profile.release]
 lto = true

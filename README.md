@@ -9,7 +9,7 @@ Demo: [demo page](https://chat.ruzhila.cn?from=github)
 [中文文档](README.cn.md) 
 
 ## Code dependency and environment preparation
-- rust 1.72.0 (5680fa18f 2023-08-23) or above
+- rustc 1.77.2 (25ef9e3d8 2024-04-09) or above
     > For china mainland developer: You can use [rsproxy.cn](https://rsproxy.cn) to speed up the compilation
 - iOS development environment preparation: (Only for M1/M2 machine)
 ```

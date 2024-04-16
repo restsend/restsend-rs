@@ -44,7 +44,7 @@ impl WebSocketImpl {
         opt: &WebsocketOption,
         callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
-        let url = opt.url.clone();
+        let url = opt.url.replacen("http", "ws", 1);
 
         let req = ClientBuilder::new()
             .add_header(
@@ -71,7 +71,7 @@ impl WebSocketImpl {
         let (stream, resp) = match resp {
             Ok(v) => v,
             Err(e) => {
-                warn!("websocket connect failed: {}", e);
+                warn!("websocket connect failed: url: {} {}", url, e);
                 let reason = format!("websocket connect failed: {}", e);
                 callback.on_net_broken(reason.clone());
                 return Err(HTTP(reason).into());

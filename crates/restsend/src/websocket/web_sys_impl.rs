@@ -36,7 +36,7 @@ impl WebSocketImpl {
         opt: &WebsocketOption,
         callback: Box<dyn WebSocketCallback>,
     ) -> Result<()> {
-        let mut url = opt.url.replace("http", "ws");
+        let mut url = opt.url.replacen("http", "ws", 1);
         let st: i64 = now_millis();
 
         let current_host = match web_sys::window() {
