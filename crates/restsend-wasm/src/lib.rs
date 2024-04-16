@@ -1,5 +1,6 @@
-use crate::callback::CallbackWasmWrap;
-use restsend_sdk::models::AuthInfo;
+use crate::{callback::CallbackWasmWrap, js_util::get_bool};
+use js_util::get_string;
+use restsend_sdk::models::{conversation::Extra, AuthInfo};
 use std::{cell::RefCell, rc::Rc};
 use wasm_bindgen::prelude::*;
 
@@ -45,9 +46,22 @@ impl Client {
     /// * `db_name` - database name (optional), create an indexeddb when set it    
     #[wasm_bindgen(constructor)]
     pub fn new(info: JsValue, db_name: Option<String>) -> Self {
-        let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info) {
+        let info = match serde_wasm_bindgen::from_value::<AuthInfo>(info.clone()) {
             Ok(v) => v,
-            Err(_) => AuthInfo::default(),
+            Err(_) => {
+                let privateExtra = js_sys::Reflect::get(&info, &JsValue::from_str("privateExtra"))
+                    .unwrap_or(JsValue::UNDEFINED);
+                AuthInfo {
+                    endpoint: get_string(&info, "endpoint").unwrap_or_default(),
+                    user_id: get_string(&info, "userId").unwrap_or_default(),
+                    token: get_string(&info, "token").unwrap_or_default(),
+                    is_cross_domain: get_bool(&info, "isCrossDomain"),
+                    is_staff: get_bool(&info, "isStaff"),
+                    avatar: get_string(&info, "avatar").unwrap_or_default(),
+                    name: get_string(&info, "name").unwrap_or_default(),
+                    private_extra: serde_wasm_bindgen::from_value::<Extra>(privateExtra).ok(),
+                }
+            }
         };
 
         let inner = restsend_sdk::client::Client::new_not_sync(
