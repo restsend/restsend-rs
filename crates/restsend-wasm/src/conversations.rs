@@ -216,7 +216,7 @@ impl Client {
     ) -> JsValue {
         let predicate = predicate.dyn_into::<js_sys::Function>().ok();
         let limit = limit.as_f64().map(|v| v as u32);
-        let lastUpdatedAt = lastUpdatedAt
+        let mut lastUpdatedAt = lastUpdatedAt
             .as_string()
             .map(|v| {
                 chrono::DateTime::parse_from_rfc3339(&v)
@@ -225,42 +225,50 @@ impl Client {
             })
             .flatten();
 
-        let items = match self
-            .inner
-            .filter_conversation(Box::new(move |c| Some(c)), lastUpdatedAt, limit)
-            .await
-        {
-            Some(v) => v,
-            None => {
-                vec![]
-            }
-        };
-
+        let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         let vals = js_sys::Array::new();
-        for item in &items {
-            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-            match item.serialize(serializer) {
-                Ok(v) => {
-                    predicate
-                        .as_ref()
-                        .and_then(|f| match f.call1(&JsValue::NULL, &v) {
-                            Ok(r) => Some(r),
-                            Err(e) => {
-                                web_sys::console::error_1(&e);
-                                None
-                            }
-                        })
-                        .and_then(|r| {
-                            if r.as_bool().unwrap_or(false) {
-                                vals.push(&v);
-                            }
-                            Some(())
-                        });
+        let per_limit = 100;
+
+        loop {
+            let items = match self
+                .inner
+                .filter_conversation(Box::new(move |c| Some(c)), lastUpdatedAt, Some(per_limit))
+                .await
+            {
+                Some(v) => v,
+                None => {
+                    vec![]
                 }
-                Err(e) => {
-                    log::warn!("serialize conversation error: {:?}", e);
+            };
+            for item in &items {
+                match item.serialize(serializer) {
+                    Ok(c) => {
+                        predicate.as_ref().map(|v| {
+                            v.call1(&JsValue::NULL, &c).ok().map(|r| {
+                                if r.as_bool().unwrap_or(false) {
+                                    vals.push(&c);
+                                }
+                            })
+                        });
+                    }
+                    Err(_) => {}
                 }
             }
+
+            if items.len() < per_limit as usize {
+                break;
+            }
+
+            if limit.is_some() && vals.length() >= limit.unwrap() as u32 {
+                break;
+            }
+
+            lastUpdatedAt = items
+                .last()
+                .map(|v| v.updated_at.clone())
+                .map(|v| chrono::DateTime::parse_from_rfc3339(&v).ok())
+                .flatten()
+                .map(|v| v.timestamp_millis());
         }
         vals.into()
     }
