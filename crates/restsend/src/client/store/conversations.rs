@@ -674,43 +674,4 @@ impl ClientStore {
         t.filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
             .await
     }
-
-    pub async fn get_latest_conversations(
-        &self,
-        limit: u32,
-        with_sticky: bool,
-    ) -> Result<Vec<Conversation>> {
-        let t = self.message_storage.table::<Conversation>().await;
-        let option = QueryOption {
-            keyword: None,
-            start_sort_value: None,
-            limit,
-        };
-
-        let mut conversations = vec![];
-        if with_sticky {
-            for id in self.stickies.lock().unwrap().iter() {
-                if let Some(conversation) = t.get("", id).await {
-                    conversations.push(conversation);
-                }
-            }
-        }
-        match t.query("", &option).await {
-            Some(result) => {
-                for conversation in result.items {
-                    if self
-                        .stickies
-                        .lock()
-                        .unwrap()
-                        .contains(&conversation.topic_id)
-                    {
-                        continue;
-                    }
-                    conversations.push(conversation);
-                }
-            }
-            None => {}
-        }
-        Ok(conversations)
-    }
 }

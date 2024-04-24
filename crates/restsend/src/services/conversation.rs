@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use super::{api_call, response::APISendResponse};
 use crate::Result;
 use crate::{
@@ -6,6 +8,15 @@ use crate::{
     services::LOGS_LIMIT,
     utils::now_millis,
 };
+
+#[derive(Serialize)]
+pub struct BatchSyncChatLogs {
+    pub topic_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_seq: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+}
 
 pub async fn create_chat(endpoint: &str, token: &str, user_id: &str) -> Result<Conversation> {
     api_call(endpoint, &format!("/chat/create/{}", user_id), token, None).await
@@ -148,7 +159,7 @@ pub async fn get_chat_logs_desc(
     topic_id: &str,
     last_seq: Option<i64>,
     limit: u32,
-) -> Result<(ListChatLogResult, i64)> {
+) -> Result<ListChatLogResult> {
     let mut data = serde_json::json!({
         "topicId": topic_id,
         "limit": limit.min(LOGS_LIMIT)
@@ -157,8 +168,6 @@ pub async fn get_chat_logs_desc(
     if last_seq.is_some() {
         data["lastSeq"] = serde_json::json!(last_seq);
     }
-
-    let now = now_millis();
 
     api_call(
         endpoint,
@@ -169,11 +178,29 @@ pub async fn get_chat_logs_desc(
     .await
     .map(|mut lr: ListChatLogResult| {
         lr.items.iter_mut().for_each(|c| {
-            c.cached_at = now;
+            c.cached_at = now_millis();
         });
-        let last_seq = lr.items.iter().map(|c| c.seq).max().unwrap_or(0);
-        (lr, last_seq)
+        lr
     })
+}
+
+pub async fn batch_get_chat_logs_desc(
+    endpoint: &str,
+    token: &str,
+    conversations: Vec<BatchSyncChatLogs>,
+) -> Result<Vec<ListChatLogResult>> {
+    let data = serde_json::json!(conversations);
+
+    api_call(endpoint, "/chat/batch_sync", token, Some(data.to_string()))
+        .await
+        .map(|mut lrs: Vec<ListChatLogResult>| {
+            lrs.iter_mut().for_each(|lr| {
+                lr.items.iter_mut().for_each(|c| {
+                    c.cached_at = now_millis();
+                });
+            });
+            lrs
+        })
 }
 
 pub async fn send_request(

@@ -64,6 +64,7 @@ pub struct ListConversationResult {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ListChatLogResult {
+    pub topic_id: Option<String>,
     pub has_more: bool,
     pub updated_at: String,
     pub last_seq: i64,

@@ -272,29 +272,4 @@ impl Client {
         }
         vals.into()
     }
-
-    pub async fn getLatestConversations(
-        &self,
-        limit: u32,
-        withSticky: Option<bool>,
-    ) -> Option<JsValue> {
-        let items = self
-            .inner
-            .get_latest_conversations(limit, withSticky.unwrap_or(true))
-            .await
-            .ok()?;
-        let vals = js_sys::Array::new();
-        for item in &items {
-            let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-            match item.serialize(serializer) {
-                Ok(v) => {
-                    vals.push(&v);
-                }
-                Err(e) => {
-                    log::warn!("serialize conversation error: {:?}", e);
-                }
-            }
-        }
-        Some(vals.into())
-    }
 }

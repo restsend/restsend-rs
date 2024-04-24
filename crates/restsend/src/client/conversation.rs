@@ -4,7 +4,7 @@ use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
-use crate::services::conversation::create_chat;
+use crate::services::conversation::{batch_get_chat_logs_desc, create_chat, BatchSyncChatLogs};
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
@@ -53,6 +53,7 @@ impl Client {
         None
     }
 
+    #[allow(unused)]
     pub(crate) async fn try_sync_chat_logs(
         &self,
         mut conversation: Conversation,
@@ -170,7 +171,7 @@ impl Client {
         limit: u32,
     ) -> Result<GetChatLogsResult> {
         match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
-            Ok((mut lr, _)) => {
+            Ok(mut lr) => {
                 let now = now_millis();
                 for c in lr.items.iter_mut() {
                     c.cached_at = now;
@@ -290,31 +291,143 @@ impl Client {
 
         let count = conversations.len() as u32;
         if sync_logs {
-            let mut synced_conversations = vec![];
-            for (_, c) in conversations.into_iter().take(sync_logs_max_count as usize) {
-                match self.try_sync_chat_logs(c, sync_logs_limit).await {
-                    Some(c) => {
-                        synced_conversations.push(c);
-                        if synced_conversations.len() >= 10 {
-                            // TODO: make this configurable
-                            if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                                cb.on_conversations_updated(synced_conversations);
-                            }
-                            synced_conversations = vec![];
+            let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
+            vals.sort_by(|a, b| {
+                a.updated_at
+                    .parse::<chrono::DateTime<chrono::Utc>>()
+                    .unwrap()
+                    .cmp(
+                        &b.updated_at
+                            .parse::<chrono::DateTime<chrono::Utc>>()
+                            .unwrap(),
+                    )
+            });
+
+            if sync_logs_max_count > 0 {
+                vals.truncate(sync_logs_max_count as usize);
+            }
+
+            let conversations = vals.into_iter().map(|c| (c.topic_id.clone(), c)).collect();
+            self.batch_sync_chatlogs(conversations, sync_logs_limit)
+                .await
+                .map_err(|e| {
+                    warn!("sync_conversations failed: {:?}", e);
+                })
+                .ok();
+
+            // let mut synced_conversations = vec![];
+            // for (_, c) in conversations.into_iter().take(sync_logs_max_count as usize) {
+            //     match self.try_sync_chat_logs(c, sync_logs_limit).await {
+            //         Some(c) => {
+            //             synced_conversations.push(c);
+            //             if synced_conversations.len() >= 10 {
+            //                 // TODO: make this configurable
+            //                 if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+            //                     cb.on_conversations_updated(synced_conversations);
+            //                 }
+            //                 synced_conversations = vec![];
+            //             }
+            //         }
+            //         None => {}
+            //     }
+            // }
+
+            // if !synced_conversations.is_empty() {
+            //     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+            //         log::info!("sync conversations logs from remote and save to local");
+            //         cb.on_conversations_updated(synced_conversations);
+            //     }
+            // }
+        }
+        callback.on_success(last_updated_at, count);
+    }
+
+    pub async fn batch_sync_chatlogs(
+        &self,
+        mut conversations: HashMap<String, Conversation>,
+        limit: Option<u32>,
+    ) -> Result<()> {
+        loop {
+            let mut try_sync_conversations = vec![];
+            for (_, c) in conversations.iter() {
+                match self.store.get_last_log(&c.topic_id).await {
+                    Some(log) => {
+                        if log.seq >= c.last_seq {
+                            continue;
                         }
                     }
                     None => {}
                 }
+
+                if c.last_seq <= c.start_seq {
+                    continue;
+                }
+                try_sync_conversations.push(c.clone());
             }
 
-            if !synced_conversations.is_empty() {
-                if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                    log::info!("sync conversations logs from remote and save to local");
-                    cb.on_conversations_updated(synced_conversations);
-                }
+            if try_sync_conversations.is_empty() {
+                return Ok(());
             }
+
+            let form = try_sync_conversations
+                .iter()
+                .map(|c| BatchSyncChatLogs {
+                    topic_id: c.topic_id.clone(),
+                    last_seq: Some(c.last_seq),
+                    limit,
+                })
+                .collect();
+
+            let r = batch_get_chat_logs_desc(&self.endpoint, &self.token, form).await?;
+            let now = now_millis();
+
+            let mut updated_conversations = vec![];
+            for mut lr in r {
+                // flush to local db
+                for c in lr.items.iter_mut() {
+                    c.cached_at = now;
+                    c.status = if c.sender_id == self.user_id {
+                        ChatLogStatus::Sent
+                    } else {
+                        ChatLogStatus::Received
+                    };
+                    self.store.save_chat_log(&c).await.ok();
+                }
+
+                let topic_id = match lr.topic_id {
+                    Some(ref topic_id) => topic_id.clone(),
+                    None => continue,
+                };
+
+                let mut conversation = match conversations.remove(&topic_id) {
+                    Some(c) => c,
+                    None => continue,
+                };
+
+                for c in lr.items.iter() {
+                    if c.seq <= conversation.last_seq {
+                        continue;
+                    }
+                    conversation.last_seq = c.seq;
+                    if !c.content.unreadable {
+                        conversation.updated_at = c.created_at.clone();
+                        conversation.last_message_at = c.created_at.clone();
+                        conversation.last_message = Some(c.content.clone());
+                        conversation.last_sender_id = c.sender_id.clone();
+                    }
+                    break;
+                }
+                updated_conversations.push(conversation);
+            }
+            // callback
+            if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
+                cb.on_conversations_updated(updated_conversations.clone());
+            }
+            conversations = updated_conversations
+                .iter()
+                .map(|c| (c.topic_id.clone(), c.clone()))
+                .collect();
         }
-        callback.on_success(last_updated_at, count);
     }
 
     pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {
@@ -379,16 +492,6 @@ impl Client {
     ) -> Option<Vec<Conversation>> {
         self.store
             .filter_conversation(predicate, end_sort_value, limit)
-            .await
-    }
-
-    pub async fn get_latest_conversations(
-        &self,
-        limit: u32,
-        with_sticky: bool,
-    ) -> Result<Vec<Conversation>> {
-        self.store
-            .get_latest_conversations(limit, with_sticky)
             .await
     }
 }

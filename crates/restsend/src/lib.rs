@@ -24,7 +24,7 @@ const CHAT_ID_LEN: usize = 10;
 const TEMP_FILENAME_LEN: usize = 12;
 
 const MAX_RECALL_SECS: i64 = 2 * 60; // 2 minutes
-const MAX_CONVERSATION_LIMIT: u32 = 100;
+const MAX_CONVERSATION_LIMIT: u32 = 1000;
 const MAX_LOGS_LIMIT: u32 = 100;
 const MAX_SYNC_LOGS_MAX_COUNT: u32 = 200;
 const MAX_RETRIES: usize = 3;

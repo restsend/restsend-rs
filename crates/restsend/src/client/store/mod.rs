@@ -8,7 +8,6 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
-use std::collections::HashSet;
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::{HashMap, VecDeque},
@@ -106,7 +105,6 @@ pub(super) struct ClientStore {
     outgoings: PendingRequests,
     upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
-    stickies: Arc<Mutex<HashSet<String>>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
 }
@@ -127,7 +125,6 @@ impl ClientStore {
             outgoings: Arc::new(Mutex::new(HashMap::new())),
             upload_tasks: Mutex::new(HashMap::new()),
             msg_tx: Mutex::new(None),
-            stickies: Arc::new(Mutex::new(HashSet::new())),
             message_storage: Arc::new(Storage::new(db_path)),
             callback: Arc::new(Mutex::new(None)),
         }
