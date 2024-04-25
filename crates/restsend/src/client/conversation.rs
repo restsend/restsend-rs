@@ -5,7 +5,9 @@ use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::request::ChatRequest;
-use crate::services::conversation::{batch_get_chat_logs_desc, create_chat, BatchSyncChatLogs};
+use crate::services::conversation::{
+    batch_get_chat_logs_desc, create_chat, set_conversation_read, BatchSyncChatLogs,
+};
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
@@ -439,22 +441,21 @@ impl Client {
     }
 
     pub async fn set_conversation_read(&self, topic_id: String, heavy: bool) {
-        match heavy {
-            true => {
-                self.store.set_conversation_read(&topic_id).await;
-            }
-            false => {
-                self.store
-                    .set_conversation_read_local(&topic_id)
-                    .await
-                    .map(|c| {
-                        let mut msg = ChatRequest::new_read(&topic_id);
-                        msg.seq = c.last_seq;
-                        self.store.emit_topic_read(topic_id.clone(), msg)
-                    });
-                self.do_read(topic_id).await.ok();
-            }
+        let last_read_at = chrono::Utc::now().to_rfc3339();
+        self.store
+            .set_conversation_read_local(&topic_id, &last_read_at)
+            .await
+            .map(|c| {
+                let mut msg = ChatRequest::new_read(&topic_id);
+                msg.seq = c.last_seq;
+                self.store.emit_topic_read(topic_id.clone(), msg)
+            });
+        if heavy {
+            set_conversation_read(&self.endpoint, &self.token, &topic_id).await
+        } else {
+            self.do_read(topic_id).await
         }
+        .ok();
     }
 
     pub async fn set_conversation_tags(

@@ -229,7 +229,11 @@ impl ClientStore {
         self.emit_conversation_update(c)
     }
 
-    pub async fn set_conversation_read_local(&self, topic_id: &str) -> Option<Conversation> {
+    pub async fn set_conversation_read_local(
+        &self,
+        topic_id: &str,
+        last_read_at: &str,
+    ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         match t.get("", topic_id).await {
             Some(mut conversation) => {
@@ -240,28 +244,13 @@ impl ClientStore {
                 if conversation.last_read_seq == conversation.last_seq && conversation.unread == 0 {
                     return None;
                 }
-
+                conversation.last_read_at = Some(last_read_at.to_string());
                 conversation.last_read_seq = conversation.last_seq;
                 conversation.unread = 0;
                 t.set("", topic_id, Some(&conversation)).await.ok();
                 Some(conversation)
             }
             _ => None,
-        }
-    }
-
-    pub async fn set_conversation_read(&self, topic_id: &str) {
-        match self.set_conversation_read_local(topic_id).await {
-            Some(conversation) => {
-                match set_conversation_read(&self.endpoint, &self.token, &topic_id).await {
-                    Ok(_) => self.emit_conversation_update(conversation).ok(),
-                    Err(e) => {
-                        warn!("set_conversation_read failed: {:?}", e);
-                        None
-                    }
-                };
-            }
-            None => {}
         }
     }
 

@@ -144,7 +144,8 @@ impl ClientStore {
             ChatRequestType::Read => {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
-                self.set_conversation_read_local(&topic_id).await;
+                self.set_conversation_read_local(&topic_id, &req.created_at)
+                    .await;
                 self.emit_topic_read(topic_id, req);
                 vec![resp]
             }
