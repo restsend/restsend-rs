@@ -443,7 +443,7 @@ impl Client {
     pub async fn set_conversation_read(&self, topic_id: String, heavy: bool) {
         let last_read_at = chrono::Utc::now().to_rfc3339();
         self.store
-            .set_conversation_read_local(&topic_id, &last_read_at)
+            .set_conversation_read_local(&topic_id, &last_read_at, None)
             .await
             .map(|c| {
                 let mut msg = ChatRequest::new_read(&topic_id);

@@ -22,6 +22,7 @@ pub(crate) async fn merge_conversation(
     let mut conversation = conversation;
 
     if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+        conversation.last_read_at = old_conversation.last_read_at;
         conversation.last_read_seq = old_conversation.last_read_seq;
         conversation.unread = old_conversation.unread;
     }
@@ -233,6 +234,7 @@ impl ClientStore {
         &self,
         topic_id: &str,
         last_read_at: &str,
+        last_seq: Option<i64>,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         match t.get("", topic_id).await {
@@ -240,12 +242,13 @@ impl ClientStore {
                 if conversation.is_partial {
                     return None;
                 }
+                let last_seq = last_seq.unwrap_or(conversation.last_seq);
 
-                if conversation.last_read_seq == conversation.last_seq && conversation.unread == 0 {
+                if conversation.last_read_seq == last_seq && conversation.unread == 0 {
                     return None;
                 }
                 conversation.last_read_at = Some(last_read_at.to_string());
-                conversation.last_read_seq = conversation.last_seq;
+                conversation.last_read_seq = last_seq;
                 conversation.unread = 0;
                 t.set("", topic_id, Some(&conversation)).await.ok();
                 Some(conversation)
@@ -377,6 +380,7 @@ impl ClientStore {
         let t = self.message_storage.table::<Conversation>().await;
 
         if let Some(mut conversation) = t.get("", topic_id).await {
+            conversation.last_read_at = Some(updated_at.to_string());
             conversation.last_read_seq = last_read_seq.unwrap_or(conversation.last_seq);
             conversation.updated_at = updated_at.to_string();
             t.set("", topic_id, Some(&conversation)).await.ok();
