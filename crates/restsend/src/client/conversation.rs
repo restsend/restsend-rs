@@ -448,6 +448,7 @@ impl Client {
             .map(|c| {
                 let mut msg = ChatRequest::new_read(&topic_id);
                 msg.seq = c.last_seq;
+                msg.created_at = last_read_at;
                 self.store.emit_topic_read(topic_id.clone(), msg)
             });
         if heavy {
