@@ -214,12 +214,11 @@ impl Client {
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
-        let limit = if limit == 0 {
-            MAX_CONVERSATION_LIMIT
-        } else {
-            limit
+        let limit = match limit {
+            0 => MAX_CONVERSATION_LIMIT,
+            _ => limit,
         }
-        .max(MAX_CONVERSATION_LIMIT);
+        .min(MAX_CONVERSATION_LIMIT);
         let sync_logs_max_count = sync_logs_max_count.unwrap_or(MAX_SYNC_LOGS_MAX_COUNT);
 
         let fetch_local = updated_at.clone().and_then(|s| {
