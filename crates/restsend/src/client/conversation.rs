@@ -296,11 +296,11 @@ impl Client {
             let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
             vals.sort_by(|a, b| {
                 a.updated_at
-                    .parse::<chrono::DateTime<chrono::Utc>>()
+                    .parse::<chrono::DateTime<chrono::Local>>()
                     .unwrap()
                     .cmp(
                         &b.updated_at
-                            .parse::<chrono::DateTime<chrono::Utc>>()
+                            .parse::<chrono::DateTime<chrono::Local>>()
                             .unwrap(),
                     )
             });
@@ -441,7 +441,7 @@ impl Client {
     }
 
     pub async fn set_conversation_read(&self, topic_id: String, heavy: bool) {
-        let last_read_at = chrono::Utc::now().to_rfc3339();
+        let last_read_at = chrono::Local::now().to_rfc3339();
         self.store
             .set_conversation_read_local(&topic_id, &last_read_at, None)
             .await
