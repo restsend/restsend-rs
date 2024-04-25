@@ -180,7 +180,6 @@ describe('Conversations', async function () {
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
         expect(lastMessage.type).toEqual('text')
-        console.log('lastMessage', lastMessage)
         expect(lastMessage.extra).toEqual({ 'tag is': 'me' })
     })
 

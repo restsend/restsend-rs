@@ -145,11 +145,7 @@ impl ClientStore {
                 let resp = ChatRequest::new_response(&req, 200);
                 let topic_id = req.topic_id.clone();
                 self.set_conversation_read_local(&topic_id).await;
-                callback
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .map(|cb| cb.on_topic_read(topic_id, req));
+                self.emit_topic_read(topic_id, req);
                 vec![resp]
             }
             _ => {

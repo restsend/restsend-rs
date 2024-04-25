@@ -169,6 +169,12 @@ impl ClientStore {
         Ok(conversation)
     }
 
+    pub fn emit_topic_read(&self, topic_id: String, message: ChatRequest) {
+        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+            cb.on_topic_read(topic_id, message);
+        }
+    }
+
     pub async fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
         merge_conversation(self.message_storage.clone(), conversation).await
     }

@@ -4,6 +4,7 @@ use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
+use crate::request::ChatRequest;
 use crate::services::conversation::{batch_get_chat_logs_desc, create_chat, BatchSyncChatLogs};
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
@@ -313,30 +314,6 @@ impl Client {
                     warn!("sync_conversations failed: {:?}", e);
                 })
                 .ok();
-
-            // let mut synced_conversations = vec![];
-            // for (_, c) in conversations.into_iter().take(sync_logs_max_count as usize) {
-            //     match self.try_sync_chat_logs(c, sync_logs_limit).await {
-            //         Some(c) => {
-            //             synced_conversations.push(c);
-            //             if synced_conversations.len() >= 10 {
-            //                 // TODO: make this configurable
-            //                 if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-            //                     cb.on_conversations_updated(synced_conversations);
-            //                 }
-            //                 synced_conversations = vec![];
-            //             }
-            //         }
-            //         None => {}
-            //     }
-            // }
-
-            // if !synced_conversations.is_empty() {
-            //     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-            //         log::info!("sync conversations logs from remote and save to local");
-            //         cb.on_conversations_updated(synced_conversations);
-            //     }
-            // }
         }
         callback.on_success(last_updated_at, count);
     }
@@ -467,11 +444,15 @@ impl Client {
                 self.store.set_conversation_read(&topic_id).await;
             }
             false => {
-                self.do_read(topic_id.clone()).await.ok();
                 self.store
                     .set_conversation_read_local(&topic_id)
                     .await
-                    .map(|c| self.store.emit_conversation_update(c));
+                    .map(|c| {
+                        let mut msg = ChatRequest::new_read(&topic_id);
+                        msg.seq = c.last_seq;
+                        self.store.emit_topic_read(topic_id.clone(), msg)
+                    });
+                self.do_read(topic_id).await.ok();
             }
         }
     }
