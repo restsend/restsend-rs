@@ -454,10 +454,12 @@ export class Client {
 * Set conversation read by topicId
 * #Arguments
 * * `topicId` - topic id
+* * `heavy` - heavy optional
 * @param {string} topicId
+* @param {boolean | undefined} [heavy]
 * @returns {Promise<void>}
 */
-  setConversationRead(topicId: string): Promise<void>;
+  setConversationRead(topicId: string, heavy?: boolean): Promise<void>;
 /**
 * Set conversation tags
 * #Arguments
@@ -969,7 +971,7 @@ export interface InitOutput {
   readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => number;
   readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setConversationRead: (a: number, b: number, c: number) => number;
+  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => number;
   readonly client_setConversationTags: (a: number, b: number, c: number, d: number) => number;
   readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
   readonly client_filterConversation: (a: number, b: number, c: number, d: number) => number;

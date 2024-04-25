@@ -35,7 +35,7 @@ export function client_removeConversation(a: number, b: number, c: number): numb
 export function client_setConversationRemark(a: number, b: number, c: number, d: number, e: number): number;
 export function client_setConversationSticky(a: number, b: number, c: number, d: number): number;
 export function client_setConversationMute(a: number, b: number, c: number, d: number): number;
-export function client_setConversationRead(a: number, b: number, c: number): number;
+export function client_setConversationRead(a: number, b: number, c: number, d: number): number;
 export function client_setConversationTags(a: number, b: number, c: number, d: number): number;
 export function client_setConversationExtra(a: number, b: number, c: number, d: number): number;
 export function client_filterConversation(a: number, b: number, c: number, d: number): number;

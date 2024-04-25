@@ -461,8 +461,19 @@ impl Client {
         self.store.set_conversation_mute(&topic_id, mute).await
     }
 
-    pub async fn set_conversation_read(&self, topic_id: String) {
-        self.store.set_conversation_read(&topic_id).await
+    pub async fn set_conversation_read(&self, topic_id: String, heavy: bool) {
+        match heavy {
+            true => {
+                self.store.set_conversation_read(&topic_id).await;
+            }
+            false => {
+                self.do_read(topic_id.clone()).await.ok();
+                self.store
+                    .set_conversation_read_local(&topic_id)
+                    .await
+                    .map(|c| self.store.emit_conversation_update(c));
+            }
+        }
     }
 
     pub async fn set_conversation_tags(
