@@ -73,6 +73,7 @@ async fn get_conversation_last_readable_message(
 pub(super) async fn merge_conversation_from_chat(
     message_storage: Arc<Storage>,
     req: &ChatRequest,
+    has_read: bool,
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>().await;
     let mut conversation = t
@@ -134,6 +135,12 @@ pub(super) async fn merge_conversation_from_chat(
             conversation.last_message = req.content.clone();
             conversation.updated_at = req.created_at.clone();
         }
+    }
+
+    if has_read {
+        conversation.last_read_at = Some(req.created_at.clone());
+        conversation.last_read_seq = conversation.last_seq;
+        conversation.unread = 0;
     }
 
     conversation.cached_at = now_millis();
@@ -369,23 +376,6 @@ impl ClientStore {
         } else {
             spwan_task(runner);
         }
-    }
-
-    pub(super) async fn update_conversation_read(
-        &self,
-        topic_id: &str,
-        updated_at: &str,
-        last_read_seq: Option<i64>,
-    ) -> Result<()> {
-        let t = self.message_storage.table::<Conversation>().await;
-
-        if let Some(mut conversation) = t.get("", topic_id).await {
-            conversation.last_read_at = Some(updated_at.to_string());
-            conversation.last_read_seq = last_read_seq.unwrap_or(conversation.last_seq);
-            conversation.updated_at = updated_at.to_string();
-            t.set("", topic_id, Some(&conversation)).await.ok();
-        }
-        Ok(())
     }
 
     pub(super) async fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {

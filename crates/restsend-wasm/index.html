@@ -402,9 +402,18 @@
 
                 client.onconversationsupdated = this.onConversationsUpdated.bind(this)
                 client.ontopicmessage = this.onTopicMessage.bind(this)
+                client.ontopicread = this.onTopicRead.bind(this)
                 await client.connect();
                 this.current = client;
                 this.signined = true
+            },
+            onTopicRead: function (topicId, req) {
+                this.conversations.forEach((item) => {
+                    if (item.topicId == topicId) {
+                        item.unread = 0
+                    }
+                })
+                return false
             },
 
             onTopicMessage: function (topicId, req) {
@@ -487,7 +496,7 @@
                     const lastSyncSeq = this.conversation.lastSyncSeq || this.conversation.lastSeq
                     limit = conversation.lastSeq - lastSyncSeq
                 }
-
+                console.log('update conversation', conversation, fetchLogs, limit)
                 this.conversation = conversation
                 if (!fetchLogs && limit === 0) { //the messages are not changed
                     return

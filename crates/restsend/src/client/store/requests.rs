@@ -88,55 +88,40 @@ impl ClientStore {
                 };
 
                 let topic_id = req.topic_id.clone();
-                let created_at = req.created_at.clone();
-                let resp = ChatRequest::new_response(&req, 200);
+                let mut resps = vec![ChatRequest::new_response(&req, 200)];
+                if let Err(e) = self.save_incoming_chat_log(&req).await {
+                    warn!(
+                        "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
+                        req.chat_id, req.topic_id, e
+                    );
+                    return resps;
+                }
 
-                let r = callback
+                let has_read = callback
                     .lock()
                     .unwrap()
                     .as_ref()
-                    .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()));
+                    .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()))
+                    .unwrap_or_default();
 
-                let resps = match r {
-                    Some(true) => {
-                        let last_read_seq = Some(req.seq);
-                        if let Err(e) = self
-                            .update_conversation_read(&topic_id, &created_at, last_read_seq)
-                            .await
-                        {
-                            warn!(
-                                "update_conversation_read failed, topic_id:{} error: {:?}",
-                                topic_id, e
-                            );
-                        }
-                        vec![resp, Some(ChatRequest::new_read(&topic_id))]
-                    }
-                    _ => vec![resp],
-                };
+                if has_read {
+                    resps.push(Some(ChatRequest::new_read(&topic_id)));
+                }
 
-                let r = self.save_incoming_chat_log(&req).await;
-                match r {
-                    Ok(_) => match merge_conversation_from_chat(self.message_storage.clone(), &req)
-                        .await
-                    {
-                        Ok(conversation) => {
-                            if !conversation.is_partial {
-                                if let Some(cb) = callback.lock().unwrap().as_ref() {
-                                    cb.on_conversations_updated(vec![conversation]);
-                                }
-                            } else {
-                                self.fetch_conversation(&topic_id, false).await;
+                match merge_conversation_from_chat(self.message_storage.clone(), &req, has_read)
+                    .await
+                {
+                    Ok(conversation) => {
+                        if !conversation.is_partial {
+                            if let Some(cb) = callback.lock().unwrap().as_ref() {
+                                cb.on_conversations_updated(vec![conversation]);
                             }
+                        } else {
+                            self.fetch_conversation(&topic_id, false).await;
                         }
-                        Err(e) => {
-                            warn!("update_conversation_from_chat failed: {:?}", e);
-                        }
-                    },
+                    }
                     Err(e) => {
-                        warn!(
-                            "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
-                            req.chat_id, req.topic_id, e
-                        );
+                        warn!("update_conversation_from_chat failed: {:?}", e);
                     }
                 }
                 resps
