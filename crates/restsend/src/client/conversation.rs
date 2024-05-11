@@ -259,26 +259,37 @@ impl Client {
         let updated_at = updated_at.unwrap_or_default();
 
         loop {
+            let st_0 = now_millis();
             match get_conversations(&self.endpoint, &self.token, &updated_at, offset, limit).await {
                 Ok(lr) => {
+                    let api_cost = elapsed(st_0);
                     offset = lr.offset;
 
                     if last_updated_at.is_empty() && !lr.items.is_empty() {
                         last_updated_at = lr.items.first().unwrap().updated_at.clone();
                     }
-
+                    let st = now_millis();
                     let new_conversations = store_ref.merge_conversations(lr.items).await;
-                    log::info!(
-                        "sync conversations from remote, count: {}",
-                        new_conversations.len(),
-                    );
+                    let merge_cost = elapsed(st);
+                    let st = now_millis();
+
                     new_conversations.iter().for_each(|c| {
                         conversations.insert(c.topic_id.clone(), c.clone());
                     });
 
+                    let new_conversations_count = new_conversations.len() as u32;
                     if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
                         cb.on_conversations_updated(new_conversations);
                     }
+
+                    log::info!(
+                        "sync conversations from remote, count: {} api_cost:{:?} merge_cost: {:?}, callback_cost: {:?}, total_cost: {:?}",
+                        new_conversations_count,
+                        api_cost,
+                        merge_cost,
+                        elapsed(st),
+                        elapsed(st_0)
+                    );
                     if !lr.has_more {
                         break;
                     }

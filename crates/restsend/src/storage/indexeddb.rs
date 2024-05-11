@@ -20,7 +20,7 @@ pub struct IndexeddbStorage {
 }
 
 #[derive(Serialize, Deserialize)]
-struct ValueItem {
+struct StoreValue {
     sortkey: f64,
     partition: String,
     key: String,
@@ -236,7 +236,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     }
                 };
                 let r = match cursor.value() {
-                    Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
+                    Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                         Ok(v) => {
                             if let Ok(Some(item)) =
                                 T::from_str(&v.value).map(|item| predicate_ref(item))
@@ -318,7 +318,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     }
                 };
                 let r = match cursor.value() {
-                    Ok(v) => match serde_wasm_bindgen::from_value::<ValueItem>(v) {
+                    Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                         Ok(v) => {
                             let mut items_count = 0;
                             if let Ok(item) = T::from_str(&v.value) {
@@ -404,10 +404,30 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         });
 
         let result = JsFuture::from(p).await.ok()?;
-        serde_wasm_bindgen::from_value::<ValueItem>(result)
+
+        serde_wasm_bindgen::from_value::<StoreValue>(result)
             .map_err(|e| ClientError::Storage(e.to_string()))
             .ok()
             .and_then(|v| T::from_str(&v.value).ok())
+    }
+
+    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+        let tx = self
+            .db
+            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
+        let store = tx.object_store(&self.table_name)?;
+        for item in items {
+            let value = StoreValue {
+                sortkey: item.value.sort_key() as f64,
+                partition: item.partition.to_string(),
+                key: item.key.to_string(),
+                value: item.value.to_string(),
+            };
+            let item = serde_wasm_bindgen::to_value(&value)
+                .map_err(|e| ClientError::Storage(e.to_string()))?;
+            store.put(&item)?;
+        }
+        tx.commit().map_err(Into::into)
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -420,7 +440,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
         let store = tx.object_store(&self.table_name)?;
 
-        let item = ValueItem {
+        let item = StoreValue {
             sortkey: value.sort_key() as f64,
             partition: partition.to_string(),
             key: key.to_string(),
@@ -569,7 +589,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .await
             .ok()
             .and_then(|v| {
-                serde_wasm_bindgen::from_value::<ValueItem>(v)
+                serde_wasm_bindgen::from_value::<StoreValue>(v)
                     .map_err(|e| ClientError::Storage(e.to_string()))
                     .ok()
             })
@@ -600,6 +620,9 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     }
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
+    }
+    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+        Self::batch_update(self, items).await
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         Self::set(self, partition, key, value).await
@@ -634,6 +657,9 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
         None
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
+        Ok(())
+    }
+    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
         Ok(())
     }
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {

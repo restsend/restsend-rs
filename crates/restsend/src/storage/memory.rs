@@ -1,4 +1,4 @@
-use super::{QueryOption, QueryResult, StoreModel};
+use super::{QueryOption, QueryResult, StoreModel, ValueItem};
 use async_trait::async_trait;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -222,6 +222,25 @@ impl<T: StoreModel> MemoryTable<T> {
         }
     }
 
+    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+        let mut data = self.data.lock().unwrap();
+        for item in items {
+            let mut table = data.get_mut(&item.partition);
+            if table.is_none() {
+                data.insert(item.partition.to_string(), TableInner::default());
+                table = data.get_mut(&item.partition);
+            }
+            match table {
+                Some(table) => {
+                    let sort_key = item.value.sort_key();
+                    table.insert(item.key.to_string(), sort_key, item.value.to_string());
+                }
+                None => {}
+            }
+        }
+        Ok(())
+    }
+
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
@@ -270,6 +289,9 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
     }
+    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+        Self::batch_update(self, items).await
+    }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         Self::set(self, partition, key, value).await
     }
@@ -301,6 +323,9 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     }
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
+    }
+    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+        Self::batch_update(self, items).await
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         Self::set(self, partition, key, value).await

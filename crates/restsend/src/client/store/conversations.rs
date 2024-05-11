@@ -6,7 +6,7 @@ use crate::{
     },
     request::ChatRequest,
     services::conversation::*,
-    storage::{QueryOption, QueryResult, Storage},
+    storage::{QueryOption, QueryResult, Storage, ValueItem},
     utils::{now_millis, spwan_task},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
@@ -155,19 +155,40 @@ impl ClientStore {
         &self,
         conversations: Vec<Conversation>,
     ) -> Vec<Conversation> {
-        let mut result = vec![];
+        let mut results = vec![];
+        let t = self.message_storage.table::<Conversation>().await;
+        let now = now_millis();
         for conversation in conversations {
-            let conversation =
-                match merge_conversation(self.message_storage.clone(), conversation).await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        warn!("merge_conversation failed: {:?}", e);
-                        continue;
-                    }
-                };
-            result.push(conversation);
+            let mut conversation = conversation;
+
+            if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+                conversation.last_read_at = old_conversation.last_read_at;
+                conversation.last_read_seq = old_conversation.last_read_seq;
+                conversation.unread = old_conversation.unread;
+            }
+
+            if let Some(log) = get_conversation_last_readable_message(
+                self.message_storage.clone(),
+                &conversation.topic_id,
+            )
+            .await
+            {
+                conversation.last_message = Some(log.content.clone());
+                conversation.last_message_at = log.created_at.clone();
+                conversation.last_sender_id = log.sender_id;
+                conversation.updated_at = log.created_at;
+            }
+
+            conversation.is_partial = false;
+            conversation.cached_at = now;
+            results.push(ValueItem {
+                partition: "".to_string(),
+                key: conversation.topic_id.clone(),
+                value: conversation,
+            });
         }
-        result
+        t.batch_update(&results).await.ok();
+        results.into_iter().map(|v| v.value).collect()
     }
 
     pub fn emit_conversation_update(&self, conversation: Conversation) -> Result<Conversation> {
