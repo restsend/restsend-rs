@@ -10,6 +10,7 @@ use crate::{
 };
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BatchSyncChatLogs {
     pub topic_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
