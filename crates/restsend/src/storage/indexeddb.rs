@@ -417,15 +417,25 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
         let store = tx.object_store(&self.table_name)?;
         for item in items {
-            let value = StoreValue {
-                sortkey: item.value.sort_key() as f64,
-                partition: item.partition.to_string(),
-                key: item.key.to_string(),
-                value: item.value.to_string(),
-            };
-            let item = serde_wasm_bindgen::to_value(&value)
-                .map_err(|e| ClientError::Storage(e.to_string()))?;
-            store.put(&item)?;
+            match item.value.as_ref() {
+                None => {
+                    let query_keys = js_sys::Array::new();
+                    query_keys.push(&item.partition.to_string().into());
+                    query_keys.push(&item.key.to_string().into());
+                    store.delete(&query_keys).ok();
+                }
+                Some(v) => {
+                    let value = StoreValue {
+                        sortkey: v.sort_key() as f64,
+                        partition: item.partition.to_string(),
+                        key: item.key.to_string(),
+                        value: v.to_string(),
+                    };
+                    let item = serde_wasm_bindgen::to_value(&value)
+                        .map_err(|e| ClientError::Storage(e.to_string()))?;
+                    store.put(&item).ok();
+                }
+            }
         }
         tx.commit().map_err(Into::into)
     }

@@ -224,22 +224,27 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
-        let stmt = format!(
+        let update_stmt = format!(
             "INSERT OR REPLACE INTO {} (partition, key, value, sort_by) VALUES (?, ?, ?, ?)",
             self.name
         );
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let delete_stmt = format!("DELETE FROM {} WHERE partition = ? AND key = ?", self.name);
+
+        let mut stmt = conn.prepare(&update_stmt).unwrap();
         for v in items {
             let partition = &v.partition;
             let key = &v.key;
-            let value = v.value.to_string();
-            stmt.execute(params![&partition, &key, &value, v.value.sort_key()])
-                .map_err(|e| {
-                    ClientError::Storage(format!(
-                        "{} batch_update {} failed: {}",
-                        self.name, key, e
-                    ))
-                })?;
+            match v.value {
+                Some(_) => {
+                    let value = v.value.as_ref().unwrap().to_string();
+                    stmt.execute(params![&partition, &key, &value, &v.sort_key])
+                }
+                None => conn.execute(&delete_stmt, &[&partition, &key]),
+            }
+            .map_err(|e| {
+                ClientError::Storage(format!("{} batch_update {} failed: {}", self.name, key, e))
+            })
+            .ok();
         }
         Ok(())
     }

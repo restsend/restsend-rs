@@ -183,8 +183,8 @@ impl Client {
                     } else {
                         ChatLogStatus::Received
                     };
-                    self.store.save_chat_log(&c).await.ok();
                 }
+                self.store.save_chat_logs(&lr.items).await.ok();
                 info!(
                     "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} usage:{:?}",
                     topic_id,
@@ -368,11 +368,11 @@ impl Client {
                 .collect();
 
             let r = batch_get_chat_logs_desc(&self.endpoint, &self.token, form).await?;
-            let now = now_millis();
 
             let mut updated_conversations = vec![];
             for mut lr in r {
                 // flush to local db
+                let now: i64 = now_millis();
                 for c in lr.items.iter_mut() {
                     c.cached_at = now;
                     c.status = if c.sender_id == self.user_id {
@@ -380,8 +380,8 @@ impl Client {
                     } else {
                         ChatLogStatus::Received
                     };
-                    self.store.save_chat_log(&c).await.ok();
                 }
+                self.store.save_chat_logs(&lr.items).await.ok();
 
                 let topic_id = match lr.topic_id {
                     Some(ref topic_id) => topic_id.clone(),
@@ -406,16 +406,15 @@ impl Client {
                     }
                     break;
                 }
+                if lr.has_more {
+                    conversations.insert(topic_id.clone(), conversation.clone());
+                }
                 updated_conversations.push(conversation);
             }
             // callback
             if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
                 cb.on_conversations_updated(updated_conversations.clone());
             }
-            conversations = updated_conversations
-                .iter()
-                .map(|c| (c.topic_id.clone(), c.clone()))
-                .collect();
         }
     }
 

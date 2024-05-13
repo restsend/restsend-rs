@@ -231,10 +231,14 @@ impl<T: StoreModel> MemoryTable<T> {
                 table = data.get_mut(&item.partition);
             }
             match table {
-                Some(table) => {
-                    let sort_key = item.value.sort_key();
-                    table.insert(item.key.to_string(), sort_key, item.value.to_string());
-                }
+                Some(table) => match item.value.as_ref() {
+                    Some(v) => {
+                        table.insert(item.key.to_string(), item.sort_key, v.to_string());
+                    }
+                    None => {
+                        table.remove(&item.key, item.sort_key);
+                    }
+                },
                 None => {}
             }
         }

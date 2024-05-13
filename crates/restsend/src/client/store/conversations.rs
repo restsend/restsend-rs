@@ -6,7 +6,7 @@ use crate::{
     },
     request::ChatRequest,
     services::conversation::*,
-    storage::{QueryOption, QueryResult, Storage, ValueItem},
+    storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem},
     utils::{now_millis, spwan_task},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
 };
@@ -183,12 +183,13 @@ impl ClientStore {
             conversation.cached_at = now;
             results.push(ValueItem {
                 partition: "".to_string(),
+                sort_key: conversation.sort_key(),
                 key: conversation.topic_id.clone(),
-                value: conversation,
+                value: Some(conversation),
             });
         }
         t.batch_update(&results).await.ok();
-        results.into_iter().map(|v| v.value).collect()
+        results.into_iter().map(|v| v.value.unwrap()).collect()
     }
 
     pub fn emit_conversation_update(&self, conversation: Conversation) -> Result<Conversation> {
@@ -514,6 +515,57 @@ impl ClientStore {
         log.cached_at = now;
         log.status = new_status;
         t.set(&log.topic_id, &log.id, Some(&log)).await
+    }
+
+    pub(crate) async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
+        let t = self.message_storage.table::<ChatLog>().await;
+        let mut items = vec![];
+        for chat_log in logs {
+            let item = match ContentType::from(chat_log.content.r#type.to_string()) {
+                ContentType::None => Some(chat_log), // remove local log
+                ContentType::Recall => {
+                    match t.get(&chat_log.topic_id, &chat_log.content.text).await {
+                        Some(recall_log) => {
+                            if !recall_log.recall {
+                                let mut log = recall_log.clone();
+                                log.recall = true;
+                                log.content = Content::new(ContentType::None);
+                                t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
+                                    .await
+                                    .ok();
+                            }
+                        }
+                        None => {}
+                    };
+                    Some(chat_log)
+                }
+                ContentType::UpdateExtra => {
+                    match t.get(&chat_log.topic_id, &chat_log.content.text).await {
+                        Some(update_log) => {
+                            if !update_log.recall {
+                                let mut log = update_log.clone();
+                                log.content.extra = chat_log.content.extra.clone();
+                                t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
+                                    .await
+                                    .ok();
+                            }
+                        }
+                        None => {}
+                    };
+                    Some(chat_log)
+                }
+                _ => Some(chat_log),
+            };
+            if let Some(item) = item {
+                items.push(ValueItem {
+                    partition: item.topic_id.clone(),
+                    key: item.id.clone(),
+                    sort_key: item.sort_key(),
+                    value: Some(item.clone()),
+                });
+            }
+        }
+        t.batch_update(&items).await
     }
 
     pub(crate) async fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {

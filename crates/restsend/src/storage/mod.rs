@@ -18,8 +18,9 @@ pub trait StoreModel: ToString + FromStr + Sync + Send + Serialize {
 #[derive(Serialize, Deserialize)]
 pub struct ValueItem<T: StoreModel> {
     pub partition: String,
+    pub sort_key: i64,
     pub key: String,
-    pub value: T,
+    pub value: Option<T>,
 }
 
 #[derive(Debug)]
