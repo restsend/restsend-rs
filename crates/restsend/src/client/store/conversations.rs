@@ -568,47 +568,6 @@ impl ClientStore {
         t.batch_update(&items).await
     }
 
-    pub(crate) async fn save_chat_log(&self, chat_log: &ChatLog) -> Result<()> {
-        let t = self.message_storage.table::<ChatLog>().await;
-        let item = match ContentType::from(chat_log.content.r#type.to_string()) {
-            ContentType::None => Some(chat_log), // remove local log
-            ContentType::Recall => {
-                match t.get(&chat_log.topic_id, &chat_log.content.text).await {
-                    Some(recall_log) => {
-                        if !recall_log.recall {
-                            let mut log = recall_log.clone();
-                            log.recall = true;
-                            log.content = Content::new(ContentType::None);
-                            t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
-                                .await
-                                .ok();
-                        }
-                    }
-                    None => {}
-                };
-                Some(chat_log)
-            }
-            ContentType::UpdateExtra => {
-                match t.get(&chat_log.topic_id, &chat_log.content.text).await {
-                    Some(update_log) => {
-                        if !update_log.recall {
-                            let mut log = update_log.clone();
-                            log.content.extra = chat_log.content.extra.clone();
-                            t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
-                                .await
-                                .ok();
-                        }
-                    }
-                    None => {}
-                };
-                Some(chat_log)
-            }
-            _ => Some(chat_log),
-        };
-
-        t.set(&chat_log.topic_id, &chat_log.id, item).await
-    }
-
     pub async fn get_chat_logs(
         &self,
         topic_id: &str,

@@ -336,86 +336,82 @@ impl Client {
         mut conversations: HashMap<String, Conversation>,
         limit: Option<u32>,
     ) -> Result<()> {
-        loop {
-            let mut try_sync_conversations = vec![];
-            for (_, c) in conversations.iter() {
-                match self.store.get_last_log(&c.topic_id).await {
-                    Some(log) => {
-                        if log.seq >= c.last_seq {
-                            continue;
-                        }
-                    }
-                    None => {}
-                }
-
-                if c.last_seq <= c.start_seq {
-                    continue;
-                }
-                try_sync_conversations.push(c.clone());
-            }
-
-            if try_sync_conversations.is_empty() {
-                return Ok(());
-            }
-
-            let form = try_sync_conversations
-                .iter()
-                .map(|c| BatchSyncChatLogs {
-                    topic_id: c.topic_id.clone(),
-                    last_seq: Some(c.last_seq),
-                    limit,
-                })
-                .collect();
-
-            let r = batch_get_chat_logs_desc(&self.endpoint, &self.token, form).await?;
-
-            let mut updated_conversations = vec![];
-            for mut lr in r {
-                // flush to local db
-                let now: i64 = now_millis();
-                for c in lr.items.iter_mut() {
-                    c.cached_at = now;
-                    c.status = if c.sender_id == self.user_id {
-                        ChatLogStatus::Sent
-                    } else {
-                        ChatLogStatus::Received
-                    };
-                }
-                self.store.save_chat_logs(&lr.items).await.ok();
-
-                let topic_id = match lr.topic_id {
-                    Some(ref topic_id) => topic_id.clone(),
-                    None => continue,
-                };
-
-                let mut conversation = match conversations.remove(&topic_id) {
-                    Some(c) => c,
-                    None => continue,
-                };
-
-                for c in lr.items.iter() {
-                    if c.seq <= conversation.last_seq {
+        let mut try_sync_conversations = vec![];
+        for (_, c) in conversations.iter() {
+            match self.store.get_last_log(&c.topic_id).await {
+                Some(log) => {
+                    if log.seq >= c.last_seq {
                         continue;
                     }
-                    conversation.last_seq = c.seq;
-                    if !c.content.unreadable {
-                        conversation.updated_at = c.created_at.clone();
-                        conversation.last_message_at = c.created_at.clone();
-                        conversation.last_message = Some(c.content.clone());
-                        conversation.last_sender_id = c.sender_id.clone();
-                    }
-                    break;
                 }
-                if lr.has_more {
-                    conversations.insert(topic_id.clone(), conversation.clone());
-                }
-                updated_conversations.push(conversation);
+                None => {}
             }
-            // callback
-            if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
-                cb.on_conversations_updated(updated_conversations.clone());
+
+            if c.last_seq <= c.start_seq {
+                continue;
             }
+            try_sync_conversations.push(c.clone());
         }
+
+        if try_sync_conversations.is_empty() {
+            return Ok(());
+        }
+
+        let form = try_sync_conversations
+            .iter()
+            .map(|c| BatchSyncChatLogs {
+                topic_id: c.topic_id.clone(),
+                last_seq: Some(c.last_seq),
+                limit,
+            })
+            .collect();
+
+        let r = batch_get_chat_logs_desc(&self.endpoint, &self.token, form).await?;
+
+        let mut updated_conversations = vec![];
+        for mut lr in r {
+            // flush to local db
+            let now: i64 = now_millis();
+            for c in lr.items.iter_mut() {
+                c.cached_at = now;
+                c.status = if c.sender_id == self.user_id {
+                    ChatLogStatus::Sent
+                } else {
+                    ChatLogStatus::Received
+                };
+            }
+            self.store.save_chat_logs(&lr.items).await.ok();
+
+            let topic_id = match lr.topic_id {
+                Some(ref topic_id) => topic_id.clone(),
+                None => continue,
+            };
+
+            let mut conversation = match conversations.remove(&topic_id) {
+                Some(c) => c,
+                None => continue,
+            };
+
+            for c in lr.items.iter() {
+                if c.seq <= conversation.last_seq {
+                    continue;
+                }
+                conversation.last_seq = c.seq;
+                if !c.content.unreadable {
+                    conversation.updated_at = c.created_at.clone();
+                    conversation.last_message_at = c.created_at.clone();
+                    conversation.last_message = Some(c.content.clone());
+                    conversation.last_sender_id = c.sender_id.clone();
+                }
+                break;
+            }
+            updated_conversations.push(conversation);
+        }
+        // callback
+        if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
+            cb.on_conversations_updated(updated_conversations.clone());
+        }
+        Ok(())
     }
 
     pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {
