@@ -125,21 +125,19 @@ impl Client {
 
         match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
             Ok(local_logs) => {
-                let mut need_fetch = local_logs.items.len() < limit as usize;
-
-                if need_fetch
-                    && local_logs.items.len() > 0
-                    && local_logs.items.len() < limit as usize
-                {
-                    need_fetch = local_logs.end_sort_value != conversation.start_seq + 1;
-                }
+                let need_fetch = if local_logs.items.len() < limit as usize {
+                    local_logs.start_sort_value < last_seq.unwrap_or(conversation.last_seq)
+                } else {
+                    false
+                };
 
                 info!(
-                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
+                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
                     local_logs.items.len(),
                     conversation.start_seq,
                     last_seq,
                     limit,
+                    local_logs.start_sort_value,
                     local_logs.end_sort_value,
                     need_fetch,
                     elapsed(st)
