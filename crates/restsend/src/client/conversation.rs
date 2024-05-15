@@ -95,6 +95,7 @@ impl Client {
                 conversation.last_message_at = c.created_at.clone();
                 conversation.last_message = Some(c.content.clone());
                 conversation.last_sender_id = c.sender_id.clone();
+                conversation.last_message_seq = Some(c.seq);
                 break;
             }
         }
@@ -402,6 +403,7 @@ impl Client {
                     conversation.last_message_at = c.created_at.clone();
                     conversation.last_message = Some(c.content.clone());
                     conversation.last_sender_id = c.sender_id.clone();
+                    conversation.last_message_seq = Some(c.seq);
                 }
                 break;
             }

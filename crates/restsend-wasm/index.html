@@ -502,12 +502,11 @@
                     return
                 }
 
-                const lastSeq = conversation.lastSeq
-                this.current.syncChatLogs(conversation.topicId, lastSeq, {
+                this.current.syncChatLogs(conversation.topicId, conversation.lastSyncSeq, {
                     limit,
                     onsuccess: (r) => {
                         const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
-                        this.conversation.lastSyncSeq = Math.max(lastSyncSeq, r.startSeq)
+                        this.conversation.lastSyncSeq = lastSyncSeq
 
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight

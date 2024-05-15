@@ -99,6 +99,10 @@ pub struct Conversation {
     #[serde(default)]
     pub last_message_at: String,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub last_message_seq: Option<i64>,
+
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remark: Option<String>,

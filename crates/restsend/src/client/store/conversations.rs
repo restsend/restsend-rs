@@ -35,6 +35,7 @@ pub(crate) async fn merge_conversation(
         conversation.last_message_at = log.created_at.clone();
         conversation.last_sender_id = log.sender_id;
         conversation.updated_at = log.created_at;
+        conversation.last_message_seq = Some(log.seq);
     }
 
     conversation.is_partial = false;
@@ -134,6 +135,7 @@ pub(super) async fn merge_conversation_from_chat(
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();
             conversation.updated_at = req.created_at.clone();
+            conversation.last_message_seq = Some(req.seq);
         }
     }
 
@@ -177,6 +179,7 @@ impl ClientStore {
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
                 conversation.updated_at = log.created_at;
+                conversation.last_message_seq = Some(log.seq);
             }
 
             conversation.is_partial = false;
@@ -680,6 +683,7 @@ impl ClientStore {
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
                 conversation.updated_at = log.created_at;
+                conversation.last_message_seq = Some(log.seq);
             }
         }
         Ok(result)
