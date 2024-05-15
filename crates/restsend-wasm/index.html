@@ -506,7 +506,7 @@
                     limit,
                     onsuccess: (r) => {
                         const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
-                        this.conversation.lastSyncSeq = lastSyncSeq
+                        this.conversation.lastSyncSeq = Math.max(lastSyncSeq, r.startSeq)
 
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
