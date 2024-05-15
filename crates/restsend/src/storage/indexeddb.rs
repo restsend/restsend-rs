@@ -82,6 +82,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let open_req = idb.open_with_u32(&table_name, version)?;
         let table_name_clone = table_name.to_string();
+        let open_req_ref = open_req.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let table_name_ref = table_name_clone.clone();
@@ -172,6 +173,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 .dyn_into::<IdbDatabase>()
                 .map_err(|e| ClientError::from(e))?,
         };
+
+        open_req_ref.set_onupgradeneeded(None);
+        open_req_ref.set_onsuccess(None);
+        open_req_ref.set_onerror(None);
+
         Ok(Box::new(IndexeddbTable {
             table_name: table_name.to_string(),
             db: db_result,
@@ -217,6 +223,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let items = Rc::new(RefCell::new(Some(vec![])));
         let items_clone = items.clone();
         let predicate = Rc::new(predicate);
+        let cursor_req_ref = cursor_req.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
@@ -269,7 +276,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
         });
-        JsFuture::from(p).await.ok()?;
+        let r = JsFuture::from(p).await.ok();
+        cursor_req_ref.set_onerror(None);
+        cursor_req_ref.set_onsuccess(None);
+        _ = r?;
         items.take()
     }
 
@@ -300,6 +310,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let limit = option.limit;
         let items_clone = items.clone();
+        let cursor_req_ref = cursor_req.clone();
+
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
             let items_ref = items_clone.clone();
@@ -358,7 +370,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
         });
-        JsFuture::from(p).await.ok()?;
+
+        let r = JsFuture::from(p).await.ok();
+        cursor_req_ref.set_onerror(None);
+        cursor_req_ref.set_onsuccess(None);
+        _ = r?;
 
         let mut items = items.take().unwrap_or_default();
         Some(QueryResult {
@@ -379,7 +395,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         query_keys.push(&partition.into());
         query_keys.push(&key.into());
         let get_req = store.get(&query_keys).ok()?;
-
+        let get_req_ref = get_req.clone();
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
@@ -403,8 +419,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             on_error_callback.forget();
         });
 
-        let result = JsFuture::from(p).await.ok()?;
+        let result = JsFuture::from(p).await.ok();
+        get_req_ref.set_onsuccess(None);
+        get_req_ref.set_onerror(None);
 
+        let result = result?;
         serde_wasm_bindgen::from_value::<StoreValue>(result)
             .map_err(|e| ClientError::Storage(e.to_string()))
             .ok()
@@ -460,6 +479,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let item =
             serde_wasm_bindgen::to_value(&item).map_err(|e| ClientError::Storage(e.to_string()))?;
         let put_req = store.put(&item)?;
+        let put_req_ref = put_req.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
@@ -479,6 +499,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let r = JsFuture::from(p).await;
         tx.commit().ok();
+        put_req_ref.set_onsuccess(None);
+        put_req_ref.set_onerror(None);
+
         r.map(|_| ()).map_err(Into::into)
     }
 
@@ -501,6 +524,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             )?;
             index.open_key_cursor_with_range(&query_range)
         }?;
+        let cursor_req_ref = cursor_req.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
@@ -550,7 +574,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
         });
-        JsFuture::from(p).await.map(|_| ()).map_err(Into::into)
+        let r = JsFuture::from(p).await;
+        cursor_req_ref.set_onerror(None);
+        cursor_req_ref.set_onsuccess(None);
+        r.map(|_| ()).map_err(Into::into)
     }
 
     async fn last(&self, partition: &str) -> Option<T> {
@@ -570,6 +597,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let cursor_request = index
             .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Prev)
             .ok()?;
+        let cursor_request_ref = cursor_request.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
@@ -595,7 +623,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             cursor_request.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
         });
-        JsFuture::from(p)
+        let result = JsFuture::from(p)
             .await
             .ok()
             .and_then(|v| {
@@ -603,7 +631,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     .map_err(|e| ClientError::Storage(e.to_string()))
                     .ok()
             })
-            .and_then(|v| T::from_str(&v.value).ok())
+            .and_then(|v| T::from_str(&v.value).ok());
+        cursor_request_ref.set_onsuccess(None);
+        cursor_request_ref.set_onerror(None);
+        result
     }
 
     async fn clear(&self) -> crate::Result<()> {
