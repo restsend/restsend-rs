@@ -950,6 +950,9 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: number) => void;
   readonly client_set_onconversationsremoved: (a: number, b: number) => void;
   readonly setLogging: (a: number, b: number) => void;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -970,9 +973,6 @@ export interface InitOutput {
   readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
   readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
   readonly client_setAllowGuestChat: (a: number, b: number) => number;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly __wbg_client_free: (a: number) => void;
   readonly client_new: (a: number, b: number, c: number) => number;
   readonly client_connectionStatus: (a: number, b: number) => void;
@@ -1027,13 +1027,13 @@ export interface InitOutput {
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
-  readonly wasm_bindgen__convert__closures__invoke1_mut__h2b6f0e3945e8ec14: (a: number, b: number, c: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke0_mut__ha8102a92bbef12c9: (a: number, b: number) => void;
-  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h7481df2737682c2d: (a: number, b: number, c: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke0_mut__h48715c4ef33f12b1: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke1_mut__h2bcbcc967ff9fb05: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h336310e710ba71d4: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke2_mut__h3ec36cd4abd8975e: (a: number, b: number, c: number, d: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke2_mut__h0852fef5af643c3a: (a: number, b: number, c: number, d: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

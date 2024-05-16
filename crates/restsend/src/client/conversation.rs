@@ -305,14 +305,10 @@ impl Client {
         if sync_logs {
             let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
             vals.sort_by(|a, b| {
-                let a_updated_at = match a.updated_at.parse::<chrono::DateTime<chrono::Local>>() {
-                    Ok(t) => t.timestamp_millis(),
-                    Err(_) => 0,
-                };
-                let b_updated_at = match b.updated_at.parse::<chrono::DateTime<chrono::Local>>() {
-                    Ok(t) => t.timestamp_millis(),
-                    Err(_) => 0,
-                };
+                let a_updated_at =
+                    chrono::DateTime::parse_from_rfc3339(&a.updated_at).unwrap_or_default();
+                let b_updated_at =
+                    chrono::DateTime::parse_from_rfc3339(&b.updated_at).unwrap_or_default();
                 b_updated_at.cmp(&a_updated_at)
             });
 
@@ -320,7 +316,7 @@ impl Client {
                 vals.truncate(sync_logs_max_count as usize);
             }
 
-            for chunk in vals.chunks_exact(MAX_SYNC_LOGS_MAX_COUNT as usize) {
+            for chunk in vals.chunks(MAX_SYNC_LOGS_MAX_COUNT as usize) {
                 let conversations = chunk
                     .into_iter()
                     .map(|c| (c.topic_id.clone(), c.clone()))
