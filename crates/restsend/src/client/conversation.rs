@@ -305,27 +305,33 @@ impl Client {
         if sync_logs {
             let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
             vals.sort_by(|a, b| {
-                a.updated_at
-                    .parse::<chrono::DateTime<chrono::Local>>()
-                    .unwrap()
-                    .cmp(
-                        &b.updated_at
-                            .parse::<chrono::DateTime<chrono::Local>>()
-                            .unwrap(),
-                    )
+                let a_updated_at = match a.updated_at.parse::<chrono::DateTime<chrono::Local>>() {
+                    Ok(t) => t.timestamp_millis(),
+                    Err(_) => 0,
+                };
+                let b_updated_at = match b.updated_at.parse::<chrono::DateTime<chrono::Local>>() {
+                    Ok(t) => t.timestamp_millis(),
+                    Err(_) => 0,
+                };
+                b_updated_at.cmp(&a_updated_at)
             });
 
             if sync_logs_max_count > 0 {
                 vals.truncate(sync_logs_max_count as usize);
             }
 
-            let conversations = vals.into_iter().map(|c| (c.topic_id.clone(), c)).collect();
-            self.batch_sync_chatlogs(conversations, sync_logs_limit)
-                .await
-                .map_err(|e| {
-                    warn!("sync_conversations failed: {:?}", e);
-                })
-                .ok();
+            for chunk in vals.chunks_exact(MAX_SYNC_LOGS_MAX_COUNT as usize) {
+                let conversations = chunk
+                    .into_iter()
+                    .map(|c| (c.topic_id.clone(), c.clone()))
+                    .collect();
+                self.batch_sync_chatlogs(conversations, sync_logs_limit)
+                    .await
+                    .map_err(|e| {
+                        warn!("sync_conversations failed: {:?}", e);
+                    })
+                    .ok();
+            }
         }
         callback.on_success(last_updated_at, count);
     }
