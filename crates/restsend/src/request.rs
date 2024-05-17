@@ -114,10 +114,11 @@ impl ChatRequest {
             ..Default::default()
         }
     }
-    pub fn new_read(topic_id: &str) -> Self {
+    pub fn new_read(topic_id: &str, last_read_seq: i64) -> Self {
         ChatRequest {
             r#type: String::from(ChatRequestType::Read),
             topic_id: String::from(topic_id),
+            seq: last_read_seq,
             ..Default::default()
         }
     }

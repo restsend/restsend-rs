@@ -246,7 +246,10 @@ impl Client {
     }
 
     pub async fn do_read(&self, topic_id: String) -> Result<()> {
-        let req = ChatRequest::new_read(&topic_id);
+        let req = match self.store.get_conversation(&topic_id, false).await {
+            Some(conversation) => ChatRequest::new_read(&topic_id, conversation.last_seq),
+            None => ChatRequest::new_read(&topic_id, 0),
+        };
         self.send_chat_request_via_connection(req, None)
             .await
             .map(|_| ())

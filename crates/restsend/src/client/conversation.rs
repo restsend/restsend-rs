@@ -454,7 +454,7 @@ impl Client {
             .set_conversation_read_local(&topic_id, &last_read_at, None)
             .await
             .map(|c| {
-                let mut msg = ChatRequest::new_read(&topic_id);
+                let mut msg = ChatRequest::new_read(&topic_id, c.last_seq);
                 msg.seq = c.last_seq;
                 msg.created_at = last_read_at;
                 self.store.emit_topic_read(topic_id.clone(), msg)

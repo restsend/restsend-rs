@@ -104,14 +104,19 @@ impl ClientStore {
                     .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()))
                     .unwrap_or_default();
 
-                if has_read {
-                    resps.push(Some(ChatRequest::new_read(&topic_id)));
-                }
-
                 match merge_conversation_from_chat(self.message_storage.clone(), &req, has_read)
                     .await
                 {
                     Ok(conversation) => {
+                        if has_read
+                            && req.seq != 0
+                            && !req.content.map(|c| c.unreadable).unwrap_or(false)
+                        {
+                            resps.push(Some(ChatRequest::new_read(
+                                &topic_id,
+                                conversation.last_seq,
+                            )));
+                        }
                         if !conversation.is_partial {
                             if let Some(cb) = callback.lock().unwrap().as_ref() {
                                 cb.on_conversations_updated(vec![conversation]);
