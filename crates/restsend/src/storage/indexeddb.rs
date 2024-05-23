@@ -230,6 +230,18 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             let predicate_ref = predicate.clone();
             let items_ref = items_clone.clone();
             let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+                if let Some(limit) = limit {
+                    let items_count = items_ref
+                        .borrow_mut()
+                        .as_mut()
+                        .map(|v| v.len())
+                        .unwrap_or_default() as u32;
+                    if items_count >= limit {
+                        resolve.call0(&JsValue::NULL).ok();
+                        return;
+                    }
+                }
+
                 let cursor = match e
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
