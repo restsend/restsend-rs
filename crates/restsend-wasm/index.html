@@ -351,6 +351,8 @@
             logs: [],
             current: null,
             conversations: [],
+            conversationsWithIndex: {},
+            conversationsForUI: [],
             conversation: null,
             message: '',
             self: null,
@@ -437,7 +439,7 @@
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
                 items.forEach((item) => {
-                    let index = this.conversations.findIndex((c) => c.topicId == item.topicId);
+                    let index = this.conversationsWithIndex[item.topicId];
                     if (item.multiple) {
                         item.title = `${item.remark || item.name || item.topicId}`
                     } else {
@@ -453,7 +455,8 @@
                             this.conversations[index] = item
                         }
                     } else {
-                        this.conversations.push(item)
+                        index = this.conversations.push(item)
+                        this.conversationsWithIndex[item.topicId] = index
                     }
 
                     if (this.conversation && this.conversation.topicId == item.topicId) {
@@ -467,6 +470,7 @@
                 this.conversations.sort((a, b) => {
                     return b.lastUpdatedAt - a.lastUpdatedAt
                 })
+                this.conversationsForUI = this.conversations.splice(0, 20)
             },
 
             doSyncConversations: function () {
@@ -906,7 +910,7 @@
                 <div id="userList">
                     <div
                         class="scroll-bar overflow-y-auto border-b h-[calc(100vh-9rem)] md:h-[calc(100vh-12rem)] border-gray-200 px-2 py-5 xl:w-80 xl:shrink-0  xl:border-b-0 xl:border-r">
-                        <template x-for="item in conversations">
+                        <template x-for="item in conversationsForUI">
                             <li class="flex p-2 py-3  hover:bg-gray-200 rounded-md cursor-pointer relative group border-b border-gray-100"
                                 @click="onSelectConversation(item)">
                                 <div class="flex min-w-0 items-center relative shrink-0">
@@ -1029,7 +1033,7 @@
                                         </svg>
                                     </div>
 
-                                    <template x-for="item in conversations">
+                                    <template x-for="item in conversationsForUI">
                                         <li class="flex w-full my-2 p-2 hover:bg-gray-200 rounded-md cursor-pointer relative group"
                                             @click="doForwardMessage(item)">
                                             <div class="flex w-full items-center space-x-3 ">
