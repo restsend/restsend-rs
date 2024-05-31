@@ -351,7 +351,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                                     items_count = items.len();
                                 }
                             }
-                            if items_count < limit as usize {
+                            if items_count < (limit + 1) as usize {
                                 cursor.continue_().ok();
                                 return;
                             }
@@ -388,11 +388,18 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         cursor_req_ref.set_onsuccess(None);
         _ = r?;
 
+        // take only limit items
         let mut items = items.take().unwrap_or_default();
+        let has_more = items.len() > limit as usize;
+        if has_more {
+            items.pop();
+        }
+
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
             items,
+            has_more,
         })
     }
 

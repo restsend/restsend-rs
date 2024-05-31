@@ -153,7 +153,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
 
         let mut stmt = conn.prepare(&stmt).unwrap();
         let mut rows = stmt
-            .query(&[&partition, format!("{}", option.limit).as_str()])
+            .query(&[&partition, format!("{}", option.limit + 1).as_str()])
             .ok()?;
 
         let mut items: Vec<T> = vec![];
@@ -171,6 +171,11 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             }
         }
 
+        let has_more = items.len() as u32 > option.limit;
+        if has_more {
+            items.pop();
+        }
+
         let (start_sort_value, end_sort_value) = if items.len() > 0 {
             (
                 items.first().unwrap().sort_key(),
@@ -184,6 +189,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             start_sort_value,
             end_sort_value,
             items,
+            has_more,
         })
     }
 

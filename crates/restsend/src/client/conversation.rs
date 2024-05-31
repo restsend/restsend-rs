@@ -91,7 +91,6 @@ impl Client {
 
         for c in r.items.iter() {
             if !c.content.unreadable {
-                conversation.updated_at = c.created_at.clone();
                 conversation.last_message_at = c.created_at.clone();
                 conversation.last_message = Some(c.content.clone());
                 conversation.last_sender_id = c.sender_id.clone();
@@ -124,13 +123,7 @@ impl Client {
             .unwrap_or_default();
 
         match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
-            Ok(local_logs) => {
-                let need_fetch = if local_logs.items.len() < limit as usize {
-                    local_logs.start_sort_value < last_seq.unwrap_or(conversation.last_seq)
-                } else {
-                    false
-                };
-
+            Ok((local_logs, need_fetch)) => {
                 info!(
                     "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
                     local_logs.items.len(),
@@ -223,33 +216,39 @@ impl Client {
         .min(MAX_CONVERSATION_LIMIT);
         let sync_logs_max_count = sync_logs_max_count.unwrap_or(MAX_SYNC_LOGS_MAX_COUNT);
 
-        let fetch_local = updated_at.clone().and_then(|s| {
-            chrono::DateTime::parse_from_rfc3339(&s).ok().and_then(|t| {
-                Some(
-                    t.timestamp_millis() > 0
-                        && now_millis() - t.timestamp_millis()
-                            <= 1000 * crate::CONVERSATION_CACHE_EXPIRE_SECS,
-                )
-            })
-        });
-
-        let first_updated_at = updated_at.clone().unwrap_or_default();
+        let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let mut conversations = HashMap::new();
 
-        if fetch_local.unwrap_or(false) {
-            loop {
-                match store_ref.get_conversations(&first_updated_at, limit).await {
-                    Ok(r) => {
-                        r.items.iter().for_each(|c| {
-                            conversations.insert(c.topic_id.clone(), c.clone());
-                        });
-
-                        if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
-                            cb.on_conversations_updated(r.items);
-                        }
+        loop {
+            match store_ref.get_conversations(&last_updated_at, limit).await {
+                Ok(r) => {
+                    if r.items.is_empty() {
+                        break;
                     }
-                    Err(_) => break,
+                    r.items.iter().for_each(|c| {
+                        conversations.insert(c.topic_id.clone(), c.clone());
+                    });
+                    log::info!(
+                        "sync conversations from local, count: {} first_updated_at: {}",
+                        r.items.len(),
+                        last_updated_at
+                    );
+
+                    last_updated_at = r
+                        .items
+                        .last()
+                        .map(|c| c.updated_at.clone())
+                        .unwrap_or_default();
+
+                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                        cb.on_conversations_updated(r.items);
+                    }
+
+                    if !r.has_more {
+                        break;
+                    }
                 }
+                Err(_) => break,
             }
         }
 

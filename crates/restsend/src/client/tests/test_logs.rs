@@ -1,13 +1,3 @@
-use std::{
-    sync::{
-        atomic::{AtomicBool, AtomicI64, Ordering},
-        Arc, Mutex,
-    },
-    time::Duration,
-};
-
-use log::info;
-
 use crate::{
     callback,
     client::{
@@ -21,6 +11,14 @@ use crate::{
     request::ChatRequest,
     services::auth::{login_with_password, signup},
     utils::{check_until, init_log},
+};
+use log::info;
+use std::{
+    sync::{
+        atomic::{AtomicBool, AtomicI64, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
 };
 
 #[tokio::test]
@@ -53,7 +51,8 @@ async fn test_client_fetch_logs() {
         .expect("create chat failed")
         .topic_id;
 
-    let local_logs = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
+    let (local_logs, need_fetch) = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
+    assert_eq!(need_fetch, true);
     assert_eq!(local_logs.items.len(), 0);
     let mut last_seq = 0;
     let send_count = 2;
@@ -95,11 +94,12 @@ async fn test_client_fetch_logs() {
         .unwrap();
 
     let r = result.lock().unwrap().take().unwrap();
-    let local_logs = c
+    let (local_logs, need_fetch) = c
         .store
         .get_chat_logs(&topic_id, None, send_count)
         .await
         .unwrap();
+    assert_eq!(need_fetch, false);
     assert_eq!(r.start_seq, local_logs.start_sort_value);
     assert_eq!(r.end_seq, local_logs.end_sort_value);
     assert_eq!(last_seq, local_logs.start_sort_value);
@@ -189,11 +189,12 @@ async fn test_client_recall_log() {
         .await
         .unwrap();
 
-    let local_logs = c
+    let (local_logs, need_fetch) = c
         .store
         .get_chat_logs(&topic_id, None, send_count + 1)
         .await
         .unwrap();
+    assert_eq!(need_fetch, false);
     assert_eq!(local_logs.items.len(), send_count as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[1].id, last_send_id);

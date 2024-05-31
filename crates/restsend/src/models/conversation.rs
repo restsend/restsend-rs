@@ -83,7 +83,6 @@ pub struct Conversation {
     #[serde(default)]
     pub source: String,
 
-    #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub unread: i64,
 

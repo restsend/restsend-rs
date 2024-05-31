@@ -34,6 +34,7 @@ pub struct QueryResult<T: StoreModel> {
     pub start_sort_value: i64,
     pub end_sort_value: i64,
     pub items: Vec<T>,
+    pub has_more: bool,
 }
 
 #[cfg(not(feature = "indexeddb"))]

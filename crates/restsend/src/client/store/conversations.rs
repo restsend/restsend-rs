@@ -34,7 +34,6 @@ pub(crate) async fn merge_conversation(
         conversation.last_message = Some(log.content.clone());
         conversation.last_message_at = log.created_at.clone();
         conversation.last_sender_id = log.sender_id;
-        conversation.updated_at = log.created_at;
         conversation.last_message_seq = Some(log.seq);
     }
 
@@ -129,13 +128,14 @@ pub(super) async fn merge_conversation_from_chat(
 
     if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
+
         let unreadable = req.content.as_ref().map(|v| v.unreadable).unwrap_or(false);
         if !unreadable && !req.chat_id.is_empty() {
             conversation.last_sender_id = req.attendee.clone();
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();
-            conversation.updated_at = req.created_at.clone();
             conversation.last_message_seq = Some(req.seq);
+            conversation.updated_at = req.created_at.clone();
         }
     }
 
@@ -178,7 +178,6 @@ impl ClientStore {
                 conversation.last_message = Some(log.content.clone());
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
-                conversation.updated_at = log.created_at;
                 conversation.last_message_seq = Some(log.seq);
             }
 
@@ -375,6 +374,7 @@ impl ClientStore {
         let topic_id = topic_id.to_string();
         let message_storage = self.message_storage.clone();
         let callback = self.callback.clone();
+        log::info!("fetch_conversation: {:?} blocking: {}", topic_id, blocking);
 
         let runner = async move {
             match get_conversation(&endpoint, &token, &topic_id).await {
@@ -576,17 +576,21 @@ impl ClientStore {
         topic_id: &str,
         last_seq: Option<i64>,
         limit: u32,
-    ) -> Result<QueryResult<ChatLog>> {
+    ) -> Result<(QueryResult<ChatLog>, bool)> {
         let t = self.message_storage.table::<ChatLog>().await;
 
         let mut r = QueryResult {
             start_sort_value: 0,
             end_sort_value: 0,
             items: Vec::new(),
+            has_more: false,
         };
 
         let mut limit = limit;
         let mut last_seq = last_seq;
+
+        let mut total_limit = 0;
+        let mut query_diff = 0;
 
         loop {
             let option = QueryOption {
@@ -594,7 +598,7 @@ impl ClientStore {
                 start_sort_value: last_seq,
                 limit,
             };
-
+            total_limit += limit;
             let result = match t.query(topic_id, &option).await {
                 Some(result) => result,
                 None => break,
@@ -603,9 +607,9 @@ impl ClientStore {
             if result.items.len() == 0 {
                 break;
             }
-            let has_more = result.items.len() >= limit as usize;
-            let next_last_seq = result.items.last().map(|v| v.seq);
+            query_diff += result.start_sort_value - result.end_sort_value + 1;
 
+            let next_last_seq = result.items.last().map(|v| v.seq);
             let items: Vec<ChatLog> = result
                 .items
                 .into_iter()
@@ -618,7 +622,8 @@ impl ClientStore {
                 .collect();
 
             r.items.extend(items);
-            if !has_more || r.items.len() >= limit as usize {
+            r.has_more = result.has_more;
+            if !result.has_more || r.items.len() as u32 >= limit {
                 break;
             }
             limit -= r.items.len() as u32;
@@ -626,7 +631,19 @@ impl ClientStore {
         }
         r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);
-        Ok(r)
+
+        let need_fetch = r.items.len() == 0 || query_diff > total_limit as i64;
+
+        log::info!(
+            "get_chat_logs: topic_id: {}, last_seq: {:?}, limit: {}, total: {}, query_diff: {}, need_fetch: {}",
+            topic_id,
+            last_seq,
+            limit,
+            total_limit,
+            query_diff,
+            need_fetch
+        );
+        Ok((r, need_fetch))
     }
 
     pub async fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
@@ -669,6 +686,7 @@ impl ClientStore {
                 start_sort_value: 0,
                 end_sort_value: 0,
                 items: vec![],
+                has_more: false,
             },
         };
 
@@ -682,7 +700,6 @@ impl ClientStore {
                 conversation.last_message = Some(log.content.clone());
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
-                conversation.updated_at = log.created_at;
                 conversation.last_message_seq = Some(log.seq);
             }
         }

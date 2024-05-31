@@ -21,10 +21,12 @@ describe('Conversations', async function () {
 
     it('#sync conversation', async () => {
         let cbCount = 0
-        let conversations = []
+        let conversations = {}
 
         vitalik.onconversationsupdated = async (items) => {
-            conversations.push(...items)
+            items.forEach((c) => {
+                conversations[c.topicId] = c
+            })
         }
 
         await vitalik.syncConversations({
@@ -35,7 +37,7 @@ describe('Conversations', async function () {
 
         await waitUntil(() => cbCount > 0, 3000)
         expect(cbCount).toBeGreaterThan(3)
-        expect(conversations.length).toEqual(cbCount)
+        expect(Object.values(conversations).length).toEqual(cbCount)
     })
 
     it('#sync sync last logs', async () => {

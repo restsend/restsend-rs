@@ -179,19 +179,23 @@ impl<T: StoreModel> MemoryTable<T> {
                     }
                 }
                 items.push(v);
-                if items.len() >= option.limit as usize {
+                if items.len() >= (option.limit + 1) as usize {
                     break;
                 }
             }
-            if items.len() >= option.limit as usize {
+            if items.len() >= (option.limit + 1) as usize {
                 break;
             }
         }
-
+        let has_more = items.len() > option.limit as usize;
+        if has_more {
+            items.pop();
+        }
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
             items,
+            has_more,
         })
     }
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
