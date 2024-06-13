@@ -59,6 +59,8 @@ pub struct ListConversationResult {
     pub offset: u32,
     #[serde(default)]
     pub items: Vec<Conversation>,
+    #[serde(default)]
+    pub last_updated_at: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

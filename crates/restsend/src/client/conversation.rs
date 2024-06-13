@@ -6,7 +6,8 @@ use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::request::ChatRequest;
 use crate::services::conversation::{
-    batch_get_chat_logs_desc, create_chat, set_conversation_read, BatchSyncChatLogs,
+    batch_get_chat_logs_desc, create_chat, set_all_conversations_read, set_conversation_read,
+    BatchSyncChatLogs,
 };
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
@@ -255,13 +256,29 @@ impl Client {
         let mut offset = 0;
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let updated_at = updated_at.unwrap_or_default();
+        let mut last_upadted_at_remote = None;
 
         loop {
             let st_0 = now_millis();
-            match get_conversations(&self.endpoint, &self.token, &updated_at, offset, limit).await {
+            match get_conversations(
+                &self.endpoint,
+                &self.token,
+                &updated_at,
+                last_upadted_at_remote.clone(),
+                offset,
+                limit,
+            )
+            .await
+            {
                 Ok(lr) => {
                     let api_cost = elapsed(st_0);
-                    offset = lr.offset;
+
+                    offset = if lr.last_updated_at.is_none() {
+                        lr.offset
+                    } else {
+                        last_upadted_at_remote = lr.last_updated_at.clone();
+                        0
+                    };
 
                     if last_updated_at.is_empty() && !lr.items.is_empty() {
                         last_updated_at = lr.items.first().unwrap().updated_at.clone();
@@ -464,6 +481,14 @@ impl Client {
             self.do_read(topic_id).await
         }
         .ok();
+    }
+
+    pub async fn set_all_conversations_read(&self) {
+        self.store.set_all_conversations_read_local().await;
+
+        set_all_conversations_read(&self.endpoint, &self.token)
+            .await
+            .ok();
     }
 
     pub async fn set_conversation_tags(

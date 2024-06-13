@@ -157,6 +157,13 @@ impl Client {
             .set_conversation_read(topicId, heavy.unwrap_or_default())
             .await
     }
+    /// Set conversation read by topicId
+    /// #Arguments
+    /// * `topicId` - topic id
+    /// * `heavy` - heavy optional
+    pub async fn setAllConversationsRead(&self) {
+        self.inner.set_all_conversations_read().await
+    }
 
     /// Set conversation tags
     /// #Arguments

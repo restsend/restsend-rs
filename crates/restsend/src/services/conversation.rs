@@ -27,6 +27,7 @@ pub async fn get_conversations(
     endpoint: &str,
     token: &str,
     updated_at: &str,
+    last_updated_at: Option<String>,
     offset: u32,
     limit: u32,
 ) -> Result<ListConversationResult> {
@@ -36,6 +37,9 @@ pub async fn get_conversations(
     });
     if !updated_at.is_empty() {
         data["updatedAt"] = serde_json::json!(updated_at);
+    }
+    if let Some(last_updated_at) = last_updated_at {
+        data["lastUpdatedAt"] = serde_json::json!(last_updated_at);
     }
     let now = now_millis();
     api_call(endpoint, "/chat/list", token, Some(data.to_string()))
@@ -122,6 +126,12 @@ pub async fn set_conversation_mute(
 
 pub async fn set_conversation_read(endpoint: &str, token: &str, topic_id: &str) -> Result<()> {
     api_call(endpoint, &format!("/chat/read/{}", topic_id), token, None)
+        .await
+        .map(|_: bool| ())
+}
+
+pub async fn set_all_conversations_read(endpoint: &str, token: &str) -> Result<()> {
+    api_call(endpoint, "/chat/readall", token, None)
         .await
         .map(|_: bool| ())
 }

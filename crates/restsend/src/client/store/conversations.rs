@@ -288,6 +288,38 @@ impl ClientStore {
         }
     }
 
+    pub async fn set_all_conversations_read_local(&self) -> Option<()> {
+        let t = self.message_storage.table::<Conversation>().await;
+        let items = t
+            .filter(
+                "",
+                Box::new(move |c| if c.unread == 0 { None } else { Some(c) }),
+                None,
+                None,
+            )
+            .await?;
+        if items.is_empty() {
+            return None;
+        }
+
+        let last_read_at = chrono::Local::now().to_rfc3339();
+        let update_items = items
+            .into_iter()
+            .map(|mut c| {
+                c.last_read_at = Some(last_read_at.clone());
+                c.last_read_seq = c.last_seq;
+                c.unread = 0;
+                ValueItem {
+                    partition: "".to_string(),
+                    key: c.topic_id.clone(),
+                    sort_key: c.sort_key(),
+                    value: Some(c),
+                }
+            })
+            .collect();
+        t.batch_update(&update_items).await.ok()
+    }
+
     pub async fn set_conversation_tags(
         &self,
         topic_id: &str,

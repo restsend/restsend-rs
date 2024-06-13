@@ -192,4 +192,18 @@ describe('Conversations', async function () {
         expect(conversations.length).toEqual(1)
         expect(conversations[0].attendee).toEqual('guido')
     })
+
+    it('#conversations readall', async () => {
+        let conversations = await vitalik.filterConversation(c => {
+            return c.attendee === 'guido'
+        })
+
+        expect(conversations[0].unread).toBeGreaterThan(0)
+        await vitalik.setAllConversationsRead()
+
+        conversations = await vitalik.filterConversation(c => {
+            return c.attendee === 'guido'
+        })
+        expect(conversations[0].unread).toEqual(0)
+    })
 })
