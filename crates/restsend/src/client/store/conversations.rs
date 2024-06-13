@@ -639,7 +639,11 @@ impl ClientStore {
             if result.items.len() == 0 {
                 break;
             }
-            query_diff += result.start_sort_value - result.end_sort_value + 1;
+            let diff = result.start_sort_value - result.end_sort_value + 1;
+            if diff > result.items.len() as i64 {
+                break;
+            }
+            query_diff += diff;
 
             let next_last_seq = result.items.last().map(|v| v.seq);
             let items: Vec<ChatLog> = result

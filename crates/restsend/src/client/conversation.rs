@@ -230,9 +230,10 @@ impl Client {
                         conversations.insert(c.topic_id.clone(), c.clone());
                     });
                     log::info!(
-                        "sync conversations from local, count: {} first_updated_at: {}",
+                        "sync conversations from local, count: {} first_updated_at: {} has_more:{}",
                         r.items.len(),
-                        last_updated_at
+                        last_updated_at,
+                        r.has_more
                     );
 
                     last_updated_at = r
