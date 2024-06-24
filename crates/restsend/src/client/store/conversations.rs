@@ -83,6 +83,9 @@ pub(super) async fn merge_conversation_from_chat(
     if let Some(content) = req.content.as_ref() {
         match ContentType::from(content.r#type.clone()) {
             ContentType::None | ContentType::Recall => {}
+            ContentType::TopicJoin => {
+                conversation.last_message_at = req.created_at.clone();
+            }
             ContentType::TopicChangeOwner => {
                 conversation.topic_owner_id = Some(req.attendee.clone());
             }
