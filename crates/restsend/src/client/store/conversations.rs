@@ -482,7 +482,7 @@ impl ClientStore {
 
         match req.content.as_ref() {
             Some(content) => match ContentType::from(content.r#type.clone()) {
-                ContentType::None | ContentType::Recall => {
+                ContentType::Recall => {
                     let recall_chat_id = match req.content.as_ref() {
                         Some(content) => &content.text,
                         None => return Err(Error::Other("[recall] invalid content".to_string())),
@@ -567,7 +567,7 @@ impl ClientStore {
                             if !recall_log.recall {
                                 let mut log = recall_log.clone();
                                 log.recall = true;
-                                log.content = Content::new(ContentType::None);
+                                log.content = Content::new(ContentType::Recalled);
                                 t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
                                     .await
                                     .ok();

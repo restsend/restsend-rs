@@ -9,6 +9,7 @@ use std::str::FromStr;
 pub enum ContentType {
     None,
     Recall,
+    Recalled,
     Text,
     Image,
     Video,
@@ -44,6 +45,7 @@ impl From<ContentType> for String {
         match value {
             ContentType::None => "",
             ContentType::Recall => "recall",
+            ContentType::Recalled => "recalled",
             ContentType::Text => "text",
             ContentType::Image => "image",
             ContentType::Video => "video",
@@ -81,6 +83,7 @@ impl From<String> for ContentType {
         match value.as_str() {
             "" => ContentType::None,
             "recall" => ContentType::Recall,
+            "recalled" => ContentType::Recalled,
             "text" => ContentType::Text,
             "image" => ContentType::Image,
             "video" => ContentType::Video,
