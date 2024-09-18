@@ -1,8 +1,9 @@
 [package]
 name = "restsend-wasm"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2021"
-description = "A client for the retsend server"
+description = "A library for RestSEND client in WASM"
+authors = ["RestSEND Team <kui@fourz.cn>"]
 
 [lib]
 crate-type = ["cdylib"]

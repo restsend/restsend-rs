@@ -12,7 +12,7 @@ use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
     sync::{
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -51,6 +51,7 @@ impl ToString for ConnectionStatus {
 pub(super) struct ConnectState {
     must_shutdown: AtomicBool,
     broken_count: AtomicU64,
+    keepalive_inerval_secs: AtomicU32,
     last_broken_at: Mutex<Option<i64>>,
     last_alive_at: Mutex<i64>,
     state_tx: broadcast::Sender<ConnectionStatus>,
@@ -65,6 +66,7 @@ impl ConnectState {
         Self {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
+            keepalive_inerval_secs: AtomicU32::new(KEEPALIVE_INTERVAL_SECS as u32),
             last_broken_at: Mutex::new(None),
             last_alive_at: Mutex::new(crate::utils::now_millis()),
             state_tx,
@@ -114,7 +116,12 @@ impl ConnectState {
     pub fn need_send_keepalive(&self) -> bool {
         let last_alive_at = *self.last_alive_at.lock().unwrap();
         let elapsed = crate::utils::elapsed(last_alive_at).as_secs();
-        elapsed >= KEEPALIVE_INTERVAL_SECS
+        elapsed >= self.keepalive_inerval_secs.load(Ordering::Relaxed) as u64
+    }
+
+    pub fn set_keepalive_interval_secs(&self, secs: u32) {
+        self.keepalive_inerval_secs
+            .store(secs as u32, Ordering::Relaxed);
     }
 
     pub async fn wait_for_next_connect(&self) {
@@ -231,6 +238,10 @@ impl Client {
 
     pub fn app_active(&self) {
         self.state.did_connect_now();
+    }
+
+    pub fn set_keepalive_interval_secs(&self, secs: u32) {
+        self.state.set_keepalive_interval_secs(secs);
     }
 
     pub async fn shutdown(&self) {

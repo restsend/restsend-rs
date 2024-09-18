@@ -81,6 +81,11 @@ impl Client {
     pub fn app_active(&self) {
         self.inner.app_active();
     }
+    /// set the keepalive interval with seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_keepalive(&self, secs: u32) {
+        self.inner.set_keepalive_interval_secs(secs);
+    }
     pub async fn shutdown(&self) {
         self.inner.shutdown().await
     }

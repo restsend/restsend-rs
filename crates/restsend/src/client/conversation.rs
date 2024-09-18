@@ -114,12 +114,17 @@ impl Client {
         last_seq: Option<i64>,
         limit: u32,
         callback: Box<dyn SyncChatLogsCallback>,
+        ensure_conversation_last_version: Option<bool>,
     ) {
         let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit }.min(MAX_LOGS_LIMIT);
         let st = now_millis();
         let conversation = self
             .store
-            .get_conversation(&topic_id, true)
+            .get_conversation(
+                &topic_id,
+                false,
+                ensure_conversation_last_version.unwrap_or(true),
+            )
             .await
             .unwrap_or_default();
 
@@ -138,10 +143,8 @@ impl Client {
                 );
 
                 if !need_fetch {
-                    callback.on_success(GetChatLogsResult::from_local_logs(
-                        local_logs,
-                        conversation.start_seq,
-                    ));
+                    let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
+                    callback.on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
                     return;
                 }
             }
@@ -434,7 +437,7 @@ impl Client {
     }
 
     pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {
-        self.store.get_conversation(&topic_id, blocking).await
+        self.store.get_conversation(&topic_id, blocking, true).await
     }
 
     pub async fn remove_conversation(&self, topic_id: String) {

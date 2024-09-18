@@ -1,10 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
-* @param {string | undefined} [level]
-*/
-export function setLogging(level?: string): void;
-/**
 * Signin with userId and password or token
 * @param {string} endpoint
 * @param {string} userId
@@ -29,9 +25,73 @@ export function signup(endpoint: string, userId: string, password: string): Prom
 */
 export function logout(endpoint: string, token: string): Promise<void>;
 /**
+* @param {string | undefined} [level]
+*/
+export function setLogging(level?: string): void;
+/**
 */
 export class Client {
   free(): void;
+/**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
 /**
 * Create a new topic
 * #Arguments
@@ -248,65 +308,26 @@ export class Client {
 */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
 /**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
-* @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
+* Create a new client
+* # Arguments
+* * `info` - AuthInfo
+* * `db_name` - database name (optional), create an indexeddb when set it    
+* @param {any} info
+* @param {string | undefined} [db_name]
 */
-  getUser(userId: string, blocking?: boolean): Promise<any>;
+  constructor(info: any, db_name?: string);
 /**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
+* connect immediately if the connection is broken    
 */
-  getUsers(userIds: (string)[]): Promise<any>;
+  app_active(): void;
 /**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
 * @returns {Promise<void>}
 */
-  setUserRemark(userId: string, remark: string): Promise<void>;
+  shutdown(): Promise<void>;
 /**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
 * @returns {Promise<void>}
 */
-  setUserStar(userId: string, star: boolean): Promise<void>;
-/**
-* Set user block
-* #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
-* @returns {Promise<void>}
-*/
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-/**
-* Set allow guest chat
-* #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
+  connect(): Promise<void>;
 /**
 * Create a new chat with userId
 * return: Conversation    
@@ -334,6 +355,7 @@ export class Client {
 * * `lastSeq` - Number, last seq
 * * `option` - option
 *     * `limit` - limit
+*     * `ensureConversationVersion` - ensure conversation version, default false
 *     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
 *     * `onerror` - onerror callback -> function (error: String)
 * @param {string} topicId
@@ -712,31 +734,14 @@ export class Client {
 */
   doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
 /**
-* Create a new client
-* # Arguments
-* * `info` - AuthInfo
-* * `db_name` - database name (optional), create an indexeddb when set it    
-* @param {any} info
-* @param {string | undefined} [db_name]
-*/
-  constructor(info: any, db_name?: string);
-/**
-* connect immediately if the connection is broken    
-*/
-  app_active(): void;
-/**
-* @returns {Promise<void>}
-*/
-  shutdown(): Promise<void>;
-/**
-* @returns {Promise<void>}
-*/
-  connect(): Promise<void>;
-/**
 * get the current connection status
 * return: connecting, connected, broken, shutdown
 */
   readonly connectionStatus: string;
+/**
+* set the keepalive interval with seconds
+*/
+  keepalive: number;
 /**
 * Set the callback when connection broken
 * # Arguments
@@ -945,6 +950,9 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly logout: (a: number, b: number, c: number, d: number) => number;
   readonly client_set_onconnected: (a: number, b: number) => void;
   readonly client_set_onconnecting: (a: number, b: number) => void;
   readonly client_set_ontokenexpired: (a: number, b: number) => void;
@@ -958,6 +966,12 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: number) => void;
   readonly client_set_onconversationsremoved: (a: number, b: number) => void;
   readonly setLogging: (a: number, b: number) => void;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUsers: (a: number, b: number, c: number) => number;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -978,15 +992,13 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUsers: (a: number, b: number, c: number) => number;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllowGuestChat: (a: number, b: number) => number;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly logout: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_client_free: (a: number) => void;
+  readonly client_new: (a: number, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number, b: number) => void;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => number;
+  readonly client_connect: (a: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -1014,12 +1026,6 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
   readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
-  readonly __wbg_client_free: (a: number) => void;
-  readonly client_new: (a: number, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number, b: number) => void;
-  readonly client_app_active: (a: number) => void;
-  readonly client_shutdown: (a: number) => number;
-  readonly client_connect: (a: number) => number;
   readonly __wbg_intounderlyingsink_free: (a: number) => void;
   readonly intounderlyingsink_write: (a: number, b: number) => number;
   readonly intounderlyingsink_close: (a: number) => number;
@@ -1036,13 +1042,13 @@ export interface InitOutput {
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
-  readonly wasm_bindgen__convert__closures__invoke0_mut__h9565e05f70bfeaaa: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke1_mut__h6e7fe38a8d99f279: (a: number, b: number, c: number) => void;
-  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h336310e710ba71d4: (a: number, b: number, c: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke1_mut__h0e77e36b6919841d: (a: number, b: number, c: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke0_mut__h41fc88addd5d406d: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h7481df2737682c2d: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke2_mut__h0852fef5af643c3a: (a: number, b: number, c: number, d: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke2_mut__h3ec36cd4abd8975e: (a: number, b: number, c: number, d: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;

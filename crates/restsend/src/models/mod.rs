@@ -20,9 +20,9 @@ pub struct GetChatLogsResult {
 }
 
 impl GetChatLogsResult {
-    pub fn from_local_logs(qr: QueryResult<ChatLog>, start_seq: i64) -> Self {
+    pub fn from_local_logs(qr: QueryResult<ChatLog>, has_more: bool) -> Self {
         GetChatLogsResult {
-            has_more: qr.end_sort_value > start_seq + 1,
+            has_more,
             start_seq: qr.start_sort_value,
             end_seq: qr.end_sort_value,
             items: qr.items,

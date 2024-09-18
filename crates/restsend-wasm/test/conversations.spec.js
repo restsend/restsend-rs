@@ -142,7 +142,7 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
-        expect(lastMessage.type).toEqual('')
+        expect(lastMessage.type).toEqual('recall') // recall is readable
 
         vitalik.onconversationsupdated = async (items) => {
         }
@@ -175,10 +175,7 @@ describe('Conversations', async function () {
             })
         }
         syncDone = false
-        await vitalik.syncConversations({
-            onsuccess(updatedAt, count) {
-            },
-        })
+
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
         expect(lastMessage.type).toEqual('text')

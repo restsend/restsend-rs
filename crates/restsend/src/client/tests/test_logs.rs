@@ -86,8 +86,14 @@ async fn test_client_fetch_logs() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs(topic_id.to_string(), None, send_count, Box::new(cb))
-        .await;
+    c.sync_chat_logs(
+        topic_id.to_string(),
+        None,
+        send_count,
+        Box::new(cb),
+        Some(true),
+    )
+    .await;
 
     check_until(Duration::from_secs(3), || result.lock().unwrap().is_some())
         .await
@@ -316,7 +322,8 @@ async fn test_client_sync_logs() {
     let callback = Box::new(TestSyncLogsCallbackImpl {
         result: result.clone(),
     });
-    c.sync_chat_logs(topic_id, None, 0, callback).await;
+    c.sync_chat_logs(topic_id, None, 0, callback, Some(true))
+        .await;
     let r = result.lock().unwrap().take().unwrap();
     assert!(!r.has_more);
     assert_eq!(r.items.len(), send_count as usize);

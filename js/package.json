@@ -1,7 +1,10 @@
 {
   "name": "restsend-wasm",
-  "description": "A client for the retsend server",
-  "version": "1.0.5",
+  "collaborators": [
+    "RestSEND Team <kui@fourz.cn>"
+  ],
+  "description": "A library for RestSEND client in WASM",
+  "version": "1.0.6",
   "files": [
     "restsend_wasm_bg.wasm",
     "restsend_wasm.js",

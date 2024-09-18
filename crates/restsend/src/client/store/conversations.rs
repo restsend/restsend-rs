@@ -118,6 +118,25 @@ pub(super) async fn merge_conversation_from_chat(
                     Err(_) => {}
                 }
             }
+            ContentType::UpdateExtra => {
+                //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
+                let (extra, update_extra_log_id) = match req.content.as_ref() {
+                    Some(content) => (&content.extra, &content.text),
+                    None => return Err(Error::Other("[update_extra] invalid content".to_string())),
+                };
+
+                if let Some(lastlog_seq) = conversation.last_message_seq {
+                    let log_t = message_storage.table::<ChatLog>().await;
+                    if let Some(log_in_store) = log_t.get(&req.topic_id, &update_extra_log_id).await
+                    {
+                        if lastlog_seq == log_in_store.seq {
+                            if let Some(content) = conversation.last_message.as_mut() {
+                                content.extra = extra.clone();
+                            }
+                        }
+                    }
+                }
+            }
             _ => {
                 if req.seq > conversation.last_read_seq
                     && !content.unreadable
@@ -128,7 +147,6 @@ pub(super) async fn merge_conversation_from_chat(
             }
         }
     }
-
     if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
 
@@ -388,6 +406,7 @@ impl ClientStore {
         &self,
         topic_id: &str,
         blocking: bool,
+        ensure_last_version: bool,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         let conversation = t
@@ -395,8 +414,9 @@ impl ClientStore {
             .await
             .unwrap_or(Conversation::new(topic_id));
 
-        if conversation.is_partial
-            || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
+        if ensure_last_version
+            && (conversation.is_partial
+                || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS))
         {
             self.fetch_conversation(topic_id, blocking).await;
         }

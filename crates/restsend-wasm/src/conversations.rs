@@ -46,16 +46,23 @@ impl Client {
     /// * `lastSeq` - Number, last seq
     /// * `option` - option
     ///     * `limit` - limit
+    ///     * `ensureConversationVersion` - ensure conversation version, default false
     ///     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
     ///     * `onerror` - onerror callback -> function (error: String)
     pub async fn syncChatLogs(&self, topicId: String, lastSeq: Option<f64>, option: JsValue) {
         let limit = js_util::get_f64(&option, "limit") as u32;
+        let ensureConversationVersion =
+            js_sys::Reflect::get(&option, &JsValue::from_str("ensureConversationVersion"))
+                .ok()
+                .map(|v| v.as_bool().unwrap_or(true));
+
         self.inner
             .sync_chat_logs(
                 topicId,
                 lastSeq.map(|v| v as i64),
                 limit,
                 Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
+                ensureConversationVersion,
             )
             .await
     }
