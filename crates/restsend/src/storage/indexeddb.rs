@@ -534,7 +534,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             let query_keys = js_sys::Array::new();
             query_keys.push(&partition.into());
             query_keys.push(&key.into());
-            store.delete(&key.into())
+            store.delete(&query_keys.into())
         } else {
             let index = store.index("partition+sortkey")?;
             let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(

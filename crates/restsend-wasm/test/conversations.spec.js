@@ -203,4 +203,13 @@ describe('Conversations', async function () {
         })
         expect(conversations[0].unread).toEqual(0)
     })
+    it('#remove conversation', async () => {
+        let conversations = await vitalik.filterConversation(c => { return c.attendee === 'guido' })
+        expect(conversations.length).toEqual(1)
+        await vitalik.removeConversation(guidoTopic.topicId)
+        conversations = await vitalik.filterConversation(c => {
+            return c.attendee === 'guido'
+        })
+        expect(conversations.length).toEqual(0)
+    })
 })
