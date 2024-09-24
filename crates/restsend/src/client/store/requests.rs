@@ -107,7 +107,7 @@ impl ClientStore {
                 match merge_conversation_from_chat(self.message_storage.clone(), &req, has_read)
                     .await
                 {
-                    Ok(conversation) => {
+                    Ok(mut conversation) => {
                         if has_read
                             && req.seq != 0
                             && !req.content.map(|c| c.unreadable).unwrap_or(false)
@@ -119,6 +119,7 @@ impl ClientStore {
                         }
                         if !conversation.is_partial {
                             if let Some(cb) = callback.lock().unwrap().as_ref() {
+                                conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
                                 cb.on_conversations_updated(vec![conversation]);
                             }
                         } else {
