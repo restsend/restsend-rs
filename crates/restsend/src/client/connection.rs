@@ -337,11 +337,14 @@ async fn serve_connection(
                                 .map(|cb| cb.on_unknown_request(req).unwrap_or_default());
                             vec![r]
                         }
-                        ChatRequestType::System => vec![callback_ref
-                            .lock()
-                            .unwrap()
-                            .as_ref()
-                            .map(|cb| cb.on_system_request(req).unwrap_or_default())],
+                        ChatRequestType::System => {
+                            let r = callback_ref
+                                .lock()
+                                .unwrap()
+                                .as_ref()
+                                .map(|cb| cb.on_system_request(req).unwrap_or_default());
+                            vec![r]
+                        }
                         ChatRequestType::Typing => {
                             callback_ref.lock().unwrap().as_ref().map(|cb| {
                                 cb.on_topic_typing(req.topic_id.clone(), req.message.clone())

@@ -107,7 +107,7 @@ impl ClientStore {
                 match merge_conversation_from_chat(self.message_storage.clone(), &req, has_read)
                     .await
                 {
-                    Ok(mut conversation) => {
+                    Some(mut conversation) => {
                         if has_read
                             && req.seq != 0
                             && !req.content.map(|c| c.unreadable).unwrap_or(false)
@@ -126,8 +126,10 @@ impl ClientStore {
                             self.fetch_conversation(&topic_id, false).await;
                         }
                     }
-                    Err(e) => {
-                        warn!("update_conversation_from_chat failed: {:?}", e);
+                    None => {
+                        if let Some(cb) = callback.lock().unwrap().as_ref() {
+                            cb.on_conversation_removed(topic_id);
+                        }
                     }
                 }
                 resps

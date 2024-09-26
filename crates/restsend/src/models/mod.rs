@@ -60,6 +60,8 @@ pub struct ListConversationResult {
     #[serde(default)]
     pub items: Vec<Conversation>,
     #[serde(default)]
+    pub removed: Vec<String>,
+    #[serde(default)]
     pub last_updated_at: Option<String>,
 }
 

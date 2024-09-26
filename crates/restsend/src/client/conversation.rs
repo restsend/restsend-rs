@@ -288,6 +288,13 @@ impl Client {
                         last_updated_at = lr.items.first().unwrap().updated_at.clone();
                     }
                     let st = now_millis();
+
+                    if lr.removed.len() > 0 {
+                        for topic_id in lr.removed.iter() {
+                            store_ref.sync_removed_conversation(&topic_id).await;
+                        }
+                    }
+
                     let new_conversations = store_ref.merge_conversations(lr.items).await;
                     let merge_cost = elapsed(st);
                     let st = now_millis();

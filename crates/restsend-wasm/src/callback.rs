@@ -304,9 +304,9 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
                 .map(|e| web_sys::console::error_1(&e));
         }
     }
-    fn on_conversation_removed(&self, conversatio_id: String) {
+    fn on_conversation_removed(&self, conversation_id: String) {
         if let Some(cb) = self.cb_on_conversation_removed.borrow().as_ref() {
-            cb.call1(&JsValue::NULL, &JsValue::from_str(&conversatio_id))
+            cb.call1(&JsValue::NULL, &JsValue::from_str(&conversation_id))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
         }

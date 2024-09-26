@@ -35,6 +35,7 @@ pub enum ContentType {
     TopicSilentMember,
     TopicChangeOwner,
     ConversationUpdate,
+    ConversationRemoved,
     UpdateExtra,
     Unknown(String),
 }
@@ -71,6 +72,7 @@ impl From<ContentType> for String {
             ContentType::TopicSilentMember => "topic.silent.member",
             ContentType::TopicChangeOwner => "topic.changeowner",
             ContentType::ConversationUpdate => "conversation.update",
+            ContentType::ConversationRemoved => "conversation.removed",
             ContentType::UpdateExtra => "update.extra",
             ContentType::Unknown(v) => return v.clone(),
         }
@@ -109,6 +111,7 @@ impl From<String> for ContentType {
             "topic.silent.member" => ContentType::TopicSilentMember,
             "topic.changeowner" => ContentType::TopicChangeOwner,
             "conversation.update" => ContentType::ConversationUpdate,
+            "conversation.removed" => ContentType::ConversationRemoved,
             "update.extra" => ContentType::UpdateExtra,
             _ => ContentType::Unknown(value),
         }

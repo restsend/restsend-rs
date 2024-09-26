@@ -74,7 +74,7 @@ pub(super) async fn merge_conversation_from_chat(
     message_storage: Arc<Storage>,
     req: &ChatRequest,
     has_read: bool,
-) -> Result<Conversation> {
+) -> Option<Conversation> {
     let t = message_storage.table::<Conversation>().await;
     let mut conversation = t
         .get("", &req.topic_id)
@@ -108,6 +108,10 @@ pub(super) async fn merge_conversation_from_chat(
                     Err(_) => {}
                 }
             }
+            ContentType::ConversationRemoved => {
+                t.remove("", &conversation.topic_id).await.ok();
+                return None;
+            }
             ContentType::TopicUpdate => {
                 match serde_json::from_str::<crate::models::Topic>(&content.text) {
                     Ok(topic) => {
@@ -120,18 +124,12 @@ pub(super) async fn merge_conversation_from_chat(
             }
             ContentType::UpdateExtra => {
                 //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
-                let (extra, update_extra_log_id) = match req.content.as_ref() {
-                    Some(content) => (&content.extra, &content.text),
-                    None => return Err(Error::Other("[update_extra] invalid content".to_string())),
-                };
-
                 if let Some(lastlog_seq) = conversation.last_message_seq {
                     let log_t = message_storage.table::<ChatLog>().await;
-                    if let Some(log_in_store) = log_t.get(&req.topic_id, &update_extra_log_id).await
-                    {
+                    if let Some(log_in_store) = log_t.get(&req.topic_id, &content.text).await {
                         if lastlog_seq == log_in_store.seq {
-                            if let Some(content) = conversation.last_message.as_mut() {
-                                content.extra = extra.clone();
+                            if let Some(last_message_content) = conversation.last_message.as_mut() {
+                                last_message_content.extra = content.extra.clone();
                             }
                         }
                     }
@@ -170,7 +168,7 @@ pub(super) async fn merge_conversation_from_chat(
     t.set("", &conversation.topic_id, Some(&conversation))
         .await
         .ok();
-    Ok(conversation)
+    Some(conversation)
 }
 
 impl ClientStore {
@@ -382,6 +380,14 @@ impl ClientStore {
         let c = update_conversation(&self.endpoint, &self.token, &topic_id, &values).await?;
         let c = merge_conversation(self.message_storage.clone(), c).await?;
         self.emit_conversation_update(c)
+    }
+
+    pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
+        let t = self.message_storage.table::<Conversation>().await;
+        t.remove("", topic_id).await.ok();
+        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+            cb.on_conversation_removed(topic_id.to_string());
+        }
     }
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
