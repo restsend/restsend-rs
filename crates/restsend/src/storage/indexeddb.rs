@@ -351,7 +351,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                                     items_count = items.len();
                                 }
                             }
-                            if items_count < (limit + 1) as usize {
+                            if v.sortkey == start_sort_value || items_count < (limit + 1) as usize {
                                 cursor.continue_().ok();
                                 return;
                             }

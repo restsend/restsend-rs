@@ -1,5 +1,6 @@
 {
   "name": "restsend-wasm",
+  "type": "module",
   "collaborators": [
     "RestSEND Team <kui@fourz.cn>"
   ],
@@ -10,7 +11,7 @@
     "restsend_wasm.js",
     "restsend_wasm.d.ts"
   ],
-  "module": "restsend_wasm.js",
+  "main": "restsend_wasm.js",
   "types": "restsend_wasm.d.ts",
   "sideEffects": [
     "./snippets/*"

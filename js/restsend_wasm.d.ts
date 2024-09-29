@@ -33,66 +33,6 @@ export function setLogging(level?: string): void;
 export class Client {
   free(): void;
 /**
-* Get user info
-* #Arguments
-* * `userId` - user id
-* * `blocking` - blocking fetch from server
-* #Return
-* User info
-* @param {string} userId
-* @param {boolean | undefined} [blocking]
-* @returns {Promise<any>}
-*/
-  getUser(userId: string, blocking?: boolean): Promise<any>;
-/**
-* Get multiple users info
-* #Arguments
-* * `userIds` - Array of user id
-* #Return
-* Array of user info
-* @param {(string)[]} userIds
-* @returns {Promise<any>}
-*/
-  getUsers(userIds: (string)[]): Promise<any>;
-/**
-* Set user remark name
-* #Arguments
-* * `userId` - user id
-* * `remark` - remark name
-* @param {string} userId
-* @param {string} remark
-* @returns {Promise<void>}
-*/
-  setUserRemark(userId: string, remark: string): Promise<void>;
-/**
-* Set user star
-* #Arguments
-* * `userId` - user id
-* * `star` - star
-* @param {string} userId
-* @param {boolean} star
-* @returns {Promise<void>}
-*/
-  setUserStar(userId: string, star: boolean): Promise<void>;
-/**
-* Set user block
-* #Arguments
-* * `userId` - user id
-* * `block` - block
-* @param {string} userId
-* @param {boolean} block
-* @returns {Promise<void>}
-*/
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-/**
-* Set allow guest chat
-* #Arguments
-* * `allow` - allow
-* @param {boolean} allow
-* @returns {Promise<void>}
-*/
-  setAllowGuestChat(allow: boolean): Promise<void>;
-/**
 * Create a new chat with userId
 * return: Conversation    
 * @param {string} userId
@@ -261,6 +201,87 @@ export class Client {
 * @returns {Promise<any>}
 */
   filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
+/**
+* Get user info
+* #Arguments
+* * `userId` - user id
+* * `blocking` - blocking fetch from server
+* #Return
+* User info
+* @param {string} userId
+* @param {boolean | undefined} [blocking]
+* @returns {Promise<any>}
+*/
+  getUser(userId: string, blocking?: boolean): Promise<any>;
+/**
+* Get multiple users info
+* #Arguments
+* * `userIds` - Array of user id
+* #Return
+* Array of user info
+* @param {(string)[]} userIds
+* @returns {Promise<any>}
+*/
+  getUsers(userIds: (string)[]): Promise<any>;
+/**
+* Set user remark name
+* #Arguments
+* * `userId` - user id
+* * `remark` - remark name
+* @param {string} userId
+* @param {string} remark
+* @returns {Promise<void>}
+*/
+  setUserRemark(userId: string, remark: string): Promise<void>;
+/**
+* Set user star
+* #Arguments
+* * `userId` - user id
+* * `star` - star
+* @param {string} userId
+* @param {boolean} star
+* @returns {Promise<void>}
+*/
+  setUserStar(userId: string, star: boolean): Promise<void>;
+/**
+* Set user block
+* #Arguments
+* * `userId` - user id
+* * `block` - block
+* @param {string} userId
+* @param {boolean} block
+* @returns {Promise<void>}
+*/
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+/**
+* Set allow guest chat
+* #Arguments
+* * `allow` - allow
+* @param {boolean} allow
+* @returns {Promise<void>}
+*/
+  setAllowGuestChat(allow: boolean): Promise<void>;
+/**
+* Create a new client
+* # Arguments
+* * `info` - AuthInfo
+* * `db_name` - database name (optional), create an indexeddb when set it    
+* @param {any} info
+* @param {string | undefined} [db_name]
+*/
+  constructor(info: any, db_name?: string);
+/**
+* connect immediately if the connection is broken    
+*/
+  app_active(): void;
+/**
+* @returns {Promise<void>}
+*/
+  shutdown(): Promise<void>;
+/**
+* @returns {Promise<void>}
+*/
+  connect(): Promise<void>;
 /**
 * Create a new topic
 * #Arguments
@@ -476,27 +497,6 @@ export class Client {
 * @returns {Promise<void>}
 */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
-/**
-* Create a new client
-* # Arguments
-* * `info` - AuthInfo
-* * `db_name` - database name (optional), create an indexeddb when set it    
-* @param {any} info
-* @param {string | undefined} [db_name]
-*/
-  constructor(info: any, db_name?: string);
-/**
-* connect immediately if the connection is broken    
-*/
-  app_active(): void;
-/**
-* @returns {Promise<void>}
-*/
-  shutdown(): Promise<void>;
-/**
-* @returns {Promise<void>}
-*/
-  connect(): Promise<void>;
 /**
 *
 * Send message with content
@@ -966,12 +966,6 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: number) => void;
   readonly client_set_onconversationsremoved: (a: number, b: number) => void;
   readonly setLogging: (a: number, b: number) => void;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUsers: (a: number, b: number, c: number) => number;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -987,6 +981,19 @@ export interface InitOutput {
   readonly client_setConversationTags: (a: number, b: number, c: number, d: number) => number;
   readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
   readonly client_filterConversation: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUsers: (a: number, b: number, c: number) => number;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllowGuestChat: (a: number, b: number) => number;
+  readonly __wbg_client_free: (a: number, b: number) => void;
+  readonly client_new: (a: number, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number, b: number) => void;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => number;
+  readonly client_connect: (a: number) => number;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -1007,13 +1014,6 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly __wbg_client_free: (a: number) => void;
-  readonly client_new: (a: number, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number, b: number) => void;
-  readonly client_app_active: (a: number) => void;
-  readonly client_set_keepalive: (a: number, b: number) => void;
-  readonly client_shutdown: (a: number) => number;
-  readonly client_connect: (a: number) => number;
   readonly client_doSend: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_doTyping: (a: number, b: number, c: number) => number;
   readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
@@ -1026,29 +1026,29 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
   readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
-  readonly __wbg_intounderlyingsink_free: (a: number) => void;
-  readonly intounderlyingsink_write: (a: number, b: number) => number;
-  readonly intounderlyingsink_close: (a: number) => number;
-  readonly intounderlyingsink_abort: (a: number, b: number) => number;
-  readonly __wbg_intounderlyingsource_free: (a: number) => void;
+  readonly __wbg_intounderlyingsource_free: (a: number, b: number) => void;
   readonly intounderlyingsource_pull: (a: number, b: number) => number;
   readonly intounderlyingsource_cancel: (a: number) => void;
-  readonly __wbg_intounderlyingbytesource_free: (a: number) => void;
+  readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number, b: number) => void;
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
   readonly intounderlyingbytesource_start: (a: number, b: number) => void;
   readonly intounderlyingbytesource_pull: (a: number, b: number) => number;
   readonly intounderlyingbytesource_cancel: (a: number) => void;
+  readonly __wbg_intounderlyingsink_free: (a: number, b: number) => void;
+  readonly intounderlyingsink_write: (a: number, b: number) => number;
+  readonly intounderlyingsink_close: (a: number) => number;
+  readonly intounderlyingsink_abort: (a: number, b: number) => number;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_2: WebAssembly.Table;
-  readonly wasm_bindgen__convert__closures__invoke1_mut__h183b4c61b5e2d248: (a: number, b: number, c: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke0_mut__h6ed06e14eed055a7: (a: number, b: number) => void;
-  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h7481df2737682c2d: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h003a83b3a7077f0a: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hce7ad747f9cd33b1: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hc06f40e03791573c: (a: number, b: number, c: number) => void;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
-  readonly wasm_bindgen__convert__closures__invoke2_mut__h3ec36cd4abd8975e: (a: number, b: number, c: number, d: number) => void;
+  readonly wasm_bindgen__convert__closures__invoke2_mut__h19a6a499439340f3: (a: number, b: number, c: number, d: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -1056,18 +1056,18 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
 * Instantiates the given `module`, which can either be bytes or
 * a precompiled `WebAssembly.Module`.
 *
-* @param {SyncInitInput} module
+* @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
 *
 * @returns {InitOutput}
 */
-export function initSync(module: SyncInitInput): InitOutput;
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
 
 /**
 * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
 * for everything else, calls `WebAssembly.instantiate` directly.
 *
-* @param {InitInput | Promise<InitInput>} module_or_path
+* @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
 *
 * @returns {Promise<InitOutput>}
 */
-export default function __wbg_init (module_or_path?: InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
