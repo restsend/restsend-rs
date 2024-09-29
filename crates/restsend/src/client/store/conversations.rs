@@ -384,9 +384,11 @@ impl ClientStore {
 
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
         let t = self.message_storage.table::<Conversation>().await;
-        t.remove("", topic_id).await.ok();
-        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
-            cb.on_conversation_removed(topic_id.to_string());
+        if let Some(_) = t.get("", topic_id).await {
+            t.remove("", topic_id).await.ok();
+            if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+                cb.on_conversation_removed(topic_id.to_string());
+            }
         }
     }
 
