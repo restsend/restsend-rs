@@ -69,7 +69,7 @@ async fn test_sync_conversations() {
 
     impl callback::SyncConversationsCallback for TestSyncConversationCallbackImpl {
         fn on_success(&self, updated_at: String, count: u32) {
-            println!("on_success updated_at: {} count: {}", updated_at, count);
+            log::info!("on_success updated_at: {} count: {}", updated_at, count);
             self.sync_count
                 .store(count, std::sync::atomic::Ordering::Relaxed);
         }
@@ -116,24 +116,26 @@ async fn test_sync_conversations() {
 
     vivian_1.remove_conversation(topic_id.clone()).await;
 
+    log::info!("must removed: {}", topic_id);
     check_until(Duration::from_secs(2), || {
         removed_topic_ids.lock().unwrap().contains(&topic_id)
     })
     .await
     .unwrap();
 
-    removed_topic_ids.lock().unwrap().clear();
     let vivian2_callback = Box::new(TestSyncConversationCallbackImpl {
         sync_count: AtomicU32::new(0),
     });
 
-    vivian_2
+    let removed_topic_ids = Arc::new(Mutex::new(HashSet::new()));
+    let vivian_3 = Client::new("".to_string(), "".to_string(), &info);
+    let vivian3_callback = Box::new(TestRemovedCallbackImpl {
+        removed_topic_ids: removed_topic_ids.clone(),
+    });
+
+    vivian_3.set_callback(Some(vivian3_callback));
+    vivian_3
         .sync_conversations(None, 0, false, None, None, vivian2_callback)
         .await;
-
-    check_until(Duration::from_secs(2), || {
-        removed_topic_ids.lock().unwrap().contains(&topic_id)
-    })
-    .await
-    .unwrap();
+    assert!(!removed_topic_ids.lock().unwrap().contains(&topic_id));
 }

@@ -7,7 +7,7 @@ use crate::{
     utils::check_until,
     utils::init_log,
 };
-use log::warn;
+use log::{warn,debug};
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicI64, Ordering},
@@ -42,7 +42,7 @@ impl callback::Callback for TestCallbackImpl {
         warn!("on_topic_read: topic_id:{} message:{:?}", topic_id, message);
     }
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
-        warn!("on_conversation_updated: {:?}", conversations);
+        debug!("on_conversation_updated: {:?}", conversations);
         *self.last_topic_id.lock().unwrap() = conversations[0].topic_id.clone();
         self.is_update_conversation.store(true, Ordering::Relaxed);
     }
@@ -175,9 +175,9 @@ async fn test_client_send_message() {
     // check local storage
     let topic_id = last_topic_id.lock().unwrap().clone();
 
-    let (logs, need_fetch) = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
+    let (logs, need_fetch) = c.store.get_chat_logs(&topic_id, 0, None, 10).await.unwrap();
 
-    assert_eq!(need_fetch, false);
+    assert_eq!(need_fetch, true);
     assert!(logs.items.len() == 1);
     assert_eq!(logs.items[0].sender_id, "guido1");
     assert_eq!(logs.items[0].status, ChatLogStatus::Sent);

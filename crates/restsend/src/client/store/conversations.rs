@@ -637,6 +637,7 @@ impl ClientStore {
     pub async fn get_chat_logs(
         &self,
         topic_id: &str,
+        conversation_start_seq: i64,
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
@@ -648,7 +649,7 @@ impl ClientStore {
             items: Vec::new(),
             has_more: false,
         };
-
+        let initial_limit = limit;
         let mut limit = limit;
         let mut last_seq = last_seq;
 
@@ -699,12 +700,30 @@ impl ClientStore {
         r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);
 
-        let need_fetch = r.items.len() == 0 || query_diff > total_limit as i64;
+        let need_fetch = {
+            if r.items.len() == 0 {
+                true
+            } else if query_diff > total_limit as i64 {
+                true
+            } else if r.items.len() != initial_limit as usize {
+                let total_diff = r.start_sort_value - conversation_start_seq;
+                let must_have = if total_diff > initial_limit as i64 {
+                    initial_limit as i64
+                } else {
+                    total_diff
+                };
+                r.items.len() < must_have as usize
+            } else {
+                false
+            }
+        };
 
         log::info!(
-            "get_chat_logs: topic_id: {}, last_seq: {:?}, limit: {}, total: {}, query_diff: {}, need_fetch: {}",
+            "get_chat_logs: topic_id: {}, conversation_start_seq:{} last_seq: {:?}, initial_limit: {}, limit: {}, total_limit: {}, query_diff: {}, need_fetch: {}",
             topic_id,
+            conversation_start_seq,
             last_seq,
+            initial_limit,
             limit,
             total_limit,
             query_diff,

@@ -51,7 +51,7 @@ async fn test_client_fetch_logs() {
         .expect("create chat failed")
         .topic_id;
 
-    let (local_logs, need_fetch) = c.store.get_chat_logs(&topic_id, None, 10).await.unwrap();
+    let (local_logs, need_fetch) = c.store.get_chat_logs(&topic_id,  0,  None, 10).await.unwrap();
     assert_eq!(need_fetch, true);
     assert_eq!(local_logs.items.len(), 0);
     let mut last_seq = 0;
@@ -102,7 +102,7 @@ async fn test_client_fetch_logs() {
     let r = result.lock().unwrap().take().unwrap();
     let (local_logs, need_fetch) = c
         .store
-        .get_chat_logs(&topic_id, None, send_count)
+        .get_chat_logs(&topic_id,  0, None, send_count)
         .await
         .unwrap();
     assert_eq!(need_fetch, false);
@@ -197,10 +197,10 @@ async fn test_client_recall_log() {
 
     let (local_logs, need_fetch) = c
         .store
-        .get_chat_logs(&topic_id, None, send_count + 1)
+        .get_chat_logs(&topic_id,  0, None, send_count + 1)
         .await
         .unwrap();
-    assert_eq!(need_fetch, false);
+    assert_eq!(need_fetch, true);
     assert_eq!(local_logs.items.len(), send_count as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[1].id, last_send_id);

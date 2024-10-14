@@ -128,7 +128,7 @@ impl Client {
             .await
             .unwrap_or_default();
 
-        match self.store.get_chat_logs(&topic_id, last_seq, limit).await {
+        match self.store.get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit).await {
             Ok((local_logs, need_fetch)) => {
                 info!(
                     "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
@@ -309,8 +309,9 @@ impl Client {
                     }
 
                     log::info!(
-                        "sync conversations from remote, count: {} api_cost:{:?} merge_cost: {:?}, callback_cost: {:?}, total_cost: {:?}",
+                        "sync conversations from remote, count: {} removed:{} api_cost:{:?} merge_cost: {:?}, callback_cost: {:?}, total_cost: {:?}",
                         new_conversations_count,
+                        lr.removed.len(),
                         api_cost,
                         merge_cost,
                         elapsed(st),
