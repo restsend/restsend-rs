@@ -656,10 +656,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         result
     }
 
-    async fn clear(&self) -> crate::Result<()> {
-        self.db
-            .delete_object_store(&self.table_name)
-            .map_err(Into::into)
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
+        self.remove(partition, "").await
     }
 }
 
@@ -693,8 +691,8 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     async fn last(&self, partition: &str) -> Option<T> {
         Self::last(self, partition).await
     }
-    async fn clear(&self) -> crate::Result<()> {
-        Self::clear(self).await
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
+        Self::clear(self, partition).await
     }
 }
 
@@ -728,7 +726,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     async fn last(&self, partition: &str) -> Option<T> {
         None
     }
-    async fn clear(&self) -> crate::Result<()> {
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
         Ok(())
     }
 }

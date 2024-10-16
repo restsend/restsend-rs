@@ -273,8 +273,15 @@ impl<T: StoreModel> MemoryTable<T> {
         table?.last().and_then(|v| T::from_str(v).ok())
     }
 
-    async fn clear(&self) -> crate::Result<()> {
-        self.data.lock().unwrap().clear();
+    async fn clear(&self, partition:&str) -> crate::Result<()> {
+        let mut data = self.data.lock().unwrap();
+        let mut table = data.get_mut(partition);
+        match table {
+            Some(table) => {
+                table.clear();
+            }
+            None => {}
+        }
         Ok(())
     }
 }
@@ -309,8 +316,8 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     async fn last(&self, partition: &str) -> Option<T> {
         Self::last(self, partition).await
     }
-    async fn clear(&self) -> crate::Result<()> {
-        Self::clear(self).await
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
+        Self::clear(self, partition).await
     }
 }
 
@@ -344,8 +351,8 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     async fn last(&self, partition: &str) -> Option<T> {
         Self::last(self, partition).await
     }
-    async fn clear(&self) -> crate::Result<()> {
-        Self::clear(self).await
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
+        Self::clear(self, partition).await
     }
 }
 
@@ -353,15 +360,15 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
 async fn test_memory_table() {
     let t = TableInnerRef::default();
     let table = MemoryTable::from(t);
-    table.set("", "1", Some(&1)).await;
-    table.set("", "2", Some(&2)).await;
-    table.set("", "3", Some(&3)).await;
-    let v = table.get("", "1").await.expect("must value");
+    table.set("test", "1", Some(&1)).await;
+    table.set("test", "2", Some(&2)).await;
+    table.set("test", "3", Some(&3)).await;
+    let v = table.get("test", "1").await.expect("must value");
     assert_eq!(v, 1);
-    table.remove("", "1").await;
-    let v = table.get("", "1").await;
+    table.remove("test", "1").await;
+    let v = table.get("test", "1").await;
     assert_eq!(v, None);
-    table.clear().await;
-    let v = table.get("", "2").await;
+    table.clear("test").await;
+    let v = table.get("test", "2").await;
     assert_eq!(v, None);
 }

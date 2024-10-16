@@ -23,6 +23,7 @@ pub trait WebSocketCallback: Send + Sync {
 pub struct WebsocketOption {
     pub url: String,
     pub token: String,
+    #[cfg(not(target_family = "wasm"))]
     pub handshake_timeout: Duration,
     pub is_cross_domain: bool,
 }
@@ -38,6 +39,7 @@ impl WebsocketOption {
         Self {
             url: url.to_string(),
             token: token.to_string(),
+            #[cfg(not(target_family = "wasm"))]
             handshake_timeout: Duration::from_secs(30), // default 30s
             is_cross_domain,
         }

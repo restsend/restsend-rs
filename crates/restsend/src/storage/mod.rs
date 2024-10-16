@@ -63,7 +63,7 @@ pub trait Table<T: StoreModel>: Send + Sync {
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()>;
     async fn remove(&self, partition: &str, key: &str) -> Result<()>;
     async fn last(&self, partition: &str) -> Option<T>;
-    async fn clear(&self) -> Result<()>;
+    async fn clear(&self, partition: &str) -> Result<()>;
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -82,7 +82,7 @@ pub trait Table<T: StoreModel>: Send + Sync {
     async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> Result<()>;
     async fn remove(&self, partition: &str, key: &str) -> Result<()>;
     async fn last(&self, partition: &str) -> Option<T>;
-    async fn clear(&self) -> Result<()>;
+    async fn clear(&self, partition: &str) -> Result<()>;
 }
 
 pub(super) fn table_name<T>() -> String {
@@ -112,7 +112,7 @@ async fn test_store_i32() {
     let value_2 = t.get("", "2").await;
     assert_eq!(value_2, None);
 
-    t.clear().await.ok();
+    t.clear("").await.ok();
     let value_1 = t.get("", "1").await;
     assert_eq!(value_1, None);
 }

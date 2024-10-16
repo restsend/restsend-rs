@@ -322,14 +322,14 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Err(_) => None,
         }
     }
-    async fn clear(&self) -> crate::Result<()> {
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
 
-        let stmt = format!("DELETE FROM {}", self.name);
+        let stmt = format!("DELETE FROM {} WHERE partition = ?", self.name);
         let mut stmt = conn.prepare(&stmt).unwrap();
-        stmt.execute([])
+        stmt.execute([&partition])
             .map(|_| ())
             .map_err(|e| ClientError::Storage(format!("{} clear failed: {}", self.name, e)))
     }

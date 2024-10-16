@@ -386,6 +386,10 @@ impl ClientStore {
         let t = self.message_storage.table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
             t.remove("", topic_id).await.ok();
+
+            let log_t = self.message_storage.table::<ChatLog>().await;
+            log_t.clear(topic_id).await.ok();
+
             if let Some(cb) = self.callback.lock().unwrap().as_ref() {
                 cb.on_conversation_removed(topic_id.to_string());
             }
@@ -394,8 +398,11 @@ impl ClientStore {
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
-            let t = self.message_storage.table::<Conversation>().await;
-            t.remove("", topic_id).await.ok();
+            let convesation_t = self.message_storage.table::<Conversation>().await;
+            convesation_t.remove("", topic_id).await.ok();
+
+            let log_t = self.message_storage.table::<ChatLog>().await;
+            log_t.clear(topic_id).await.ok();
         }
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
