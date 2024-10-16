@@ -270,7 +270,7 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
         source,
         Some(crate_name.to_string()),
         &BindingGeneratorDefault {
-            target_languages: vec![TargetLanguage::Ruby],
+            target_languages: vec![language],
             try_format_code: false,
         },
         None,

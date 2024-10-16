@@ -35,12 +35,16 @@ js-sys = "0.3.69"
 web-sys = "0.3.69"
 chrono = "0.4.38"
 log = "0.4.21"
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3.42"
 
 [profile.release]
+strip = true
+opt-level = "z"
 lto = true
-opt-level = "s"
+codegen-units = 1
+panic = "abort"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = true
