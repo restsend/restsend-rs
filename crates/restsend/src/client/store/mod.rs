@@ -3,11 +3,13 @@ use crate::callback::Callback;
 use crate::models::Attachment;
 use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
+use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
+
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::{HashMap, VecDeque},
@@ -105,6 +107,7 @@ pub(super) struct ClientStore {
     outgoings: PendingRequests,
     upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
     msg_tx: Mutex<Option<UnboundedSender<String>>>,
+    removed_conversations: Mutex<HashMap<String, i64>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
 }
@@ -125,6 +128,7 @@ impl ClientStore {
             outgoings: Arc::new(Mutex::new(HashMap::new())),
             upload_tasks: Mutex::new(HashMap::new()),
             msg_tx: Mutex::new(None),
+            removed_conversations: Mutex::new(HashMap::new()),
             message_storage: Arc::new(Storage::new(db_path)),
             callback: Arc::new(Mutex::new(None)),
         }
@@ -157,6 +161,10 @@ impl ClientStore {
                     .map(|cb| cb.on_fail("send expired".to_string()));
             }
         }
+    }
+
+    pub(crate) fn process_removed_conversations(&self) {
+        self.removed_conversations.lock().unwrap().retain(|_, removed_at| !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS));
     }
     pub fn shutdown(&self) {}
 }

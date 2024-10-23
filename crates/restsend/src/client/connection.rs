@@ -393,6 +393,7 @@ async fn serve_connection(
             loop {
                 sleep(Duration::from_secs(1)).await;
                 store_ref.process_timeout_requests();
+                store_ref.process_removed_conversations();
             };
         } =>{
             warn!("connection shutdown timeout");

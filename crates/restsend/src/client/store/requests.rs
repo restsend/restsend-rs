@@ -1,6 +1,9 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
+use crate::client::store::is_cache_expired;
 use crate::models::ChatLogStatus;
+use crate::utils::now_millis;
+use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
@@ -87,8 +90,17 @@ impl ClientStore {
                     None => {}
                 };
 
-                let topic_id = req.topic_id.clone();
                 let mut resps = vec![ChatRequest::new_response(&req, 200)];
+                let topic_id = req.topic_id.clone();
+
+                if let Some(removed_at) = self.removed_conversations.lock().unwrap().get(&req.topic_id) {
+                    if !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS) {
+                        return resps;
+                    } else {
+                        self.removed_conversations.lock().unwrap().remove(&req.topic_id);
+                    }
+                }
+
                 if let Err(e) = self.save_incoming_chat_log(&req).await {
                     warn!(
                         "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
@@ -127,6 +139,7 @@ impl ClientStore {
                         }
                     }
                     None => {
+                        self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
                         if let Some(cb) = callback.lock().unwrap().as_ref() {
                             cb.on_conversation_removed(topic_id);
                         }

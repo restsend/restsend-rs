@@ -383,6 +383,8 @@ impl ClientStore {
     }
 
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
+        self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
+        
         let t = self.message_storage.table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
             t.remove("", topic_id).await.ok();
@@ -398,6 +400,8 @@ impl ClientStore {
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
+            self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
+
             let convesation_t = self.message_storage.table::<Conversation>().await;
             convesation_t.remove("", topic_id).await.ok();
 
