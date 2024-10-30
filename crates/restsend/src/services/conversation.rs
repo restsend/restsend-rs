@@ -28,6 +28,7 @@ pub async fn get_conversations(
     token: &str,
     updated_at: &str,
     last_updated_at: Option<String>,
+    last_removed_at: Option<String>,
     offset: u32,
     limit: u32,
 ) -> Result<ListConversationResult> {
@@ -40,6 +41,9 @@ pub async fn get_conversations(
     }
     if let Some(last_updated_at) = last_updated_at {
         data["lastUpdatedAt"] = serde_json::json!(last_updated_at);
+    }
+    if let Some(last_removed_at) = last_removed_at {
+        data["lastRemovedAt"] = serde_json::json!(last_removed_at);
     }
     let now = now_millis();
     api_call(endpoint, "/chat/list", token, Some(data.to_string()))

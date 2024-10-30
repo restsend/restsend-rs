@@ -210,6 +210,7 @@ impl Client {
         sync_logs: bool,
         sync_logs_limit: Option<u32>,
         sync_logs_max_count: Option<u32>,
+        last_removed_at: Option<String>,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
@@ -261,7 +262,7 @@ impl Client {
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let updated_at = updated_at.unwrap_or_default();
         let mut last_upadted_at_remote = None;
-
+        let mut last_removed_at = last_removed_at.clone();
         loop {
             let st_0 = now_millis();
             match get_conversations(
@@ -269,6 +270,7 @@ impl Client {
                 &self.token,
                 &updated_at,
                 last_upadted_at_remote.clone(),
+                last_removed_at.clone(),
                 offset,
                 limit,
             )
@@ -286,6 +288,9 @@ impl Client {
 
                     if last_updated_at.is_empty() && !lr.items.is_empty() {
                         last_updated_at = lr.items.first().unwrap().updated_at.clone();
+                    }
+                    if lr.last_removed_at.is_some() {
+                        last_removed_at = lr.last_removed_at.clone();
                     }
                     let st = now_millis();
 
@@ -357,7 +362,7 @@ impl Client {
                     .ok();
             }
         }
-        callback.on_success(last_updated_at, count);
+        callback.on_success(last_updated_at, last_removed_at, count);
     }
 
     pub async fn batch_sync_chatlogs(

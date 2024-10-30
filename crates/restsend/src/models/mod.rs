@@ -63,6 +63,8 @@ pub struct ListConversationResult {
     pub removed: Vec<String>,
     #[serde(default)]
     pub last_updated_at: Option<String>,
+    #[serde(default)]
+    pub last_removed_at: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

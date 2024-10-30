@@ -75,6 +75,7 @@ impl Client {
     ///    * `syncLogsMaxCount` - sync logs max count, default 200
     ///    * `limit` - limit
     ///    * `updatedAt` String - updated_at optional
+    ///    * `lastRemovedAt` String - last_removed_at optional
     ///    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
     ///         - updated_at: last updated_at
     ///         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
@@ -88,6 +89,7 @@ impl Client {
                 get_bool(&option, "syncLogs"),
                 Some(get_f64(&option, "syncLogsLimit") as u32),
                 Some(get_f64(&option, "syncLogsMaxCount") as u32),
+                get_string(&option, "lastRemovedAt"),
                 Box::new(SyncConversationsCallbackWasmWrap::new(option)),
             )
             .await

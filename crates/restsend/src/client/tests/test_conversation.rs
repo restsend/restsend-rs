@@ -68,8 +68,8 @@ async fn test_sync_conversations() {
     }
 
     impl callback::SyncConversationsCallback for TestSyncConversationCallbackImpl {
-        fn on_success(&self, updated_at: String, count: u32) {
-            log::info!("on_success updated_at: {} count: {}", updated_at, count);
+        fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {
+            log::info!("on_success updated_at: {} last_removed_at: {:?} count: {}", updated_at, last_removed_at, count);
             self.sync_count
                 .store(count, std::sync::atomic::Ordering::Relaxed);
         }
@@ -135,7 +135,7 @@ async fn test_sync_conversations() {
 
     vivian_3.set_callback(Some(vivian3_callback));
     vivian_3
-        .sync_conversations(None, 0, false, None, None, vivian2_callback)
+        .sync_conversations(None, 0, false, None, None, None, vivian2_callback)
         .await;
     assert!(!removed_topic_ids.lock().unwrap().contains(&topic_id));
 }
