@@ -39,10 +39,10 @@ pub async fn get_conversations(
     if !updated_at.is_empty() {
         data["updatedAt"] = serde_json::json!(updated_at);
     }
-    if let Some(last_updated_at) = last_updated_at {
+    if let Some(last_updated_at) = last_updated_at.filter(|s| !s.is_empty())  {
         data["lastUpdatedAt"] = serde_json::json!(last_updated_at);
     }
-    if let Some(last_removed_at) = last_removed_at {
+    if let Some(last_removed_at) = last_removed_at.filter(|s| !s.is_empty()) {
         data["lastRemovedAt"] = serde_json::json!(last_removed_at);
     }
     let now = now_millis();
