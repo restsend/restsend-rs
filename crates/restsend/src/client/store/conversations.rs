@@ -434,7 +434,7 @@ impl ClientStore {
             .unwrap_or(Conversation::new(topic_id));
 
         if ensure_last_version
-            && (conversation.is_partial
+            || (conversation.is_partial
                 || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS))
         {
             self.fetch_conversation(topic_id, blocking).await;
