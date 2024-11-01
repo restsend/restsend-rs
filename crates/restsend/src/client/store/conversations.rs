@@ -712,7 +712,9 @@ impl ClientStore {
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);
 
         let need_fetch = {
-            if r.items.len() == 0 {
+            if last_seq.is_none() {
+                true
+            } else if r.items.len() == 0 {
                 true
             } else if query_diff > total_limit as i64 {
                 true
