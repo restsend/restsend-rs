@@ -521,6 +521,9 @@ impl ClientStore {
 
         match req.content.as_ref() {
             Some(content) => match ContentType::from(content.r#type.clone()) {
+                ContentType::TopicJoin => {
+                    t.clear(topic_id).await.ok();
+                }
                 ContentType::Recall => {
                     let recall_chat_id = match req.content.as_ref() {
                         Some(content) => &content.text,
