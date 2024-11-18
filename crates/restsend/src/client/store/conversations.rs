@@ -85,6 +85,7 @@ pub(super) async fn merge_conversation_from_chat(
             ContentType::None | ContentType::Recall => {}
             ContentType::TopicJoin => {
                 conversation.last_message_at = req.created_at.clone();
+                conversation.is_partial = true; // force fetch conversation
             }
             ContentType::TopicChangeOwner => {
                 conversation.topic_owner_id = Some(req.attendee.clone());
@@ -382,6 +383,20 @@ impl ClientStore {
         self.emit_conversation_update(c)
     }
 
+    pub async fn clear_conversation(
+        &self,
+        topic_id: &str) -> Result<()> {
+        {
+            let t = self.message_storage.table::<Conversation>().await;
+            t.remove("", topic_id).await.ok();
+        }
+        {
+            let t = self.message_storage.table::<ChatLog>().await;
+            t.clear(topic_id).await.ok();
+        }
+        Ok(())
+    }
+    
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
         self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
         

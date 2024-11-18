@@ -523,6 +523,12 @@ impl Client {
     ) -> Result<Conversation> {
         self.store.set_conversation_extra(&topic_id, extra).await
     }
+    pub async fn clear_conversation(
+        &self,
+        topic_id: String
+    ) -> Result<()> {
+        self.store.clear_conversation(&topic_id).await
+    }
 }
 
 impl Client {

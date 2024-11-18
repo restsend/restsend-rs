@@ -192,6 +192,17 @@ impl Client {
         r.serialize(serializer).map_err(|e| e.into())
     }
 
+    /// Clear conversation on local storage
+    /// #Arguments
+    /// * `topicId` - topic id
+    pub async fn clearConversation(
+        &self,
+        topicId: String,
+    ){
+        self.inner.clear_conversation(topicId).await.ok();
+    }
+
+
     /// Set conversation extra
     /// #Arguments
     /// * `topicId` - topic id
