@@ -537,7 +537,11 @@ impl ClientStore {
         match req.content.as_ref() {
             Some(content) => match ContentType::from(content.r#type.clone()) {
                 ContentType::TopicJoin => {
-                    t.clear(topic_id).await.ok();
+                    if req.attendee == self.user_id { // when user join topic, clear all local logs
+                        t.clear(topic_id).await.ok();
+                        let ct = self.message_storage.table::<Conversation>().await;
+                        ct.remove("", topic_id).await.ok();
+                    }
                 }
                 ContentType::Recall => {
                     let recall_chat_id = match req.content.as_ref() {
