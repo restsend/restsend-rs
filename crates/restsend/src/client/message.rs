@@ -30,6 +30,7 @@ pub fn save_logs_to_file(root_path: &str, file_name: &str, data: String) -> Resu
 }
 
 #[allow(unused)]
+#[cfg(target_family = "wasm")]
 pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     use wasm_bindgen::JsValue;
     let file_size = data.len() as i64;

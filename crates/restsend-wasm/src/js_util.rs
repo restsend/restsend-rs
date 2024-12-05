@@ -1,5 +1,6 @@
 use crate::CallbackFunction;
 use js_sys::JsString;
+#[allow(unused)]
 use restsend_sdk::models::{Attachment, Content};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -56,6 +57,7 @@ pub fn get_bool(obj: &JsValue, key: &str) -> bool {
     false
 }
 
+#[cfg(target_family = "wasm")]
 pub fn js_value_to_attachment(obj: &JsValue) -> Result<Attachment, JsValue> {
     let url = get_string(obj, "url");
     let is_private = get_bool(obj, "private");
@@ -94,7 +96,7 @@ pub fn js_value_to_attachment(obj: &JsValue) -> Result<Attachment, JsValue> {
         "invalid attachment format, must be url or file",
     ))
 }
-
+#[cfg(target_family = "wasm")]
 pub fn peek_attachment(obj: JsValue) -> Result<(JsValue, Option<Attachment>), JsValue> {
     let key = JsValue::from_str("attachment");
     match js_sys::Reflect::get(&obj, &key) {
@@ -110,7 +112,7 @@ pub fn peek_attachment(obj: JsValue) -> Result<(JsValue, Option<Attachment>), Js
         Err(_) => Ok((obj, None)),
     }
 }
-
+#[cfg(target_family = "wasm")]
 pub fn js_value_to_content(obj: JsValue) -> Result<Content, JsValue> {
     let (obj, attachment) = peek_attachment(obj)?;
     let mut content = serde_wasm_bindgen::from_value::<Content>(obj)?;

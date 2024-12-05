@@ -35,8 +35,8 @@ impl ClientStore {
         callback: CallbackRef,
     ) -> Vec<Option<ChatRequest>> {
         let content_type = match req.content.as_ref() {
-            Some(content) => content.r#type.clone(),
-            None => req.r#type.clone(),
+            Some(content) => content.content_type.clone(),
+            None => req.req_type.clone(),
         };
 
         let chat_id = if req.chat_id.is_empty() {
@@ -54,7 +54,7 @@ impl ClientStore {
         let chat_id = req.chat_id.clone();
         let ack_seq = req.seq.clone();
 
-        match ChatRequestType::from(&req.r#type) {
+        match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Response => {
                 let status = if req.code == StatusCode::OK.as_u16() as u32 {
                     ChatLogStatus::Sent
@@ -191,7 +191,7 @@ impl ClientStore {
     ) {
         let chat_id = req.chat_id.clone();
         let pending_request = PendingRequest::new(req, callback);
-        match ChatRequestType::from(&pending_request.req.r#type) {
+        match ChatRequestType::from(&pending_request.req.req_type) {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {
                 // save to db

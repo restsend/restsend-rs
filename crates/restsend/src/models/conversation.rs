@@ -14,7 +14,8 @@ pub struct Tag {
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
-    pub r#type: String,
+    #[serde(rename = "type")]
+    pub tag_type: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]

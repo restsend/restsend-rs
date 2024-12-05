@@ -60,7 +60,7 @@ impl Client {
 }
 
 impl Client {
-    pub fn new_not_sync(root_path: String, db_name: String, info: &AuthInfo) -> Self {
+    pub fn new_sync(root_path: String, db_name: String, info: &AuthInfo) -> Self {
         let db_path = Self::db_path(&root_path, &db_name);
         let store = ClientStore::new(
             &root_path,
@@ -86,7 +86,7 @@ impl Client {
 impl Client {
     #[uniffi::constructor]
     pub fn new(root_path: String, db_name: String, info: &AuthInfo) -> Arc<Self> {
-        Arc::new(Self::new_not_sync(root_path, db_name, info))
+        Arc::new(Self::new_sync(root_path, db_name, info))
     }
 
     pub fn set_callback(&self, callback: Option<Box<dyn Callback>>) {

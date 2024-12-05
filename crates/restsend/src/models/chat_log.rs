@@ -166,19 +166,6 @@ pub struct Attachment {
 unsafe impl Send for Attachment {}
 unsafe impl Sync for Attachment {}
 
-#[export_wasm_or_ffi]
-/// create attachment from url, without upload to server
-pub fn attachment_from_url(url: String, is_private: bool, size: i64) -> Attachment {
-    Attachment::from_url(&url, is_private, size)
-}
-
-#[cfg(not(target_family = "wasm"))]
-#[export_wasm_or_ffi]
-/// create attachment from local file, will upload to server when send message
-pub fn attachment_from_local(file_name: String, file_path: String, is_private: bool) -> Attachment {
-    Attachment::from_local(&file_name, &file_path, is_private)
-}
-
 impl Attachment {
     pub fn from_url(url: &str, is_private: bool, size: i64) -> Self {
         let file_name = match url::Url::parse(url) {
@@ -209,6 +196,7 @@ impl Attachment {
         }
     }
 
+    #[cfg(target_family = "wasm")]
     #[allow(unused_variables)]
     pub fn from_blob(
         blob_stream: web_sys::Blob,
@@ -232,7 +220,8 @@ impl Attachment {
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct Content {
-    pub r#type: String,
+    #[serde(rename = "type")]
+    pub content_type: String,
 
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
@@ -304,16 +293,16 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn new(r#type: ContentType) -> Self {
+    pub fn new(content_type: ContentType) -> Self {
         Content {
-            r#type: String::from(r#type),
+            content_type: String::from(content_type),
             ..Default::default()
         }
     }
 
-    pub fn new_text(r#type: ContentType, text: &str) -> Self {
+    pub fn new_text(content_type: ContentType, text: &str) -> Self {
         Content {
-            r#type: String::from(r#type),
+            content_type: String::from(content_type),
             text: String::from(text),
             ..Default::default()
         }
@@ -409,7 +398,7 @@ impl From<&ChatRequest> for ChatLog {
             sender_id: req.attendee.clone(),
             content,
             read: false,
-            recall: req.r#type == "recall",
+            recall: req.req_type == "recall",
             status: ChatLogStatus::Received,
             cached_at: now_millis(),
         }

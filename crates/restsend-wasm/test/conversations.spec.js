@@ -142,6 +142,7 @@ describe('Conversations', async function () {
         })
         await waitUntil(() => syncDone, 3000)
         expect(syncDone).toBe(true)
+        console.log('lastMessage', lastMessage)
         expect(lastMessage.type).toEqual('recall') // recall is readable
 
         vitalik.onconversationsupdated = async (items) => {

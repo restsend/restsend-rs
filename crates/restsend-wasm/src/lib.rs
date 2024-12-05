@@ -64,7 +64,7 @@ impl Client {
             }
         };
 
-        let inner = restsend_sdk::client::Client::new_not_sync(
+        let inner = restsend_sdk::client::Client::new_sync(
             "".to_string(),
             db_name.unwrap_or_default(),
             &info,
@@ -74,6 +74,7 @@ impl Client {
     /// get the current connection status
     /// return: connecting, connected, broken, shutdown
     #[wasm_bindgen(getter)]
+    #[allow(non_snake_case)]
     pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()
     }

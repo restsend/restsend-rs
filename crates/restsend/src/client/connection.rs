@@ -204,7 +204,7 @@ impl WebSocketCallback for ConnectionInner {
             }
         };
 
-        match ChatRequestType::from(&req.r#type) {
+        match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Nop => {
                 return;
             }
@@ -327,7 +327,7 @@ async fn serve_connection(
 
             let incoming_loop = async {
                 while let Some(req) = incoming_rx.recv().await {
-                    let resps = match ChatRequestType::from(&req.r#type) {
+                    let resps = match ChatRequestType::from(&req.req_type) {
                         ChatRequestType::Nop => vec![],
                         ChatRequestType::Unknown(_) => {
                             let r = callback_ref

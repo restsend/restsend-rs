@@ -1,6 +1,6 @@
 use crate::{
     callback::MessageCallbackWasmWrap,
-    js_util::{get_bool, get_string, get_vec_strings, js_value_to_attachment, js_value_to_content},
+    js_util::{get_bool, get_string, get_vec_strings},
     Client,
 };
 use restsend_sdk::models::conversation::Extra;
@@ -47,13 +47,14 @@ impl Client {
     ///     onfail:  (reason:String)  => {} // The callback when message failed
     /// });
     /// ```
+    #[cfg(target_family = "wasm")]
     pub async fn doSend(
         &self,
         topicId: String,
         content: JsValue,
         option: JsValue,
     ) -> Result<String, JsValue> {
-        let mut content = js_value_to_content(content)?;
+        let mut content = super::js_util::js_value_to_content(content)?;
         content.mentions = get_vec_strings(&option, "mentions").unwrap_or(content.mentions);
         content.reply = get_string(&option, "reply").unwrap_or(content.reply);
         content.mention_all = get_bool(&option, "mentionAll");
@@ -103,6 +104,7 @@ impl Client {
     ///     * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
+    #[cfg(target_family = "wasm")]
     pub async fn doSendVoice(
         &self,
         topicId: String,
@@ -112,7 +114,7 @@ impl Client {
         self.inner
             .do_send_voice(
                 topicId,
-                js_value_to_attachment(&attachment)?,
+                super::js_util::js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
                 get_bool(&option, "mentionAll"),
@@ -134,6 +136,7 @@ impl Client {
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
+    #[cfg(target_family = "wasm")]
     pub async fn doSendVideo(
         &self,
         topicId: String,
@@ -143,7 +146,7 @@ impl Client {
         self.inner
             .do_send_video(
                 topicId,
-                js_value_to_attachment(&attachment)?,
+                super::js_util::js_value_to_attachment(&attachment)?,
                 get_string(&option, "duration").unwrap_or_default(),
                 get_vec_strings(&option, "mentions"),
                 get_bool(&option, "mentionAll"),
@@ -165,6 +168,7 @@ impl Client {
     ///    * `reply` String - The reply message id, optional
     /// # Return
     /// The message id
+    #[cfg(target_family = "wasm")]
     pub async fn doSendFile(
         &self,
         topicId: String,
@@ -174,7 +178,7 @@ impl Client {
         self.inner
             .do_send_file(
                 topicId,
-                js_value_to_attachment(&attachment)?,
+                super::js_util::js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_bool(&option, "mentionAll"),
                 get_string(&option, "reply"),
@@ -327,6 +331,7 @@ impl Client {
     /// await client.connect();
     /// await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
     /// ```
+    #[cfg(target_family = "wasm")]
     pub async fn doSendImage(
         &self,
         topicId: String,
@@ -336,7 +341,7 @@ impl Client {
         self.inner
             .do_send_image(
                 topicId,
-                js_value_to_attachment(&attachment)?,
+                super::js_util::js_value_to_attachment(&attachment)?,
                 get_vec_strings(&option, "mentions"),
                 get_string(&option, "reply"),
                 Some(Box::new(MessageCallbackWasmWrap::new(option))),

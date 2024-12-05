@@ -1,0 +1,16 @@
+[package]
+name = "restsend_dart"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[dependencies]
+env_logger = "0.11.5"
+flutter_rust_bridge = { version = "=2.6.0", features = ["log"] }
+log = "0.4.22"
+restsend-sdk = { path = "../../restsend" }
+reqwest = { version = "0.12.3", default-features = false, features = ["json", "multipart", "stream", "native-tls"] }
+tokio = {version = "1.42.0", features = ["full"]}
+futures = "0.3.31"

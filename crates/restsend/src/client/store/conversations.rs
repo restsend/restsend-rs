@@ -81,7 +81,7 @@ pub(super) async fn merge_conversation_from_chat(
         .await
         .unwrap_or(Conversation::from(req));
     if let Some(content) = req.content.as_ref() {
-        match ContentType::from(content.r#type.clone()) {
+        match ContentType::from(content.content_type.clone()) {
             ContentType::None | ContentType::Recall => {}
             ContentType::TopicJoin => {
                 conversation.last_message_at = req.created_at.clone();
@@ -535,7 +535,7 @@ impl ClientStore {
         let mut new_status = ChatLogStatus::Received;
 
         match req.content.as_ref() {
-            Some(content) => match ContentType::from(content.r#type.clone()) {
+            Some(content) => match ContentType::from(content.content_type.clone()) {
                 ContentType::TopicJoin => {
                     if req.attendee == self.user_id { // when user join topic, clear all local logs
                         t.clear(topic_id).await.ok();
@@ -620,7 +620,7 @@ impl ClientStore {
         let t = self.message_storage.table::<ChatLog>().await;
         let mut items = vec![];
         for chat_log in logs {
-            let item = match ContentType::from(chat_log.content.r#type.to_string()) {
+            let item = match ContentType::from(chat_log.content.content_type.to_string()) {
                 ContentType::None => Some(chat_log), // remove local log
                 ContentType::Recall => {
                     match t.get(&chat_log.topic_id, &chat_log.content.text).await {
@@ -715,7 +715,7 @@ impl ClientStore {
                 .items
                 .into_iter()
                 .filter(
-                    |item| match ContentType::from(item.content.r#type.to_string()) {
+                    |item| match ContentType::from(item.content.content_type.to_string()) {
                         ContentType::None => false,
                         _ => true,
                     },

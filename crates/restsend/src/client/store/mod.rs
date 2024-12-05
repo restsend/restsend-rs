@@ -40,7 +40,7 @@ pub struct PendingRequest {
 
 impl PendingRequest {
     pub fn new(req: ChatRequest, callback: Option<Box<dyn MessageCallback>>) -> Self {
-        let can_retry = match ChatRequestType::from(&req.r#type) {
+        let can_retry = match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Typing | ChatRequestType::Read => false,
             _ => true,
         };

@@ -52,7 +52,8 @@ impl From<ChatRequestType> for String {
 #[serde(rename_all = "camelCase")]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 pub struct ChatRequest {
-    pub r#type: String,
+    #[serde(rename = "type")]
+    pub req_type: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
@@ -100,7 +101,7 @@ impl ChatRequest {
             return None;
         }
         Some(ChatRequest {
-            r#type: String::from(ChatRequestType::Response),
+            req_type: String::from(ChatRequestType::Response),
             chat_id: req.chat_id.clone(),
             topic_id: req.topic_id.clone(),
             code,
@@ -109,14 +110,14 @@ impl ChatRequest {
     }
     pub fn new_typing(topic_id: &str) -> Self {
         ChatRequest {
-            r#type: String::from(ChatRequestType::Typing),
+            req_type: String::from(ChatRequestType::Typing),
             topic_id: String::from(topic_id),
             ..Default::default()
         }
     }
     pub fn new_read(topic_id: &str, last_read_seq: i64) -> Self {
         ChatRequest {
-            r#type: String::from(ChatRequestType::Read),
+            req_type: String::from(ChatRequestType::Read),
             topic_id: String::from(topic_id),
             seq: last_read_seq,
             ..Default::default()
@@ -125,20 +126,20 @@ impl ChatRequest {
 
     pub fn new_chat_with_content(topic_id: &str, content: Content) -> Self {
         ChatRequest {
-            r#type: String::from(ChatRequestType::Chat),
+            req_type: String::from(ChatRequestType::Chat),
             topic_id: String::from(topic_id),
             chat_id: random_text(crate::CHAT_ID_LEN),
             content: Some(content),
             ..Default::default()
         }
     }
-    pub fn new_chat(topic_id: &str, r#type: ContentType) -> Self {
+    pub fn new_chat(topic_id: &str, content_type: ContentType) -> Self {
         ChatRequest {
-            r#type: String::from(ChatRequestType::Chat),
+            req_type: String::from(ChatRequestType::Chat),
             topic_id: String::from(topic_id),
             chat_id: random_text(crate::CHAT_ID_LEN),
             content: Some(Content {
-                r#type: String::from(r#type),
+                content_type: String::from(content_type),
                 ..Default::default()
             }),
             ..Default::default()
@@ -304,7 +305,7 @@ impl ChatRequest {
 
     pub fn make_response(&self, code: u32) -> Self {
         ChatRequest {
-            r#type: String::from(ChatRequestType::Response),
+            req_type: String::from(ChatRequestType::Response),
             code,
             topic_id: self.topic_id.clone(),
             seq: self.seq,
