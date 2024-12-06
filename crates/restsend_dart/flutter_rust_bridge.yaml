@@ -1,3 +1,0 @@
-rust_input: crate::client, restsend-sdk::models
-rust_root: rust/
-dart_output: lib/src/rust
