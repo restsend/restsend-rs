@@ -110,6 +110,7 @@ pub(super) struct ClientStore {
     removed_conversations: Mutex<HashMap<String, i64>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
+    incoming_logs: Mutex<HashMap<String, Vec<String>>>,
 }
 
 impl ClientStore {
@@ -131,6 +132,7 @@ impl ClientStore {
             removed_conversations: Mutex::new(HashMap::new()),
             message_storage: Arc::new(Storage::new(db_path)),
             callback: Arc::new(Mutex::new(None)),
+            incoming_logs: Mutex::new(HashMap::new()),
         }
     }
 

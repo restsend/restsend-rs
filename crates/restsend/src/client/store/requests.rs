@@ -1,7 +1,7 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::client::store::is_cache_expired;
-use crate::models::ChatLogStatus;
+use crate::models:: ChatLogStatus;
 use crate::utils::now_millis;
 use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
@@ -140,7 +140,8 @@ impl ClientStore {
                     }
                     None => {
                         self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
-                        if let Some(cb) = callback.lock().unwrap().as_ref() {
+                        self.clear_conversation(&topic_id).await.ok();
+                        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
                             cb.on_conversation_removed(topic_id);
                         }
                     }

@@ -14,28 +14,28 @@ indexeddb = ["web"]
 
 [dependencies]
 restsend-macros = { path = "../restsend-macros" }
-uniffi = { version = "0.27.1", features = ["tokio", "build", "cli"] }
-uniffi_bindgen = "0.27.1"
-wasm-bindgen = "0.2.92"
-wasm-bindgen-futures = "0.4.42"
-tokio-util = "0.7.10"
-lazy_static = "1.4.0"
-include_dir = "0.7.3"
-lru = "0.12.3"
-serde_json = "1.0.116"
-serde = { version = "1.0.197", features = ["derive"] }
-log = "0.4.21"
-url = "2.5.0"
-futures-channel = "0.3.30"
-futures-util = { version = "0.3.30", features = ["sink", "std"] }
-http = "1.1.0"
-base64 = "0.22.0"
-thiserror = "1.0.58"
-env_logger = "0.11.3"
-chrono = "0.4.38"
+uniffi = { version = "0.28.3", features = ["tokio", "build", "cli"] }
+uniffi_bindgen = "0.27.3"
+wasm-bindgen = "0.2.99"
+wasm-bindgen-futures = "0.4.49"
+tokio-util = "0.7.13"
+lazy_static = "1.5.0"
+include_dir = "0.7.4"
+lru = "0.12.5"
+serde_json = "1.0.133"
+serde = { version = "1.0.215", features = ["derive"] }
+log = "0.4.22"
+url = "2.5.4"
+futures-channel = "0.3.31"
+futures-util = { version = "0.3.31", features = ["sink", "std"] }
+http = "1.2.0"
+base64 = "0.22.1"
+thiserror = "2.0.6"
+env_logger = "0.11.5"
+chrono = "0.4.39"
 md5 = "0.7.0"
-js-sys = "0.3.69"
-web-sys = { version = "0.3.69", features = [
+js-sys = "0.3.76"
+web-sys = { version = "0.3.76", features = [
     "BinaryType",
     "Blob",
     "BlobPropertyBag",
@@ -72,12 +72,12 @@ web-sys = { version = "0.3.69", features = [
     "IdbTransaction",
     "IdbTransactionMode",
 ] }
-async-trait = "0.1.80"
+async-trait = "0.1.83"
 serde-wasm-bindgen = "0.6.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-tokio = { version = "1.37.0", features = ["time", "sync", "macros", "io-util"] }
-reqwest = { version = "0.12.3", default-features = false, features = [
+tokio = { version = "1.42.0", features = ["time", "sync", "macros", "io-util"] }
+reqwest = { version = "0.12.9", default-features = false, features = [
     "json",
     "multipart",
     "stream",
@@ -85,19 +85,19 @@ reqwest = { version = "0.12.3", default-features = false, features = [
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rand = "0.8.5"
-clap = "4.5.4"
-camino = "1.1.6"
+clap = "4.5.23"
+camino = "1.1.9"
 tempdir = "0.3.7"
-openssl = { version = "0.10.64", features = ["vendored"] }
-rusqlite = { version = "0.31.0", features = ["bundled"] }
-tokio-websockets = { version = "0.8.0", features = [
+openssl = { version = "0.10.68", features = ["vendored"] }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
+tokio-websockets = { version = "0.10.1", features = [
     "native-tls",
     "client",
     "openssl",
     "rand",
 ] }
-tokio = { version = "1.37.0", features = ["full"] }
-reqwest = { version = "0.12.3", default-features = false, features = [
+tokio = { version = "1.42.0", features = ["full"] }
+reqwest = { version = "0.12.9", default-features = false, features = [
     "json",
     "multipart",
     "stream",
@@ -105,11 +105,11 @@ reqwest = { version = "0.12.3", default-features = false, features = [
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-hyper = { version = "1.3.0", features = ["full"] }
-http-body-util = "0.1.1"
-hyper-util = { version = "0.1.3", features = ["full"] }
-tempfile = "3.10.1"
-multer = "3.0.0"
+hyper = { version = "1.5.1", features = ["full"] }
+http-body-util = "0.1.2"
+hyper-util = { version = "0.1.10", features = ["full"] }
+tempfile = "3.14.0"
+multer = "3.1.0"
 
 [[bin]]
 name = "bindgen"

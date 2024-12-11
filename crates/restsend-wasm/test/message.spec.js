@@ -123,7 +123,6 @@ describe('Messages', async function () {
         expect(sentContent.text).toContain('https://')
         expect(sentContent.placeholder).toBe('hello_restsend.png')
         expect(sentContent.size).toBe(array.length)
-        console.log('sentContent', sentContent)
     })
     let lastSendId = undefined
     it('#send custom content', async () => {

@@ -1,14 +1,11 @@
 use super::{is_cache_expired, ClientStore};
-use crate::{
-    models::{
+use crate::{models::{
         conversation::{ConversationUpdateFields, Extra, Tags},
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
-    },
-    request::ChatRequest,
-    services::conversation::*,
-    storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem},
-    utils::{now_millis, spwan_task},
-    CONVERSATION_CACHE_EXPIRE_SECS, MAX_RECALL_SECS,
+    }, 
+    request::ChatRequest, services::conversation::*, storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem}, 
+    utils::{now_millis, spwan_task}, 
+    CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS
 };
 use crate::{Error, Result};
 use log::warn;
@@ -386,15 +383,15 @@ impl ClientStore {
     pub async fn clear_conversation(
         &self,
         topic_id: &str) -> Result<()> {
-        {
-            let t = self.message_storage.table::<Conversation>().await;
-            t.remove("", topic_id).await.ok();
-        }
+        self.pop_incoming_logs(topic_id);
         {
             let t = self.message_storage.table::<ChatLog>().await;
             t.clear(topic_id).await.ok();
         }
-        Ok(())
+        {
+            let t = self.message_storage.table::<Conversation>().await;
+            t.remove("", topic_id).await
+        }
     }
     
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
@@ -402,11 +399,7 @@ impl ClientStore {
         
         let t = self.message_storage.table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
-            t.remove("", topic_id).await.ok();
-
-            let log_t = self.message_storage.table::<ChatLog>().await;
-            log_t.clear(topic_id).await.ok();
-
+            self.clear_conversation(topic_id).await.ok();
             if let Some(cb) = self.callback.lock().unwrap().as_ref() {
                 cb.on_conversation_removed(topic_id.to_string());
             }
@@ -416,12 +409,7 @@ impl ClientStore {
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
             self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
-
-            let convesation_t = self.message_storage.table::<Conversation>().await;
-            convesation_t.remove("", topic_id).await.ok();
-
-            let log_t = self.message_storage.table::<ChatLog>().await;
-            log_t.clear(topic_id).await.ok();
+            self.clear_conversation(topic_id).await.ok();
         }
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
@@ -523,6 +511,19 @@ impl ClientStore {
         Ok(())
     }
 
+    fn pop_incoming_logs(&self, topic_id:&str) -> Option<Vec<String>> {
+        self.incoming_logs.lock().unwrap().remove(topic_id)
+    }
+
+    fn put_incoming_log(&self, topic_id:&str, log_id:&str) {
+        let mut logs = self.incoming_logs.lock().unwrap();
+        let items = logs.entry(topic_id.to_string()).or_insert(vec![]);
+        if items.len() > MAX_INCOMING_LOG_CACHE_COUNT {
+            items.remove(0);
+        }
+        items.push(log_id.to_string());
+    }
+
     pub(super) async fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
         if req.chat_id.is_empty() || req.seq <= 0 {
             return Ok(());
@@ -537,10 +538,8 @@ impl ClientStore {
         match req.content.as_ref() {
             Some(content) => match ContentType::from(content.content_type.clone()) {
                 ContentType::TopicJoin => {
-                    if req.attendee == self.user_id { // when user join topic, clear all local logs
-                        t.clear(topic_id).await.ok();
-                        let ct = self.message_storage.table::<Conversation>().await;
-                        ct.remove("", topic_id).await.ok();
+                    if req.attendee == self.user_id { // when user join topic, clear all local logs                        
+                        self.clear_conversation(topic_id).await.ok();
                     }
                 }
                 ContentType::Recall => {
@@ -610,6 +609,8 @@ impl ClientStore {
             }
         }
 
+        self.put_incoming_log(topic_id, chat_id);
+        
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
@@ -761,6 +762,25 @@ impl ClientStore {
             query_diff,
             need_fetch
         );
+        
+        match self.pop_incoming_logs(topic_id) {
+            Some(incoming_logs) => {
+                for log_id in incoming_logs {
+                    match r.items.iter_mut().find(|v| v.id == log_id) {
+                        Some(_) => {
+                        }
+                        None => {
+                            if let Some(item) = t.get(topic_id, &log_id).await {
+                                log::info!("get_chat_logs: find lost log log_id: {} seq: {}", log_id, item.seq);
+                                r.items.push(item);
+                            }
+                        }
+                    }
+                }
+            }
+            None => {}
+        }
+
         Ok((r, need_fetch))
     }
 

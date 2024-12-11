@@ -106,9 +106,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 key_path_id.push(&"partition".into());
                 key_path_id.push(&"key".into());
                 let mut create_params = IdbObjectStoreParameters::new();
+                create_params.set_key_path(&key_path_id);
                 let db_store = match db.create_object_store_with_optional_parameters(
                     &table_name_ref,
-                    &create_params.key_path(Some(&key_path_id)),
+                    &create_params,
                 ) {
                     Ok(v) => v,
                     Err(e) => {
@@ -121,10 +122,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 key_path_sortkey.push(&"partition".into());
                 key_path_sortkey.push(&"sortkey".into());
                 let mut params = IdbIndexParameters::new();
+                params.set_unique(false);
                 match db_store.create_index_with_str_sequence_and_optional_parameters(
                     "partition+sortkey",
                     &key_path_sortkey,
-                    &params.unique(false),
+                    &params,
                 ) {
                     Ok(_) => {}
                     Err(e) => {
@@ -475,7 +477,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 }
             }
         }
-        tx.commit().map_err(Into::into)
+        Ok(())
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -517,7 +519,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         });
 
         let r = JsFuture::from(p).await;
-        tx.commit().ok();
         put_req_ref.set_onsuccess(None);
         put_req_ref.set_onerror(None);
 

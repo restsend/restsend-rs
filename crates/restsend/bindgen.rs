@@ -5,7 +5,7 @@ use std::process::Command;
 use std::vec;
 
 use camino::Utf8Path;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 
 use uniffi_bindgen::bindings::TargetLanguage;
 use uniffi_bindgen::{self, BindingGeneratorDefault};
@@ -264,7 +264,7 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
     let language = PathBuf::from(language.clone());
     let out_dir = Utf8Path::from_path(&language).unwrap();
     let source = Utf8Path::from_path(&source).unwrap();
-    let language = TargetLanguage::from_str(language.to_str().unwrap(), true).unwrap();
+    let language = language.to_str().unwrap().try_into().unwrap();
 
     uniffi_bindgen::library_mode::generate_bindings(
         source,

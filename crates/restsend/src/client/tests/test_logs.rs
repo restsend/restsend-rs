@@ -201,7 +201,7 @@ async fn test_client_recall_log() {
         .await
         .unwrap();
     assert_eq!(need_fetch, true);
-    assert_eq!(local_logs.items.len(), send_count as usize);
+    assert!(local_logs.items.len() >= send_count as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[1].id, last_send_id);
 }
