@@ -4,7 +4,7 @@ use crate::{models::{
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
     }, 
     request::ChatRequest, services::conversation::*, storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem}, 
-    utils::{now_millis, spwan_task}, 
+    utils::{now_millis, spwan_task, elapsed}, 
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS
 };
 use crate::{Error, Result};
@@ -675,6 +675,7 @@ impl ClientStore {
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
+        let st = now_millis();
         let t = self.message_storage.table::<ChatLog>().await;
 
         let mut r = QueryResult {
@@ -689,7 +690,6 @@ impl ClientStore {
 
         let mut total_limit = 0;
         let mut query_diff = 0;
-
         loop {
             let option = QueryOption {
                 keyword: None,
@@ -752,15 +752,17 @@ impl ClientStore {
         };
 
         log::info!(
-            "get_chat_logs: topic_id: {}, conversation_start_seq:{} last_seq: {:?}, initial_limit: {}, limit: {}, total_limit: {}, query_diff: {}, need_fetch: {}",
+            "get_chat_logs: topic_id: {}, conversation_start_seq:{}, items:{}, last_seq: {:?}, initial_limit: {}, limit: {}, total_limit: {}, query_diff: {}, need_fetch: {} cost: {:?}",
             topic_id,
             conversation_start_seq,
+            r.items.len(),
             last_seq,
             initial_limit,
             limit,
             total_limit,
             query_diff,
-            need_fetch
+            need_fetch,
+            elapsed(st),
         );
         
         match self.pop_incoming_logs(topic_id) {

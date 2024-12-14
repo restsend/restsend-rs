@@ -116,8 +116,8 @@ impl Client {
         callback: Box<dyn SyncChatLogsCallback>,
         ensure_conversation_last_version: Option<bool>,
     ) {
-        let limit = if limit == 0 { MAX_LOGS_LIMIT } else { limit }.min(MAX_LOGS_LIMIT);
         let st = now_millis();
+        let limit = if limit == 0 { MAX_LOGS_LIMIT/2 } else { limit }.min(MAX_LOGS_LIMIT);
         let conversation = self
             .store
             .get_conversation(
@@ -127,11 +127,12 @@ impl Client {
             )
             .await
             .unwrap_or_default();
-
+        
+        let store_st = now_millis();
         match self.store.get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit).await {
             Ok((local_logs, need_fetch)) => {
                 info!(
-                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} usage:{:?}",
+                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
                     local_logs.items.len(),
                     conversation.start_seq,
                     last_seq,
@@ -139,6 +140,7 @@ impl Client {
                     local_logs.start_sort_value,
                     local_logs.end_sort_value,
                     need_fetch,
+                    elapsed(store_st),
                     elapsed(st)
                 );
 
@@ -163,12 +165,20 @@ impl Client {
         }
     }
 
+    pub async fn save_chat_logs(
+        &self,
+       logs: &Vec<ChatLog>,
+    )  -> Result<()> {
+        self.store.save_chat_logs(logs).await
+    }
+
     async fn fetch_chat_logs_desc(
         &self,
         topic_id: String,
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<GetChatLogsResult> {
+        let st_fetch = now_millis();
         match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
             Ok(mut lr) => {
                 let now = now_millis();
@@ -182,12 +192,13 @@ impl Client {
                 }
                 self.store.save_chat_logs(&lr.items).await.ok();
                 info!(
-                    "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} usage:{:?}",
+                    "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} save_cost:{:?} total_cost:{:?}",
                     topic_id,
                     last_seq,
                     limit,
                     lr.items.len(),
-                    elapsed(now)
+                    elapsed(now),
+                    elapsed(st_fetch)
                 );
                 Ok(lr.into())
             }

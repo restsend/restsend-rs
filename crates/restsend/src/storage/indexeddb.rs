@@ -101,7 +101,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         return;
                     }
                 };
-
+                
                 let key_path_id = js_sys::Array::new();
                 key_path_id.push(&"partition".into());
                 key_path_id.push(&"key".into());
@@ -179,7 +179,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         open_req_ref.set_onupgradeneeded(None);
         open_req_ref.set_onsuccess(None);
         open_req_ref.set_onerror(None);
-
+        
         Ok(Box::new(IndexeddbTable {
             table_name: table_name.to_string(),
             db: db_result,
@@ -396,7 +396,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         if has_more {
             items.pop();
         }
-
+        
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
@@ -477,6 +477,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 }
             }
         }
+        #[allow(deprecated)]
+        tx.commit().ok();
         Ok(())
     }
 
@@ -521,7 +523,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let r = JsFuture::from(p).await;
         put_req_ref.set_onsuccess(None);
         put_req_ref.set_onerror(None);
-
+        #[allow(deprecated)]
+        tx.commit().ok();
         r.map(|_| ()).map_err(Into::into)
     }
 

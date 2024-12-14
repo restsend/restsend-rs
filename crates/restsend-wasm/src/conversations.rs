@@ -55,7 +55,7 @@ impl Client {
             js_sys::Reflect::get(&option, &JsValue::from_str("ensureConversationVersion"))
                 .ok()
                 .map(|v| v.as_bool().unwrap_or(true));
-
+        
         self.inner
             .sync_chat_logs(
                 topicId,
@@ -65,6 +65,11 @@ impl Client {
                 ensureConversationVersion,
             )
             .await
+    }
+    
+    pub async fn saveChatLogs(&self, logs:JsValue) -> Result<(), JsValue> {
+        let logs = serde_wasm_bindgen::from_value::<Vec<restsend_sdk::models::ChatLog>>(logs)?;
+        self.inner.save_chat_logs(&logs).await.map_err(|e| e.into())
     }
 
     /// Sync conversations from server

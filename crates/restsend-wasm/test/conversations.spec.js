@@ -127,6 +127,39 @@ describe('Conversations', async function () {
         expect(newItems[1].content.type).toEqual('text')
     })
 
+    it('#sync sync last logs without cache', async () => {
+        let vitalikNotCache = await authClient('vitalik', 'vitalik:demo', false, 'vitalik-not-cache')
+        let logsCount = 0
+        let syncMax = 100
+        let items = []
+        let syncCount = 0
+        let syncLogs = async () => {
+            await vitalikNotCache.syncChatLogs(guidoTopic.topicId, undefined, {
+                limit: 100,
+                onsuccess: (r) => {
+                    if (r.items) {
+                        logsCount += r.items.length
+                    }
+                    r.items.forEach((item) => {
+                        items.push(item.id)
+                    })
+
+                    if (!r.hasMore || logsCount >= syncMax) {
+                        return
+                    }
+                    syncCount += 1
+                    if (syncCount > 10) {
+                        assert.fail('syncCount > 10')
+                    }
+                    setTimeout(() => {
+                        syncLogs().then()
+                    }, 0)
+                }
+            })
+        }
+        await syncLogs()
+        await waitUntil(() => logsCount >= syncMax, 3000)
+    })
     it('#get conversation last message', async () => {
         let lastMessage = undefined
         vitalik.onconversationsupdated = async (items) => {
