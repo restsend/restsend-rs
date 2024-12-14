@@ -457,11 +457,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
         let store = tx.object_store(&self.table_name)?;
         for item in items {
+            let query_keys = js_sys::Array::new();
+            query_keys.push(&item.partition.to_string().into());
+            query_keys.push(&item.key.to_string().into());
             match item.value.as_ref() {
                 None => {
-                    let query_keys = js_sys::Array::new();
-                    query_keys.push(&item.partition.to_string().into());
-                    query_keys.push(&item.key.to_string().into());
                     store.delete(&query_keys).ok();
                 }
                 Some(v) => {
@@ -473,13 +473,37 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
+                    
+                    // ???
+                    // Why is it much faster to get first and then put?
+                    //store.put(&item).ok();
+                    
+                    let get_req = store.get_key(&query_keys)?;
+                    let get_req_ref = get_req.clone();
+                    let p = Promise::new(&mut move |resolve, reject| {
+                        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+                            resolve.call0(&JsValue::NULL).ok();
+                        })
+                            as Box<dyn FnMut(web_sys::Event)>);
+                        get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+                        on_success_callback.forget();
+
+                        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+                            reject.call1(&JsValue::NULL, &e).ok();
+                        }) as Box<dyn FnMut(DomException)>);
+
+                        get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+                        on_error_callback.forget();
+                    });
+                    JsFuture::from(p).await.ok();
+                    get_req_ref.set_onsuccess(None);
+                    get_req_ref.set_onerror(None);
                     store.put(&item).ok();
                 }
             }
         }
         #[allow(deprecated)]
-        tx.commit().ok();
-        Ok(())
+        tx.commit().map_err(Into::into)
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -524,8 +548,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         put_req_ref.set_onsuccess(None);
         put_req_ref.set_onerror(None);
         #[allow(deprecated)]
-        tx.commit().ok();
-        r.map(|_| ()).map_err(Into::into)
+        tx.commit().map_err(Into::into)
     }
 
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
