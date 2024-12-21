@@ -107,7 +107,6 @@ pub(super) async fn merge_conversation_from_chat(
                 }
             }
             ContentType::ConversationRemoved => {
-                t.remove("", &conversation.topic_id).await.ok();
                 return None;
             }
             ContentType::TopicUpdate => {
@@ -181,6 +180,20 @@ impl ClientStore {
             let mut conversation = conversation;
 
             if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+                if let Some(topic_created_at) = conversation.topic_created_at.as_ref() {
+                    let old_conversation_created_at = old_conversation.topic_created_at.map(|v| chrono::DateTime::parse_from_rfc3339(&v)
+                        .map(|v| v.timestamp_millis())
+                        .unwrap_or(0)).unwrap_or(0);
+                    let new_conversation_created_at = chrono::DateTime::parse_from_rfc3339(topic_created_at)
+                        .map(|v| v.timestamp_millis())
+                        .unwrap_or(0);
+                    // clean all logs
+                    if new_conversation_created_at != old_conversation_created_at {
+                        let log_t = self.message_storage.table::<ChatLog>().await;
+                        log_t.clear(&conversation.topic_id).await.ok();
+                    }
+                }
+
                 conversation.last_read_at = old_conversation.last_read_at;
                 conversation.last_read_seq = old_conversation.last_read_seq;
                 conversation.unread = old_conversation.unread;

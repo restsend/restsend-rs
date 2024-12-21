@@ -1,6 +1,5 @@
 /* tslint:disable */
 /* eslint-disable */
-export function setLogging(level?: string): void;
 /**
  * Signin with userId and password or token
  */
@@ -13,8 +12,208 @@ export function signup(endpoint: string, userId: string, password: string): Prom
  * Logout with token
  */
 export function logout(endpoint: string, token: string): Promise<void>;
+export function setLogging(level?: string): void;
 export class Client {
   free(): void;
+  /**
+   * Create a new client
+   * # Arguments
+   * * `info` - AuthInfo
+   * * `db_name` - database name (optional), create an indexeddb when set it    
+   */
+  constructor(info: any, db_name?: string);
+  /**
+   * connect immediately if the connection is broken    
+   */
+  app_active(): void;
+  shutdown(): Promise<void>;
+  connect(): Promise<void>;
+  /**
+   *
+   * Send message with content
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `content` - The content Object
+   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+   *     * `text` String - The text message
+   *     * `attachment` Object - The attachment object
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+   *     * `size` Number - The size of the content, only for file, optional
+   *     * `placeholder` String - The placeholder of the content, optional
+   *     * `width` Number - The width of the content, only for image/video, optional
+   *     * `height` Number - The height of the content, only for image/video, optional
+   *     * `reply` String - The reply message id, optional
+   *     * `mentions` Array - Mention to users, optional
+   *     * `mentionsAll` Boolean - Mention to all users, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.doSend(topicId, {
+   *     type: 'wx.text',
+   *     text: 'hello',
+   * }, {
+   *     mentions: undefined, // The mention user id list, optional
+   *     mentionAll:  false, // Mention all users, optional
+   *     reply:  undefined, // The reply message id, optional
+   *     onsent:  () => {}, // The callback when message sent
+   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
+   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+   *     onfail:  (reason:String)  => {} // The callback when message failed
+   * });
+   * ```
+   */
+  doSend(topicId: string, content: any, option: any): Promise<string>;
+  /**
+   * Send typing status
+   * # Arguments
+   * * `topicId` - The topic id    
+   */
+  doTyping(topicId: string): Promise<void>;
+  /**
+   * Recall message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `messageId` - The message id
+   */
+  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
+  /**
+   * Send voice message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `mentions` Array - The mention user id list, optional
+   *     * `mentionAll` boolean, // Mention all users, optional
+   *     * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send video message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send file message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `size` Number - The size of the content, only for file, optional
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send location message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `latitude` - The latitude
+   * * `longitude` - The longitude
+   * * `address` - The address
+   * * `option` - The send option
+   *   * `mentions` Array - The mention user id list, optional
+   *   * `mentionAll` boolean, // Mention all users, optional
+   *   * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
+  /**
+   * Send link message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `url` - The url
+   * * `option` - The send option
+   *  * `placeholder` String - The placeholder of the content, optional
+   *  * `mentions` Array - The mention user id list, optional
+   *  * `mentionAll` boolean, // Mention all users, optional
+   *  * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLink(topicId: string, url: string, option: any): Promise<string>;
+  /**
+   * Send invite message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `logIds` Array - The log id list
+   * * `option` - The send option
+   * # Return    
+   * The message id
+   */
+  doSendLogs(topicId: string, sourceTopicId: string, logIds: (string)[], option: any): Promise<string>;
+  /**
+   * Send text message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `text` - The text message
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendText(topicId, text, {
+   *     mentions: [] || undefined, // The mention user id list, optional
+   *     reply: String || undefined, - The reply message id, optional
+   *     onsent:  () => {},
+   *     onprogress:  (progress:Number, total:Number)  =>{},
+   *     onack:  (req:ChatRequest)  => {},
+   *     onfail:  (reason:String)  => {}
+   * });
+   * ```
+   */
+  doSendText(topicId: string, text: string, option: any): Promise<string>;
+  /**
+   *
+   * Send image message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   *     * `file` File - The file object
+   *     * `url` String  - The file name
+   * * `option` - The send option
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+   * ```
+   */
+  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Update sent chat message's extra
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `chatId` - The chat id
+   * * `extra` - The extra, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   */
+  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
   /**
    * Create a new chat with userId
    * return: Conversation    
@@ -351,204 +550,14 @@ export class Client {
    */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
   /**
-   * Create a new client
-   * # Arguments
-   * * `info` - AuthInfo
-   * * `db_name` - database name (optional), create an indexeddb when set it    
+   * get the current connection status
+   * return: connecting, connected, broken, shutdown
    */
-  constructor(info: any, db_name?: string);
+  readonly connectionStatus: string;
   /**
-   * connect immediately if the connection is broken    
+   * set the keepalive interval with seconds
    */
-  app_active(): void;
-  shutdown(): Promise<void>;
-  connect(): Promise<void>;
-  /**
-   *
-   * Send message with content
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `content` - The content Object
-   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-   *     * `text` String - The text message
-   *     * `attachment` Object - The attachment object
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-   *     * `size` Number - The size of the content, only for file, optional
-   *     * `placeholder` String - The placeholder of the content, optional
-   *     * `width` Number - The width of the content, only for image/video, optional
-   *     * `height` Number - The height of the content, only for image/video, optional
-   *     * `reply` String - The reply message id, optional
-   *     * `mentions` Array - Mention to users, optional
-   *     * `mentionsAll` Boolean - Mention to all users, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.doSend(topicId, {
-   *     type: 'wx.text',
-   *     text: 'hello',
-   * }, {
-   *     mentions: undefined, // The mention user id list, optional
-   *     mentionAll:  false, // Mention all users, optional
-   *     reply:  undefined, // The reply message id, optional
-   *     onsent:  () => {}, // The callback when message sent
-   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
-   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-   *     onfail:  (reason:String)  => {} // The callback when message failed
-   * });
-   * ```
-   */
-  doSend(topicId: string, content: any, option: any): Promise<string>;
-  /**
-   * Send typing status
-   * # Arguments
-   * * `topicId` - The topic id    
-   */
-  doTyping(topicId: string): Promise<void>;
-  /**
-   * Recall message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `messageId` - The message id
-   */
-  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
-  /**
-   * Send voice message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `mentions` Array - The mention user id list, optional
-   *     * `mentionAll` boolean, // Mention all users, optional
-   *     * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send video message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send file message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `size` Number - The size of the content, only for file, optional
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send location message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `latitude` - The latitude
-   * * `longitude` - The longitude
-   * * `address` - The address
-   * * `option` - The send option
-   *   * `mentions` Array - The mention user id list, optional
-   *   * `mentionAll` boolean, // Mention all users, optional
-   *   * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
-  /**
-   * Send link message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `url` - The url
-   * * `option` - The send option
-   *  * `placeholder` String - The placeholder of the content, optional
-   *  * `mentions` Array - The mention user id list, optional
-   *  * `mentionAll` boolean, // Mention all users, optional
-   *  * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLink(topicId: string, url: string, option: any): Promise<string>;
-  /**
-   * Send invite message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `logIds` Array - The log id list
-   * * `option` - The send option
-   * # Return    
-   * The message id
-   */
-  doSendLogs(topicId: string, sourceTopicId: string, logIds: (string)[], option: any): Promise<string>;
-  /**
-   * Send text message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `text` - The text message
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendText(topicId, text, {
-   *     mentions: [] || undefined, // The mention user id list, optional
-   *     reply: String || undefined, - The reply message id, optional
-   *     onsent:  () => {},
-   *     onprogress:  (progress:Number, total:Number)  =>{},
-   *     onack:  (req:ChatRequest)  => {},
-   *     onfail:  (reason:String)  => {}
-   * });
-   * ```
-   */
-  doSendText(topicId: string, text: string, option: any): Promise<string>;
-  /**
-   *
-   * Send image message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   *     * `file` File - The file object
-   *     * `url` String  - The file name
-   * * `option` - The send option
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-   * ```
-   */
-  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Update sent chat message's extra
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `chatId` - The chat id
-   * * `extra` - The extra, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   */
-  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
+  set keepalive(value: number);
   /**
    * Set the callback when connection connected
    */
@@ -696,15 +705,6 @@ export class Client {
    * ```
    */
   set onconversationsremoved(value: any);
-  /**
-   * get the current connection status
-   * return: connecting, connected, broken, shutdown
-   */
-  readonly connectionStatus: string;
-  /**
-   * set the keepalive interval with seconds
-   */
-  set keepalive(value: number);
 }
 export class IntoUnderlyingByteSource {
   private constructor();
@@ -733,19 +733,28 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly client_set_onconnected: (a: number, b: number) => void;
-  readonly client_set_onconnecting: (a: number, b: number) => void;
-  readonly client_set_ontokenexpired: (a: number, b: number) => void;
-  readonly client_set_onbroken: (a: number, b: number) => void;
-  readonly client_set_onkickoff: (a: number, b: number) => void;
-  readonly client_set_onsystemrequest: (a: number, b: number) => void;
-  readonly client_set_onunknownrequest: (a: number, b: number) => void;
-  readonly client_set_ontopictyping: (a: number, b: number) => void;
-  readonly client_set_ontopicmessage: (a: number, b: number) => void;
-  readonly client_set_ontopicread: (a: number, b: number) => void;
-  readonly client_set_onconversationsupdated: (a: number, b: number) => void;
-  readonly client_set_onconversationsremoved: (a: number, b: number) => void;
-  readonly setLogging: (a: number, b: number) => void;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly logout: (a: number, b: number, c: number, d: number) => number;
+  readonly __wbg_client_free: (a: number, b: number) => void;
+  readonly client_new: (a: number, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number, b: number) => void;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => number;
+  readonly client_connect: (a: number) => number;
+  readonly client_doSend: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doTyping: (a: number, b: number, c: number) => number;
+  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendVoice: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendVideo: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendFile: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
+  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -789,28 +798,19 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly logout: (a: number, b: number, c: number, d: number) => number;
-  readonly __wbg_client_free: (a: number, b: number) => void;
-  readonly client_new: (a: number, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number, b: number) => void;
-  readonly client_app_active: (a: number) => void;
-  readonly client_set_keepalive: (a: number, b: number) => void;
-  readonly client_shutdown: (a: number) => number;
-  readonly client_connect: (a: number) => number;
-  readonly client_doSend: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doTyping: (a: number, b: number, c: number) => number;
-  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendVoice: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendVideo: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendFile: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
-  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly client_set_onconnected: (a: number, b: number) => void;
+  readonly client_set_onconnecting: (a: number, b: number) => void;
+  readonly client_set_ontokenexpired: (a: number, b: number) => void;
+  readonly client_set_onbroken: (a: number, b: number) => void;
+  readonly client_set_onkickoff: (a: number, b: number) => void;
+  readonly client_set_onsystemrequest: (a: number, b: number) => void;
+  readonly client_set_onunknownrequest: (a: number, b: number) => void;
+  readonly client_set_ontopictyping: (a: number, b: number) => void;
+  readonly client_set_ontopicmessage: (a: number, b: number) => void;
+  readonly client_set_ontopicread: (a: number, b: number) => void;
+  readonly client_set_onconversationsupdated: (a: number, b: number) => void;
+  readonly client_set_onconversationsremoved: (a: number, b: number) => void;
+  readonly setLogging: (a: number, b: number) => void;
   readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number, b: number) => void;
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
@@ -830,8 +830,8 @@ export interface InitOutput {
   readonly __wbindgen_export_3: WebAssembly.Table;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h6bd4ca820affe721: (a: number, b: number, c: number) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h8a4db968a8f99d12: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h00e4cadab5e5fca8: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hd46b0fab04539b04: (a: number, b: number) => void;
   readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h66556920b1f35d36: (a: number, b: number, c: number) => void;
   readonly wasm_bindgen__convert__closures__invoke2_mut__h3767371f6ec92a1e: (a: number, b: number, c: number, d: number) => void;
 }

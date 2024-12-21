@@ -496,7 +496,7 @@
                     const lastSyncSeq = this.conversation.lastSyncSeq || this.conversation.lastSeq
                     limit = conversation.lastSeq - lastSyncSeq
                 }
-                console.log('update conversation', conversation, fetchLogs, limit)
+                this.logText(`update conversation: ${conversation.topicId} limit: ${limit} lastSeq:${conversation.lastSeq}`)
                 this.conversation = conversation
                 if (!fetchLogs && limit === 0) { //the messages are not changed
                     return
@@ -506,7 +506,7 @@
                     limit,
                     onsuccess: (r) => {
                         const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
-                        this.conversation.lastSyncSeq = Math.max(lastSyncSeq, r.startSeq)
+                        this.conversation.lastSyncSeq = Math.max(Math.max(lastSyncSeq, r.startSeq), this.conversation.lastSeq)
 
                         const el = document.getElementById('messages')
                         let scrollToEnd = el.scrollTop + el.clientHeight + 100 >= el.scrollHeight
@@ -975,6 +975,7 @@
                                                 :class="item.mute && item.unread>0 ? 'w-[110px]':'w-28'"></p>
                                         </div>
                                         <p class="w-12 flex justify-end">
+                                            <span class="text-gray-300 text-sm px-1" x-text="item.lastSeq"></span>
                                             <time x-text="formatDateTime(item.lastUpdatedAt)" class="shrink-0"></time>
                                         </p>
                                     </div>
@@ -1188,6 +1189,7 @@
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items" :key="item.id">
                                                         <div>
+                                                            <span class="text-gray-300 text-sm" x-text="item.seq"></span>
                                                             <template x-if="item.recall==true">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">
