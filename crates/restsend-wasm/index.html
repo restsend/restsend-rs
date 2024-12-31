@@ -365,11 +365,21 @@
             forwardLogs: null,
             selectedMessages: [],
             messageBlocks: null,
+            wasmLoaded: false,
 
             init: async function () {
                 console.info = (text) => this.logText(text, 'info')
                 console.debug = (text) => this.logText(text, 'debug')
                 console.warn = (text) => this.logText(text, 'warn')
+
+                const checkWasm = () => {
+                    if (!window.Client) {
+                        setTimeout(checkWasm, 100)
+                    } else {
+                        this.wasmLoaded = true
+                    }
+                }
+                setTimeout(checkWasm, 100)
             },
 
             logText: function (text) {
@@ -505,6 +515,9 @@
                 this.current.syncChatLogs(conversation.topicId, conversation.lastSyncSeq, {
                     limit,
                     onsuccess: (r) => {
+                        if (this.conversation.topicId != conversation.topicId) {
+                            return
+                        }
                         const lastSyncSeq = this.conversation.lastSyncSeq === undefined ? 0 : this.conversation.lastSyncSeq
                         this.conversation.lastSyncSeq = Math.max(Math.max(lastSyncSeq, r.startSeq), this.conversation.lastSeq)
 
@@ -873,9 +886,20 @@
                         </div>
                     </div>
                     <div class="pt-4">
-                        <button type="button" @click="doSignin()"
-                            class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">Sign
-                            in</button>
+                        <button type="button" :class="{'disabled':true}" @click="doSignin()"
+                            class="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                            <svg x-show="!wasmLoaded"
+                                class="motion-reduce:hidden animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none"
+                                viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                    stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                            <span x-show="!wasmLoaded">Loading</span>
+                            <span x-show="wasmLoaded">Sign in</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1189,7 +1213,8 @@
                                                     :class="block.isSelf?'flex order-1 items-end ml-4 justify-end w-full':'order-2 mr-4 items-start'">
                                                     <template x-for="item in block.items" :key="item.id">
                                                         <div>
-                                                            <span class="text-gray-300 text-sm" x-text="item.seq"></span>
+                                                            <span class="text-gray-300 text-sm"
+                                                                x-text="item.seq"></span>
                                                             <template x-if="item.recall==true">
                                                                 <div
                                                                     class="text-gray-400 text-xs text-center flex items-center w-full">

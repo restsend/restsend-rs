@@ -91,7 +91,7 @@ impl ConnectState {
     pub fn did_connecting(&self) {
         *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
         *self.last_state.lock().unwrap() = ConnectionStatus::Connecting;
-        self.state_tx.send(ConnectionStatus::Connecting).ok();
+        //self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
 
     pub fn did_connected(&self) {
@@ -99,7 +99,7 @@ impl ConnectState {
         self.last_broken_at.lock().unwrap().take();
         *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
         *self.last_state.lock().unwrap() = ConnectionStatus::Connected;
-        self.state_tx.send(ConnectionStatus::Connected).ok();
+        //self.state_tx.send(ConnectionStatus::Connected).ok();
     }
 
     pub fn did_sent_or_recvived(&self) {

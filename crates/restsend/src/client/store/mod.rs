@@ -166,7 +166,12 @@ impl ClientStore {
     }
 
     pub(crate) fn process_removed_conversations(&self) {
-        self.removed_conversations.lock().unwrap().retain(|_, removed_at| !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS));
+        self.removed_conversations
+            .lock()
+            .unwrap()
+            .retain(|_, removed_at| {
+                !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS)
+            });
     }
     pub fn shutdown(&self) {}
 }
