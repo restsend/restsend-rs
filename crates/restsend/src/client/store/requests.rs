@@ -1,7 +1,7 @@
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::client::store::is_cache_expired;
-use crate::models:: ChatLogStatus;
+use crate::models::ChatLogStatus;
 use crate::utils::now_millis;
 use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
@@ -24,7 +24,7 @@ impl ClientStore {
                     continue;
                 }
                 outgoing_tx.send(pending.req.clone()).ok();
-                pending.callback.as_ref().map(|cb| cb.on_sent());
+                pending.callback.as_ref().map(|cb| cb.on_sent(chat_id));
             }
         }
     }
@@ -93,11 +93,19 @@ impl ClientStore {
                 let mut resps = vec![ChatRequest::new_response(&req, 200)];
                 let topic_id = req.topic_id.clone();
 
-                if let Some(removed_at) = self.removed_conversations.lock().unwrap().get(&req.topic_id) {
+                if let Some(removed_at) = self
+                    .removed_conversations
+                    .lock()
+                    .unwrap()
+                    .get(&req.topic_id)
+                {
                     if !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS) {
                         return resps;
                     } else {
-                        self.removed_conversations.lock().unwrap().remove(&req.topic_id);
+                        self.removed_conversations
+                            .lock()
+                            .unwrap()
+                            .remove(&req.topic_id);
                     }
                 }
 
@@ -139,7 +147,10 @@ impl ClientStore {
                         }
                     }
                     None => {
-                        self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
+                        self.removed_conversations
+                            .lock()
+                            .unwrap()
+                            .insert(topic_id.to_string(), now_millis());
                         self.clear_conversation(&topic_id).await.ok();
                         if let Some(cb) = self.callback.lock().unwrap().as_ref() {
                             cb.on_conversation_removed(topic_id);
@@ -244,6 +255,7 @@ impl ClientStore {
         match tx.as_ref() {
             Some(tx) => {
                 while let Some(chat_id) = tmps.pop_front() {
+                    info!("flush_offline_requests chat_id:{}", chat_id);
                     match tx.send(chat_id.clone()) {
                         Ok(_) => {}
                         Err(e) => {

@@ -51,7 +51,7 @@ pub trait DownloadCallback: Send + Sync {
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait MessageCallback: Send + Sync {
-    fn on_sent(&self) {}
+    fn on_sent(&self, chat_id: String) {}
     fn on_progress(&self, progress: u64, total: u64) {}
     fn on_attachment_upload(&self, result: Upload) -> Option<Content> {
         None

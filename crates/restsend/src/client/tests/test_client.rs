@@ -7,7 +7,7 @@ use crate::{
     utils::check_until,
     utils::init_log,
 };
-use log::{warn,debug};
+use log::{debug, info, warn};
 use std::{
     sync::{
         atomic::{AtomicBool, AtomicI64, Ordering},
@@ -57,7 +57,8 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
     fn on_progress(&self, progress: u64, total: u64) {
         warn!("on_progress: {}/{}", progress, total);
     }
-    fn on_sent(&self) {
+    fn on_sent(&self, chat_id: String) {
+        info!("on_sent {}", chat_id);
         self.is_sent.store(true, Ordering::Relaxed);
     }
     fn on_ack(&self, _req: crate::request::ChatRequest) {

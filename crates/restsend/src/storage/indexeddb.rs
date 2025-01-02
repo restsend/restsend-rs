@@ -101,16 +101,15 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         return;
                     }
                 };
-                
+
                 let key_path_id = js_sys::Array::new();
                 key_path_id.push(&"partition".into());
                 key_path_id.push(&"key".into());
                 let mut create_params = IdbObjectStoreParameters::new();
                 create_params.set_key_path(&key_path_id);
-                let db_store = match db.create_object_store_with_optional_parameters(
-                    &table_name_ref,
-                    &create_params,
-                ) {
+                let db_store = match db
+                    .create_object_store_with_optional_parameters(&table_name_ref, &create_params)
+                {
                     Ok(v) => v,
                     Err(e) => {
                         reject_ref.call1(&JsValue::NULL, &e).ok();
@@ -179,7 +178,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         open_req_ref.set_onupgradeneeded(None);
         open_req_ref.set_onsuccess(None);
         open_req_ref.set_onerror(None);
-        
+
         Ok(Box::new(IndexeddbTable {
             table_name: table_name.to_string(),
             db: db_result,
@@ -396,7 +395,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         if has_more {
             items.pop();
         }
-        
+
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),
             end_sort_value: items.last().map(|v| v.sort_key()).unwrap_or(0),
@@ -473,24 +472,26 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
-                    
+
                     // ???
                     // Why is it much faster to get first and then put?
                     //store.put(&item).ok();
-                    
+
                     let get_req = store.get_key(&query_keys)?;
                     let get_req_ref = get_req.clone();
                     let p = Promise::new(&mut move |resolve, reject| {
-                        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                            resolve.call0(&JsValue::NULL).ok();
-                        })
-                            as Box<dyn FnMut(web_sys::Event)>);
+                        let on_success_callback =
+                            Closure::wrap(Box::new(move |e: web_sys::Event| {
+                                resolve.call0(&JsValue::NULL).ok();
+                            })
+                                as Box<dyn FnMut(web_sys::Event)>);
                         get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
                         on_success_callback.forget();
 
                         let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
                             reject.call1(&JsValue::NULL, &e).ok();
-                        }) as Box<dyn FnMut(DomException)>);
+                        })
+                            as Box<dyn FnMut(DomException)>);
 
                         get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
                         on_error_callback.forget();
@@ -552,10 +553,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     }
 
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
-        let store = self
+        let tx = self
             .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)
-            .and_then(|tx| tx.object_store(&self.table_name))?;
+            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
+        let store = tx.object_store(&self.table_name)?;
 
         let cursor_req = if !key.is_empty() {
             let query_keys = js_sys::Array::new();
@@ -620,10 +621,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
         });
-        let r = JsFuture::from(p).await;
+        let _ = JsFuture::from(p).await;
         cursor_req_ref.set_onerror(None);
         cursor_req_ref.set_onsuccess(None);
-        r.map(|_| ()).map_err(Into::into)
+        #[allow(deprecated)]
+        tx.commit().map_err(Into::into)
     }
 
     async fn last(&self, partition: &str) -> Option<T> {

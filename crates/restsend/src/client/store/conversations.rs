@@ -1,11 +1,14 @@
 use super::{is_cache_expired, ClientStore};
-use crate::{models::{
+use crate::{
+    models::{
         conversation::{ConversationUpdateFields, Extra, Tags},
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
-    }, 
-    request::ChatRequest, services::conversation::*, storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem}, 
-    utils::{now_millis, spwan_task, elapsed}, 
-    CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS
+    },
+    request::ChatRequest,
+    services::conversation::*,
+    storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem},
+    utils::{elapsed, now_millis, spwan_task},
+    CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
 use log::warn;
@@ -181,12 +184,18 @@ impl ClientStore {
 
             if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
                 if let Some(topic_created_at) = conversation.topic_created_at.as_ref() {
-                    let old_conversation_created_at = old_conversation.topic_created_at.map(|v| chrono::DateTime::parse_from_rfc3339(&v)
-                        .map(|v| v.timestamp_millis())
-                        .unwrap_or(0)).unwrap_or(0);
-                    let new_conversation_created_at = chrono::DateTime::parse_from_rfc3339(topic_created_at)
-                        .map(|v| v.timestamp_millis())
+                    let old_conversation_created_at = old_conversation
+                        .topic_created_at
+                        .map(|v| {
+                            chrono::DateTime::parse_from_rfc3339(&v)
+                                .map(|v| v.timestamp_millis())
+                                .unwrap_or(0)
+                        })
                         .unwrap_or(0);
+                    let new_conversation_created_at =
+                        chrono::DateTime::parse_from_rfc3339(topic_created_at)
+                            .map(|v| v.timestamp_millis())
+                            .unwrap_or(0);
                     // clean all logs
                     if new_conversation_created_at != old_conversation_created_at {
                         let log_t = self.message_storage.table::<ChatLog>().await;
@@ -393,9 +402,7 @@ impl ClientStore {
         self.emit_conversation_update(c)
     }
 
-    pub async fn clear_conversation(
-        &self,
-        topic_id: &str) -> Result<()> {
+    pub async fn clear_conversation(&self, topic_id: &str) -> Result<()> {
         self.pop_incoming_logs(topic_id);
         {
             let t = self.message_storage.table::<ChatLog>().await;
@@ -406,10 +413,13 @@ impl ClientStore {
             t.remove("", topic_id).await
         }
     }
-    
+
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
-        self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
-        
+        self.removed_conversations
+            .lock()
+            .unwrap()
+            .insert(topic_id.to_string(), now_millis());
+
         let t = self.message_storage.table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
             self.clear_conversation(topic_id).await.ok();
@@ -421,7 +431,10 @@ impl ClientStore {
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
-            self.removed_conversations.lock().unwrap().insert(topic_id.to_string(), now_millis());
+            self.removed_conversations
+                .lock()
+                .unwrap()
+                .insert(topic_id.to_string(), now_millis());
             self.clear_conversation(topic_id).await.ok();
         }
 
@@ -513,22 +526,19 @@ impl ClientStore {
     ) -> Result<()> {
         let t = self.message_storage.table::<ChatLog>().await;
 
-        if let Some(log) = t.get(topic_id, chat_id).await {
-            let mut log = log.clone();
+        if let Some(mut log) = t.get(topic_id, chat_id).await {
             log.status = status;
-            if let Some(seq) = seq {
-                log.seq = seq;
-            }
-            t.set(topic_id, chat_id, Some(&log)).await.ok();
+            seq.map(|v| log.seq = v);
+            t.set(topic_id, chat_id, Some(&log)).await?;
         }
         Ok(())
     }
 
-    fn pop_incoming_logs(&self, topic_id:&str) -> Option<Vec<String>> {
+    fn pop_incoming_logs(&self, topic_id: &str) -> Option<Vec<String>> {
         self.incoming_logs.lock().unwrap().remove(topic_id)
     }
 
-    fn put_incoming_log(&self, topic_id:&str, log_id:&str) {
+    fn put_incoming_log(&self, topic_id: &str, log_id: &str) {
         let mut logs = self.incoming_logs.lock().unwrap();
         let items = logs.entry(topic_id.to_string()).or_insert(vec![]);
         if items.len() > MAX_INCOMING_LOG_CACHE_COUNT {
@@ -551,7 +561,8 @@ impl ClientStore {
         match req.content.as_ref() {
             Some(content) => match ContentType::from(content.content_type.clone()) {
                 ContentType::TopicJoin => {
-                    if req.attendee == self.user_id { // when user join topic, clear all local logs                        
+                    if req.attendee == self.user_id {
+                        // when user join topic, clear all local logs
                         self.clear_conversation(topic_id).await.ok();
                     }
                 }
@@ -623,7 +634,7 @@ impl ClientStore {
         }
 
         self.put_incoming_log(topic_id, chat_id);
-        
+
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
@@ -777,16 +788,19 @@ impl ClientStore {
             need_fetch,
             elapsed(st),
         );
-        
+
         match self.pop_incoming_logs(topic_id) {
             Some(incoming_logs) => {
                 for log_id in incoming_logs {
                     match r.items.iter_mut().find(|v| v.id == log_id) {
-                        Some(_) => {
-                        }
+                        Some(_) => {}
                         None => {
                             if let Some(item) = t.get(topic_id, &log_id).await {
-                                log::info!("get_chat_logs: find lost log log_id: {} seq: {}", log_id, item.seq);
+                                log::info!(
+                                    "get_chat_logs: find lost log log_id: {} seq: {}",
+                                    log_id,
+                                    item.seq
+                                );
                                 r.items.push(item);
                             }
                         }

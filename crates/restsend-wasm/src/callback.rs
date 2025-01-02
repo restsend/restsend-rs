@@ -31,9 +31,9 @@ impl MessageCallbackWasmWrap {
 }
 
 impl restsend_sdk::callback::MessageCallback for MessageCallbackWasmWrap {
-    fn on_sent(&self) {
+    fn on_sent(&self, chat_id: String) {
         if let Some(cb) = self.cb_on_sent.borrow().as_ref() {
-            cb.call0(&JsValue::NULL)
+            cb.call1(&JsValue::NULL, &JsValue::from_str(&chat_id))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
         }
@@ -144,7 +144,7 @@ impl SyncConversationsCallbackWasmWrap {
 }
 
 impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCallbackWasmWrap {
-    fn on_success(&self, updated_at: String, last_removed_at:Option<String>, count: u32) {
+    fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {
         if let Some(cb) = self.cb_on_success.borrow().as_ref() {
             let arg1 = JsValue::from_str(&updated_at);
             let arg2 = JsValue::from_f64(count as f64);

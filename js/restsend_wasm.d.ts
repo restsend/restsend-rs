@@ -215,6 +215,161 @@ export class Client {
    */
   doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
   /**
+   * Create a new topic
+   * #Arguments
+   *   name: String,
+   *  icon: String,
+   * #Return
+   * * `Topic` || `undefined`
+   */
+  createTopic(members: (string)[], name?: string, icon?: string): Promise<any>;
+  /**
+   * Join a topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `message` - message
+   * * `source` - source
+   */
+  joinTopic(topicId: string, message?: string, source?: string): Promise<void>;
+  /**
+   * Add user into topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * #Return
+   * * `TopicMember` || `undefined`
+   */
+  addMember(topicId: string, userId: string): Promise<any>;
+  /**
+   * Get topic info
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Topic` || `undefined`
+   */
+  getTopic(topicId: string): Promise<any>;
+  /**
+   * Get topic admins
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Vec<User>` || `undefined`
+   */
+  getTopicAdmins(topicId: string): Promise<any>;
+  /**
+   * Get topic owner
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `User` || `undefined`
+   */
+  getTopicOwner(topicId: string): Promise<any>;
+  /**
+   * Get topic members
+   * #Arguments
+   * * `topicId` - topic id
+   * * `updatedAt` - updated_at
+   * * `limit` - limit
+   * #Return
+   * * `ListUserResult` || `undefined`
+   */
+  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
+  /**
+   * Get topic knocks
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Vec<TopicKnock>`
+   */
+  getTopicKnocks(topicId: string): Promise<any>;
+  /**
+   * Update topic info
+   * #Arguments
+   * * `topicId` - topic id
+   * * `option` - option
+   *     * `name` - String
+   *     * `icon` - String (url) or base64
+   */
+  updateTopic(topicId: string, option: any): Promise<void>;
+  /**
+   * Update topic notice
+   * #Arguments
+   * * `topicId` - topic id
+   * * `text` - notice text
+   */
+  updateTopicNotice(topicId: string, text: string): Promise<void>;
+  /**
+   * Silence topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+   */
+  silentTopic(topicId: string, duration?: string): Promise<void>;
+  /**
+   * Silent topic member
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+   */
+  silentTopicMember(topicId: string, userId: string, duration?: string): Promise<void>;
+  /**
+   * Add topic admin
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  addTopicAdmin(topicId: string, userId: string): Promise<void>;
+  /**
+   * Remove topic admin
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
+  /**
+   * Transfer topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id to transfer, the user must be a topic member
+   */
+  transferTopic(topicId: string, userId: string): Promise<void>;
+  /**
+   * Quit topic
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  quitTopic(topicId: string): Promise<void>;
+  /**
+   * Dismiss topic
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  dismissTopic(topicId: string): Promise<void>;
+  /**
+   * Accept topic join
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `memo` - accept memo
+   */
+  acceptTopicJoin(topicId: string, userId: string, memo?: string): Promise<void>;
+  /**
+   * Decline topic join
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `message` - decline message
+   */
+  declineTopicJoin(topicId: string, userId: string, message?: string): Promise<void>;
+  /**
+   * Remove topic member
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  removeTopicMember(topicId: string, userId: string): Promise<void>;
+  /**
    * Create a new chat with userId
    * return: Conversation    
    */
@@ -394,161 +549,6 @@ export class Client {
    * * `allow` - allow
    */
   setAllowGuestChat(allow: boolean): Promise<void>;
-  /**
-   * Create a new topic
-   * #Arguments
-   *   name: String,
-   *  icon: String,
-   * #Return
-   * * `Topic` || `undefined`
-   */
-  createTopic(members: (string)[], name?: string, icon?: string): Promise<any>;
-  /**
-   * Join a topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `message` - message
-   * * `source` - source
-   */
-  joinTopic(topicId: string, message?: string, source?: string): Promise<void>;
-  /**
-   * Add user into topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * #Return
-   * * `TopicMember` || `undefined`
-   */
-  addMember(topicId: string, userId: string): Promise<any>;
-  /**
-   * Get topic info
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Topic` || `undefined`
-   */
-  getTopic(topicId: string): Promise<any>;
-  /**
-   * Get topic admins
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Vec<User>` || `undefined`
-   */
-  getTopicAdmins(topicId: string): Promise<any>;
-  /**
-   * Get topic owner
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `User` || `undefined`
-   */
-  getTopicOwner(topicId: string): Promise<any>;
-  /**
-   * Get topic members
-   * #Arguments
-   * * `topicId` - topic id
-   * * `updatedAt` - updated_at
-   * * `limit` - limit
-   * #Return
-   * * `ListUserResult` || `undefined`
-   */
-  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
-  /**
-   * Get topic knocks
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Vec<TopicKnock>`
-   */
-  getTopicKnocks(topicId: string): Promise<any>;
-  /**
-   * Update topic info
-   * #Arguments
-   * * `topicId` - topic id
-   * * `option` - option
-   *     * `name` - String
-   *     * `icon` - String (url) or base64
-   */
-  updateTopic(topicId: string, option: any): Promise<void>;
-  /**
-   * Update topic notice
-   * #Arguments
-   * * `topicId` - topic id
-   * * `text` - notice text
-   */
-  updateTopicNotice(topicId: string, text: string): Promise<void>;
-  /**
-   * Silence topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-   */
-  silentTopic(topicId: string, duration?: string): Promise<void>;
-  /**
-   * Silent topic member
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-   */
-  silentTopicMember(topicId: string, userId: string, duration?: string): Promise<void>;
-  /**
-   * Add topic admin
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  addTopicAdmin(topicId: string, userId: string): Promise<void>;
-  /**
-   * Remove topic admin
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
-  /**
-   * Transfer topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id to transfer, the user must be a topic member
-   */
-  transferTopic(topicId: string, userId: string): Promise<void>;
-  /**
-   * Quit topic
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  quitTopic(topicId: string): Promise<void>;
-  /**
-   * Dismiss topic
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  dismissTopic(topicId: string): Promise<void>;
-  /**
-   * Accept topic join
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `memo` - accept memo
-   */
-  acceptTopicJoin(topicId: string, userId: string, memo?: string): Promise<void>;
-  /**
-   * Decline topic join
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `message` - decline message
-   */
-  declineTopicJoin(topicId: string, userId: string, message?: string): Promise<void>;
-  /**
-   * Remove topic member
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  removeTopicMember(topicId: string, userId: string): Promise<void>;
   /**
    * get the current connection status
    * return: connecting, connected, broken, shutdown
@@ -755,29 +755,6 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
   readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
-  readonly client_createChat: (a: number, b: number, c: number) => number;
-  readonly client_cleanMessages: (a: number, b: number, c: number) => number;
-  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_saveChatLogs: (a: number, b: number) => number;
-  readonly client_syncConversations: (a: number, b: number) => number;
-  readonly client_getConversation: (a: number, b: number, c: number, d: number) => number;
-  readonly client_removeConversation: (a: number, b: number, c: number) => number;
-  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllConversationsRead: (a: number) => number;
-  readonly client_setConversationTags: (a: number, b: number, c: number, d: number) => number;
-  readonly client_clearConversation: (a: number, b: number, c: number) => number;
-  readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
-  readonly client_filterConversation: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUsers: (a: number, b: number, c: number) => number;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -811,6 +788,29 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: number) => void;
   readonly client_set_onconversationsremoved: (a: number, b: number) => void;
   readonly setLogging: (a: number, b: number) => void;
+  readonly client_createChat: (a: number, b: number, c: number) => number;
+  readonly client_cleanMessages: (a: number, b: number, c: number) => number;
+  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_saveChatLogs: (a: number, b: number) => number;
+  readonly client_syncConversations: (a: number, b: number) => number;
+  readonly client_getConversation: (a: number, b: number, c: number, d: number) => number;
+  readonly client_removeConversation: (a: number, b: number, c: number) => number;
+  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllConversationsRead: (a: number) => number;
+  readonly client_setConversationTags: (a: number, b: number, c: number, d: number) => number;
+  readonly client_clearConversation: (a: number, b: number, c: number) => number;
+  readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
+  readonly client_filterConversation: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUsers: (a: number, b: number, c: number) => number;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number, b: number) => void;
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;

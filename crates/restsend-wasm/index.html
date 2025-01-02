@@ -653,11 +653,14 @@
                 } else {
                     await this.current.doSendText(this.conversation.topicId, this.message, {
                         reply: this.reference ? this.reference.id : undefined,
+                        onsent: function (chatId) {
+                            console.log(`message sent ${chatId}`)
+                        },
                         onack: function (req) {
                             thisPtr.message = ''
                         },
                         onfail: function (reason) {
-                            this.logText(`send message fail ${reason}`)
+                            console.log(`send message fail ${reason}`)
                         }
                     });
                 }
