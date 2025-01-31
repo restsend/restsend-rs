@@ -150,10 +150,13 @@
                     else if (content.type == 'link') {
                         node.innerHTML = `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
                     }
-
-                    // else if (content.type == 'text' || (content.type).includes('custom' || 'custom.image')) {
                     else {
-                        node.innerHTML = `<p class="w-full">${content.text}</p>`
+                        if (content.text.length > 1024) {
+                            let largeText = content.text.slice(0, 1024)
+                            node.innerHTML = `<p class="w-full text-overflow-ellipsis">${largeText}</p>`
+                        } else {
+                            node.innerHTML = `<p class="w-full">${content.text}</p>`
+                        }
                     }
                 }
                 el.appendChild(node)
