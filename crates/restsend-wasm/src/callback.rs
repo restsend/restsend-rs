@@ -1,5 +1,6 @@
 use crate::{js_util::get_function, CallbackFunction, Client};
 use restsend_sdk::{
+    callback::ChatRequestStatus,
     models::{Content, Conversation},
     request::ChatRequest,
     services::response::Upload,
@@ -269,14 +270,23 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
         }
     }
 
-    // if return true, will send `has read` to server
-    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
+    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> ChatRequestStatus {
         if let Some(cb) = self.cb_on_topic_message.borrow().as_ref() {
             let req = serde_wasm_bindgen::to_value(&message).unwrap_or(JsValue::UNDEFINED);
             match cb.call2(&JsValue::NULL, &JsValue::from_str(&topic_id), &req) {
                 Ok(result) => {
-                    if let Ok(result) = serde_wasm_bindgen::from_value(result) {
-                        return result;
+                    if result.is_object() {
+                        if let Ok(result) = serde_wasm_bindgen::from_value(result) {
+                            return result;
+                        }
+                    } else {
+                        return result
+                            .as_bool()
+                            .map(|r| ChatRequestStatus {
+                                has_read: r,
+                                ..Default::default()
+                            })
+                            .unwrap_or_default();
                     }
                 }
                 Err(e) => {
@@ -284,7 +294,7 @@ impl restsend_sdk::callback::Callback for CallbackWasmWrap {
                 }
             }
         }
-        return false;
+        return ChatRequestStatus::default();
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
         if let Some(cb) = self.cb_on_topic_read.borrow().as_ref() {

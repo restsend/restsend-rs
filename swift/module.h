@@ -309,7 +309,7 @@ typedef void (*UniffiCallbackInterfaceCallbackMethod7)(uint64_t, RustBuffer, Rus
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_CALLBACK_METHOD8
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_CALLBACK_METHOD8
-typedef void (*UniffiCallbackInterfaceCallbackMethod8)(uint64_t, RustBuffer, RustBuffer, int8_t* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceCallbackMethod8)(uint64_t, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 

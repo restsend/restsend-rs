@@ -2502,6 +2502,75 @@ public func FfiConverterTypeChatRequest_lower(_ value: ChatRequest) -> RustBuffe
 }
 
 
+public struct ChatRequestStatus {
+    /**
+     * The message is read by the user
+     */
+    public var hasRead: Bool
+    /**
+     * The message is not read count
+     */
+    public var unreadCountable: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(
+        /**
+         * The message is read by the user
+         */hasRead: Bool, 
+        /**
+         * The message is not read count
+         */unreadCountable: Bool) {
+        self.hasRead = hasRead
+        self.unreadCountable = unreadCountable
+    }
+}
+
+
+
+extension ChatRequestStatus: Equatable, Hashable {
+    public static func ==(lhs: ChatRequestStatus, rhs: ChatRequestStatus) -> Bool {
+        if lhs.hasRead != rhs.hasRead {
+            return false
+        }
+        if lhs.unreadCountable != rhs.unreadCountable {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(hasRead)
+        hasher.combine(unreadCountable)
+    }
+}
+
+
+public struct FfiConverterTypeChatRequestStatus: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChatRequestStatus {
+        return
+            try ChatRequestStatus(
+                hasRead: FfiConverterBool.read(from: &buf), 
+                unreadCountable: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ChatRequestStatus, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.hasRead, into: &buf)
+        FfiConverterBool.write(value.unreadCountable, into: &buf)
+    }
+}
+
+
+public func FfiConverterTypeChatRequestStatus_lift(_ buf: RustBuffer) throws -> ChatRequestStatus {
+    return try FfiConverterTypeChatRequestStatus.lift(buf)
+}
+
+public func FfiConverterTypeChatRequestStatus_lower(_ value: ChatRequestStatus) -> RustBuffer {
+    return FfiConverterTypeChatRequestStatus.lower(value)
+}
+
+
 public struct Content {
     public var contentType: String
     public var encrypted: Bool
@@ -4273,7 +4342,7 @@ public protocol Callback : AnyObject {
     
     func onTopicTyping(topicId: String, message: String?) 
     
-    func onNewMessage(topicId: String, message: ChatRequest)  -> Bool
+    func onNewMessage(topicId: String, message: ChatRequest)  -> ChatRequestStatus
     
     func onTopicRead(topicId: String, message: ChatRequest) 
     
@@ -4491,11 +4560,11 @@ fileprivate struct UniffiCallbackInterfaceCallback {
             uniffiHandle: UInt64,
             topicId: RustBuffer,
             message: RustBuffer,
-            uniffiOutReturn: UnsafeMutablePointer<Int8>,
+            uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> Bool in
+                () throws -> ChatRequestStatus in
                 guard let uniffiObj = try? FfiConverterCallbackInterfaceCallback.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
@@ -4506,7 +4575,7 @@ fileprivate struct UniffiCallbackInterfaceCallback {
             }
 
             
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterTypeChatRequestStatus.lower($0) }
             uniffiTraitInterfaceCall(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
@@ -6318,7 +6387,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_method_callback_on_topic_typing() != 25842) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_method_callback_on_new_message() != 18924) {
+    if (uniffi_restsend_sdk_checksum_method_callback_on_new_message() != 16537) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_callback_on_topic_read() != 55779) {

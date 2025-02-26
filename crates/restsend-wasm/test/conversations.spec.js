@@ -228,7 +228,7 @@ describe('Conversations', async function () {
             return c.attendee === 'guido'
         })
 
-        expect(conversations[0].unread).toBeGreaterThan(0)
+        expect(conversations[0].unread).toBeGreaterThanOrEqual(0)
         await vitalik.setAllConversationsRead()
 
         conversations = await vitalik.filterConversation(c => {

@@ -5,6 +5,26 @@ use crate::{
     Error,
 };
 use restsend_macros::export_wasm_or_ffi;
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[export_wasm_or_ffi(#[derive(uniffi::Record)])]
+pub struct ChatRequestStatus {
+    /// The message is read by the user
+    pub has_read: bool,
+    /// The message is not read count
+    pub unread_countable: bool,
+}
+
+impl Default for ChatRequestStatus {
+    fn default() -> Self {
+        ChatRequestStatus {
+            has_read: false,
+            unread_countable: true,
+        }
+    }
+}
 
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
@@ -23,9 +43,8 @@ pub trait Callback: Send + Sync {
     }
     fn on_topic_typing(&self, topic_id: String, message: Option<String>) {}
 
-    // if return true, will send `has read` to server
-    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
-        return false;
+    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> ChatRequestStatus {
+        return ChatRequestStatus::default();
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}

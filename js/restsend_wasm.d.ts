@@ -29,191 +29,49 @@ export class Client {
   shutdown(): Promise<void>;
   connect(): Promise<void>;
   /**
-   *
-   * Send message with content
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `content` - The content Object
-   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-   *     * `text` String - The text message
-   *     * `attachment` Object - The attachment object
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-   *     * `size` Number - The size of the content, only for file, optional
-   *     * `placeholder` String - The placeholder of the content, optional
-   *     * `width` Number - The width of the content, only for image/video, optional
-   *     * `height` Number - The height of the content, only for image/video, optional
-   *     * `reply` String - The reply message id, optional
-   *     * `mentions` Array - Mention to users, optional
-   *     * `mentionsAll` Boolean - Mention to all users, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.doSend(topicId, {
-   *     type: 'wx.text',
-   *     text: 'hello',
-   * }, {
-   *     mentions: undefined, // The mention user id list, optional
-   *     mentionAll:  false, // Mention all users, optional
-   *     reply:  undefined, // The reply message id, optional
-   *     onsent:  () => {}, // The callback when message sent
-   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
-   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-   *     onfail:  (reason:String)  => {} // The callback when message failed
-   * });
-   * ```
+   * Get user info
+   * #Arguments
+   * * `userId` - user id
+   * * `blocking` - blocking fetch from server
+   * #Return
+   * User info
    */
-  doSend(topicId: string, content: any, option: any): Promise<string>;
+  getUser(userId: string, blocking?: boolean): Promise<any>;
   /**
-   * Send typing status
-   * # Arguments
-   * * `topicId` - The topic id    
+   * Get multiple users info
+   * #Arguments
+   * * `userIds` - Array of user id
+   * #Return
+   * Array of user info
    */
-  doTyping(topicId: string): Promise<void>;
+  getUsers(userIds: (string)[]): Promise<any>;
   /**
-   * Recall message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `messageId` - The message id
+   * Set user remark name
+   * #Arguments
+   * * `userId` - user id
+   * * `remark` - remark name
    */
-  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
+  setUserRemark(userId: string, remark: string): Promise<void>;
   /**
-   * Send voice message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `mentions` Array - The mention user id list, optional
-   *     * `mentionAll` boolean, // Mention all users, optional
-   *     * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
+   * Set user star
+   * #Arguments
+   * * `userId` - user id
+   * * `star` - star
    */
-  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
+  setUserStar(userId: string, star: boolean): Promise<void>;
   /**
-   * Send video message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
+   * Set user block
+   * #Arguments
+   * * `userId` - user id
+   * * `block` - block
    */
-  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
+  setUserBlock(userId: string, block: boolean): Promise<void>;
   /**
-   * Send file message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `size` Number - The size of the content, only for file, optional
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
+   * Set allow guest chat
+   * #Arguments
+   * * `allow` - allow
    */
-  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send location message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `latitude` - The latitude
-   * * `longitude` - The longitude
-   * * `address` - The address
-   * * `option` - The send option
-   *   * `mentions` Array - The mention user id list, optional
-   *   * `mentionAll` boolean, // Mention all users, optional
-   *   * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
-  /**
-   * Send link message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `url` - The url
-   * * `option` - The send option
-   *  * `placeholder` String - The placeholder of the content, optional
-   *  * `mentions` Array - The mention user id list, optional
-   *  * `mentionAll` boolean, // Mention all users, optional
-   *  * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLink(topicId: string, url: string, option: any): Promise<string>;
-  /**
-   * Send invite message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `logIds` Array - The log id list
-   * * `option` - The send option
-   * # Return    
-   * The message id
-   */
-  doSendLogs(topicId: string, sourceTopicId: string, logIds: (string)[], option: any): Promise<string>;
-  /**
-   * Send text message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `text` - The text message
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendText(topicId, text, {
-   *     mentions: [] || undefined, // The mention user id list, optional
-   *     reply: String || undefined, - The reply message id, optional
-   *     onsent:  () => {},
-   *     onprogress:  (progress:Number, total:Number)  =>{},
-   *     onack:  (req:ChatRequest)  => {},
-   *     onfail:  (reason:String)  => {}
-   * });
-   * ```
-   */
-  doSendText(topicId: string, text: string, option: any): Promise<string>;
-  /**
-   *
-   * Send image message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   *     * `file` File - The file object
-   *     * `url` String  - The file name
-   * * `option` - The send option
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-   * ```
-   */
-  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Update sent chat message's extra
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `chatId` - The chat id
-   * * `extra` - The extra, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   */
-  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
+  setAllowGuestChat(allow: boolean): Promise<void>;
   /**
    * Create a new topic
    * #Arguments
@@ -506,49 +364,191 @@ export class Client {
    */
   filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
   /**
-   * Get user info
-   * #Arguments
-   * * `userId` - user id
-   * * `blocking` - blocking fetch from server
-   * #Return
-   * User info
+   *
+   * Send message with content
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `content` - The content Object
+   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+   *     * `text` String - The text message
+   *     * `attachment` Object - The attachment object
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+   *     * `size` Number - The size of the content, only for file, optional
+   *     * `placeholder` String - The placeholder of the content, optional
+   *     * `width` Number - The width of the content, only for image/video, optional
+   *     * `height` Number - The height of the content, only for image/video, optional
+   *     * `reply` String - The reply message id, optional
+   *     * `mentions` Array - Mention to users, optional
+   *     * `mentionsAll` Boolean - Mention to all users, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.doSend(topicId, {
+   *     type: 'wx.text',
+   *     text: 'hello',
+   * }, {
+   *     mentions: undefined, // The mention user id list, optional
+   *     mentionAll:  false, // Mention all users, optional
+   *     reply:  undefined, // The reply message id, optional
+   *     onsent:  () => {}, // The callback when message sent
+   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
+   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+   *     onfail:  (reason:String)  => {} // The callback when message failed
+   * });
+   * ```
    */
-  getUser(userId: string, blocking?: boolean): Promise<any>;
+  doSend(topicId: string, content: any, option: any): Promise<string>;
   /**
-   * Get multiple users info
-   * #Arguments
-   * * `userIds` - Array of user id
-   * #Return
-   * Array of user info
+   * Send typing status
+   * # Arguments
+   * * `topicId` - The topic id    
    */
-  getUsers(userIds: (string)[]): Promise<any>;
+  doTyping(topicId: string): Promise<void>;
   /**
-   * Set user remark name
-   * #Arguments
-   * * `userId` - user id
-   * * `remark` - remark name
+   * Recall message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `messageId` - The message id
    */
-  setUserRemark(userId: string, remark: string): Promise<void>;
+  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
   /**
-   * Set user star
-   * #Arguments
-   * * `userId` - user id
-   * * `star` - star
+   * Send voice message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `mentions` Array - The mention user id list, optional
+   *     * `mentionAll` boolean, // Mention all users, optional
+   *     * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
    */
-  setUserStar(userId: string, star: boolean): Promise<void>;
+  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
   /**
-   * Set user block
-   * #Arguments
-   * * `userId` - user id
-   * * `block` - block
+   * Send video message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
    */
-  setUserBlock(userId: string, block: boolean): Promise<void>;
+  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
   /**
-   * Set allow guest chat
-   * #Arguments
-   * * `allow` - allow
+   * Send file message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `size` Number - The size of the content, only for file, optional
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
    */
-  setAllowGuestChat(allow: boolean): Promise<void>;
+  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send location message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `latitude` - The latitude
+   * * `longitude` - The longitude
+   * * `address` - The address
+   * * `option` - The send option
+   *   * `mentions` Array - The mention user id list, optional
+   *   * `mentionAll` boolean, // Mention all users, optional
+   *   * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
+  /**
+   * Send link message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `url` - The url
+   * * `option` - The send option
+   *  * `placeholder` String - The placeholder of the content, optional
+   *  * `mentions` Array - The mention user id list, optional
+   *  * `mentionAll` boolean, // Mention all users, optional
+   *  * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLink(topicId: string, url: string, option: any): Promise<string>;
+  /**
+   * Send invite message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `logIds` Array - The log id list
+   * * `option` - The send option
+   * # Return    
+   * The message id
+   */
+  doSendLogs(topicId: string, sourceTopicId: string, logIds: (string)[], option: any): Promise<string>;
+  /**
+   * Send text message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `text` - The text message
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendText(topicId, text, {
+   *     mentions: [] || undefined, // The mention user id list, optional
+   *     reply: String || undefined, - The reply message id, optional
+   *     onsent:  () => {},
+   *     onprogress:  (progress:Number, total:Number)  =>{},
+   *     onack:  (req:ChatRequest)  => {},
+   *     onfail:  (reason:String)  => {}
+   * });
+   * ```
+   */
+  doSendText(topicId: string, text: string, option: any): Promise<string>;
+  /**
+   *
+   * Send image message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   *     * `file` File - The file object
+   *     * `url` String  - The file name
+   * * `option` - The send option
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+   * ```
+   */
+  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Update sent chat message's extra
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `chatId` - The chat id
+   * * `extra` - The extra, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   */
+  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
   /**
    * get the current connection status
    * return: connecting, connected, broken, shutdown
@@ -743,18 +743,12 @@ export interface InitOutput {
   readonly client_set_keepalive: (a: number, b: number) => void;
   readonly client_shutdown: (a: number) => number;
   readonly client_connect: (a: number) => number;
-  readonly client_doSend: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doTyping: (a: number, b: number, c: number) => number;
-  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendVoice: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendVideo: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendFile: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
-  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
-  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
-  readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
+  readonly client_getUsers: (a: number, b: number, c: number) => number;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
+  readonly client_setAllowGuestChat: (a: number, b: number) => number;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -775,19 +769,6 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_set_onconnected: (a: number, b: number) => void;
-  readonly client_set_onconnecting: (a: number, b: number) => void;
-  readonly client_set_ontokenexpired: (a: number, b: number) => void;
-  readonly client_set_onbroken: (a: number, b: number) => void;
-  readonly client_set_onkickoff: (a: number, b: number) => void;
-  readonly client_set_onsystemrequest: (a: number, b: number) => void;
-  readonly client_set_onunknownrequest: (a: number, b: number) => void;
-  readonly client_set_ontopictyping: (a: number, b: number) => void;
-  readonly client_set_ontopicmessage: (a: number, b: number) => void;
-  readonly client_set_ontopicread: (a: number, b: number) => void;
-  readonly client_set_onconversationsupdated: (a: number, b: number) => void;
-  readonly client_set_onconversationsremoved: (a: number, b: number) => void;
-  readonly setLogging: (a: number, b: number) => void;
   readonly client_createChat: (a: number, b: number, c: number) => number;
   readonly client_cleanMessages: (a: number, b: number, c: number) => number;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => number;
@@ -805,12 +786,31 @@ export interface InitOutput {
   readonly client_clearConversation: (a: number, b: number, c: number) => number;
   readonly client_setConversationExtra: (a: number, b: number, c: number, d: number) => number;
   readonly client_filterConversation: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => number;
-  readonly client_getUsers: (a: number, b: number, c: number) => number;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => number;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => number;
-  readonly client_setAllowGuestChat: (a: number, b: number) => number;
+  readonly client_doSend: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doTyping: (a: number, b: number, c: number) => number;
+  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendVoice: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendVideo: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendFile: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number) => number;
+  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => number;
+  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: number) => number;
+  readonly client_doSendImage: (a: number, b: number, c: number, d: number, e: number) => number;
+  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => number;
+  readonly client_set_onconnected: (a: number, b: number) => void;
+  readonly client_set_onconnecting: (a: number, b: number) => void;
+  readonly client_set_ontokenexpired: (a: number, b: number) => void;
+  readonly client_set_onbroken: (a: number, b: number) => void;
+  readonly client_set_onkickoff: (a: number, b: number) => void;
+  readonly client_set_onsystemrequest: (a: number, b: number) => void;
+  readonly client_set_onunknownrequest: (a: number, b: number) => void;
+  readonly client_set_ontopictyping: (a: number, b: number) => void;
+  readonly client_set_ontopicmessage: (a: number, b: number) => void;
+  readonly client_set_ontopicread: (a: number, b: number) => void;
+  readonly client_set_onconversationsupdated: (a: number, b: number) => void;
+  readonly client_set_onconversationsremoved: (a: number, b: number) => void;
+  readonly setLogging: (a: number, b: number) => void;
   readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number, b: number) => void;
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;

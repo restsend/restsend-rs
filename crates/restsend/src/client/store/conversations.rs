@@ -1,5 +1,6 @@
 use super::{is_cache_expired, ClientStore};
 use crate::{
+    callback::ChatRequestStatus,
     models::{
         conversation::{ConversationUpdateFields, Extra, Tags},
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
@@ -73,7 +74,7 @@ async fn get_conversation_last_readable_message(
 pub(super) async fn merge_conversation_from_chat(
     message_storage: Arc<Storage>,
     req: &ChatRequest,
-    has_read: bool,
+    req_status: &ChatRequestStatus,
 ) -> Option<Conversation> {
     let t = message_storage.table::<Conversation>().await;
     let mut conversation = t
@@ -139,6 +140,7 @@ pub(super) async fn merge_conversation_from_chat(
                 if req.seq > conversation.last_read_seq
                     && !content.unreadable
                     && !req.chat_id.is_empty()
+                    && req_status.unread_countable
                 {
                     conversation.unread += 1;
                 }
@@ -158,7 +160,7 @@ pub(super) async fn merge_conversation_from_chat(
         }
     }
 
-    if has_read {
+    if req_status.has_read {
         conversation.last_read_at = Some(req.created_at.clone());
         conversation.last_read_seq = conversation.last_seq;
         conversation.unread = 0;

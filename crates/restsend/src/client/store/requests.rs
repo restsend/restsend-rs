@@ -117,18 +117,18 @@ impl ClientStore {
                     return resps;
                 }
 
-                let has_read = callback
+                let req_status = callback
                     .lock()
                     .unwrap()
                     .as_ref()
                     .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()))
                     .unwrap_or_default();
 
-                match merge_conversation_from_chat(self.message_storage.clone(), &req, has_read)
+                match merge_conversation_from_chat(self.message_storage.clone(), &req, &req_status)
                     .await
                 {
                     Some(mut conversation) => {
-                        if has_read
+                        if req_status.has_read
                             && req.seq != 0
                             && !req.content.map(|c| c.unreadable).unwrap_or(false)
                         {

@@ -1,11 +1,10 @@
 use crate::{
-    callback,
+    callback::{self, ChatRequestStatus},
     client::{tests::TEST_ENDPOINT, Client},
     models::{ChatLogStatus, Conversation},
     request::ChatRequest,
     services::auth::{login_with_password, signup},
-    utils::check_until,
-    utils::init_log,
+    utils::{check_until, init_log},
 };
 use log::{debug, info, warn};
 use std::{
@@ -29,14 +28,14 @@ impl callback::Callback for TestCallbackImpl {
         self.is_connected.store(true, Ordering::Relaxed);
     }
     // if return true, will send `has read` to server
-    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> bool {
+    fn on_new_message(&self, topic_id: String, message: ChatRequest) -> ChatRequestStatus {
         warn!(
             "on_topic_message topic_id:{} message: {:?}",
             topic_id, message
         );
         self.is_recv_message.store(true, Ordering::Relaxed);
         self.recv_message_count.fetch_add(1, Ordering::Relaxed);
-        return false;
+        return ChatRequestStatus::default();
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
         warn!("on_topic_read: topic_id:{} message:{:?}", topic_id, message);
