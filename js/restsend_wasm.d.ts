@@ -830,8 +830,8 @@ export interface InitOutput {
   readonly __wbindgen_export_3: WebAssembly.Table;
   readonly __wbindgen_add_to_stack_pointer: (a: number) => number;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h887f1b8fa111cb71: (a: number, b: number) => void;
-  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h1736b42104187b0a: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h6ba7c3f642d345fe: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h19afbf9821d48e9a: (a: number, b: number) => void;
   readonly _dyn_core__ops__function__FnMut__A____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h66556920b1f35d36: (a: number, b: number, c: number) => void;
   readonly wasm_bindgen__convert__closures__invoke2_mut__h3767371f6ec92a1e: (a: number, b: number, c: number, d: number) => void;
 }

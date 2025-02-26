@@ -172,7 +172,16 @@ fn publish_ios_pods() {
     std::env::set_current_dir("swift").unwrap();
 
     let status = Command::new("zip")
-        .args(&["-x", "*.zip", "-r", &zip_name, "restsendFFI.xcframework"])
+        .args(&[
+            "-x",
+            "*.zip",
+            "-r",
+            &zip_name,
+            "restsendFFI.xcframework",
+            "module.h",
+            "module.modulemap",
+            "restsend.swift",
+        ])
         .status();
 
     match status {

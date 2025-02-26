@@ -109,6 +109,15 @@ async fn signin_or_signup(
     })
 }
 
+#[export_wasm_or_ffi]
+pub async fn guest_login(endpoint: String, guest_id: String) -> Result<AuthInfo> {
+    let data = serde_json::json!({
+        "guestId": guest_id,
+        "remember": true,
+    });
+    signin_or_signup(&endpoint, "/api/guest/login", &guest_id, data.to_string()).await
+}
+
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login() {
