@@ -916,7 +916,7 @@ RustBuffer uniffi_restsend_sdk_fn_func_get_current_user(RustBuffer root, RustCal
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_FUNC_GUEST_LOGIN
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_FUNC_GUEST_LOGIN
-uint64_t uniffi_restsend_sdk_fn_func_guest_login(RustBuffer endpoint, RustBuffer guest_id
+uint64_t uniffi_restsend_sdk_fn_func_guest_login(RustBuffer endpoint, RustBuffer guest_id, RustBuffer extra
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_FUNC_INIT_LOG

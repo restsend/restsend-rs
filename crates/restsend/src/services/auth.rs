@@ -1,4 +1,5 @@
-use crate::error::ClientError::{Forbidden, HTTP};
+use crate::error::ClientError::{self, Forbidden, HTTP};
+use crate::models::conversation::Extra;
 use crate::models::AuthInfo;
 use crate::services::{handle_response, make_get_request, make_post_request, response};
 use crate::utils::{elapsed, now_millis};
@@ -110,11 +111,19 @@ async fn signin_or_signup(
 }
 
 #[export_wasm_or_ffi]
-pub async fn guest_login(endpoint: String, guest_id: String) -> Result<AuthInfo> {
-    let data = serde_json::json!({
+pub async fn guest_login(
+    endpoint: String,
+    guest_id: String,
+    extra: Option<Extra>,
+) -> Result<AuthInfo> {
+    let mut data = serde_json::json!({
         "guestId": guest_id,
         "remember": true,
     });
+    if let Some(extra) = extra {
+        data["extra"] = serde_json::to_value(extra)
+            .map_err(|_| ClientError::Other("invalid extra type".to_string()))?;
+    }
     signin_or_signup(&endpoint, "/api/guest/login", &guest_id, data.to_string()).await
 }
 
@@ -160,6 +169,20 @@ async fn test_login() {
     assert!(!info.token.is_empty());
 
     assert_eq!(info.token, token);
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[tokio::test]
+async fn test_guest_login() {
+    let user_id = "alice";
+    let info = guest_login(
+        super::tests::TEST_ENDPOINT.to_string(),
+        user_id.to_string(),
+        None,
+    )
+    .await;
+    println!("{:?}", info);
+    assert!(info.is_ok());
 }
 
 #[cfg(not(target_family = "wasm"))]

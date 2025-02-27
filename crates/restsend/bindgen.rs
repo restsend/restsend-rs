@@ -184,11 +184,9 @@ fn build_android_aar(
     if !publish {
         return Ok(());
     }
-    if publish {
-        if mode != "release" {
-            println!("🔥 Only publish release mode");
-            return Ok(());
-        }
+    if mode != "release" {
+        println!("🔥 Only publish release mode");
+        return Ok(());
     }
     let aar_target = build_dir
         .path()
@@ -305,16 +303,27 @@ fn build_xcframework(crate_name: &str, mode: String) {
 
 fn publish_ios_pods(publish_server: String) {
     // Get version from `swift/RestsendSdk.podspec`
-    let podspec = std::fs::read_to_string("swift/RestsendSdk.podspec").unwrap();
-    let version = podspec
+    let cargo_toml = std::fs::read_to_string("crates/restsend/Cargo.toml").unwrap();
+    let version = cargo_toml
         .lines()
-        .find(|line| line.contains("s.version"))
+        .find(|line| line.contains("version"))
         .unwrap()
         .split("\"")
         .nth(1)
         .unwrap();
 
     println!("Publish version: {}", version);
+
+    // update version in podspec
+    let podspec = std::fs::read_to_string("swift/RestsendSdk.podspec").unwrap();
+    let podspec = podspec.replace(
+        podspec
+            .lines()
+            .find(|line| line.contains("version"))
+            .unwrap(),
+        &format!("    s.version = \"{}\"", version),
+    );
+    std::fs::write("swift/RestsendSdk.podspec", podspec).unwrap();
 
     let build_dir = tempdir::TempDir::new_in("", ".pods").unwrap();
 

@@ -6023,11 +6023,11 @@ public func getCurrentUser(root: String) -> AuthInfo? {
     )
 })
 }
-public func guestLogin(endpoint: String, guestId: String)async throws  -> AuthInfo {
+public func guestLogin(endpoint: String, guestId: String, extra: [String: String]?)async throws  -> AuthInfo {
     return
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_restsend_sdk_fn_func_guest_login(FfiConverterString.lower(endpoint),FfiConverterString.lower(guestId)
+                uniffi_restsend_sdk_fn_func_guest_login(FfiConverterString.lower(endpoint),FfiConverterString.lower(guestId),FfiConverterOptionDictionaryStringString.lower(extra)
                 )
             },
             pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
@@ -6126,7 +6126,7 @@ private var initializationResult: InitializationResult {
     if (uniffi_restsend_sdk_checksum_func_get_current_user() != 38664) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_restsend_sdk_checksum_func_guest_login() != 7695) {
+    if (uniffi_restsend_sdk_checksum_func_guest_login() != 52093) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_func_init_log() != 7959) {
