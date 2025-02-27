@@ -29,11 +29,16 @@ struct Cli {
 
     #[clap(long)]
     out_dir: Option<PathBuf>,
+    #[clap(
+        long,
+        default_value = "ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/"
+    )]
+    publish_server: Option<String>,
 }
 fn main() {
     let args = Cli::parse();
     let publish = args.publish.unwrap_or(false);
-
+    let publish_server = args.publish_server.clone().unwrap_or_default();
     let crate_name = std::env::var("CARGO_PKG_NAME")
         .unwrap_or("restsend_ffi".to_string())
         .replace("-", "_");
@@ -51,14 +56,168 @@ fn main() {
             build_xcframework(crate_name, mode.clone());
             if publish {
                 if mode == "release" {
-                    publish_ios_pods();
+                    publish_ios_pods(publish_server);
                 } else {
                     println!("🔥 Only publish release mode");
                 }
             }
         }
+        TargetLanguage::Kotlin => {
+            build_android_aar(crate_name, mode.clone(), publish, publish_server)
+                .expect("build aar failed");
+        }
         _ => return,
     }
+}
+
+fn build_android_aar(
+    crate_name: &str,
+    mode: String,
+    publish: bool,
+    publish_server: String,
+) -> Result<(), Error> {
+    let cargo_toml = std::fs::read_to_string("crates/restsend/Cargo.toml").unwrap();
+    let version = cargo_toml
+        .lines()
+        .find(|line| line.contains("version"))
+        .unwrap()
+        .split("\"")
+        .nth(1)
+        .unwrap();
+
+    println!("Publish version: {}", version);
+
+    let aar_name = format!("restsend-ffi-{}", version);
+
+    let build_dir = tempdir::TempDir::new_in("", ".aarbuild").unwrap();
+    println!(
+        "Build aar in {:?} mode: {} filename: {}",
+        build_dir.path(),
+        mode,
+        aar_name
+    );
+    println!("▸ Sync sources {:?}", build_dir.path());
+    std::fs::create_dir_all(build_dir.path().join("jniLibs")).unwrap();
+    std::fs::create_dir_all(build_dir.path().join("libs")).unwrap();
+    std::fs::create_dir_all(
+        build_dir
+            .path()
+            .join("src")
+            .join("uniffi")
+            .join("restsend_sdk"),
+    )
+    .unwrap();
+
+    let mut librarys: Vec<String> = vec![];
+    let targets = vec![
+        "aarch64-linux-android",
+        "armv7-linux-androideabi",
+        "x86_64-linux-android",
+    ];
+
+    for target in targets {
+        let library = format!("target/{}/{}/lib{}.so", target, mode.clone(), crate_name);
+        if std::path::Path::new(&library).exists() {
+            librarys.push(library);
+        }
+    }
+
+    if librarys.len() == 0 {
+        panic!("🔥 No library found run `cargo build --target aarch64-linux-android --target armv7-linux-androideabi --target x86_64-linux-android` first");
+    }
+
+    for library in librarys {
+        println!("▸ Add library {}", library);
+        std::fs::copy(
+            &library,
+            build_dir
+                .path()
+                .join("jniLibs")
+                .join(library.split("/").last().unwrap()),
+        )
+        .unwrap();
+    }
+    // add kotlin library .kt file
+    let kotlin_file = "kotlin/uniffi/restsend_sdk/restsend_sdk.kt";
+    if std::path::Path::new(kotlin_file).exists() {
+        println!("▸ Add kotlin file {}", kotlin_file);
+        std::fs::copy(
+            kotlin_file,
+            build_dir
+                .path()
+                .join("src")
+                .join("uniffi")
+                .join("restsend_sdk")
+                .join("restsend_sdk.kt"),
+        )
+        .unwrap();
+    }
+
+    let status = Command::new("jar")
+        .args(&[
+            "cvf",
+            build_dir
+                .path()
+                .join("libs")
+                .join(format!("{}.jar", aar_name))
+                .to_str()
+                .unwrap(),
+            "-C",
+            build_dir.path().join("jniLibs").to_str().unwrap(),
+            ".",
+        ])
+        .status();
+
+    match status {
+        Ok(status) => {
+            if !status.success() {
+                println!("🔥 Build aar failed");
+                panic!("jar failed");
+            } else {
+                println!("🎉 Build aar success");
+            }
+        }
+        Err(e) => {
+            panic!("jar failed: {}", e);
+        }
+    }
+    if !publish {
+        return Ok(());
+    }
+    if publish {
+        if mode != "release" {
+            println!("🔥 Only publish release mode");
+            return Ok(());
+        }
+    }
+    let aar_target = build_dir
+        .path()
+        .join("libs")
+        .join(format!("{}.jar", aar_name))
+        .to_str()
+        .unwrap()
+        .to_string();
+
+    let aar_size = std::fs::metadata(&aar_target).unwrap().len() as f64 / 1024.0 / 1024.0;
+    println!("▸ Sync aar size: {} M", aar_size);
+
+    let status = Command::new("rsync")
+        .args(&[&aar_target, &publish_server])
+        .status();
+    match status {
+        Ok(status) => {
+            if !status.success() {
+                println!("🔥 Upload aar failed {:?}", aar_target);
+                panic!("rsync failed");
+            } else {
+                println!("🎉 Upload aar success {}", aar_target);
+            }
+        }
+        Err(e) => {
+            panic!("rsync failed: {}", e);
+        }
+    }
+    Ok(())
 }
 
 fn build_xcframework(crate_name: &str, mode: String) {
@@ -144,7 +303,7 @@ fn build_xcframework(crate_name: &str, mode: String) {
     }
 }
 
-fn publish_ios_pods() {
+fn publish_ios_pods(publish_server: String) {
     // Get version from `swift/RestsendSdk.podspec`
     let podspec = std::fs::read_to_string("swift/RestsendSdk.podspec").unwrap();
     let version = podspec
@@ -200,21 +359,21 @@ fn publish_ios_pods() {
     let zip_size = std::fs::metadata(&zip_name).unwrap().len() as f64 / 1024.0 / 1024.0;
     println!("▸ Compressed xcframework size: {} M", zip_size);
 
-    let status = Command::new("scp")
-        .args(&[&zip_name, "ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/"])
+    let status = Command::new("rsync")
+        .args(&[&zip_name, &publish_server])
         .status();
 
     match status {
         Ok(status) => {
             if !status.success() {
                 println!("🔥 Upload xcframework failed {:?}", zip_name);
-                panic!("scp failed");
+                panic!("rsync failed");
             } else {
                 println!("🎉 Upload xcframework success {}", zip_name);
             }
         }
         Err(e) => {
-            panic!("scp failed: {}", e);
+            panic!("rsync failed: {}", e);
         }
     }
 }
@@ -245,6 +404,10 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
             "target/aarch64-apple-ios-sim/{}/lib{}.{}",
             current_mode, crate_name, ext
         ),
+        format!(
+            "target/aarch64-linux-android/{}/lib{}.{}",
+            current_mode, crate_name, ext
+        ),
         format!("target/{}/lib{}.{}", current_mode, crate_name, ext),
     ];
 
@@ -259,9 +422,9 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
 
     if mtimes.len() == 0 {
         if std::env::consts::OS == "macos" {
-            println!("🔥 No library found run `cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin` first");
+            println!("🔥 No {current_mode},library found run `cargo build --target aarch64-apple-ios-sim --target x86_64-apple-darwin` first");
         } else {
-            println!("🔥 No library found run `cargo build` first");
+            println!("🔥 No {current_mode} library found run `cargo build` first");
         }
     }
 
