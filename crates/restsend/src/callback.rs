@@ -28,7 +28,7 @@ impl Default for ChatRequestStatus {
 
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
-pub trait Callback: Send + Sync {
+pub trait RsCallback: Send + Sync {
     fn on_connected(&self) {}
     fn on_connecting(&self) {}
     fn on_token_expired(&self, reason: String) {}

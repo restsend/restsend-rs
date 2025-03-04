@@ -3,7 +3,7 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::{Callback, DownloadCallback},
+    callback::{DownloadCallback, RsCallback},
     error::ClientError,
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
@@ -89,7 +89,7 @@ impl Client {
         Arc::new(Self::new_sync(root_path, db_name, info))
     }
 
-    pub fn set_callback(&self, callback: Option<Box<dyn Callback>>) {
+    pub fn set_callback(&self, callback: Option<Box<dyn RsCallback>>) {
         *self.store.callback.lock().unwrap() = callback;
     }
 

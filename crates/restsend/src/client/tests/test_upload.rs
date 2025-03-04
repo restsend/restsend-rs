@@ -24,7 +24,7 @@ use tempfile::NamedTempFile;
 
 pub(super) struct TestUploadCallbackImpl {}
 
-impl callback::Callback for TestUploadCallbackImpl {
+impl callback::RsCallback for TestUploadCallbackImpl {
     fn on_connected(&self) {
         warn!("on_connected");
     }

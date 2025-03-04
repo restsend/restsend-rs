@@ -69,7 +69,12 @@ async fn test_sync_conversations() {
 
     impl callback::SyncConversationsCallback for TestSyncConversationCallbackImpl {
         fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {
-            log::info!("on_success updated_at: {} last_removed_at: {:?} count: {}", updated_at, last_removed_at, count);
+            log::info!(
+                "on_success updated_at: {} last_removed_at: {:?} count: {}",
+                updated_at,
+                last_removed_at,
+                count
+            );
             self.sync_count
                 .store(count, std::sync::atomic::Ordering::Relaxed);
         }
@@ -90,7 +95,7 @@ async fn test_sync_conversations() {
         pub removed_topic_ids: Arc<Mutex<HashSet<String>>>,
     }
 
-    impl callback::Callback for TestRemovedCallbackImpl {
+    impl callback::RsCallback for TestRemovedCallbackImpl {
         fn on_conversation_removed(&self, conversation_id: String) {
             log::info!("on_conversation_removed: {}", conversation_id);
             self.removed_topic_ids

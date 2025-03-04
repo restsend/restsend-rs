@@ -1,0 +1,4 @@
+module restsend_sdkFFI {
+    header "restsend_sdkFFI.h"
+    export *
+}

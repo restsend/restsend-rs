@@ -115,8 +115,11 @@ rustc 1.77.2 (25ef9e3d8 2024-04-09)
 
 ```shell
 export NDK_HOME=$HOME/ndk
-cargo ndk -t arm64-v8a -t x86_64 -o ./jniLibs build --release
+cargo run --release --bin bindgen -- --language kotlin 
+cargo ndk -t arm64-v8a -o ./jniLibs build --release
 
+cd android-sdk
+gradle assembleRelease
 ```
 
 ### 如何测试
@@ -139,7 +142,7 @@ cargo ndk -t arm64-v8a -t x86_64 -o ./jniLibs build --release
 
     ```gradle
     dependencies {
-        implementation 'net.java.dev.jna:jna:5.5.0@aar'
+        implementation 'net.java.dev.jna:jna:5.16.0'
         ....
     }
     ```

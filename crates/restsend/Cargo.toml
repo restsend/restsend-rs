@@ -1,6 +1,6 @@
 [package]
 name = "restsend-sdk"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2021"
 
 [lib]
@@ -14,8 +14,8 @@ indexeddb = ["web"]
 
 [dependencies]
 restsend-macros = { path = "../restsend-macros" }
-uniffi = { version = "0.28.3", features = ["tokio", "build", "cli"] }
-uniffi_bindgen = "0.27.3"
+uniffi = { version = "0.29.0", features = ["tokio", "build", "cli"] }
+uniffi_bindgen = "0.29.0"
 wasm-bindgen = "0.2.99"
 wasm-bindgen-futures = "0.4.49"
 tokio-util = "0.7.13"

@@ -1,5 +1,5 @@
 use self::attachments::UploadTask;
-use crate::callback::Callback;
+use crate::callback::RsCallback;
 use crate::models::Attachment;
 use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
@@ -98,7 +98,7 @@ impl PendingRequest {
 type PendingRequests = Arc<Mutex<HashMap<String, PendingRequest>>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
-pub(super) type CallbackRef = Arc<Mutex<Option<Box<dyn Callback>>>>;
+pub(super) type CallbackRef = Arc<Mutex<Option<Box<dyn RsCallback>>>>;
 pub(super) struct ClientStore {
     user_id: String,
     endpoint: String,

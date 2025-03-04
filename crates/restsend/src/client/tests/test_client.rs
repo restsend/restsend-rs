@@ -23,7 +23,7 @@ pub(super) struct TestCallbackImpl {
     pub is_update_conversation: Arc<AtomicBool>,
 }
 
-impl callback::Callback for TestCallbackImpl {
+impl callback::RsCallback for TestCallbackImpl {
     fn on_connected(&self) {
         self.is_connected.store(true, Ordering::Relaxed);
     }

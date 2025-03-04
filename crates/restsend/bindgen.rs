@@ -6,9 +6,7 @@ use std::vec;
 
 use camino::Utf8Path;
 use clap::Parser;
-
-use uniffi_bindgen::bindings::TargetLanguage;
-use uniffi_bindgen::{self, BindingGeneratorDefault};
+use uniffi::{KotlinBindingGenerator, PythonBindingGenerator, SwiftBindingGenerator};
 
 #[derive(Parser, Debug)]
 struct Cli {
@@ -43,11 +41,11 @@ fn main() {
         .unwrap_or("restsend_ffi".to_string())
         .replace("-", "_");
     let crate_name = crate_name.as_str();
+    let language = args.language.clone().unwrap_or_default();
+    let mode = bindgen_with_language(crate_name, &args).expect("bindgen failed");
 
-    let (lang, mode) = bindgen_with_language(crate_name, args).unwrap();
-
-    match lang {
-        TargetLanguage::Swift => {
+    match language.as_str() {
+        "swift" => {
             // only mac support xcframework
             if std::env::consts::OS != "macos" {
                 println!("Only macos support xcframework build");
@@ -62,7 +60,7 @@ fn main() {
                 }
             }
         }
-        TargetLanguage::Kotlin => {
+        "kotlin" => {
             build_android_aar(crate_name, mode.clone(), publish, publish_server)
                 .expect("build aar failed");
         }
@@ -346,9 +344,9 @@ fn publish_ios_pods(publish_server: String) {
             "-r",
             &zip_name,
             "restsendFFI.xcframework",
-            "module.h",
-            "module.modulemap",
-            "restsend.swift",
+            "restsend_sdkFFI.h",
+            "restsend_sdkFFI.modulemap",
+            "restsend_sdk.swift",
         ])
         .status();
 
@@ -387,11 +385,11 @@ fn publish_ios_pods(publish_server: String) {
     }
 }
 
-fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage, String), Error> {
+fn bindgen_with_language(crate_name: &str, args: &Cli) -> Result<String, Error> {
     let ext = std::env::consts::DLL_EXTENSION;
 
-    let language = args.language.unwrap_or("swift".to_string());
-    let current_mode = match args.mode {
+    let language = args.language.clone().unwrap_or("swift".to_string());
+    let current_mode = match args.mode.clone() {
         Some(mode) => mode,
         None => {
             let bin_path = std::env::current_exe().unwrap();
@@ -446,19 +444,49 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
     let out_dir = Utf8Path::from_path(&language).unwrap();
     let source = Utf8Path::from_path(&source).unwrap();
     let language = language.to_str().unwrap().try_into().unwrap();
+    let config_supplier = uniffi_bindgen::EmptyCrateConfigSupplier;
 
-    uniffi_bindgen::library_mode::generate_bindings(
-        source,
-        Some(crate_name.to_string()),
-        &BindingGeneratorDefault {
-            target_languages: vec![language],
-            try_format_code: false,
-        },
-        None,
-        &out_dir,
-        false,
-    )
-    .unwrap();
+    match language {
+        "swift" => {
+            uniffi_bindgen::library_mode::generate_bindings(
+                source,
+                Some(crate_name.to_string()),
+                &SwiftBindingGenerator,
+                &config_supplier,
+                None,
+                &out_dir,
+                false,
+            )
+            .expect("generate bindings failed");
+        }
+        "kotlin" => {
+            uniffi_bindgen::library_mode::generate_bindings(
+                source,
+                Some(crate_name.to_string()),
+                &KotlinBindingGenerator,
+                &config_supplier,
+                None,
+                &out_dir,
+                false,
+            )
+            .expect("generate bindings failed");
+        }
+        "python" => {
+            uniffi_bindgen::library_mode::generate_bindings(
+                source,
+                Some(crate_name.to_string()),
+                &PythonBindingGenerator,
+                &config_supplier,
+                None,
+                &out_dir,
+                false,
+            )
+            .expect("generate bindings failed");
+        }
+        _ => {
+            panic!("Unsupported language: {}", language);
+        }
+    }
 
     println!(
         r#"🎉 Generate bindings success
@@ -468,5 +496,5 @@ fn bindgen_with_language(crate_name: &str, args: Cli) -> Result<(TargetLanguage,
     mode: {} "#,
         source, language, crate_name, current_mode
     );
-    Ok((language, current_mode))
+    Ok(current_mode)
 }

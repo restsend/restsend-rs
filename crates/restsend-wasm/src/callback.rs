@@ -183,7 +183,7 @@ pub(super) struct CallbackWasmWrap {
 unsafe impl Send for CallbackWasmWrap {}
 unsafe impl Sync for CallbackWasmWrap {}
 
-impl restsend_sdk::callback::Callback for CallbackWasmWrap {
+impl restsend_sdk::callback::RsCallback for CallbackWasmWrap {
     fn on_connected(&self) {
         if let Some(cb) = self.cb_on_connected.borrow().as_ref() {
             cb.call0(&JsValue::NULL)
