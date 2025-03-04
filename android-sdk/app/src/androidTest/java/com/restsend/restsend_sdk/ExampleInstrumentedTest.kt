@@ -7,7 +7,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 import org.junit.Assert.*
-
+import uniffi.restsend_sdk.Client
+import uniffi.restsend_sdk.guestLogin
+import kotlinx.coroutines.runBlocking
 /**
  * Instrumented test, which will execute on an Android device.
  *
@@ -16,16 +18,9 @@ import org.junit.Assert.*
 @RunWith(AndroidJUnit4::class)
 class ExampleInstrumentedTest {
     @Test
-    fun useAppContext() {
-        // Context of the app under test.
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.restsend.restsend_sdk", appContext.packageName)
-    }
-    @Test
-    fun connectChat() {
-        var client = Client(":memory:","", "https://chat.rddoc.cn")
-        client.prepare()
-        client.login("guido", "guido:demo")
+    fun connectChat() = runBlocking {
+        var info = guestLogin("https://chat.ruzhila.cn", "android-test", null)
+        var client = Client("","", info)
         client.connect()
-    }
+    }    
 }
