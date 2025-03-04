@@ -21,4 +21,11 @@ class ExampleInstrumentedTest {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
         assertEquals("com.restsend.restsend_sdk", appContext.packageName)
     }
+    @Test
+    fun connectChat() {
+        var client = Client(":memory:","", "https://chat.rddoc.cn")
+        client.prepare()
+        client.login("guido", "guido:demo")
+        client.connect()
+    }
 }
