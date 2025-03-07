@@ -709,6 +709,11 @@ uint64_t uniffi_restsend_sdk_fn_method_client_get_topic_members(void*_Nonnull pt
 uint64_t uniffi_restsend_sdk_fn_method_client_get_topic_owner(void*_Nonnull ptr, RustBuffer topic_id
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_UNREAD_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_UNREAD_COUNT
+uint64_t uniffi_restsend_sdk_fn_method_client_get_unread_count(void*_Nonnull ptr
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_USER
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_USER
 uint64_t uniffi_restsend_sdk_fn_method_client_get_user(void*_Nonnull ptr, RustBuffer user_id, int8_t blocking
@@ -1496,6 +1501,12 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_members(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_TOPIC_OWNER
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_TOPIC_OWNER
 uint16_t uniffi_restsend_sdk_checksum_method_client_get_topic_owner(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_UNREAD_COUNT
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_UNREAD_COUNT
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_unread_count(void
     
 );
 #endif

@@ -13,14 +13,14 @@ RestSend is a secure instant messaging system, with the server written in Go:
 - SDK is written in `Rust`, providing SDK implementations for `Android`, `iOS`, and `WASM`, capable of rendering `100,000` sessions on a single machine
 - Code can be managed with `go module` and can be directly embedded into existing Go projects
 
-For testing and experience, you can visit the [online demo](https://chat.ruzhila.cn?from=github) or contact me at: shenjint@fourz.cn
+For testing, you can visit the [online demo](https://chat.ruzhila.cn?from=github) or contact me at: kui@fourz.cn
 
-The RestSend client SDK is written in Rust, providing SDK implementations for Android and iOS. It requires a Rust version of at least `1.74.0`. If the version is lower, please update Rust using `rustup update`.
+The RestSend client SDK is written in Rust, providing SDK implementations for Android and iOS. It requires a Rust version of at least `1.85.0`. If the version is lower, please update Rust using `rustup update`.
 Check the Rust version:
 
 ```shell
 mpi@mpis-Mac-mini restsend-sdk % rustc --version
-rustc 1.77.2 (25ef9e3d8 2024-04-09)
+rustc 1.85.0 (4d91de4e4 2025-02-17)
 ```
 
 ## Code Dependencies and Environment Preparation
@@ -35,15 +35,13 @@ rustc 1.77.2 (25ef9e3d8 2024-04-09)
 - For Android, prepare the development environment:
      Install NDK and set the `NDK_HOME` environment variable to point to the NDK installation directory.
      1. Download NDK from [NDK download page](https://developer.android.com/ndk/downloads?hl=en)
-                - wget "<https://dl.google.com/android/repository/android-ndk-r25c-linux.zip?hl=en>"
-                - Extract the NDK directory and modify the `.profile` file to add the environment variable:
-
-                        ```shell
-                        export NDK_HOME=/home/xxx/ndk/android-ndk-r25c
-                        ```
+       - wget "<https://dl.google.com/android/repository/android-ndk-r25c-linux.zip?hl=en>"
+       - Extract the NDK directory and modify the `.profile` file to add the environment variable:
+        ```shell
+        export NDK_HOME=/home/xxx/ndk/android-ndk-r25c
+        ```
 
      2. Add Android toolchain to cargo
-
         ```shell
         cargo install cargo-ndk
         rustup target add aarch64-linux-android x86_64-linux-android
@@ -60,15 +58,13 @@ Tested only on M2 machines, please use an M2 machine for compilation.
         pod 'restsendSdk', :path => '../restsend-rs'
         ```
 
-        1. First, compile the Rust library
-
+  1. compile the Rust library
         ```shell
         cargo build --target aarch64-apple-ios-sim
         # For x86 Mac machines
         cargo build  --target x86_64-apple-darwin 
         ```
-
-        1. Compile the Swift binding code
+  1. Compile the Swift binding code
 
         ```shell
         cargo run --bin bindgen -- --language swift
@@ -76,17 +72,16 @@ Tested only on M2 machines, please use an M2 machine for compilation.
 
 - Release version:
 
-        ```shell
-        cargo build --release --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin
+   ```shell
+   cargo build --release --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin
 
-        cargo run --release --bin bindgen -- --language swift
-        ```
+   cargo run --release --bin bindgen -- --language swift
+   ```
+   To release the official pod version:
 
-        To release the official pod version:
-
-        ```shell
-        cargo run --release --bin bindgen -- --language swift -p true
-        ```
+   ```shell
+    cargo run --release --bin bindgen -- --language swift -p true
+   ```
 
 ### Compile for Wasm
 
@@ -114,6 +109,7 @@ First, configure the NDK directory to point to the NDK, for example, if download
 
 ```shell
 export NDK_HOME=$HOME/ndk
+cargo ndk -t arm64-v8a build --release
 cargo run --release --bin bindgen -- --language kotlin 
 cargo ndk -t arm64-v8a -o ./jniLibs build --release
 
@@ -122,21 +118,22 @@ cd android-sdk
 # gradle connectedAndroidTest
 
 gradle assembleRelease
+
+# for Publish aar
+gradle buildAndDeploy
 ```
 
 ### How to Test
 
 - For cargo development phase testing, test on PC:
-
-        ```shell
-        cargo test
-        ```
+  ```shell
+  cargo test
+  ```
 
 - Rust version demo requires a GUI environment, such as Windows/Mac to run
-
-        ```shell
-        cargo run -p demo
-        ```
+   ```shell
+   cargo run -p demo
+   ```
 
 ### Android Configuration
 

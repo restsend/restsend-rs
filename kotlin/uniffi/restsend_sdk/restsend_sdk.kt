@@ -1154,6 +1154,8 @@ internal open class UniffiVTableCallbackInterfaceUploadCallback(
 
 
 
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -1258,6 +1260,8 @@ fun uniffi_restsend_sdk_checksum_method_client_get_topic_knocks(
 fun uniffi_restsend_sdk_checksum_method_client_get_topic_members(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_get_topic_owner(
+): Short
+fun uniffi_restsend_sdk_checksum_method_client_get_unread_count(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_get_user(
 ): Short
@@ -1517,6 +1521,8 @@ fun uniffi_restsend_sdk_fn_method_client_get_topic_knocks(`ptr`: Pointer,`topicI
 fun uniffi_restsend_sdk_fn_method_client_get_topic_members(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`updatedAt`: RustBuffer.ByValue,`limit`: Int,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_topic_owner(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,
+): Long
+fun uniffi_restsend_sdk_fn_method_client_get_unread_count(`ptr`: Pointer,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_user(`ptr`: Pointer,`userId`: RustBuffer.ByValue,`blocking`: Byte,
 ): Long
@@ -1873,6 +1879,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_topic_owner() != 4067.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_restsend_sdk_checksum_method_client_get_unread_count() != 5267.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_user() != 38725.toShort()) {
@@ -2588,6 +2597,8 @@ public interface ClientInterface {
     suspend fun `getTopicMembers`(`topicId`: kotlin.String, `updatedAt`: kotlin.String, `limit`: kotlin.UInt): ListUserResult
     
     suspend fun `getTopicOwner`(`topicId`: kotlin.String): User?
+    
+    suspend fun `getUnreadCount`(): kotlin.UInt
     
     suspend fun `getUser`(`userId`: kotlin.String, `blocking`: kotlin.Boolean): User?
     
@@ -3496,6 +3507,26 @@ open class Client: Disposable, AutoCloseable, ClientInterface
         { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterOptionalTypeUser.lift(it) },
+        // Error FFI converter
+        UniffiNullRustCallStatusErrorHandler,
+    )
+    }
+
+    
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getUnreadCount`() : kotlin.UInt {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_get_unread_count(
+                thisPtr,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_u32(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_u32(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_u32(future) },
+        // lift function
+        { FfiConverterUInt.lift(it) },
         // Error FFI converter
         UniffiNullRustCallStatusErrorHandler,
     )

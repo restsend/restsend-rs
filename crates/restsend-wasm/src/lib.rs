@@ -78,6 +78,11 @@ impl Client {
     pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()
     }
+    #[wasm_bindgen(getter)]
+    #[allow(non_snake_case)]
+    pub async fn unreadCount(&self) -> u32 {
+        self.inner.get_unread_count().await
+    }
     /// connect immediately if the connection is broken    
     pub fn app_active(&self) {
         self.inner.app_active();

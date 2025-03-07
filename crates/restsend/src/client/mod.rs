@@ -114,6 +114,10 @@ impl Client {
         set_allow_guest_chat(&self.endpoint, &self.token, allow).await
     }
 
+    pub async fn get_unread_count(&self) -> u32 {
+        self.store.get_unread_count().await
+    }
+
     pub async fn download_file(
         &self,
         file_url: String,

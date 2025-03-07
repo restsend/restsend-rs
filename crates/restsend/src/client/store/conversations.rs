@@ -13,6 +13,7 @@ use crate::{
 };
 use crate::{Error, Result};
 use log::warn;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 pub(crate) async fn merge_conversation(
@@ -224,6 +225,13 @@ impl ClientStore {
 
             conversation.is_partial = false;
             conversation.cached_at = now;
+
+            if conversation.unread == 0 {
+                let start_seq = conversation.start_seq.max(conversation.last_read_seq);
+                let diff = conversation.last_seq - start_seq;
+                conversation.unread = diff.min(0);
+            }
+
             results.push(ValueItem {
                 partition: "".to_string(),
                 sort_key: conversation.sort_key(),
@@ -884,5 +892,22 @@ impl ClientStore {
         let t = self.message_storage.table().await;
         t.filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
             .await
+    }
+
+    pub async fn get_unread_count(&self) -> u32 {
+        let t = self.message_storage.table::<Conversation>().await;
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_ref = count.clone();
+        t.filter(
+            "",
+            Box::new(move |c| {
+                count_ref.fetch_add(c.unread as usize, Ordering::Relaxed);
+                None
+            }),
+            None,
+            None,
+        )
+        .await;
+        count.load(Ordering::Relaxed) as u32
     }
 }

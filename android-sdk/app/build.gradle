@@ -40,6 +40,43 @@ dependencies {
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core   
-    
+}
 
+
+
+task getCargoVersion {
+    doLast {
+        def cargoToml = file('../../crates/restsend/Cargo.toml')
+        def cargoContent = cargoToml.text
+        def versionMatcher = cargoContent =~ /version\s*=\s*"(.*)"/
+        if (versionMatcher) {
+            def version = versionMatcher[0][1]
+            println "Cargo.toml version: $version"
+            project.ext.cargoVersion = version
+        } else {
+            throw "Version not found in Cargo.toml"
+        }
+    }
+}
+
+task scpAar {
+    dependsOn getCargoVersion
+    dependsOn tasks.named('assemble')
+    doLast {
+        def aarFile = file("build/outputs/aar/app-release.aar")
+        if (!aarFile.exists()) {
+            throw "AAR file not found: ${aarFile}"
+        }
+        def version = project.ext.cargoVersion
+        def targetFileName = "restsend-sdk-${version}.aar"
+        def targetFilePath = "ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/${targetFileName}"
+        println "Copying build/outputs/aar/app-release.aar to ${targetFilePath}"
+        exec {
+            commandLine 'rsync', "-avz", aarFile.absolutePath, targetFilePath
+        }
+    }
+}
+
+task buildAndDeploy {
+    dependsOn scpAar
 }

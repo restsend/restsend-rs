@@ -621,6 +621,8 @@ public protocol ClientProtocol: AnyObject {
     
     func getTopicOwner(topicId: String) async  -> User?
     
+    func getUnreadCount() async  -> UInt32
+    
     func getUser(userId: String, blocking: Bool) async  -> User?
     
     func getUsers(userIds: [String]) async  -> [User]
@@ -1348,6 +1350,24 @@ open func getTopicOwner(topicId: String)async  -> User?  {
             completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
             freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
             liftFunc: FfiConverterOptionTypeUser.lift,
+            errorHandler: nil
+            
+        )
+}
+    
+open func getUnreadCount()async  -> UInt32  {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_restsend_sdk_fn_method_client_get_unread_count(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_restsend_sdk_rust_future_poll_u32,
+            completeFunc: ffi_restsend_sdk_rust_future_complete_u32,
+            freeFunc: ffi_restsend_sdk_rust_future_free_u32,
+            liftFunc: FfiConverterUInt32.lift,
             errorHandler: nil
             
         )
@@ -6874,6 +6894,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_topic_owner() != 4067) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_get_unread_count() != 5267) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_user() != 38725) {
