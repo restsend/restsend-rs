@@ -229,7 +229,7 @@ impl ClientStore {
             if conversation.unread == 0 {
                 let start_seq = conversation.start_seq.max(conversation.last_read_seq);
                 let diff = conversation.last_seq - start_seq;
-                conversation.unread = diff.min(0);
+                conversation.unread = diff.max(0);
             }
 
             results.push(ValueItem {
