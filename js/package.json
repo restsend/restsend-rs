@@ -2,10 +2,10 @@
   "name": "restsend-wasm",
   "type": "module",
   "collaborators": [
-    "RestSEND Team <kui@fourz.cn>"
+    "Restsend Team <kui@fourz.cn>"
   ],
-  "description": "A library for RestSEND client in WASM",
-  "version": "1.1.8",
+  "description": "Restsend  Instant Messaging Javascript/Wasm SDK",
+  "version": "1.2.0",
   "files": [
     "restsend_wasm_bg.wasm",
     "restsend_wasm.js",

@@ -1,9 +1,9 @@
 {
   "name": "resetsend-sdk",
-  "version": "1.1.5",
+  "version": "1.1.9",
   "description": "Restsend Javascript/Wasm SDK",
   "files": [
-    "dist"
+    "pkg"
   ],
   "devDependencies": {
     "@playwright/test": "^1.49.1",
@@ -15,8 +15,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "wasm-pack build -t web -- --no-default-features --features indexeddb",
-    "dist": "wasm-pack build -d ../../js -t web -- --no-default-features --features indexeddb",
+    "livechat": "wasm-pack build -t web -- --no-default-features --features livechat",
+    "deskchat": "wasm-pack build -d ../../js -t web -- --no-default-features --features indexeddb",
     "wasm_test": "wasm-pack test --firefox --headless -- --no-default-features --features indexeddb",
     "test": "wasm-pack build  -- --no-default-features --features indexeddb && vitest --run"
   },

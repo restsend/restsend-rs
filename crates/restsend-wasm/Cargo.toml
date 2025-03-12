@@ -1,9 +1,9 @@
 [package]
 name = "restsend-wasm"
-version = "1.1.8"
+version = "1.2.0"
 edition = "2021"
-description = "A library for RestSEND client in WASM"
-authors = ["RestSEND Team <kui@fourz.cn>"]
+description = "Restsend  Instant Messaging Javascript/Wasm SDK"
+authors = ["Restsend Team <kui@fourz.cn>"]
 
 [lib]
 crate-type = ["cdylib"]
@@ -24,17 +24,17 @@ indexeddb = [
 ]
 
 [dependencies]
-serde = "1.0.215"
+serde = "1.0.219"
 restsend-sdk = { path = "../restsend" }
-wasm-bindgen = "0.2.99"
-wasm-bindgen-futures = "0.4.49"
+wasm-bindgen = "0.2.100"
+wasm-bindgen-futures = "0.4.50"
 serde-wasm-bindgen = "0.6.5"
 futures-util = "0.3.31"
 futures = "0.3.31"
-js-sys = "0.3.76"
-web-sys = "0.3.76"
-chrono = "0.4.39"
-log = "0.4.22"
+js-sys = "0.3.77"
+web-sys = "0.3.77"
+chrono = "0.4.40"
+log = "0.4.26"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.49"
