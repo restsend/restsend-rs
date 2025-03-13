@@ -1,5 +1,5 @@
 use self::attachments::UploadTask;
-use crate::callback::RsCallback;
+use crate::callback::{CountableCallback, RsCallback};
 use crate::models::Attachment;
 use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
@@ -99,6 +99,7 @@ type PendingRequests = Arc<Mutex<HashMap<String, PendingRequest>>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
 pub(super) type CallbackRef = Arc<Mutex<Option<Box<dyn RsCallback>>>>;
+pub(super) type CountableCallbackRef = Arc<Mutex<Option<Box<dyn CountableCallback>>>>;
 pub(super) struct ClientStore {
     user_id: String,
     endpoint: String,
@@ -110,6 +111,7 @@ pub(super) struct ClientStore {
     removed_conversations: Mutex<HashMap<String, i64>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
+    pub(crate) countable_callback: CountableCallbackRef,
     incoming_logs: Mutex<HashMap<String, Vec<String>>>,
 }
 
@@ -132,6 +134,7 @@ impl ClientStore {
             removed_conversations: Mutex::new(HashMap::new()),
             message_storage: Arc::new(Storage::new(db_path)),
             callback: Arc::new(Mutex::new(None)),
+            countable_callback: Arc::new(Mutex::new(None)),
             incoming_logs: Mutex::new(HashMap::new()),
         }
     }

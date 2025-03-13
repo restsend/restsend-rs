@@ -661,6 +661,9 @@ internal open class UniffiForeignFutureStructVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureStructVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceCountableCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`content`: RustBuffer.ByValue,`uniffiOutReturn`: ByteByReference,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceDownloadCallbackMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`progress`: Long,`total`: Long,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
@@ -741,6 +744,22 @@ internal interface UniffiCallbackInterfaceUploadCallbackMethod1 : com.sun.jna.Ca
 }
 internal interface UniffiCallbackInterfaceUploadCallbackMethod2 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`e`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("isCountable", "uniffiFree")
+internal open class UniffiVTableCallbackInterfaceCountableCallback(
+    @JvmField internal var `isCountable`: UniffiCallbackInterfaceCountableCallbackMethod0? = null,
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+) : Structure() {
+    class UniffiByValue(
+        `isCountable`: UniffiCallbackInterfaceCountableCallbackMethod0? = null,
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    ): UniffiVTableCallbackInterfaceCountableCallback(`isCountable`,`uniffiFree`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceCountableCallback) {
+        `isCountable` = other.`isCountable`
+        `uniffiFree` = other.`uniffiFree`
+    }
+
 }
 @Structure.FieldOrder("onProgress", "onSuccess", "onFail", "uniffiFree")
 internal open class UniffiVTableCallbackInterfaceDownloadCallback(
@@ -1156,6 +1175,10 @@ internal open class UniffiVTableCallbackInterfaceUploadCallback(
 
 
 
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -1305,6 +1328,8 @@ fun uniffi_restsend_sdk_checksum_method_client_set_conversation_sticky(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_set_conversation_tags(
 ): Short
+fun uniffi_restsend_sdk_checksum_method_client_set_countable_callback(
+): Short
 fun uniffi_restsend_sdk_checksum_method_client_set_keepalive_interval_secs(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_set_user_block(
@@ -1332,6 +1357,8 @@ fun uniffi_restsend_sdk_checksum_method_client_update_topic(
 fun uniffi_restsend_sdk_checksum_method_client_update_topic_notice(
 ): Short
 fun uniffi_restsend_sdk_checksum_constructor_client_new(
+): Short
+fun uniffi_restsend_sdk_checksum_method_countablecallback_is_countable(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress(
 ): Short
@@ -1425,6 +1452,7 @@ internal interface UniffiLib : Library {
             val lib = loadIndirect<UniffiLib>(componentName)
             // No need to check the contract version and checksums, since 
             // we already did that with `IntegrityCheckingUniffiLib` above.
+            uniffiCallbackInterfaceCountableCallback.register(lib)
             uniffiCallbackInterfaceDownloadCallback.register(lib)
             uniffiCallbackInterfaceMessageCallback.register(lib)
             uniffiCallbackInterfaceRsCallback.register(lib)
@@ -1566,6 +1594,8 @@ fun uniffi_restsend_sdk_fn_method_client_set_conversation_sticky(`ptr`: Pointer,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_set_conversation_tags(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`tags`: RustBuffer.ByValue,
 ): Long
+fun uniffi_restsend_sdk_fn_method_client_set_countable_callback(`ptr`: Pointer,`callback`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+): Unit
 fun uniffi_restsend_sdk_fn_method_client_set_keepalive_interval_secs(`ptr`: Pointer,`secs`: Int,uniffi_out_err: UniffiRustCallStatus, 
 ): Unit
 fun uniffi_restsend_sdk_fn_method_client_set_user_block(`ptr`: Pointer,`userId`: RustBuffer.ByValue,`block`: Byte,
@@ -1592,6 +1622,8 @@ fun uniffi_restsend_sdk_fn_method_client_update_topic(`ptr`: Pointer,`topicId`: 
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_update_topic_notice(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`text`: RustBuffer.ByValue,
 ): Long
+fun uniffi_restsend_sdk_fn_init_callback_vtable_countablecallback(`vtable`: UniffiVTableCallbackInterfaceCountableCallback,
+): Unit
 fun uniffi_restsend_sdk_fn_init_callback_vtable_downloadcallback(`vtable`: UniffiVTableCallbackInterfaceDownloadCallback,
 ): Unit
 fun uniffi_restsend_sdk_fn_init_callback_vtable_messagecallback(`vtable`: UniffiVTableCallbackInterfaceMessageCallback,
@@ -1947,6 +1979,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_client_set_conversation_tags() != 42761.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_restsend_sdk_checksum_method_client_set_countable_callback() != 30301.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_restsend_sdk_checksum_method_client_set_keepalive_interval_secs() != 15153.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1987,6 +2022,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_constructor_client_new() != 32894.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_restsend_sdk_checksum_method_countablecallback_is_countable() != 49760.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress() != 34732.toShort()) {
@@ -2641,6 +2679,8 @@ public interface ClientInterface {
     suspend fun `setConversationSticky`(`topicId`: kotlin.String, `sticky`: kotlin.Boolean): Conversation
     
     suspend fun `setConversationTags`(`topicId`: kotlin.String, `tags`: List<Tag>?): Conversation
+    
+    fun `setCountableCallback`(`callback`: CountableCallback?)
     
     fun `setKeepaliveIntervalSecs`(`secs`: kotlin.UInt)
     
@@ -3966,6 +4006,17 @@ open class Client: Disposable, AutoCloseable, ClientInterface
         ClientException.ErrorHandler,
     )
     }
+
+    override fun `setCountableCallback`(`callback`: CountableCallback?)
+        = 
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_set_countable_callback(
+        it, FfiConverterOptionalTypeCountableCallback.lower(`callback`),_status)
+}
+    }
+    
+    
 
     override fun `setKeepaliveIntervalSecs`(`secs`: kotlin.UInt)
         = 
@@ -5582,13 +5633,9 @@ public object FfiConverterTypeClientError : FfiConverterRustBuffer<ClientExcepti
 
 
 
-public interface DownloadCallback {
+public interface CountableCallback {
     
-    fun `onProgress`(`progress`: kotlin.ULong, `total`: kotlin.ULong)
-    
-    fun `onSuccess`(`url`: kotlin.String, `fileName`: kotlin.String)
-    
-    fun `onFail`(`e`: ClientException)
+    fun `isCountable`(`content`: Content): kotlin.Boolean
     
     companion object
 }
@@ -5625,6 +5672,63 @@ public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: Ffi
         buf.putLong(lower(value))
     }
 }
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceCountableCallback {
+    internal object `isCountable`: UniffiCallbackInterfaceCountableCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`content`: RustBuffer.ByValue,`uniffiOutReturn`: ByteByReference,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeCountableCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`isCountable`(
+                    FfiConverterTypeContent.lift(`content`),
+                )
+            }
+            val writeReturn = { value: kotlin.Boolean -> uniffiOutReturn.setValue(FfiConverterBoolean.lower(value)) }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeCountableCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceCountableCallback.UniffiByValue(
+        `isCountable`,
+        uniffiFree,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_restsend_sdk_fn_init_callback_vtable_countablecallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeCountableCallback: FfiConverterCallbackInterface<CountableCallback>()
+
+
+
+
+
+public interface DownloadCallback {
+    
+    fun `onProgress`(`progress`: kotlin.ULong, `total`: kotlin.ULong)
+    
+    fun `onSuccess`(`url`: kotlin.String, `fileName`: kotlin.String)
+    
+    fun `onFail`(`e`: ClientException)
+    
+    companion object
+}
+
+
 
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceDownloadCallback {
@@ -6661,6 +6765,38 @@ public object FfiConverterOptionalTypeUser: FfiConverterRustBuffer<User?> {
         } else {
             buf.put(1)
             FfiConverterTypeUser.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeCountableCallback: FfiConverterRustBuffer<CountableCallback?> {
+    override fun read(buf: ByteBuffer): CountableCallback? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeCountableCallback.read(buf)
+    }
+
+    override fun allocationSize(value: CountableCallback?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeCountableCallback.allocationSize(value)
+        }
+    }
+
+    override fun write(value: CountableCallback?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeCountableCallback.write(value, buf)
         }
     }
 }

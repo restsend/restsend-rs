@@ -228,7 +228,10 @@ impl ClientStore {
 
             if conversation.unread == 0 {
                 let start_seq = conversation.start_seq.max(conversation.last_read_seq);
-                let diff = conversation.last_seq - start_seq;
+                let diff = conversation
+                    .last_message_seq
+                    .unwrap_or(conversation.last_seq)
+                    - start_seq;
                 conversation.unread = diff.max(0);
             }
 

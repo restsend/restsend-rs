@@ -251,6 +251,13 @@ typedef void (*UniffiForeignFutureCompleteVoid)(uint64_t, UniffiForeignFutureStr
     );
 
 #endif
+#ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_COUNTABLE_CALLBACK_METHOD0
+#define UNIFFI_FFIDEF_CALLBACK_INTERFACE_COUNTABLE_CALLBACK_METHOD0
+typedef void (*UniffiCallbackInterfaceCountableCallbackMethod0)(uint64_t, RustBuffer, int8_t* _Nonnull, 
+        RustCallStatus *_Nonnull uniffiCallStatus
+    );
+
+#endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_DOWNLOAD_CALLBACK_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_DOWNLOAD_CALLBACK_METHOD0
 typedef void (*UniffiCallbackInterfaceDownloadCallbackMethod0)(uint64_t, uint64_t, uint64_t, void* _Nonnull, 
@@ -438,6 +445,14 @@ typedef void (*UniffiCallbackInterfaceUploadCallbackMethod1)(uint64_t, RustBuffe
 typedef void (*UniffiCallbackInterfaceUploadCallbackMethod2)(uint64_t, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
+
+#endif
+#ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_COUNTABLE_CALLBACK
+#define UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_COUNTABLE_CALLBACK
+typedef struct UniffiVTableCallbackInterfaceCountableCallback {
+    UniffiCallbackInterfaceCountableCallbackMethod0 _Nonnull isCountable;
+    UniffiCallbackInterfaceFree _Nonnull uniffiFree;
+} UniffiVTableCallbackInterfaceCountableCallback;
 
 #endif
 #ifndef UNIFFI_FFIDEF_V_TABLE_CALLBACK_INTERFACE_DOWNLOAD_CALLBACK
@@ -819,6 +834,11 @@ uint64_t uniffi_restsend_sdk_fn_method_client_set_conversation_sticky(void*_Nonn
 uint64_t uniffi_restsend_sdk_fn_method_client_set_conversation_tags(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer tags
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_SET_COUNTABLE_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_SET_COUNTABLE_CALLBACK
+void uniffi_restsend_sdk_fn_method_client_set_countable_callback(void*_Nonnull ptr, RustBuffer callback, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_SET_KEEPALIVE_INTERVAL_SECS
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_SET_KEEPALIVE_INTERVAL_SECS
 void uniffi_restsend_sdk_fn_method_client_set_keepalive_interval_secs(void*_Nonnull ptr, uint32_t secs, RustCallStatus *_Nonnull out_status
@@ -882,6 +902,11 @@ uint64_t uniffi_restsend_sdk_fn_method_client_update_topic(void*_Nonnull ptr, Ru
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_UPDATE_TOPIC_NOTICE
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_UPDATE_TOPIC_NOTICE
 uint64_t uniffi_restsend_sdk_fn_method_client_update_topic_notice(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer text
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_INIT_CALLBACK_VTABLE_COUNTABLECALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_INIT_CALLBACK_VTABLE_COUNTABLECALLBACK
+void uniffi_restsend_sdk_fn_init_callback_vtable_countablecallback(const UniffiVTableCallbackInterfaceCountableCallback* _Nonnull vtable
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_INIT_CALLBACK_VTABLE_DOWNLOADCALLBACK
@@ -1636,6 +1661,12 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_set_conversation_tags(void
     
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_SET_COUNTABLE_CALLBACK
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_SET_COUNTABLE_CALLBACK
+uint16_t uniffi_restsend_sdk_checksum_method_client_set_countable_callback(void
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_SET_KEEPALIVE_INTERVAL_SECS
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_SET_KEEPALIVE_INTERVAL_SECS
 uint16_t uniffi_restsend_sdk_checksum_method_client_set_keepalive_interval_secs(void
@@ -1717,6 +1748,12 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_update_topic_notice(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_CONSTRUCTOR_CLIENT_NEW
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_CONSTRUCTOR_CLIENT_NEW
 uint16_t uniffi_restsend_sdk_checksum_constructor_client_new(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_COUNTABLECALLBACK_IS_COUNTABLE
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_COUNTABLECALLBACK_IS_COUNTABLE
+uint16_t uniffi_restsend_sdk_checksum_method_countablecallback_is_countable(void
     
 );
 #endif

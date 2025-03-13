@@ -665,6 +665,8 @@ public protocol ClientProtocol: AnyObject {
     
     func setConversationTags(topicId: String, tags: [Tag]?) async throws  -> Conversation
     
+    func setCountableCallback(callback: CountableCallback?) 
+    
     func setKeepaliveIntervalSecs(secs: UInt32) 
     
     func setUserBlock(userId: String, block: Bool) async throws 
@@ -1724,6 +1726,13 @@ open func setConversationTags(topicId: String, tags: [Tag]?)async throws  -> Con
             liftFunc: FfiConverterTypeConversation_lift,
             errorHandler: FfiConverterTypeClientError.lift
         )
+}
+    
+open func setCountableCallback(callback: CountableCallback?)  {try! rustCall() {
+    uniffi_restsend_sdk_fn_method_client_set_countable_callback(self.uniffiClonePointer(),
+        FfiConverterOptionCallbackInterfaceCountableCallback.lower(callback),$0
+    )
+}
 }
     
 open func setKeepaliveIntervalSecs(secs: UInt32)  {try! rustCall() {
@@ -4668,13 +4677,9 @@ extension ClientError: Foundation.LocalizedError {
 
 
 
-public protocol DownloadCallback: AnyObject {
+public protocol CountableCallback: AnyObject {
     
-    func onProgress(progress: UInt64, total: UInt64) 
-    
-    func onSuccess(url: String, fileName: String) 
-    
-    func onFail(e: ClientError) 
+    func isCountable(content: Content)  -> Bool
     
 }
 // Magic number for the Rust proxy to call using the same mechanism as every other method,
@@ -4684,6 +4689,126 @@ private let IDX_CALLBACK_FREE: Int32 = 0
 private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
 private let UNIFFI_CALLBACK_ERROR: Int32 = 1
 private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceCountableCallback {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // This creates 1-element array, since this seems to be the only way to construct a const
+    // pointer that we can pass to the Rust code.
+    static let vtable: [UniffiVTableCallbackInterfaceCountableCallback] = [UniffiVTableCallbackInterfaceCountableCallback(
+        isCountable: { (
+            uniffiHandle: UInt64,
+            content: RustBuffer,
+            uniffiOutReturn: UnsafeMutablePointer<Int8>,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> Bool in
+                guard let uniffiObj = try? FfiConverterCallbackInterfaceCountableCallback.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.isCountable(
+                     content: try FfiConverterTypeContent_lift(content)
+                )
+            }
+
+            
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterCallbackInterfaceCountableCallback.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface CountableCallback: handle missing in uniffiFree")
+            }
+        }
+    )]
+}
+
+private func uniffiCallbackInitCountableCallback() {
+    uniffi_restsend_sdk_fn_init_callback_vtable_countablecallback(UniffiCallbackInterfaceCountableCallback.vtable)
+}
+
+// FfiConverter protocol for callback interfaces
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterCallbackInterfaceCountableCallback {
+    fileprivate static let handleMap = UniffiHandleMap<CountableCallback>()
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+extension FfiConverterCallbackInterfaceCountableCallback : FfiConverter {
+    typealias SwiftType = CountableCallback
+    typealias FfiType = UInt64
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lift(_ handle: UInt64) throws -> SwiftType {
+        try handleMap.get(handle: handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func lower(_ v: SwiftType) -> UInt64 {
+        return handleMap.insert(obj: v)
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public static func write(_ v: SwiftType, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(v))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceCountableCallback_lift(_ handle: UInt64) throws -> CountableCallback {
+    return try FfiConverterCallbackInterfaceCountableCallback.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterCallbackInterfaceCountableCallback_lower(_ v: CountableCallback) -> UInt64 {
+    return FfiConverterCallbackInterfaceCountableCallback.lower(v)
+}
+
+
+
+
+public protocol DownloadCallback: AnyObject {
+    
+    func onProgress(progress: UInt64, total: UInt64) 
+    
+    func onSuccess(url: String, fileName: String) 
+    
+    func onFail(e: ClientError) 
+    
+}
+
 
 // Put the implementation in a struct so we don't pollute the top-level namespace
 fileprivate struct UniffiCallbackInterfaceDownloadCallback {
@@ -6242,6 +6367,30 @@ fileprivate struct FfiConverterOptionTypeUser: FfiConverterRustBuffer {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionCallbackInterfaceCountableCallback: FfiConverterRustBuffer {
+    typealias SwiftType = CountableCallback?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterCallbackInterfaceCountableCallback.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterCallbackInterfaceCountableCallback.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionCallbackInterfaceMessageCallback: FfiConverterRustBuffer {
     typealias SwiftType = MessageCallback?
 
@@ -6962,6 +7111,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_restsend_sdk_checksum_method_client_set_conversation_tags() != 42761) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_restsend_sdk_checksum_method_client_set_countable_callback() != 30301) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_restsend_sdk_checksum_method_client_set_keepalive_interval_secs() != 15153) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -7002,6 +7154,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_constructor_client_new() != 32894) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_countablecallback_is_countable() != 49760) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_downloadcallback_on_progress() != 34732) {
@@ -7086,6 +7241,7 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitCountableCallback()
     uniffiCallbackInitDownloadCallback()
     uniffiCallbackInitMessageCallback()
     uniffiCallbackInitRsCallback()

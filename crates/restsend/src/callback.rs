@@ -50,7 +50,13 @@ pub trait RsCallback: Send + Sync {
     fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
     fn on_conversation_removed(&self, conversation_id: String) {}
 }
-
+#[allow(unused_variables)]
+#[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
+pub trait CountableCallback: Send + Sync {
+    fn is_countable(&self, content: Content) -> bool {
+        !content.unreadable
+    }
+}
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait UploadCallback: Send + Sync {

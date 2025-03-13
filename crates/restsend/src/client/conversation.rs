@@ -91,7 +91,13 @@ impl Client {
             .ok()?;
 
         for c in r.items.iter() {
-            if !c.content.unreadable {
+            let is_countable =
+                if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                    cb.is_countable(c.content.clone())
+                } else {
+                    !c.content.unreadable
+                };
+            if is_countable {
                 conversation.last_message_at = c.created_at.clone();
                 conversation.last_message = Some(c.content.clone());
                 conversation.last_sender_id = c.sender_id.clone();
@@ -117,7 +123,12 @@ impl Client {
         ensure_conversation_last_version: Option<bool>,
     ) {
         let st = now_millis();
-        let limit = if limit == 0 { MAX_LOGS_LIMIT/2 } else { limit }.min(MAX_LOGS_LIMIT);
+        let limit = if limit == 0 {
+            MAX_LOGS_LIMIT / 2
+        } else {
+            limit
+        }
+        .min(MAX_LOGS_LIMIT);
         let conversation = self
             .store
             .get_conversation(
@@ -127,9 +138,13 @@ impl Client {
             )
             .await
             .unwrap_or_default();
-        
+
         let store_st = now_millis();
-        match self.store.get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit).await {
+        match self
+            .store
+            .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
+            .await
+        {
             Ok((local_logs, need_fetch)) => {
                 info!(
                     "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
@@ -165,10 +180,7 @@ impl Client {
         }
     }
 
-    pub async fn save_chat_logs(
-        &self,
-       logs: &Vec<ChatLog>,
-    )  -> Result<()> {
+    pub async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
         self.store.save_chat_logs(logs).await
     }
 
@@ -437,17 +449,32 @@ impl Client {
                 None => continue,
             };
 
+            if self.store.countable_callback.lock().unwrap().is_some() {
+                conversation.unread = 0
+            }
+
             for c in lr.items.iter() {
                 if c.seq <= conversation.last_seq {
                     continue;
                 }
                 conversation.last_seq = c.seq;
-                if !c.content.unreadable {
+
+                let is_countable =
+                    if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                        cb.is_countable(c.content.clone())
+                    } else {
+                        !c.content.unreadable
+                    };
+
+                if is_countable {
                     conversation.updated_at = c.created_at.clone();
                     conversation.last_message_at = c.created_at.clone();
                     conversation.last_message = Some(c.content.clone());
                     conversation.last_sender_id = c.sender_id.clone();
                     conversation.last_message_seq = Some(c.seq);
+                    if conversation.last_read_seq < c.seq {
+                        conversation.unread += 1;
+                    }
                 }
                 break;
             }
@@ -456,6 +483,11 @@ impl Client {
         // callback
         if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
             cb.on_conversations_updated(updated_conversations.clone());
+        }
+        // sync to store
+        let t = self.store.message_storage.table::<Conversation>().await;
+        for c in updated_conversations.iter_mut() {
+            t.set("", &c.topic_id, Some(c)).await.ok();
         }
         Ok(())
     }
@@ -534,10 +566,7 @@ impl Client {
     ) -> Result<Conversation> {
         self.store.set_conversation_extra(&topic_id, extra).await
     }
-    pub async fn clear_conversation(
-        &self,
-        topic_id: String
-    ) -> Result<()> {
+    pub async fn clear_conversation(&self, topic_id: String) -> Result<()> {
         self.store.clear_conversation(&topic_id).await
     }
 }

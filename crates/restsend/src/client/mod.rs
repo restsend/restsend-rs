@@ -3,7 +3,7 @@ use self::{
     store::{ClientStore, ClientStoreRef},
 };
 use crate::{
-    callback::{DownloadCallback, RsCallback},
+    callback::{CountableCallback, DownloadCallback, RsCallback},
     error::ClientError,
     media::{build_download_url, download_file},
     models::{AuthInfo, User},
@@ -91,6 +91,9 @@ impl Client {
 
     pub fn set_callback(&self, callback: Option<Box<dyn RsCallback>>) {
         *self.store.callback.lock().unwrap() = callback;
+    }
+    pub fn set_countable_callback(&self, callback: Option<Box<dyn CountableCallback>>) {
+        *self.store.countable_callback.lock().unwrap() = callback;
     }
 
     pub async fn get_user(&self, user_id: String, blocking: bool) -> Option<User> {
