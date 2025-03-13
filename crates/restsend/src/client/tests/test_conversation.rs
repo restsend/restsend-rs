@@ -94,6 +94,7 @@ async fn test_sync_conversations() {
     struct TestRemovedCallbackImpl {
         pub removed_topic_ids: Arc<Mutex<HashSet<String>>>,
     }
+    struct TestCountableCallbackImpl {}
 
     impl callback::RsCallback for TestRemovedCallbackImpl {
         fn on_conversation_removed(&self, conversation_id: String) {
@@ -105,6 +106,11 @@ async fn test_sync_conversations() {
         }
     }
 
+    impl callback::CountableCallback for TestCountableCallbackImpl {
+        fn is_countable(&self, content: crate::models::Content) -> bool {
+            content.content_type == "text"
+        }
+    }
     let removed_topic_ids = Arc::new(Mutex::new(HashSet::new()));
     let vivian2_callback = Box::new(TestRemovedCallbackImpl {
         removed_topic_ids: removed_topic_ids.clone(),
@@ -138,9 +144,15 @@ async fn test_sync_conversations() {
         removed_topic_ids: removed_topic_ids.clone(),
     });
 
+    let vivian3_countable_callback = Box::new(TestCountableCallbackImpl {});
+
     vivian_3.set_callback(Some(vivian3_callback));
+    vivian_3.set_countable_callback(Some(vivian3_countable_callback));
     vivian_3
-        .sync_conversations(None, 0, false, None, None, None, vivian2_callback)
+        .sync_conversations(None, 0, true, None, None, None, vivian2_callback)
         .await;
     assert!(!removed_topic_ids.lock().unwrap().contains(&topic_id));
+
+    let unread_count = vivian_3.get_unread_count().await;
+    assert!(unread_count > 0);
 }

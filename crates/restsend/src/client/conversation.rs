@@ -201,6 +201,12 @@ impl Client {
                     } else {
                         ChatLogStatus::Received
                     };
+                    c.is_countable =
+                        if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                            cb.is_countable(c.content.clone())
+                        } else {
+                            !c.content.unreadable
+                        };
                 }
                 self.store.save_chat_logs(&lr.items).await.ok();
                 info!(
@@ -436,6 +442,12 @@ impl Client {
                 } else {
                     ChatLogStatus::Received
                 };
+                c.is_countable =
+                    if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                        cb.is_countable(c.content.clone())
+                    } else {
+                        !c.content.unreadable
+                    };
             }
             self.store.save_chat_logs(&lr.items).await.ok();
 
@@ -454,29 +466,18 @@ impl Client {
             }
 
             for c in lr.items.iter() {
-                if c.seq <= conversation.last_seq {
-                    continue;
+                if c.is_countable && conversation.last_read_seq < c.seq {
+                    conversation.unread += 1;
                 }
-                conversation.last_seq = c.seq;
 
-                let is_countable =
-                    if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
-                        cb.is_countable(c.content.clone())
-                    } else {
-                        !c.content.unreadable
-                    };
-
-                if is_countable {
+                if c.seq > conversation.last_seq && c.is_countable {
+                    conversation.last_seq = c.seq;
                     conversation.updated_at = c.created_at.clone();
                     conversation.last_message_at = c.created_at.clone();
                     conversation.last_message = Some(c.content.clone());
                     conversation.last_sender_id = c.sender_id.clone();
                     conversation.last_message_seq = Some(c.seq);
-                    if conversation.last_read_seq < c.seq {
-                        conversation.unread += 1;
-                    }
                 }
-                break;
             }
             updated_conversations.push(conversation);
         }

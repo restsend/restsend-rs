@@ -341,6 +341,9 @@ pub struct ChatLog {
 
     #[serde(default)]
     pub cached_at: i64,
+
+    #[serde(skip)]
+    pub is_countable: bool,
 }
 
 impl ChatLog {
@@ -401,6 +404,7 @@ impl From<&ChatRequest> for ChatLog {
             recall: req.req_type == "recall",
             status: ChatLogStatus::Received,
             cached_at: now_millis(),
+            is_countable: false,
         }
     }
 }
