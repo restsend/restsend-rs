@@ -466,11 +466,11 @@ impl Client {
             }
 
             for c in lr.items.iter() {
-                if c.is_countable && conversation.last_read_seq < c.seq {
+                if c.is_countable && c.seq > conversation.last_read_seq {
                     conversation.unread += 1;
                 }
 
-                if c.seq > conversation.last_seq && c.is_countable {
+                if c.is_countable && c.seq > conversation.last_seq {
                     conversation.last_seq = c.seq;
                     conversation.updated_at = c.created_at.clone();
                     conversation.last_message_at = c.created_at.clone();
