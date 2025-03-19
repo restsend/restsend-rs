@@ -197,6 +197,25 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    for (let i = 0; i < array.length; i++) {
+        const add = addToExternrefTable0(array[i]);
+        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
+    }
+    WASM_VECTOR_LEN = array.length;
+    return ptr;
+}
+/**
+ * @param {string | null} [level]
+ */
+export function setLogging(level) {
+    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    wasm.setLogging(ptr0, len0);
+}
+
 /**
  * Signin with userId and password or token
  * @param {string} endpoint
@@ -251,30 +270,12 @@ export function logout(endpoint, token) {
     return ret;
 }
 
-function passArrayJsValueToWasm0(array, malloc) {
-    const ptr = malloc(array.length * 4, 4) >>> 0;
-    for (let i = 0; i < array.length; i++) {
-        const add = addToExternrefTable0(array[i]);
-        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
-    }
-    WASM_VECTOR_LEN = array.length;
-    return ptr;
-}
-/**
- * @param {string | null} [level]
- */
-export function setLogging(level) {
-    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    wasm.setLogging(ptr0, len0);
+function __wbg_adapter_54(arg0, arg1) {
+    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hb04cc55a693034c6(arg0, arg1);
 }
 
-function __wbg_adapter_54(arg0, arg1, arg2) {
-    wasm.closure638_externref_shim(arg0, arg1, arg2);
-}
-
-function __wbg_adapter_57(arg0, arg1) {
-    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h87cb81c687e271c9(arg0, arg1);
+function __wbg_adapter_57(arg0, arg1, arg2) {
+    wasm.closure693_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_66(arg0, arg1, arg2) {
@@ -754,6 +755,73 @@ export class Client {
         return ret;
     }
     /**
+     * Create a new client
+     * # Arguments
+     * * `info` - AuthInfo
+     * * `db_name` - database name (optional), create an indexeddb when set it
+     * @param {any} info
+     * @param {string | null} [db_name]
+     */
+    constructor(info, db_name) {
+        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_new(info, ptr0, len0);
+        this.__wbg_ptr = ret >>> 0;
+        ClientFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * get the current connection status
+     * return: connecting, connected, broken, shutdown
+     * @returns {string}
+     */
+    get connectionStatus() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.client_connectionStatus(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * @returns {Promise<number>}
+     */
+    get unreadCount() {
+        const ret = wasm.client_unreadCount(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * connect immediately if the connection is broken
+     */
+    app_active() {
+        wasm.client_app_active(this.__wbg_ptr);
+    }
+    /**
+     * set the keepalive interval with seconds
+     * @param {number} secs
+     */
+    set keepalive(secs) {
+        wasm.client_set_keepalive(this.__wbg_ptr, secs);
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      *
      * Send message with content
      * # Arguments
@@ -1065,73 +1133,6 @@ export class Client {
         const ptr1 = passStringToWasm0(chatId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.client_doUpdateExtra(this.__wbg_ptr, ptr0, len0, ptr1, len1, extra, option);
-        return ret;
-    }
-    /**
-     * Create a new client
-     * # Arguments
-     * * `info` - AuthInfo
-     * * `db_name` - database name (optional), create an indexeddb when set it
-     * @param {any} info
-     * @param {string | null} [db_name]
-     */
-    constructor(info, db_name) {
-        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_new(info, ptr0, len0);
-        this.__wbg_ptr = ret >>> 0;
-        ClientFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    /**
-     * get the current connection status
-     * return: connecting, connected, broken, shutdown
-     * @returns {string}
-     */
-    get connectionStatus() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.client_connectionStatus(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * @returns {Promise<number>}
-     */
-    get unreadCount() {
-        const ret = wasm.client_unreadCount(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * connect immediately if the connection is broken
-     */
-    app_active() {
-        wasm.client_app_active(this.__wbg_ptr);
-    }
-    /**
-     * set the keepalive interval with seconds
-     * @param {number} secs
-     */
-    set keepalive(secs) {
-        wasm.client_set_keepalive(this.__wbg_ptr, secs);
-    }
-    /**
-     * @returns {Promise<void>}
-     */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {Promise<void>}
-     */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
         return ret;
     }
     /**
@@ -2305,7 +2306,7 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_setRequestHeader_51d371ad5196f6ef = function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
         arg0.setRequestHeader(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
     }, arguments) };
-    imports.wbg.__wbg_setTimeout_080492d63c32074e = function(arg0, arg1) {
+    imports.wbg.__wbg_setTimeout_cc0a632b4e0dd0e5 = function(arg0, arg1) {
         setTimeout(arg0, arg1 >>> 0);
     };
     imports.wbg.__wbg_set_37837023f3d740e8 = function(arg0, arg1, arg2) {
@@ -2508,27 +2509,27 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1308 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 639, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1612 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 694, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1309 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 639, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper1613 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 694, __wbg_adapter_57);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1310 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 639, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1614 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 694, __wbg_adapter_57);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1311 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 639, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1617 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 694, __wbg_adapter_57);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1315 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 639, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1620 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 694, __wbg_adapter_57);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper2236 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper2237 = function(arg0, arg1, arg2) {
         const ret = makeMutClosure(arg0, arg1, 839, __wbg_adapter_66);
         return ret;
     };

@@ -44,7 +44,7 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
      2. Add Android toolchain to cargo
         ```shell
         cargo install cargo-ndk
-        rustup target add aarch64-linux-android x86_64-linux-android
+        rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
         ```
 
 ### Compile for iOS
@@ -109,9 +109,9 @@ First, configure the NDK directory to point to the NDK, for example, if download
 
 ```shell
 export NDK_HOME=$HOME/ndk
-cargo ndk -t arm64-v8a build --release
+cargo ndk -t arm64-v8a -t armeabi-v7a build --release
 cargo run --release --bin bindgen -- --language kotlin 
-cargo ndk -t arm64-v8a -o ./jniLibs build --release
+cargo ndk -t arm64-v8a -t armeabi-v7a -o ./jniLibs build --release
 
 cd android-sdk
 # test

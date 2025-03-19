@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export function setLogging(level?: string | null): void;
 /**
  * Signin with userId and password or token
  */
@@ -12,7 +13,6 @@ export function signup(endpoint: string, userId: string, password: string): Prom
  * Logout with token
  */
 export function logout(endpoint: string, token: string): Promise<void>;
-export function setLogging(level?: string | null): void;
 export class Client {
   free(): void;
   /**
@@ -215,6 +215,19 @@ export class Client {
    */
   setAllowGuestChat(allow: boolean): Promise<void>;
   /**
+   * Create a new client
+   * # Arguments
+   * * `info` - AuthInfo
+   * * `db_name` - database name (optional), create an indexeddb when set it    
+   */
+  constructor(info: any, db_name?: string | null);
+  /**
+   * connect immediately if the connection is broken    
+   */
+  app_active(): void;
+  shutdown(): Promise<void>;
+  connect(): Promise<void>;
+  /**
    *
    * Send message with content
    * # Arguments
@@ -400,19 +413,6 @@ export class Client {
    * The message id
    */
   doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
-  /**
-   * Create a new client
-   * # Arguments
-   * * `info` - AuthInfo
-   * * `db_name` - database name (optional), create an indexeddb when set it    
-   */
-  constructor(info: any, db_name?: string | null);
-  /**
-   * connect immediately if the connection is broken    
-   */
-  app_active(): void;
-  shutdown(): Promise<void>;
-  connect(): Promise<void>;
   /**
    * Create a new chat with userId
    * return: Conversation    
@@ -734,9 +734,6 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
-  readonly logout: (a: number, b: number, c: number, d: number) => any;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -764,6 +761,14 @@ export interface InitOutput {
   readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => any;
   readonly client_setAllowGuestChat: (a: number, b: number) => any;
   readonly setLogging: (a: number, b: number) => void;
+  readonly __wbg_client_free: (a: number, b: number) => void;
+  readonly client_new: (a: any, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number) => [number, number];
+  readonly client_unreadCount: (a: number) => any;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => any;
+  readonly client_connect: (a: number) => any;
   readonly client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
   readonly client_doTyping: (a: number, b: number, c: number) => any;
   readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
@@ -776,14 +781,9 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
   readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
-  readonly __wbg_client_free: (a: number, b: number) => void;
-  readonly client_new: (a: any, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number) => [number, number];
-  readonly client_unreadCount: (a: number) => any;
-  readonly client_app_active: (a: number) => void;
-  readonly client_set_keepalive: (a: number, b: number) => void;
-  readonly client_shutdown: (a: number) => any;
-  readonly client_connect: (a: number) => any;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
+  readonly logout: (a: number, b: number, c: number, d: number) => any;
   readonly client_set_onconnected: (a: number, b: any) => void;
   readonly client_set_onconnecting: (a: number, b: any) => void;
   readonly client_set_ontokenexpired: (a: number, b: any) => void;
@@ -833,8 +833,8 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure638_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h87cb81c687e271c9: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hb04cc55a693034c6: (a: number, b: number) => void;
+  readonly closure693_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure838_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure878_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;

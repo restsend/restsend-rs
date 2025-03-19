@@ -2377,10 +2377,11 @@ public struct ChatLog {
     public var recall: Bool
     public var status: ChatLogStatus
     public var cachedAt: Int64
+    public var isCountable: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(topicId: String, id: String, seq: Int64, createdAt: String, senderId: String, content: Content, read: Bool, recall: Bool, status: ChatLogStatus, cachedAt: Int64) {
+    public init(topicId: String, id: String, seq: Int64, createdAt: String, senderId: String, content: Content, read: Bool, recall: Bool, status: ChatLogStatus, cachedAt: Int64, isCountable: Bool) {
         self.topicId = topicId
         self.id = id
         self.seq = seq
@@ -2391,6 +2392,7 @@ public struct ChatLog {
         self.recall = recall
         self.status = status
         self.cachedAt = cachedAt
+        self.isCountable = isCountable
     }
 }
 
@@ -2431,6 +2433,9 @@ extension ChatLog: Equatable, Hashable {
         if lhs.cachedAt != rhs.cachedAt {
             return false
         }
+        if lhs.isCountable != rhs.isCountable {
+            return false
+        }
         return true
     }
 
@@ -2445,6 +2450,7 @@ extension ChatLog: Equatable, Hashable {
         hasher.combine(recall)
         hasher.combine(status)
         hasher.combine(cachedAt)
+        hasher.combine(isCountable)
     }
 }
 
@@ -2466,7 +2472,8 @@ public struct FfiConverterTypeChatLog: FfiConverterRustBuffer {
                 read: FfiConverterBool.read(from: &buf), 
                 recall: FfiConverterBool.read(from: &buf), 
                 status: FfiConverterTypeChatLogStatus.read(from: &buf), 
-                cachedAt: FfiConverterInt64.read(from: &buf)
+                cachedAt: FfiConverterInt64.read(from: &buf), 
+                isCountable: FfiConverterBool.read(from: &buf)
         )
     }
 
@@ -2481,6 +2488,7 @@ public struct FfiConverterTypeChatLog: FfiConverterRustBuffer {
         FfiConverterBool.write(value.recall, into: &buf)
         FfiConverterTypeChatLogStatus.write(value.status, into: &buf)
         FfiConverterInt64.write(value.cachedAt, into: &buf)
+        FfiConverterBool.write(value.isCountable, into: &buf)
     }
 }
 

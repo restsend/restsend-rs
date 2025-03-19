@@ -4507,7 +4507,8 @@ data class ChatLog (
     var `read`: kotlin.Boolean, 
     var `recall`: kotlin.Boolean, 
     var `status`: ChatLogStatus, 
-    var `cachedAt`: kotlin.Long
+    var `cachedAt`: kotlin.Long, 
+    var `isCountable`: kotlin.Boolean
 ) {
     
     companion object
@@ -4529,6 +4530,7 @@ public object FfiConverterTypeChatLog: FfiConverterRustBuffer<ChatLog> {
             FfiConverterBoolean.read(buf),
             FfiConverterTypeChatLogStatus.read(buf),
             FfiConverterLong.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
@@ -4542,7 +4544,8 @@ public object FfiConverterTypeChatLog: FfiConverterRustBuffer<ChatLog> {
             FfiConverterBoolean.allocationSize(value.`read`) +
             FfiConverterBoolean.allocationSize(value.`recall`) +
             FfiConverterTypeChatLogStatus.allocationSize(value.`status`) +
-            FfiConverterLong.allocationSize(value.`cachedAt`)
+            FfiConverterLong.allocationSize(value.`cachedAt`) +
+            FfiConverterBoolean.allocationSize(value.`isCountable`)
     )
 
     override fun write(value: ChatLog, buf: ByteBuffer) {
@@ -4556,6 +4559,7 @@ public object FfiConverterTypeChatLog: FfiConverterRustBuffer<ChatLog> {
             FfiConverterBoolean.write(value.`recall`, buf)
             FfiConverterTypeChatLogStatus.write(value.`status`, buf)
             FfiConverterLong.write(value.`cachedAt`, buf)
+            FfiConverterBoolean.write(value.`isCountable`, buf)
     }
 }
 

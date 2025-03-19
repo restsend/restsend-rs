@@ -1,9 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
-export const signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
-export const signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
-export const logout: (a: number, b: number, c: number, d: number) => any;
 export const client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -31,6 +28,14 @@ export const client_setUserStar: (a: number, b: number, c: number, d: number) =>
 export const client_setUserBlock: (a: number, b: number, c: number, d: number) => any;
 export const client_setAllowGuestChat: (a: number, b: number) => any;
 export const setLogging: (a: number, b: number) => void;
+export const __wbg_client_free: (a: number, b: number) => void;
+export const client_new: (a: any, b: number, c: number) => number;
+export const client_connectionStatus: (a: number) => [number, number];
+export const client_unreadCount: (a: number) => any;
+export const client_app_active: (a: number) => void;
+export const client_set_keepalive: (a: number, b: number) => void;
+export const client_shutdown: (a: number) => any;
+export const client_connect: (a: number) => any;
 export const client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
 export const client_doTyping: (a: number, b: number, c: number) => any;
 export const client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
@@ -43,14 +48,9 @@ export const client_doSendLogs: (a: number, b: number, c: number, d: number, e: 
 export const client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
 export const client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
 export const client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
-export const __wbg_client_free: (a: number, b: number) => void;
-export const client_new: (a: any, b: number, c: number) => number;
-export const client_connectionStatus: (a: number) => [number, number];
-export const client_unreadCount: (a: number) => any;
-export const client_app_active: (a: number) => void;
-export const client_set_keepalive: (a: number, b: number) => void;
-export const client_shutdown: (a: number) => any;
-export const client_connect: (a: number) => any;
+export const signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
+export const signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
+export const logout: (a: number, b: number, c: number, d: number) => any;
 export const client_set_onconnected: (a: number, b: any) => void;
 export const client_set_onconnecting: (a: number, b: any) => void;
 export const client_set_ontokenexpired: (a: number, b: any) => void;
@@ -100,8 +100,8 @@ export const __externref_table_alloc: () => number;
 export const __wbindgen_export_4: WebAssembly.Table;
 export const __wbindgen_export_5: WebAssembly.Table;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
-export const closure638_externref_shim: (a: number, b: number, c: any) => void;
-export const _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h87cb81c687e271c9: (a: number, b: number) => void;
+export const _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hb04cc55a693034c6: (a: number, b: number) => void;
+export const closure693_externref_shim: (a: number, b: number, c: any) => void;
 export const closure838_externref_shim: (a: number, b: number, c: any) => void;
 export const closure878_externref_shim: (a: number, b: number, c: any, d: any) => void;
 export const __wbindgen_start: () => void;
