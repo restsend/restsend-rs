@@ -35,6 +35,7 @@ const MAX_ATTACHMENT_CONCURRENT: usize = 12;
 const MAX_INCOMING_LOG_CACHE_COUNT: usize = 300;
 
 const KEEPALIVE_INTERVAL_SECS: u32 = 50; // 50 seconds
+const PING_INTERVAL_SECS: u32 = 30; // 30 seconds for health check
 const MEDIA_PROGRESS_INTERVAL: u128 = 300; // 300ms to update progress
 const CONVERSATION_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds
 const USER_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds

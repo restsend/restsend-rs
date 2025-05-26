@@ -6,11 +6,12 @@ use crate::{
     request::{ChatRequest, ChatRequestType},
     utils::{sleep, spwan_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
-    KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS,
+    KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS, PING_INTERVAL_SECS,
 };
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
+    collections::VecDeque,
     sync::{
         atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex,
@@ -52,10 +53,12 @@ pub(super) struct ConnectState {
     must_shutdown: AtomicBool,
     broken_count: AtomicU64,
     keepalive_inerval_secs: AtomicU32,
+    ping_interval_secs: AtomicU32,
     last_broken_at: Mutex<Option<i64>>,
     last_alive_at: Mutex<i64>,
     state_tx: broadcast::Sender<ConnectionStatus>,
     last_state: Mutex<ConnectionStatus>,
+    error_collector: ErrorLogCollector,
 }
 
 pub(super) type ConnectStateRef = Arc<ConnectState>;
@@ -67,10 +70,12 @@ impl ConnectState {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
             keepalive_inerval_secs: AtomicU32::new(KEEPALIVE_INTERVAL_SECS as u32),
+            ping_interval_secs: AtomicU32::new(PING_INTERVAL_SECS as u32),
             last_broken_at: Mutex::new(None),
             last_alive_at: Mutex::new(crate::utils::now_millis()),
             state_tx,
             last_state: Mutex::new(ConnectionStatus::Shutdown),
+            error_collector: ErrorLogCollector::new(100),
         }
     }
 
@@ -113,15 +118,15 @@ impl ConnectState {
         self.state_tx.send(ConnectionStatus::Broken).ok();
     }
 
-    pub fn need_send_keepalive(&self) -> bool {
-        let last_alive_at = *self.last_alive_at.lock().unwrap();
-        let elapsed = crate::utils::elapsed(last_alive_at).as_secs();
-        elapsed >= self.keepalive_inerval_secs.load(Ordering::Relaxed) as u64
-    }
-
     pub fn set_keepalive_interval_secs(&self, secs: u32) {
         self.keepalive_inerval_secs
             .store(secs as u32, Ordering::Relaxed);
+        self.ping_interval_secs
+            .store(secs as u32, Ordering::Relaxed);
+    }
+
+    pub fn get_ping_interval_secs(&self) -> u32 {
+        self.ping_interval_secs.load(Ordering::Relaxed)
     }
 
     pub async fn wait_for_next_connect(&self) {
@@ -141,6 +146,14 @@ impl ConnectState {
                 self.last_broken_at.lock().unwrap().take();
             }
         }
+    }
+
+    pub fn add_error(&self, error: String) {
+        self.error_collector.add_error(error);
+    }
+
+    pub fn get_and_clear_errors(&self) -> Vec<String> {
+        self.error_collector.get_and_clear()
     }
 }
 
@@ -185,6 +198,8 @@ impl WebSocketCallback for ConnectionInner {
     }
 
     fn on_net_broken(&self, reason: String) {
+        self.connect_state_ref
+            .add_error(format!("net_broken: {}", reason));
         self.connect_state_ref.did_broken();
         self.callback_ref
             .lock()
@@ -199,7 +214,9 @@ impl WebSocketCallback for ConnectionInner {
         let req = match ChatRequest::try_from(message) {
             Ok(req) => req,
             Err(e) => {
-                warn!("websocket parse message error: {}", e);
+                let error_msg = format!("websocket parse message error: {}", e);
+                warn!("{}", error_msg);
+                self.connect_state_ref.add_error(error_msg);
                 return;
             }
         };
@@ -211,10 +228,42 @@ impl WebSocketCallback for ConnectionInner {
             _ => match self.incoming_tx.send(req) {
                 Ok(_) => {}
                 Err(e) => {
-                    warn!("websocket send to incoming_tx failed: {}", e);
+                    let error_msg = format!("websocket send to incoming_tx failed: {}", e);
+                    warn!("{}", error_msg);
+                    self.connect_state_ref.add_error(error_msg);
                 }
             },
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct ErrorLogCollector {
+    logs: Arc<Mutex<VecDeque<String>>>,
+    max_logs: usize,
+}
+
+impl ErrorLogCollector {
+    pub fn new(max_logs: usize) -> Self {
+        Self {
+            logs: Arc::new(Mutex::new(VecDeque::new())),
+            max_logs,
+        }
+    }
+
+    pub fn add_error(&self, error: String) {
+        let mut logs = self.logs.lock().unwrap();
+        logs.push_back(format!("{}: {}", crate::utils::now_millis(), error));
+        while logs.len() > self.max_logs {
+            logs.pop_front();
+        }
+    }
+
+    pub fn get_and_clear(&self) -> Vec<String> {
+        let mut logs = self.logs.lock().unwrap();
+        let result = logs.iter().cloned().collect();
+        logs.clear();
+        result
     }
 }
 
@@ -313,15 +362,24 @@ async fn serve_connection(
 
             let keepalive_loop = async {
                 while !state_ref.is_must_shutdown() {
-                    sleep(Duration::from_secs(5 as u64)).await;
-                    if !state_ref.need_send_keepalive() {
-                        continue;
-                    }
-                    if let Err(e) = conn.send(String::from(r#"{"type":"nop"}"#)).await {
-                        warn!("keepalive_runner send failed: {:?}", e);
+                    let ping_interval = state_ref.get_ping_interval_secs();
+                    sleep(Duration::from_secs(ping_interval as u64)).await;
+
+                    let timestamp = crate::utils::now_millis();
+                    let error_logs = state_ref.get_and_clear_errors();
+                    let ping_req = ChatRequest::new_ping(timestamp, error_logs);
+
+                    if let Err(e) = conn.send((&ping_req).into()).await {
+                        let error_msg = format!("ping send failed: {:?}", e);
+                        warn!("{}", error_msg);
+                        state_ref.add_error(error_msg);
                         break;
                     }
                     state_ref.did_sent_or_recvived();
+                    info!(
+                        "ping sent at {} with interval {}s",
+                        timestamp, ping_interval
+                    );
                 }
             };
 
@@ -329,6 +387,12 @@ async fn serve_connection(
                 while let Some(req) = incoming_rx.recv().await {
                     let resps = match ChatRequestType::from(&req.req_type) {
                         ChatRequestType::Nop => vec![],
+                        ChatRequestType::Ping => {
+                            vec![Some(ChatRequest::new_ping_response(
+                                req.chat_id,
+                                req.content,
+                            ))]
+                        }
                         ChatRequestType::Unknown(_) => {
                             let r = callback_ref
                                 .lock()

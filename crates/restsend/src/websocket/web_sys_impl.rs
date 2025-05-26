@@ -85,7 +85,6 @@ impl WebSocketImpl {
                 callback_ref.on_connected(elapsed(st));
             });
             ws.set_onopen(Some(onopen_callback.as_ref().unchecked_ref()));
-            onopen_callback.forget();
 
             let callback_ref = callback.clone();
             let onmessage_callback = Closure::<dyn FnMut(_)>::new(move |e: MessageEvent| {
@@ -112,7 +111,6 @@ impl WebSocketImpl {
                 }
             });
             ws.set_onmessage(Some(onmessage_callback.as_ref().unchecked_ref()));
-            onmessage_callback.forget();
 
             let callback_ref = callback.clone();
             let reject_ref = reject.clone();
@@ -127,12 +125,10 @@ impl WebSocketImpl {
                 reject_ref.call1(&JsValue::NULL, &e).ok();
             });
             ws.set_onerror(Some(onerror_callback.as_ref().unchecked_ref()));
-            onerror_callback.forget();
 
             let callback_ref = callback.clone();
             let reject_ref = reject.clone();
             let onclose_callback = Closure::<dyn FnMut(_)>::new(move |e: Event| {
-                //get code and reason from e
                 let reason = match js_sys::Reflect::get(&e, &JsValue::from_str("reason")) {
                     Ok(v) => v.as_string(),
                     Err(e) => e.as_string(),
@@ -142,12 +138,26 @@ impl WebSocketImpl {
                 callback_ref.on_net_broken(reason);
                 reject_ref.call1(&JsValue::NULL, &e).ok();
             });
-
             ws.set_onclose(Some(onclose_callback.as_ref().unchecked_ref()));
+
+            onopen_callback.forget();
+            onmessage_callback.forget();
+            onerror_callback.forget();
             onclose_callback.forget();
         });
         JsFuture::from(p).await.ok();
         warn!("websocket closed: lifetime:{:?}", elapsed(st));
+        self.cleanup();
         Ok(())
+    }
+
+    fn cleanup(&self) {
+        if let Some(ws) = self.ws.borrow_mut().take() {
+            ws.set_onopen(None);
+            ws.set_onmessage(None);
+            ws.set_onerror(None);
+            ws.set_onclose(None);
+            let _ = ws.close();
+        }
     }
 }

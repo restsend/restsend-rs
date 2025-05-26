@@ -92,6 +92,13 @@ impl Client {
     pub fn set_keepalive(&self, secs: u32) {
         self.inner.set_keepalive_interval_secs(secs);
     }
+
+    /// set the ping interval with seconds (for health check with error logs)
+    /// default is 30 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_ping_interval(&self, secs: u32) {
+        self.inner.set_keepalive_interval_secs(secs);
+    }
     pub async fn shutdown(&self) {
         self.inner.shutdown().await
     }

@@ -15,7 +15,8 @@
   },
   "scripts": {
     "dev": "vite",
-    "livechat": "wasm-pack build -t web -- --no-default-features --features livechat",
+    "build": "wasm-pack build -t web -- --no-default-features --features indexeddb",
+    "livechat": "wasm-pack build -d ../../js -t web -- --no-default-features --features livechat",
     "deskchat": "wasm-pack build -d ../../js -t web -- --no-default-features --features indexeddb",
     "wasm_test": "wasm-pack test --firefox --headless -- --no-default-features --features indexeddb",
     "test": "wasm-pack build  -- --no-default-features --features indexeddb && vitest --run"

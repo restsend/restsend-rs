@@ -151,7 +151,7 @@
                         node.innerHTML = `<a href="${content.text}" target="_blank" class="underline text-blue-400">${content.text}</a>`
                     }
                     else {
-                        if (content.text.length > 1024) {
+                        if (content.text && content.text.length > 1024) {
                             let largeText = content.text.slice(0, 1024)
                             node.innerHTML = `<p class="w-full text-overflow-ellipsis">${largeText}</p>`
                         } else {
@@ -253,12 +253,13 @@
                 let lastBlock = this.blocks.length > 0 ? this.blocks[this.blocks.length - 1] : null;
                 let itemTime = new Date(item.createdAt).getTime()
 
+                // Check if should insert before the first block
                 if (firstBlock) {
-                    let blockTime = new Date(firstBlock.createdAt).getTime()
-                    if (itemTime < blockTime) {
-                        if (itemTime + 5 * 60 * 1000 < blockTime) {
-                            // create new block
-                            firstBlock = {
+                    let firstBlockTime = new Date(firstBlock.createdAt).getTime()
+                    if (itemTime < firstBlockTime) {
+                        // Create new block if time gap > 5 minutes or different sender
+                        if (itemTime + 5 * 60 * 1000 < firstBlockTime || firstBlock.senderId != item.senderId) {
+                            let newBlock = {
                                 title: item.remark || item.senderId,
                                 avatar: this.getAvatar(item.senderId),
                                 isSelf: item.senderId == this.self,
@@ -268,24 +269,57 @@
                                 seq: item.seq,
                                 createdAt: item.createdAt,
                             };
-                            this.blocks.unshift(firstBlock);
-                        }
-                        if (firstBlock.senderId == item.senderId) {
+                            this.blocks.unshift(newBlock);
+                            return newBlock;
+                        } else if (firstBlock.senderId == item.senderId) {
                             return firstBlock
                         }
                     }
                 }
 
+                // Check if can add to the last block
                 if (lastBlock) {
-                    let blockTime = new Date(firstBlock.createdAt).getTime()
-                    if (blockTime - itemTime < 5 * 60 * 1000) {
-                        if (lastBlock.senderId == item.senderId) {
-                            return lastBlock
-                        }
+                    let lastBlockTime = new Date(lastBlock.createdAt).getTime()
+                    // Fix: should use lastBlockTime instead of firstBlock
+                    if (Math.abs(itemTime - lastBlockTime) < 5 * 60 * 1000 && lastBlock.senderId == item.senderId) {
+                        return lastBlock
                     }
                 }
 
-                lastBlock = {
+                // Check if need to insert block in the middle
+                for (let i = 0; i < this.blocks.length - 1; i++) {
+                    let currentBlock = this.blocks[i];
+                    let nextBlock = this.blocks[i + 1];
+                    let currentTime = new Date(currentBlock.createdAt).getTime();
+                    let nextTime = new Date(nextBlock.createdAt).getTime();
+
+                    if (itemTime > currentTime && itemTime < nextTime) {
+                        // Check if can merge to existing block
+                        if (Math.abs(itemTime - currentTime) < 5 * 60 * 1000 && currentBlock.senderId == item.senderId) {
+                            return currentBlock;
+                        }
+                        if (Math.abs(itemTime - nextTime) < 5 * 60 * 1000 && nextBlock.senderId == item.senderId) {
+                            return nextBlock;
+                        }
+
+                        // Create new block and insert at correct position
+                        let newBlock = {
+                            title: item.remark || item.senderId,
+                            avatar: this.getAvatar(item.senderId),
+                            isSelf: item.senderId == this.self,
+                            senderId: item.senderId,
+                            items: [],
+                            id: item.id,
+                            seq: item.seq,
+                            createdAt: item.createdAt,
+                        };
+                        this.blocks.splice(i + 1, 0, newBlock);
+                        return newBlock;
+                    }
+                }
+
+                // Create new block and add to the end
+                let newBlock = {
                     title: item.remark || item.senderId,
                     avatar: this.getAvatar(item.senderId),
                     isSelf: item.senderId == this.self,
@@ -295,55 +329,88 @@
                     seq: item.seq,
                     createdAt: item.createdAt,
                 };
-                this.blocks.push(lastBlock);
-                return lastBlock
+                this.blocks.push(newBlock);
+                return newBlock
             }
 
             appendMessages(items) {
                 if (!items) {
                     return
                 }
-                let lastBlock = null
                 let sortBlocks = new Map();
 
-                for (var idx = items.length - 1; idx >= 0; idx--) {
+                // Process messages in chronological order (old to new)
+                let sortedItems = [...items].sort((a, b) => a.seq - b.seq);
+
+                for (let idx = 0; idx < sortedItems.length; idx++) {
                     let item = {
-                        type: items[idx].content.type,
-                        content: items[idx].content,
-                        replyContent: (items[idx].content.replyContent),
+                        type: sortedItems[idx].content.type,
+                        content: sortedItems[idx].content,
+                        replyContent: (sortedItems[idx].content.replyContent),
                         isLast: false,
-                        seq: items[idx].seq,
-                        id: items[idx].id,
-                        recall: items[idx].recall,
-                        senderId: items[idx].senderId,
-                        createdAt: new Date(items[idx].createdAt),
-                        placeholder: items[idx].placeholder || null,
-                        size: items[idx].size || null,
+                        seq: sortedItems[idx].seq,
+                        id: sortedItems[idx].id,
+                        recall: sortedItems[idx].recall,
+                        senderId: sortedItems[idx].senderId,
+                        createdAt: new Date(sortedItems[idx].createdAt),
+                        placeholder: sortedItems[idx].placeholder || null,
+                        size: sortedItems[idx].size || null,
                     }
-                    if (this.msgs[items[idx].id]) {
-                        this.updateItem(items[idx].id, {
+
+                    // If message already exists, update it
+                    if (this.msgs[sortedItems[idx].id]) {
+                        this.updateItem(sortedItems[idx].id, {
                             type: item.type,
-                            content: items[idx].content,
+                            content: sortedItems[idx].content,
                             recall: item.recall,
-                            replyContent: (items[idx].content.replyContent),
+                            replyContent: (sortedItems[idx].content.replyContent),
                         })
                         continue
                     }
+
                     if (!item.type) {
                         continue
                     }
+
                     this.msgs[item.id] = item
                     const block = this.getOrCreateBlock(item)
                     block.items.push(item)
                     sortBlocks.set(block.id, block)
                 }
+
+                // Ensure blocks are sorted by time
+                this.blocks.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+                // Handle message sorting and isLast flag within each block
                 sortBlocks.forEach((block, _) => {
                     if (block.items.length > 0) {
-                        block.items[block.items.length - 1].isLast = false
+                        // Reset all isLast flags
+                        block.items.forEach(item => item.isLast = false);
+                        // Sort by seq
                         block.items.sort((a, b) => a.seq - b.seq)
+                        // Set isLast flag for the last message
                         block.items[block.items.length - 1].isLast = true
                     }
                 })
+
+                // Recalculate isLast flags for all blocks
+                this.recalculateBlocksIsLast();
+            }
+
+            recalculateBlocksIsLast() {
+                // Recalculate isLast flags for messages in all blocks
+                this.blocks.forEach(block => {
+                    if (block.items.length > 0) {
+                        // Reset all isLast flags
+                        block.items.forEach(item => item.isLast = false);
+                        // Sort by seq to ensure correct order
+                        block.items.sort((a, b) => a.seq - b.seq);
+                        // Set isLast flag for the last message
+                        if (block.items.length > 0) {
+                            block.items[block.items.length - 1].isLast = true;
+                        }
+                    }
+                });
             }
         };
 
@@ -369,6 +436,7 @@
             selectedMessages: [],
             messageBlocks: null,
             wasmLoaded: false,
+            loadingOlderMessages: false,
 
             init: async function () {
                 console.info = (text) => this.logText(text, 'info')
@@ -549,10 +617,18 @@
                     return
                 }
 
+                // Debounce mechanism to avoid frequent triggers
+                if (this.loadingOlderMessages) {
+                    return
+                }
+
                 let firstItemSeq = this.messageBlocks.firstItemSeq
                 if (firstItemSeq == 0) {
                     return
                 }
+
+                this.loadingOlderMessages = true
+
                 // sync older messages
                 this.current.syncChatLogs(this.conversation.topicId, firstItemSeq, {
                     limit: 20,
@@ -563,15 +639,31 @@
 
                         const el = document.getElementById('messages')
                         const currentScrollHeight = el.scrollHeight
+                        const currentScrollTop = el.scrollTop
+
+                        // Record the position of the first visible element as reference point
+                        const firstVisibleElement = el.querySelector('.chat-message')
+                        const firstVisibleElementTop = firstVisibleElement ? firstVisibleElement.offsetTop : 0
+
                         this.messageBlocks.appendMessages(r.items)
-                        setTimeout(() => {
+
+                        // Use requestAnimationFrame to ensure DOM update is complete before adjusting scroll position
+                        requestAnimationFrame(() => {
                             if (el) {
-                                el.scrollTop = el.scrollHeight - currentScrollHeight;
+                                // Calculate the height of newly added content
+                                const newScrollHeight = el.scrollHeight
+                                const addedHeight = newScrollHeight - currentScrollHeight
+
+                                // Restore scroll position to keep user's view unchanged
+                                el.scrollTop = currentScrollTop + addedHeight
+
+                                this.loadingOlderMessages = false
                             }
-                        }, 200)
+                        })
                     },
                     onfail: (reason) => {
                         this.logText(`sync messages failed: ${reason}`)
+                        this.loadingOlderMessages = false
                     }
                 }).then();
             },

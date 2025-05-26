@@ -156,9 +156,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 as Box<dyn FnMut(web_sys::Event)>);
 
             let reject_ref = reject.clone();
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject_ref.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
 
             open_req.set_onupgradeneeded(Some(on_upgradeneeded_callback.as_ref().unchecked_ref()));
             on_upgradeneeded_callback.forget();
@@ -279,9 +279,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             })
                 as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
 
             cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
@@ -373,9 +373,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             })
                 as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
 
             cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
@@ -428,9 +428,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             })
                 as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject_ref.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
 
             get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
@@ -488,10 +488,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
                         on_success_callback.forget();
 
-                        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+                        let on_error_callback = Closure::once(move |e: DomException| {
                             reject.call1(&JsValue::NULL, &e).ok();
-                        })
-                            as Box<dyn FnMut(DomException)>);
+                        });
 
                         get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
                         on_error_callback.forget();
@@ -538,9 +537,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             put_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();
 
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
             put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
         });
@@ -612,8 +611,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             })
                 as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback =
-                Closure::wrap(Box::new(move |e: DomException| {}) as Box<dyn FnMut(DomException)>);
+            let on_error_callback = Closure::once(move |_e: DomException| {});
 
             cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
             on_error_callback.forget();
@@ -661,9 +659,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             })
                 as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
+            let on_error_callback = Closure::once(move |e: DomException| {
                 reject.call1(&JsValue::NULL, &e).ok();
-            }) as Box<dyn FnMut(DomException)>);
+            });
 
             cursor_request.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
             on_success_callback.forget();

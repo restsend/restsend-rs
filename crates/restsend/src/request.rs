@@ -13,7 +13,8 @@ pub enum ChatRequestType {
     Response,
     Kickout,
     System,
-    Nop, // KeepAlive
+    Nop,  // KeepAlive
+    Ping, // Health check with error logs
     Unknown(String),
 }
 
@@ -27,6 +28,7 @@ impl From<&String> for ChatRequestType {
             "kickout" => ChatRequestType::Kickout,
             "system" => ChatRequestType::System,
             "nop" => ChatRequestType::Nop,
+            "ping" => ChatRequestType::Ping,
             _ => ChatRequestType::Unknown(value.clone()),
         }
     }
@@ -42,6 +44,7 @@ impl From<ChatRequestType> for String {
             ChatRequestType::Kickout => "kickout",
             ChatRequestType::System => "system",
             ChatRequestType::Nop => "nop",
+            ChatRequestType::Ping => "ping",
             ChatRequestType::Unknown(v) => return v.clone(),
         }
         .to_string()
@@ -193,6 +196,33 @@ impl ChatRequest {
 
     pub fn new_recall(topic_id: &str, chat_id: &str) -> Self {
         Self::new_chat(topic_id, ContentType::Recall).text(&chat_id)
+    }
+
+    pub fn new_ping_response(chat_id: String, content: Option<Content>) -> Self {
+        ChatRequest {
+            req_type: String::from(ChatRequestType::Response),
+            chat_id,
+            content,
+            code: 200,
+            ..Default::default()
+        }
+    }
+    pub fn new_ping(timestamp: i64, error_logs: Vec<String>) -> Self {
+        use crate::models::Content;
+        let content = serde_json::json!({
+            "timestamp": timestamp,
+            "error_logs": error_logs
+        });
+        ChatRequest {
+            req_type: String::from(ChatRequestType::Ping),
+            chat_id: random_text(crate::CHAT_ID_LEN),
+            content: Some(Content {
+                content_type: "ping".to_string(),
+                text: content.to_string(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
     }
 
     pub fn thumbnail(&self, thumbnail: &str) -> Self {

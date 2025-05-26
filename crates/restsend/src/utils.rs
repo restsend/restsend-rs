@@ -90,7 +90,7 @@ where
 #[cfg(target_family = "wasm")]
 pub async fn sleep(duration: Duration) {
     let p = js_sys::Promise::new(&mut |resolve, _| {
-        let closure = Closure::new(move || {
+        let closure = Closure::once(move || {
             let this = JsValue::null();
             let _ = resolve.call0(&this);
         });
