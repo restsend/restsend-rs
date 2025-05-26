@@ -13,7 +13,7 @@ use restsend_macros::export_wasm_or_ffi;
 use std::{
     collections::VecDeque,
     sync::{
-        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -55,7 +55,7 @@ pub(super) struct ConnectState {
     keepalive_inerval_secs: AtomicU32,
     ping_interval_secs: AtomicU32,
     last_broken_at: Mutex<Option<i64>>,
-    last_alive_at: Mutex<i64>,
+    last_alive_at: AtomicI64,
     state_tx: broadcast::Sender<ConnectionStatus>,
     last_state: Mutex<ConnectionStatus>,
     error_collector: ErrorLogCollector,
@@ -72,7 +72,7 @@ impl ConnectState {
             keepalive_inerval_secs: AtomicU32::new(KEEPALIVE_INTERVAL_SECS as u32),
             ping_interval_secs: AtomicU32::new(PING_INTERVAL_SECS as u32),
             last_broken_at: Mutex::new(None),
-            last_alive_at: Mutex::new(crate::utils::now_millis()),
+            last_alive_at: AtomicI64::new(crate::utils::now_millis()),
             state_tx,
             last_state: Mutex::new(ConnectionStatus::Shutdown),
             error_collector: ErrorLogCollector::new(100),
@@ -94,7 +94,8 @@ impl ConnectState {
     }
 
     pub fn did_connecting(&self) {
-        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
+        self.last_alive_at
+            .store(crate::utils::now_millis(), Ordering::Relaxed);
         *self.last_state.lock().unwrap() = ConnectionStatus::Connecting;
         //self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
@@ -102,13 +103,14 @@ impl ConnectState {
     pub fn did_connected(&self) {
         self.broken_count.store(0, Ordering::Relaxed);
         self.last_broken_at.lock().unwrap().take();
-        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
+        self.last_alive_at
+            .store(crate::utils::now_millis(), Ordering::Relaxed);
         *self.last_state.lock().unwrap() = ConnectionStatus::Connected;
-        //self.state_tx.send(ConnectionStatus::Connected).ok();
     }
 
     pub fn did_sent_or_recvived(&self) {
-        *self.last_alive_at.lock().unwrap() = crate::utils::now_millis();
+        self.last_alive_at
+            .store(crate::utils::now_millis(), Ordering::Relaxed);
     }
 
     pub fn did_broken(&self) {
@@ -128,7 +130,9 @@ impl ConnectState {
     pub fn get_ping_interval_secs(&self) -> u32 {
         self.ping_interval_secs.load(Ordering::Relaxed)
     }
-
+    pub fn get_last_alive_at(&self) -> i64 {
+        self.last_alive_at.load(Ordering::Relaxed)
+    }
     pub async fn wait_for_next_connect(&self) {
         let broken_count = self.broken_count.load(Ordering::Relaxed);
         if broken_count <= 0 {
@@ -291,6 +295,10 @@ impl Client {
 
     pub fn set_keepalive_interval_secs(&self, secs: u32) {
         self.state.set_keepalive_interval_secs(secs);
+    }
+
+    pub fn get_last_alive_at(&self) -> i64 {
+        self.state.get_last_alive_at()
     }
 
     pub async fn shutdown(&self) {

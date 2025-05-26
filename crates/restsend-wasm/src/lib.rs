@@ -78,6 +78,14 @@ impl Client {
     pub fn connectionStatus(&self) -> String {
         self.inner.connection_status()
     }
+
+    /// get the last alive at
+    #[wasm_bindgen(getter)]
+    #[allow(non_snake_case)]
+    pub fn lastAliveAt(&self) -> i64 {
+        self.inner.get_last_alive_at()
+    }
+
     #[wasm_bindgen(getter)]
     #[allow(non_snake_case)]
     pub async fn unreadCount(&self) -> u32 {
