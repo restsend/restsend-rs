@@ -460,14 +460,17 @@ impl Client {
     /// * `topicId` String - The topic id
     /// * `message` ChatRequest - The message
     /// # Return
-    /// * `true` - If return true, will send `has read` to server
+    /// * `hasRead` Boolean - If return true, will send `has read` to server
+    /// * `unreadCountable` Boolean - If return true, will increase unread count
     /// # Example
     /// ```javascript
     /// const client = new Client(info);
     /// await client.connect();
     /// client.ontopicmessage = (topicId, message) => {
     /// console.log(topicId, message);
-    /// return true;
+    /// let hasRead = true;
+    /// let unreadCountable = message.content?.unreadable !== true
+    /// return {hasRead, unreadCountable};
     /// }
     /// ```
     #[wasm_bindgen(setter)]

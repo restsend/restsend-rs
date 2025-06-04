@@ -271,11 +271,11 @@ export function setLogging(level) {
 }
 
 function __wbg_adapter_54(arg0, arg1, arg2) {
-    wasm.closure579_externref_shim(arg0, arg1, arg2);
+    wasm.closure582_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_57(arg0, arg1) {
-    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha35824716486fd14(arg0, arg1);
+    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h387baaa87c379092(arg0, arg1);
 }
 
 function __wbg_adapter_66(arg0, arg1, arg2) {
@@ -1441,14 +1441,17 @@ export class Client {
      * * `topicId` String - The topic id
      * * `message` ChatRequest - The message
      * # Return
-     * * `true` - If return true, will send `has read` to server
+     * * `hasRead` Boolean - If return true, will send `has read` to server
+     * * `unreadCountable` Boolean - If return true, will increase unread count
      * # Example
      * ```javascript
      * const client = new Client(info);
      * await client.connect();
      * client.ontopicmessage = (topicId, message) => {
      * console.log(topicId, message);
-     * return true;
+     * let hasRead = true;
+     * let unreadCountable = message.content?.unreadable !== true
+     * return {hasRead, unreadCountable};
      * }
      * ```
      * @param {any} cb
@@ -2325,7 +2328,7 @@ function __wbg_get_imports() {
     imports.wbg.__wbg_setRequestHeader_51d371ad5196f6ef = function() { return handleError(function (arg0, arg1, arg2, arg3, arg4) {
         arg0.setRequestHeader(getStringFromWasm0(arg1, arg2), getStringFromWasm0(arg3, arg4));
     }, arguments) };
-    imports.wbg.__wbg_setTimeout_c240977f76e6405e = function(arg0, arg1) {
+    imports.wbg.__wbg_setTimeout_381f79b557cf52f0 = function(arg0, arg1) {
         setTimeout(arg0, arg1 >>> 0);
     };
     imports.wbg.__wbg_set_37837023f3d740e8 = function(arg0, arg1, arg2) {
@@ -2529,23 +2532,23 @@ function __wbg_get_imports() {
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1088 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 580, __wbg_adapter_54);
+        const ret = makeMutClosure(arg0, arg1, 579, __wbg_adapter_54);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1089 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 580, __wbg_adapter_57);
+        const ret = makeMutClosure(arg0, arg1, 579, __wbg_adapter_57);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1090 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 580, __wbg_adapter_54);
+        const ret = makeMutClosure(arg0, arg1, 579, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1091 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 580, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1092 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 579, __wbg_adapter_54);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1094 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 580, __wbg_adapter_54);
+        const ret = makeMutClosure(arg0, arg1, 579, __wbg_adapter_54);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper2255 = function(arg0, arg1, arg2) {

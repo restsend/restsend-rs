@@ -498,13 +498,14 @@
             },
 
             onTopicMessage: function (topicId, req) {
+                let hasRead = false
+                let unreadCountable = req.content?.unreadable !== true
                 if (this.conversation) {
                     if (topicId == this.conversation.topicId) {
-                        // set read
-                        return true
+                        hasRead = true
                     }
                 }
-                return false
+                return { hasRead, unreadCountable }
             },
             doMute: function (conversation) {
                 conversation.mute = !conversation.mute

@@ -660,14 +660,17 @@ export class Client {
    * * `topicId` String - The topic id
    * * `message` ChatRequest - The message
    * # Return
-   * * `true` - If return true, will send `has read` to server
+   * * `hasRead` Boolean - If return true, will send `has read` to server
+   * * `unreadCountable` Boolean - If return true, will increase unread count
    * # Example
    * ```javascript
    * const client = new Client(info);
    * await client.connect();
    * client.ontopicmessage = (topicId, message) => {
    * console.log(topicId, message);
-   * return true;
+   * let hasRead = true;
+   * let unreadCountable = message.content?.unreadable !== true
+   * return {hasRead, unreadCountable};
    * }
    * ```
    */
@@ -844,8 +847,8 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure579_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha35824716486fd14: (a: number, b: number) => void;
+  readonly closure582_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h387baaa87c379092: (a: number, b: number) => void;
   readonly closure838_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure879_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
