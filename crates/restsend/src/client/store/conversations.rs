@@ -506,10 +506,6 @@ impl ClientStore {
                             return;
                         }
                     };
-                    if !blocking {
-                        // return if not blocking, just update local conversation
-                        return;
-                    }
                     if let Some(cb) = callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(vec![c]);
                     };
