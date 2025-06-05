@@ -54,8 +54,8 @@ impl Client {
         let ensureConversationVersion =
             js_sys::Reflect::get(&option, &JsValue::from_str("ensureConversationVersion"))
                 .ok()
-                .map(|v| v.as_bool().unwrap_or(true));
-        
+                .map(|v| v.as_bool().unwrap_or(false));
+
         self.inner
             .sync_chat_logs(
                 topicId,
@@ -66,8 +66,8 @@ impl Client {
             )
             .await
     }
-    
-    pub async fn saveChatLogs(&self, logs:JsValue) -> Result<(), JsValue> {
+
+    pub async fn saveChatLogs(&self, logs: JsValue) -> Result<(), JsValue> {
         let logs = serde_wasm_bindgen::from_value::<Vec<restsend_sdk::models::ChatLog>>(logs)?;
         self.inner.save_chat_logs(&logs).await.map_err(|e| e.into())
     }
@@ -200,13 +200,9 @@ impl Client {
     /// Clear conversation on local storage
     /// #Arguments
     /// * `topicId` - topic id
-    pub async fn clearConversation(
-        &self,
-        topicId: String,
-    ){
+    pub async fn clearConversation(&self, topicId: String) {
         self.inner.clear_conversation(topicId).await.ok();
     }
-
 
     /// Set conversation extra
     /// #Arguments

@@ -134,7 +134,7 @@ impl Client {
             .get_conversation(
                 &topic_id,
                 false,
-                ensure_conversation_last_version.unwrap_or(true),
+                ensure_conversation_last_version.unwrap_or(false),
             )
             .await
             .unwrap_or_default();
