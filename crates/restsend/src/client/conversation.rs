@@ -92,7 +92,7 @@ impl Client {
 
         for c in r.items.iter() {
             let is_countable =
-                if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
                     cb.is_countable(c.content.clone())
                 } else {
                     !c.content.unreadable
@@ -202,7 +202,7 @@ impl Client {
                         ChatLogStatus::Received
                     };
                     c.is_countable =
-                        if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                        if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
                             cb.is_countable(c.content.clone())
                         } else {
                             !c.content.unreadable
@@ -275,7 +275,7 @@ impl Client {
                         .map(|c| c.updated_at.clone())
                         .unwrap_or_default();
 
-                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                    if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(r.items);
                     }
 
@@ -338,7 +338,7 @@ impl Client {
                     });
 
                     let new_conversations_count = new_conversations.len() as u32;
-                    if let Some(cb) = store_ref.callback.lock().unwrap().as_ref() {
+                    if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(new_conversations);
                     }
 
@@ -443,7 +443,7 @@ impl Client {
                     ChatLogStatus::Received
                 };
                 c.is_countable =
-                    if let Some(cb) = self.store.countable_callback.lock().unwrap().as_ref() {
+                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
                         cb.is_countable(c.content.clone())
                     } else {
                         !c.content.unreadable
@@ -461,7 +461,7 @@ impl Client {
                 None => continue,
             };
 
-            if self.store.countable_callback.lock().unwrap().is_some() {
+            if self.store.countable_callback.read().unwrap().is_some() {
                 conversation.unread = 0
             }
 
@@ -482,7 +482,7 @@ impl Client {
             updated_conversations.push(conversation);
         }
         // callback
-        if let Some(cb) = self.store.callback.lock().unwrap().as_ref() {
+        if let Some(cb) = self.store.callback.read().unwrap().as_ref() {
             cb.on_conversations_updated(updated_conversations.clone());
         }
         // sync to store

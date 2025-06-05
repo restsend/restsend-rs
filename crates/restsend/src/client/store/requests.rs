@@ -15,10 +15,10 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 impl ClientStore {
     pub async fn handle_outgoing(&self, outgoing_tx: UnboundedSender<ChatRequest>) {
         let (msg_tx, mut msg_rx) = unbounded_channel::<String>();
-        self.msg_tx.lock().unwrap().replace(msg_tx.clone());
+        self.msg_tx.write().unwrap().replace(msg_tx.clone());
 
         while let Some(chat_id) = msg_rx.recv().await {
-            let outgoings = self.outgoings.lock().unwrap();
+            let outgoings = self.outgoings.read().unwrap();
             if let Some(pending) = outgoings.get(&chat_id) {
                 if pending.is_expired() {
                     continue;
@@ -92,20 +92,22 @@ impl ClientStore {
 
                 let mut resps = vec![ChatRequest::new_response(&req, 200)];
                 let topic_id = req.topic_id.clone();
-
-                if let Some(removed_at) = self
-                    .removed_conversations
-                    .lock()
-                    .unwrap()
-                    .get(&req.topic_id)
-                {
-                    if !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS) {
+                let removed_at = {
+                    self.removed_conversations
+                        .read()
+                        .unwrap()
+                        .get(&req.topic_id)
+                        .copied()
+                };
+                if let Some(removed_at) = removed_at {
+                    if !is_cache_expired(removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS) {
                         return resps;
-                    } else {
-                        self.removed_conversations
-                            .lock()
-                            .unwrap()
-                            .remove(&req.topic_id);
+                    }
+                    match self.removed_conversations.try_write() {
+                        Ok(mut removed_conversations) => {
+                            removed_conversations.remove(&req.topic_id);
+                        }
+                        Err(_) => {}
                     }
                 }
 
@@ -118,7 +120,7 @@ impl ClientStore {
                 }
 
                 let req_status = callback
-                    .lock()
+                    .read()
                     .unwrap()
                     .as_ref()
                     .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()))
@@ -138,7 +140,7 @@ impl ClientStore {
                             )));
                         }
                         if !conversation.is_partial {
-                            if let Some(cb) = callback.lock().unwrap().as_ref() {
+                            if let Some(cb) = callback.read().unwrap().as_ref() {
                                 conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
                                 cb.on_conversations_updated(vec![conversation]);
                             }
@@ -147,12 +149,14 @@ impl ClientStore {
                         }
                     }
                     None => {
-                        self.removed_conversations
-                            .lock()
-                            .unwrap()
-                            .insert(topic_id.to_string(), now_millis());
+                        match self.removed_conversations.try_write() {
+                            Ok(mut removed_conversations) => {
+                                removed_conversations.insert(topic_id.to_string(), now_millis());
+                            }
+                            Err(_) => {}
+                        }
                         self.clear_conversation(&topic_id).await.ok();
-                        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+                        if let Some(cb) = self.callback.read().unwrap().as_ref() {
                             cb.on_conversation_removed(topic_id);
                         }
                     }
@@ -175,7 +179,7 @@ impl ClientStore {
     }
 
     pub async fn handle_send_fail(&self, chat_id: &str) {
-        let peek = if let Some(pending) = self.outgoings.lock().unwrap().get(chat_id) {
+        let peek = if let Some(pending) = self.outgoings.read().unwrap().get(chat_id) {
             pending.did_retry();
             pending.is_expired()
         } else {
@@ -192,8 +196,10 @@ impl ClientStore {
     }
 
     pub async fn peek_pending_request(&self, chat_id: &str) -> Option<PendingRequest> {
-        let mut outgoings = self.outgoings.lock().unwrap();
-        outgoings.remove(chat_id)
+        match self.outgoings.try_write() {
+            Ok(mut outgoings) => outgoings.remove(chat_id),
+            Err(_) => None,
+        }
     }
 
     pub async fn add_pending_request(
@@ -224,10 +230,12 @@ impl ClientStore {
                     },
                     false => pending_request,
                 };
-                self.outgoings
-                    .lock()
-                    .unwrap()
-                    .insert(chat_id.clone(), pending_request);
+                match self.outgoings.try_write() {
+                    Ok(mut outgoings) => {
+                        outgoings.insert(chat_id.clone(), pending_request);
+                    }
+                    Err(_) => {}
+                }
 
                 self.try_send(chat_id);
             }
@@ -235,7 +243,7 @@ impl ClientStore {
     }
 
     pub(super) fn try_send(&self, chat_id: String) {
-        match self.msg_tx.lock().unwrap().as_ref() {
+        match self.msg_tx.read().unwrap().as_ref() {
             Some(tx) => match tx.send(chat_id.clone()) {
                 Ok(_) => {}
                 Err(e) => {
@@ -243,15 +251,19 @@ impl ClientStore {
                 }
             },
             None => {
-                let mut tmps = self.tmps.lock().unwrap();
-                tmps.push_back(chat_id);
+                if let Ok(mut tmps) = self.tmps.try_write() {
+                    tmps.push_back(chat_id);
+                }
             }
         }
     }
 
     pub fn flush_offline_requests(&self) {
-        let mut tmps = self.tmps.lock().unwrap();
-        let tx = self.msg_tx.lock().unwrap();
+        let mut tmps = match self.tmps.try_write() {
+            Ok(tmps) => tmps,
+            Err(_) => return,
+        };
+        let tx = self.msg_tx.read().unwrap();
         match tx.as_ref() {
             Some(tx) => {
                 while let Some(chat_id) = tmps.pop_front() {
@@ -274,16 +286,21 @@ impl ClientStore {
     }
 
     pub fn cancel_send(&self, chat_id: &str) {
-        let mut outgoings = self.outgoings.lock().unwrap();
-        if let Some(pending) = outgoings.remove(chat_id) {
-            pending
-                .callback
-                .map(|cb| cb.on_fail("cancel send".to_string()));
+        match self.outgoings.try_write() {
+            Ok(mut outgoings) => {
+                if let Some(pending) = outgoings.remove(chat_id) {
+                    pending
+                        .callback
+                        .map(|cb| cb.on_fail("cancel send".to_string()));
+                }
+            }
+            Err(_) => {}
         }
 
-        let mut uploadings = self.upload_tasks.lock().unwrap();
-        if let Some(task) = uploadings.remove(chat_id) {
-            task.abort();
+        if let Ok(mut uploadings) = self.upload_tasks.try_write() {
+            if let Some(task) = uploadings.remove(chat_id) {
+                task.abort();
+            }
         }
     }
 }

@@ -2,24 +2,14 @@ use log::{Level, Log, Metadata, Record};
 use wasm_bindgen::prelude::*;
 use web_sys::console;
 
-#[allow(dead_code)]
-/// Specify where the message will be logged.
-pub enum MessageLocation {
-    /// The message will be on the same line as other info (level, path...)
-    SameLine,
-    /// The message will be on its own line, a new after other info.    
-    NewLine,
-}
 struct WasmLogger {
     pub module_prefix: Option<String>,
-    pub message_location: MessageLocation,
 }
 
 impl Default for WasmLogger {
     fn default() -> Self {
         Self {
             module_prefix: None,
-            message_location: MessageLocation::SameLine,
         }
     }
 }
@@ -35,28 +25,26 @@ impl Log for WasmLogger {
 
     fn log(&self, record: &Record<'_>) {
         if self.enabled(record.metadata()) {
-            let message_separator = match self.message_location {
-                MessageLocation::NewLine => "\n",
-                MessageLocation::SameLine => " ",
-            };
-
             let file_line = match record.line() {
                 Some(line) => format!(
-                    " {}:{} ",
-                    record.file().unwrap_or_else(|| record.target()),
+                    "{}:{}",
+                    record
+                        .file()
+                        .unwrap_or_else(|| record.target())
+                        .split("/")
+                        .last()
+                        .unwrap_or_default(),
                     line
                 ),
                 None => "".to_string(),
             };
-            let s = format!(
-                "{}{}{}{}",
+            let text = format!(
+                "|RS|{}|{}|{}",
                 record.level(),
                 file_line,
-                message_separator,
-                record.args(),
+                record.args().to_string()
             );
-            let s = JsValue::from_str(&s);
-
+            let s = JsValue::from_str(&text);
             match record.level() {
                 Level::Trace => console::debug_1(&s),
                 Level::Debug => console::log_1(&s),

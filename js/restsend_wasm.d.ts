@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export function setLogging(level?: string | null): void;
 /**
  * Signin with userId and password or token
  */
@@ -12,22 +13,8 @@ export function signup(endpoint: string, userId: string, password: string): Prom
  * Logout with token
  */
 export function logout(endpoint: string, token: string): Promise<void>;
-export function setLogging(level?: string | null): void;
 export class Client {
   free(): void;
-  /**
-   * Create a new client
-   * # Arguments
-   * * `info` - AuthInfo
-   * * `db_name` - database name (optional), create an indexeddb when set it    
-   */
-  constructor(info: any, db_name?: string | null);
-  /**
-   * connect immediately if the connection is broken    
-   */
-  app_active(): void;
-  shutdown(): Promise<void>;
-  connect(): Promise<void>;
   /**
    * Create a new chat with userId
    * return: Conversation    
@@ -164,6 +151,19 @@ export class Client {
    * })
    */
   filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
+  /**
+   * Create a new client
+   * # Arguments
+   * * `info` - AuthInfo
+   * * `db_name` - database name (optional), create an indexeddb when set it    
+   */
+  constructor(info: any, db_name?: string | null);
+  /**
+   * connect immediately if the connection is broken    
+   */
+  app_active(): void;
+  shutdown(): Promise<void>;
+  connect(): Promise<void>;
   /**
    * Create a new topic
    * #Arguments
@@ -319,6 +319,50 @@ export class Client {
    * * `userId` - user id
    */
   removeTopicMember(topicId: string, userId: string): Promise<void>;
+  /**
+   * Get user info
+   * #Arguments
+   * * `userId` - user id
+   * * `blocking` - blocking fetch from server
+   * #Return
+   * User info
+   */
+  getUser(userId: string, blocking?: boolean | null): Promise<any>;
+  /**
+   * Get multiple users info
+   * #Arguments
+   * * `userIds` - Array of user id
+   * #Return
+   * Array of user info
+   */
+  getUsers(userIds: string[]): Promise<any>;
+  /**
+   * Set user remark name
+   * #Arguments
+   * * `userId` - user id
+   * * `remark` - remark name
+   */
+  setUserRemark(userId: string, remark: string): Promise<void>;
+  /**
+   * Set user star
+   * #Arguments
+   * * `userId` - user id
+   * * `star` - star
+   */
+  setUserStar(userId: string, star: boolean): Promise<void>;
+  /**
+   * Set user block
+   * #Arguments
+   * * `userId` - user id
+   * * `block` - block
+   */
+  setUserBlock(userId: string, block: boolean): Promise<void>;
+  /**
+   * Set allow guest chat
+   * #Arguments
+   * * `allow` - allow
+   */
+  setAllowGuestChat(allow: boolean): Promise<void>;
   /**
    *
    * Send message with content
@@ -505,50 +549,6 @@ export class Client {
    * The message id
    */
   doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
-  /**
-   * Get user info
-   * #Arguments
-   * * `userId` - user id
-   * * `blocking` - blocking fetch from server
-   * #Return
-   * User info
-   */
-  getUser(userId: string, blocking?: boolean | null): Promise<any>;
-  /**
-   * Get multiple users info
-   * #Arguments
-   * * `userIds` - Array of user id
-   * #Return
-   * Array of user info
-   */
-  getUsers(userIds: string[]): Promise<any>;
-  /**
-   * Set user remark name
-   * #Arguments
-   * * `userId` - user id
-   * * `remark` - remark name
-   */
-  setUserRemark(userId: string, remark: string): Promise<void>;
-  /**
-   * Set user star
-   * #Arguments
-   * * `userId` - user id
-   * * `star` - star
-   */
-  setUserStar(userId: string, star: boolean): Promise<void>;
-  /**
-   * Set user block
-   * #Arguments
-   * * `userId` - user id
-   * * `block` - block
-   */
-  setUserBlock(userId: string, block: boolean): Promise<void>;
-  /**
-   * Set allow guest chat
-   * #Arguments
-   * * `allow` - allow
-   */
-  setAllowGuestChat(allow: boolean): Promise<void>;
   /**
    * get the current connection status
    * return: connecting, connected, broken, shutdown
@@ -746,16 +746,6 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
-  readonly __wbg_client_free: (a: number, b: number) => void;
-  readonly client_new: (a: any, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number) => [number, number];
-  readonly client_lastAliveAt: (a: number) => bigint;
-  readonly client_unreadCount: (a: number) => any;
-  readonly client_app_active: (a: number) => void;
-  readonly client_set_keepalive: (a: number, b: number) => void;
-  readonly client_shutdown: (a: number) => any;
-  readonly client_connect: (a: number) => any;
-  readonly client_set_ping_interval: (a: number, b: number) => void;
   readonly client_createChat: (a: number, b: number, c: number) => any;
   readonly client_cleanMessages: (a: number, b: number, c: number) => any;
   readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -773,6 +763,16 @@ export interface InitOutput {
   readonly client_clearConversation: (a: number, b: number, c: number) => any;
   readonly client_setConversationExtra: (a: number, b: number, c: number, d: any) => any;
   readonly client_filterConversation: (a: number, b: any, c: any, d: any) => any;
+  readonly __wbg_client_free: (a: number, b: number) => void;
+  readonly client_new: (a: any, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number) => [number, number];
+  readonly client_lastAliveAt: (a: number) => bigint;
+  readonly client_unreadCount: (a: number) => any;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => any;
+  readonly client_connect: (a: number) => any;
+  readonly client_set_ping_interval: (a: number, b: number) => void;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -793,6 +793,25 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_getUser: (a: number, b: number, c: number, d: number) => any;
+  readonly client_getUsers: (a: number, b: number, c: number) => any;
+  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setAllowGuestChat: (a: number, b: number) => any;
+  readonly client_set_onconnected: (a: number, b: any) => void;
+  readonly client_set_onconnecting: (a: number, b: any) => void;
+  readonly client_set_ontokenexpired: (a: number, b: any) => void;
+  readonly client_set_onbroken: (a: number, b: any) => void;
+  readonly client_set_onkickoff: (a: number, b: any) => void;
+  readonly client_set_onsystemrequest: (a: number, b: any) => void;
+  readonly client_set_onunknownrequest: (a: number, b: any) => void;
+  readonly client_set_ontopictyping: (a: number, b: any) => void;
+  readonly client_set_ontopicmessage: (a: number, b: any) => void;
+  readonly client_set_ontopicread: (a: number, b: any) => void;
+  readonly client_set_onconversationsupdated: (a: number, b: any) => void;
+  readonly client_set_onconversationsremoved: (a: number, b: any) => void;
+  readonly setLogging: (a: number, b: number) => void;
   readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
   readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
   readonly logout: (a: number, b: number, c: number, d: number) => any;
@@ -808,25 +827,6 @@ export interface InitOutput {
   readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
   readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
-  readonly client_set_onconnected: (a: number, b: any) => void;
-  readonly client_set_onconnecting: (a: number, b: any) => void;
-  readonly client_set_ontokenexpired: (a: number, b: any) => void;
-  readonly client_set_onbroken: (a: number, b: any) => void;
-  readonly client_set_onkickoff: (a: number, b: any) => void;
-  readonly client_set_onsystemrequest: (a: number, b: any) => void;
-  readonly client_set_onunknownrequest: (a: number, b: any) => void;
-  readonly client_set_ontopictyping: (a: number, b: any) => void;
-  readonly client_set_ontopicmessage: (a: number, b: any) => void;
-  readonly client_set_ontopicread: (a: number, b: any) => void;
-  readonly client_set_onconversationsupdated: (a: number, b: any) => void;
-  readonly client_set_onconversationsremoved: (a: number, b: any) => void;
-  readonly setLogging: (a: number, b: number) => void;
-  readonly client_getUser: (a: number, b: number, c: number, d: number) => any;
-  readonly client_getUsers: (a: number, b: number, c: number) => any;
-  readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly client_setUserStar: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setUserBlock: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setAllowGuestChat: (a: number, b: number) => any;
   readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number) => [number, number];
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
@@ -847,10 +847,10 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure582_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h387baaa87c379092: (a: number, b: number) => void;
-  readonly closure838_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure879_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure587_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__he238d3f82a9875d9: (a: number, b: number) => void;
+  readonly closure839_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure880_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

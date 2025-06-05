@@ -177,7 +177,7 @@ impl WebSocketCallback for ConnectionInner {
     fn on_connected(&self, _usage: Duration) {
         self.connect_state_ref.did_connected();
         self.callback_ref
-            .lock()
+            .read()
             .unwrap()
             .as_ref()
             .map(|cb| cb.on_connected());
@@ -186,7 +186,7 @@ impl WebSocketCallback for ConnectionInner {
 
     fn on_connecting(&self) {
         self.callback_ref
-            .lock()
+            .read()
             .unwrap()
             .as_ref()
             .map(|cb| cb.on_connecting());
@@ -195,7 +195,7 @@ impl WebSocketCallback for ConnectionInner {
 
     fn on_unauthorized(&self) {
         self.callback_ref
-            .lock()
+            .read()
             .unwrap()
             .as_ref()
             .map(|cb| cb.on_token_expired("unauthorized".to_string()));
@@ -206,7 +206,7 @@ impl WebSocketCallback for ConnectionInner {
             .add_error(format!("net_broken: {}", reason));
         self.connect_state_ref.did_broken();
         self.callback_ref
-            .lock()
+            .read()
             .unwrap()
             .as_ref()
             .map(|cb| cb.on_net_broken(reason));
@@ -286,6 +286,7 @@ impl Client {
 
         spwan_task(async move {
             serve_connection(&endpoint, &token, is_cross_domain, store_ref, state_ref).await;
+            warn!("connection serve_connection done");
         });
     }
 
@@ -403,7 +404,7 @@ async fn serve_connection(
                         }
                         ChatRequestType::Unknown(_) => {
                             let r = callback_ref
-                                .lock()
+                                .read()
                                 .unwrap()
                                 .as_ref()
                                 .map(|cb| cb.on_unknown_request(req).unwrap_or_default());
@@ -411,14 +412,14 @@ async fn serve_connection(
                         }
                         ChatRequestType::System => {
                             let r = callback_ref
-                                .lock()
+                                .read()
                                 .unwrap()
                                 .as_ref()
                                 .map(|cb| cb.on_system_request(req).unwrap_or_default());
                             vec![r]
                         }
                         ChatRequestType::Typing => {
-                            callback_ref.lock().unwrap().as_ref().map(|cb| {
+                            callback_ref.read().unwrap().as_ref().map(|cb| {
                                 cb.on_topic_typing(req.topic_id.clone(), req.message.clone())
                             });
                             vec![]
@@ -429,7 +430,7 @@ async fn serve_connection(
 
                             state_ref.did_shutdown();
                             callback_ref
-                                .lock()
+                                .read()
                                 .unwrap()
                                 .as_ref()
                                 .map(|cb| cb.on_kickoff_by_other_client(reason));
@@ -450,13 +451,23 @@ async fn serve_connection(
             };
 
             select! {
-                _ = conn.serve(&opt, Box::new(conn_inner)) => {},
-                _ = store_ref.handle_outgoing(outgoing_tx) => {
+                _ = conn.serve(&opt, Box::new(conn_inner)) => {
+                    warn!("connection serve done");
                 },
-                _ = sender_loop => {},
-                _ = incoming_loop => {},
-                _ = keepalive_loop => {}
+                _ = store_ref.handle_outgoing(outgoing_tx) => {
+                    warn!("connection handle_outgoing done");
+                },
+                _ = sender_loop => {
+                    warn!("connection sender_loop done");
+                },
+                _ = incoming_loop => {
+                    warn!("connection incoming_loop done");
+                },
+                _ = keepalive_loop => {
+                    warn!("connection keepalive_loop done");
+                }
             }
+            state_ref.did_broken();
         }
     };
 

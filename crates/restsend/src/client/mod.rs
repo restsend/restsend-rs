@@ -90,10 +90,10 @@ impl Client {
     }
 
     pub fn set_callback(&self, callback: Option<Box<dyn RsCallback>>) {
-        *self.store.callback.lock().unwrap() = callback;
+        *self.store.callback.write().unwrap() = callback;
     }
     pub fn set_countable_callback(&self, callback: Option<Box<dyn CountableCallback>>) {
-        *self.store.countable_callback.lock().unwrap() = callback;
+        *self.store.countable_callback.write().unwrap() = callback;
     }
 
     pub async fn get_user(&self, user_id: String, blocking: bool) -> Option<User> {

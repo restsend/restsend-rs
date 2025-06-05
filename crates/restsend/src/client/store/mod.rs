@@ -15,7 +15,7 @@ use std::{
     collections::{HashMap, VecDeque},
     sync::{
         atomic::{AtomicUsize, Ordering},
-        Arc, Mutex,
+        Arc, RwLock,
     },
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -95,24 +95,24 @@ impl PendingRequest {
     }
 }
 
-type PendingRequests = Arc<Mutex<HashMap<String, PendingRequest>>>;
+type PendingRequests = Arc<RwLock<HashMap<String, PendingRequest>>>;
 
 pub(super) type ClientStoreRef = Arc<ClientStore>;
-pub(super) type CallbackRef = Arc<Mutex<Option<Box<dyn RsCallback>>>>;
-pub(super) type CountableCallbackRef = Arc<Mutex<Option<Box<dyn CountableCallback>>>>;
+pub(super) type CallbackRef = Arc<RwLock<Option<Box<dyn RsCallback>>>>;
+pub(super) type CountableCallbackRef = Arc<RwLock<Option<Box<dyn CountableCallback>>>>;
 pub(super) struct ClientStore {
     user_id: String,
     endpoint: String,
     token: String,
-    tmps: Mutex<VecDeque<String>>,
+    tmps: RwLock<VecDeque<String>>,
     outgoings: PendingRequests,
-    upload_tasks: Mutex<HashMap<String, Arc<UploadTask>>>,
-    msg_tx: Mutex<Option<UnboundedSender<String>>>,
-    removed_conversations: Mutex<HashMap<String, i64>>,
+    upload_tasks: RwLock<HashMap<String, Arc<UploadTask>>>,
+    msg_tx: RwLock<Option<UnboundedSender<String>>>,
+    removed_conversations: RwLock<HashMap<String, i64>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
     pub(crate) countable_callback: CountableCallbackRef,
-    incoming_logs: Mutex<HashMap<String, Vec<String>>>,
+    incoming_logs: RwLock<HashMap<String, Vec<String>>>,
 }
 
 impl ClientStore {
@@ -127,25 +127,28 @@ impl ClientStore {
             user_id: user_id.to_string(),
             endpoint: endpoint.to_string(),
             token: token.to_string(),
-            tmps: Mutex::new(VecDeque::new()),
-            outgoings: Arc::new(Mutex::new(HashMap::new())),
-            upload_tasks: Mutex::new(HashMap::new()),
-            msg_tx: Mutex::new(None),
-            removed_conversations: Mutex::new(HashMap::new()),
+            tmps: RwLock::new(VecDeque::new()),
+            outgoings: Arc::new(RwLock::new(HashMap::new())),
+            upload_tasks: RwLock::new(HashMap::new()),
+            msg_tx: RwLock::new(None),
+            removed_conversations: RwLock::new(HashMap::new()),
             message_storage: Arc::new(Storage::new(db_path)),
-            callback: Arc::new(Mutex::new(None)),
-            countable_callback: Arc::new(Mutex::new(None)),
-            incoming_logs: Mutex::new(HashMap::new()),
+            callback: Arc::new(RwLock::new(None)),
+            countable_callback: Arc::new(RwLock::new(None)),
+            incoming_logs: RwLock::new(HashMap::new()),
         }
     }
 
     pub(crate) fn process_timeout_requests(&self) {
-        if self.outgoings.lock().unwrap().len() == 0 {
+        if self.outgoings.read().unwrap().len() == 0 {
             return;
         }
 
         let outgoings_ref = self.outgoings.clone();
-        let mut outgoings = outgoings_ref.lock().unwrap();
+        let mut outgoings = match outgoings_ref.try_write() {
+            Ok(outgoings) => outgoings,
+            Err(_) => return,
+        };
         let mut expired = Vec::new();
         let now = now_millis();
 
@@ -169,12 +172,14 @@ impl ClientStore {
     }
 
     pub(crate) fn process_removed_conversations(&self) {
-        self.removed_conversations
-            .lock()
-            .unwrap()
-            .retain(|_, removed_at| {
-                !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS)
-            });
+        match self.removed_conversations.try_write() {
+            Ok(mut removed_conversations) => {
+                removed_conversations.retain(|_, removed_at| {
+                    !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS)
+                });
+            }
+            Err(_) => {}
+        }
     }
     pub fn shutdown(&self) {}
 }

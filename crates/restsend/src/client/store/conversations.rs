@@ -247,14 +247,14 @@ impl ClientStore {
     }
 
     pub fn emit_conversation_update(&self, conversation: Conversation) -> Result<Conversation> {
-        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+        if let Some(cb) = self.callback.read().unwrap().as_ref() {
             cb.on_conversations_updated(vec![conversation.clone()]);
         }
         Ok(conversation)
     }
 
     pub fn emit_topic_read(&self, topic_id: String, message: ChatRequest) {
-        if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+        if let Some(cb) = self.callback.read().unwrap().as_ref() {
             cb.on_topic_read(topic_id, message);
         }
     }
@@ -428,15 +428,17 @@ impl ClientStore {
     }
 
     pub(crate) async fn sync_removed_conversation(&self, topic_id: &str) {
-        self.removed_conversations
-            .lock()
-            .unwrap()
-            .insert(topic_id.to_string(), now_millis());
+        match self.removed_conversations.try_write() {
+            Ok(mut removed_conversations) => {
+                removed_conversations.insert(topic_id.to_string(), now_millis());
+            }
+            Err(_) => {}
+        }
 
         let t = self.message_storage.table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
             self.clear_conversation(topic_id).await.ok();
-            if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+            if let Some(cb) = self.callback.read().unwrap().as_ref() {
                 cb.on_conversation_removed(topic_id.to_string());
             }
         }
@@ -444,16 +446,18 @@ impl ClientStore {
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
-            self.removed_conversations
-                .lock()
-                .unwrap()
-                .insert(topic_id.to_string(), now_millis());
+            match self.removed_conversations.try_write() {
+                Ok(mut removed_conversations) => {
+                    removed_conversations.insert(topic_id.to_string(), now_millis());
+                }
+                Err(_) => {}
+            }
             self.clear_conversation(topic_id).await.ok();
         }
 
         match remove_conversation(&self.endpoint, &self.token, &topic_id).await {
             Ok(_) => {
-                if let Some(cb) = self.callback.lock().unwrap().as_ref() {
+                if let Some(cb) = self.callback.read().unwrap().as_ref() {
                     cb.on_conversation_removed(topic_id.to_string());
                 }
             }
@@ -502,7 +506,7 @@ impl ClientStore {
                             return;
                         }
                     };
-                    if let Some(cb) = callback.lock().unwrap().as_ref() {
+                    if let Some(cb) = callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(vec![c]);
                     };
                 }
@@ -548,11 +552,17 @@ impl ClientStore {
     }
 
     fn pop_incoming_logs(&self, topic_id: &str) -> Option<Vec<String>> {
-        self.incoming_logs.lock().unwrap().remove(topic_id)
+        match self.incoming_logs.try_write() {
+            Ok(mut logs) => logs.remove(topic_id),
+            Err(_) => None,
+        }
     }
 
     fn put_incoming_log(&self, topic_id: &str, log_id: &str) {
-        let mut logs = self.incoming_logs.lock().unwrap();
+        let mut logs = match self.incoming_logs.try_write() {
+            Ok(logs) => logs,
+            Err(_) => return,
+        };
         let items = logs.entry(topic_id.to_string()).or_insert(vec![]);
         if items.len() > MAX_INCOMING_LOG_CACHE_COUNT {
             items.remove(0);
