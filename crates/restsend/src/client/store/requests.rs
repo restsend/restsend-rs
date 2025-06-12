@@ -126,8 +126,23 @@ impl ClientStore {
                     .map(|cb| cb.on_new_message(topic_id.clone(), req.clone()))
                     .unwrap_or_default();
 
-                match merge_conversation_from_chat(self.message_storage.clone(), &req, &req_status)
-                    .await
+                let is_countable =
+                    if let Some(cb) = self.countable_callback.read().unwrap().as_ref() {
+                        match req.content.as_ref() {
+                            Some(content) => cb.is_countable(content.clone()),
+                            None => false,
+                        }
+                    } else {
+                        !req.content.as_ref().map(|c| c.unreadable).unwrap_or(false)
+                    };
+
+                match merge_conversation_from_chat(
+                    self.message_storage.clone(),
+                    &req,
+                    &req_status,
+                    is_countable,
+                )
+                .await
                 {
                     Some(mut conversation) => {
                         if req_status.has_read

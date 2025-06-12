@@ -611,6 +611,8 @@ public protocol ClientProtocol: AnyObject {
     
     func getConversation(topicId: String, blocking: Bool) async  -> Conversation?
     
+    func getLastAliveAt()  -> Int64
+    
     func getTopic(topicId: String) async throws  -> Topic
     
     func getTopicAdmins(topicId: String) async  -> [User]?
@@ -1267,6 +1269,13 @@ open func getConversation(topicId: String, blocking: Bool)async  -> Conversation
             errorHandler: nil
             
         )
+}
+    
+open func getLastAliveAt() -> Int64  {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_restsend_sdk_fn_method_client_get_last_alive_at(self.uniffiClonePointer(),$0
+    )
+})
 }
     
 open func getTopic(topicId: String)async throws  -> Topic  {
@@ -7036,6 +7045,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_conversation() != 705) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_restsend_sdk_checksum_method_client_get_last_alive_at() != 52345) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_get_topic() != 2719) {

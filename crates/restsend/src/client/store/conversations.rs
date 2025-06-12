@@ -76,6 +76,7 @@ pub(super) async fn merge_conversation_from_chat(
     message_storage: Arc<Storage>,
     req: &ChatRequest,
     req_status: &ChatRequestStatus,
+    is_countable: bool,
 ) -> Option<Conversation> {
     let t = message_storage.table::<Conversation>().await;
     let mut conversation = t
@@ -139,7 +140,7 @@ pub(super) async fn merge_conversation_from_chat(
             }
             _ => {
                 if req.seq > conversation.last_read_seq
-                    && !content.unreadable
+                    && is_countable
                     && !req.chat_id.is_empty()
                     && req_status.unread_countable
                 {
@@ -151,8 +152,7 @@ pub(super) async fn merge_conversation_from_chat(
     if req.seq >= conversation.last_seq {
         conversation.last_seq = req.seq;
 
-        let unreadable = req.content.as_ref().map(|v| v.unreadable).unwrap_or(false);
-        if !unreadable && !req.chat_id.is_empty() {
+        if is_countable && !req.chat_id.is_empty() {
             conversation.last_sender_id = req.attendee.clone();
             conversation.last_message_at = req.created_at.clone();
             conversation.last_message = req.content.clone();

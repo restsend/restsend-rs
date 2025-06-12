@@ -1179,6 +1179,8 @@ internal open class UniffiVTableCallbackInterfaceUploadCallback(
 
 
 
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -1273,6 +1275,8 @@ fun uniffi_restsend_sdk_checksum_method_client_fetch_chat_logs_desc(
 fun uniffi_restsend_sdk_checksum_method_client_get_chat_log(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_get_conversation(
+): Short
+fun uniffi_restsend_sdk_checksum_method_client_get_last_alive_at(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_get_topic(
 ): Short
@@ -1539,6 +1543,8 @@ fun uniffi_restsend_sdk_fn_method_client_fetch_chat_logs_desc(`ptr`: Pointer,`to
 fun uniffi_restsend_sdk_fn_method_client_get_chat_log(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`chatId`: RustBuffer.ByValue,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_conversation(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`blocking`: Byte,
+): Long
+fun uniffi_restsend_sdk_fn_method_client_get_last_alive_at(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_topic(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,
 ): Long
@@ -1896,6 +1902,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_conversation() != 705.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_restsend_sdk_checksum_method_client_get_last_alive_at() != 52345.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_topic() != 2719.toShort()) {
@@ -2625,6 +2634,8 @@ public interface ClientInterface {
     suspend fun `getChatLog`(`topicId`: kotlin.String, `chatId`: kotlin.String): ChatLog?
     
     suspend fun `getConversation`(`topicId`: kotlin.String, `blocking`: kotlin.Boolean): Conversation?
+    
+    fun `getLastAliveAt`(): kotlin.Long
     
     suspend fun `getTopic`(`topicId`: kotlin.String): Topic
     
@@ -3449,6 +3460,18 @@ open class Client: Disposable, AutoCloseable, ClientInterface
         UniffiNullRustCallStatusErrorHandler,
     )
     }
+
+    override fun `getLastAliveAt`(): kotlin.Long {
+            return FfiConverterLong.lift(
+    callWithPointer {
+    uniffiRustCall() { _status ->
+    UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_get_last_alive_at(
+        it, _status)
+}
+    }
+    )
+    }
+    
 
     
     @Throws(ClientException::class)

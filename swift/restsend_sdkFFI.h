@@ -699,6 +699,11 @@ uint64_t uniffi_restsend_sdk_fn_method_client_get_chat_log(void*_Nonnull ptr, Ru
 uint64_t uniffi_restsend_sdk_fn_method_client_get_conversation(void*_Nonnull ptr, RustBuffer topic_id, int8_t blocking
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_LAST_ALIVE_AT
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_LAST_ALIVE_AT
+int64_t uniffi_restsend_sdk_fn_method_client_get_last_alive_at(void*_Nonnull ptr, RustCallStatus *_Nonnull out_status
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_TOPIC
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_GET_TOPIC
 uint64_t uniffi_restsend_sdk_fn_method_client_get_topic(void*_Nonnull ptr, RustBuffer topic_id
@@ -1496,6 +1501,12 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_get_chat_log(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_CONVERSATION
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_CONVERSATION
 uint16_t uniffi_restsend_sdk_checksum_method_client_get_conversation(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_LAST_ALIVE_AT
+#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_GET_LAST_ALIVE_AT
+uint16_t uniffi_restsend_sdk_checksum_method_client_get_last_alive_at(void
     
 );
 #endif

@@ -44,7 +44,7 @@ rustc 1.85.0 (4d91de4e4 2025-02-17)
      2. Add Android toolchain to cargo
         ```shell
         cargo install cargo-ndk
-        rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+        rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android armv7-linux-androideabi
         ```
 
 ### Compile for iOS
