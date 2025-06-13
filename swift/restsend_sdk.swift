@@ -689,8 +689,6 @@ public protocol ClientProtocol: AnyObject {
     
     func transferTopic(topicId: String, userId: String) async throws 
     
-    func trySyncChatLogs(conversation: Conversation, limit: UInt32?) async  -> Conversation?
-    
     func updateTopic(topicId: String, name: String?, icon: String?) async throws 
     
     func updateTopicNotice(topicId: String, text: String) async throws 
@@ -1904,24 +1902,6 @@ open func transferTopic(topicId: String, userId: String)async throws   {
             freeFunc: ffi_restsend_sdk_rust_future_free_void,
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeClientError.lift
-        )
-}
-    
-open func trySyncChatLogs(conversation: Conversation, limit: UInt32?)async  -> Conversation?  {
-    return
-        try!  await uniffiRustCallAsync(
-            rustFutureFunc: {
-                uniffi_restsend_sdk_fn_method_client_try_sync_chat_logs(
-                    self.uniffiClonePointer(),
-                    FfiConverterTypeConversation_lower(conversation),FfiConverterOptionUInt32.lower(limit)
-                )
-            },
-            pollFunc: ffi_restsend_sdk_rust_future_poll_rust_buffer,
-            completeFunc: ffi_restsend_sdk_rust_future_complete_rust_buffer,
-            freeFunc: ffi_restsend_sdk_rust_future_free_rust_buffer,
-            liftFunc: FfiConverterOptionTypeConversation.lift,
-            errorHandler: nil
-            
         )
 }
     
@@ -7162,9 +7142,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_transfer_topic() != 22182) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_restsend_sdk_checksum_method_client_try_sync_chat_logs() != 8690) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_restsend_sdk_checksum_method_client_update_topic() != 54199) {

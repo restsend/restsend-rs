@@ -57,63 +57,6 @@ impl Client {
         None
     }
 
-    #[allow(unused)]
-    pub(crate) async fn try_sync_chat_logs(
-        &self,
-        mut conversation: Conversation,
-        limit: Option<u32>,
-    ) -> Option<Conversation> {
-        match self.store.get_last_log(&conversation.topic_id).await {
-            Some(log) => {
-                if log.seq >= conversation.last_seq {
-                    log::debug!(
-                        "try_sync_chat_logs skip, log.seq: {} >= conversation.last_seq: {}",
-                        log.seq,
-                        conversation.last_seq
-                    );
-                    return None;
-                }
-            }
-            None => {}
-        }
-
-        if conversation.last_seq <= conversation.start_seq {
-            return None;
-        }
-
-        let r = self
-            .fetch_chat_logs_desc(
-                conversation.topic_id.clone(),
-                Some(conversation.last_seq),
-                limit.unwrap_or_default(),
-            )
-            .await
-            .ok()?;
-
-        for c in r.items.iter() {
-            let is_countable =
-                if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
-                    cb.is_countable(c.content.clone())
-                } else {
-                    !c.content.unreadable
-                };
-            if is_countable {
-                conversation.last_message_at = c.created_at.clone();
-                conversation.last_message = Some(c.content.clone());
-                conversation.last_sender_id = c.sender_id.clone();
-                conversation.last_message_seq = Some(c.seq);
-                break;
-            }
-        }
-
-        let last_seq = r.items.first().map(|c| c.seq).unwrap_or_default();
-        if last_seq > conversation.last_seq {
-            conversation.last_seq = last_seq;
-        }
-
-        Some(conversation)
-    }
-
     pub async fn sync_chat_logs(
         &self,
         topic_id: String,
@@ -201,12 +144,6 @@ impl Client {
                     } else {
                         ChatLogStatus::Received
                     };
-                    c.is_countable =
-                        if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
-                            cb.is_countable(c.content.clone())
-                        } else {
-                            !c.content.unreadable
-                        };
                 }
                 self.store.save_chat_logs(&lr.items).await.ok();
                 info!(
@@ -362,7 +299,40 @@ impl Client {
                 }
             }
         }
+        // build conversatoin's unread
+        for (_, c) in conversations.iter_mut() {
+            if c.last_read_seq >= c.last_message_seq.unwrap_or(c.last_seq) {
+                continue;
+            }
+            let start_seq = c.start_seq.max(c.last_read_seq);
+            let logs = match self
+                .store
+                .get_chat_logs(&c.topic_id, start_seq, None, MAX_LOGS_LIMIT)
+                .await
+            {
+                Ok((logs, _)) => logs,
+                Err(_) => continue,
+            };
+            let mut unread = 0;
+            for log in logs.items.iter() {
+                let is_countable =
+                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
+                        cb.is_countable(log.content.clone())
+                    } else {
+                        !log.content.unreadable
+                    };
 
+                if is_countable && log.seq > c.last_read_seq {
+                    unread += 1;
+                }
+            }
+            if c.unread != unread {
+                c.unread = unread;
+                // update conversation to local db
+                let t = self.store.message_storage.table::<Conversation>().await;
+                t.set("", &c.topic_id, Some(c)).await.ok();
+            }
+        }
         let count = conversations.len() as u32;
         if sync_logs {
             let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
@@ -442,12 +412,6 @@ impl Client {
                 } else {
                     ChatLogStatus::Received
                 };
-                c.is_countable =
-                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
-                        cb.is_countable(c.content.clone())
-                    } else {
-                        !c.content.unreadable
-                    };
             }
             self.store.save_chat_logs(&lr.items).await.ok();
 

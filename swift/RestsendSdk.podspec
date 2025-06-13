@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
     s.name        = "RestsendSdk"
-    s.version = "1.1.8"
+    s.version = "1.1.9"
     s.summary     = "Restsend client sdk for iOS"
     s.homepage    = "https://github.com/restsend/restsend-rs"
     s.license     = { :type => "MIT" }

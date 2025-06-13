@@ -208,6 +208,7 @@ impl ClientStore {
 
                 conversation.last_read_at = old_conversation.last_read_at;
                 conversation.last_read_seq = old_conversation.last_read_seq;
+                conversation.unread = old_conversation.unread;
             }
 
             if let Some(log) = get_conversation_last_readable_message(
@@ -224,13 +225,6 @@ impl ClientStore {
 
             conversation.is_partial = false;
             conversation.cached_at = now;
-
-            let start_seq = conversation.start_seq.max(conversation.last_read_seq);
-            let diff = conversation
-                .last_message_seq
-                .unwrap_or(conversation.last_seq)
-                - start_seq;
-            conversation.unread = diff.max(0);
             results.push(ValueItem {
                 partition: "".to_string(),
                 sort_key: conversation.sort_key(),

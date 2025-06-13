@@ -894,11 +894,6 @@ uint64_t uniffi_restsend_sdk_fn_method_client_sync_conversations(void*_Nonnull p
 uint64_t uniffi_restsend_sdk_fn_method_client_transfer_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer user_id
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_TRY_SYNC_CHAT_LOGS
-#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_TRY_SYNC_CHAT_LOGS
-uint64_t uniffi_restsend_sdk_fn_method_client_try_sync_chat_logs(void*_Nonnull ptr, RustBuffer conversation, RustBuffer limit
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_UPDATE_TOPIC
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_FN_METHOD_CLIENT_UPDATE_TOPIC
 uint64_t uniffi_restsend_sdk_fn_method_client_update_topic(void*_Nonnull ptr, RustBuffer topic_id, RustBuffer name, RustBuffer icon
@@ -1735,12 +1730,6 @@ uint16_t uniffi_restsend_sdk_checksum_method_client_sync_conversations(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_TRANSFER_TOPIC
 #define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_TRANSFER_TOPIC
 uint16_t uniffi_restsend_sdk_checksum_method_client_transfer_topic(void
-    
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_TRY_SYNC_CHAT_LOGS
-#define UNIFFI_FFIDEF_UNIFFI_RESTSEND_SDK_CHECKSUM_METHOD_CLIENT_TRY_SYNC_CHAT_LOGS
-uint16_t uniffi_restsend_sdk_checksum_method_client_try_sync_chat_logs(void
     
 );
 #endif
