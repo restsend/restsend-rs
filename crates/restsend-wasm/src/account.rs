@@ -1,3 +1,4 @@
+use restsend_sdk::models::conversation::Extra;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -54,6 +55,23 @@ pub async fn signup(
     let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
 
     restsend_sdk::services::auth::signup(endpoint, userId, password)
+        .await
+        .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
+        .map_err(|e| e.into())
+}
+
+/// Signup with userId and password
+#[allow(non_snake_case)]
+#[wasm_bindgen]
+pub async fn guestLogin(
+    endpoint: String,
+    userId: String,
+    extra: JsValue,
+) -> Result<JsValue, JsValue> {
+    let endpoint = get_endpoint(endpoint);
+    let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+    let extra = serde_wasm_bindgen::from_value::<Extra>(extra).ok();
+    restsend_sdk::services::auth::guest_login(endpoint, userId, extra)
         .await
         .map(|v| v.serialize(serializer).unwrap_or(JsValue::UNDEFINED))
         .map_err(|e| e.into())

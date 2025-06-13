@@ -3,11 +3,11 @@ use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::client::store::is_cache_expired;
 use crate::models::ChatLogStatus;
 use crate::utils::now_millis;
-use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
 };
+use crate::{PING_TIMEOUT_SECS, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS};
 use http::StatusCode;
 use log::{info, warn};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
@@ -61,6 +61,7 @@ impl ClientStore {
                 } else {
                     ChatLogStatus::SendFailed
                 };
+
                 if let Some(pending) = self.peek_pending_request(&req.chat_id).await {
                     match status {
                         ChatLogStatus::Sent => {
@@ -74,6 +75,28 @@ impl ClientStore {
                             pending.callback.map(|cb| cb.on_fail(reason));
                         }
                         _ => {}
+                    }
+                } else {
+                    if content_type == "ping" && req.seq == 0 {
+                        match req.content.as_ref() {
+                            Some(content) => {
+                                let data = match serde_json::from_str::<serde_json::Value>(
+                                    &content.text,
+                                ) {
+                                    Ok(data) => data,
+                                    Err(_) => return vec![],
+                                };
+                                let timestamp = match data["timestamp"].as_i64() {
+                                    Some(timestamp) => timestamp,
+                                    None => return vec![],
+                                };
+                                let diff = now_millis() - timestamp;
+                                if diff >= PING_TIMEOUT_SECS * 1000 {
+                                    warn!("ping timeout:{}", diff);
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
 

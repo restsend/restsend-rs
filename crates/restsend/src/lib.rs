@@ -40,6 +40,7 @@ const MEDIA_PROGRESS_INTERVAL: u128 = 300; // 300ms to update progress
 const CONVERSATION_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds
 const USER_CACHE_EXPIRE_SECS: i64 = 60; // 60 seconds
 const REMOVED_CONVERSATION_CACHE_EXPIRE_SECS: i64 = 10; // 10 seconds
+const PING_TIMEOUT_SECS: i64 = 5; // 5 seconds
 
 #[cfg(not(target_family = "wasm"))]
 const WORKER_THREADS: usize = 4;

@@ -1,5 +1,3 @@
-use serde::Serialize;
-
 use super::{api_call, response::APISendResponse};
 use crate::Result;
 use crate::{
@@ -8,6 +6,7 @@ use crate::{
     services::LOGS_LIMIT,
     utils::now_millis,
 };
+use serde::Serialize;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +38,7 @@ pub async fn get_conversations(
     if !updated_at.is_empty() {
         data["updatedAt"] = serde_json::json!(updated_at);
     }
-    if let Some(last_updated_at) = last_updated_at.filter(|s| !s.is_empty())  {
+    if let Some(last_updated_at) = last_updated_at.filter(|s| !s.is_empty()) {
         data["lastUpdatedAt"] = serde_json::json!(last_updated_at);
     }
     if let Some(last_removed_at) = last_removed_at.filter(|s| !s.is_empty()) {
