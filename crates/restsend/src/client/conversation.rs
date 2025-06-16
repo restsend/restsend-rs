@@ -305,9 +305,27 @@ impl Client {
                 continue;
             }
             let start_seq = c.start_seq.max(c.last_read_seq);
+            let unread_diff = c.last_seq - c.last_read_seq;
+            if unread_diff <= 0 {
+                continue;
+            }
+
+            if unread_diff >= MAX_LOGS_LIMIT as i64 {
+                if c.unread < MAX_LOGS_LIMIT as i64 {
+                    c.unread = unread_diff;
+                    let t = self.store.message_storage.table::<Conversation>().await;
+                    t.set("", &c.topic_id, Some(c)).await.ok();
+                    continue;
+                }
+            }
             let logs = match self
                 .store
-                .get_chat_logs(&c.topic_id, start_seq, None, MAX_LOGS_LIMIT)
+                .get_chat_logs(
+                    &c.topic_id,
+                    start_seq,
+                    Some(c.last_seq),
+                    unread_diff.max(MAX_LOGS_LIMIT as i64) as u32,
+                )
                 .await
             {
                 Ok((logs, _)) => logs,
@@ -412,6 +430,12 @@ impl Client {
                 } else {
                     ChatLogStatus::Received
                 };
+                c.is_countable =
+                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
+                        cb.is_countable(c.content.clone())
+                    } else {
+                        !c.content.unreadable
+                    };
             }
             self.store.save_chat_logs(&lr.items).await.ok();
 
@@ -424,10 +448,6 @@ impl Client {
                 Some(c) => c,
                 None => continue,
             };
-
-            if self.store.countable_callback.read().unwrap().is_some() {
-                conversation.unread = 0
-            }
 
             for c in lr.items.iter() {
                 if c.is_countable && c.seq > conversation.last_read_seq {

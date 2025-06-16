@@ -1179,8 +1179,6 @@ internal open class UniffiVTableCallbackInterfaceUploadCallback(
 
 
 
-
-
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -1353,8 +1351,6 @@ fun uniffi_restsend_sdk_checksum_method_client_sync_chat_logs(
 fun uniffi_restsend_sdk_checksum_method_client_sync_conversations(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_transfer_topic(
-): Short
-fun uniffi_restsend_sdk_checksum_method_client_try_sync_chat_logs(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_update_topic(
 ): Short
@@ -1621,8 +1617,6 @@ fun uniffi_restsend_sdk_fn_method_client_sync_chat_logs(`ptr`: Pointer,`topicId`
 fun uniffi_restsend_sdk_fn_method_client_sync_conversations(`ptr`: Pointer,`updatedAt`: RustBuffer.ByValue,`limit`: Int,`syncLogs`: Byte,`syncLogsLimit`: RustBuffer.ByValue,`syncLogsMaxCount`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`callback`: Long,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_transfer_topic(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`userId`: RustBuffer.ByValue,
-): Long
-fun uniffi_restsend_sdk_fn_method_client_try_sync_chat_logs(`ptr`: Pointer,`conversation`: RustBuffer.ByValue,`limit`: RustBuffer.ByValue,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_update_topic(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,`icon`: RustBuffer.ByValue,
 ): Long
@@ -2019,9 +2013,6 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_transfer_topic() != 22182.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_restsend_sdk_checksum_method_client_try_sync_chat_logs() != 8690.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_update_topic() != 54199.toShort()) {
@@ -2712,8 +2703,6 @@ public interface ClientInterface {
     suspend fun `syncConversations`(`updatedAt`: kotlin.String?, `limit`: kotlin.UInt, `syncLogs`: kotlin.Boolean, `syncLogsLimit`: kotlin.UInt?, `syncLogsMaxCount`: kotlin.UInt?, `lastRemovedAt`: kotlin.String?, `callback`: SyncConversationsCallback)
     
     suspend fun `transferTopic`(`topicId`: kotlin.String, `userId`: kotlin.String)
-    
-    suspend fun `trySyncChatLogs`(`conversation`: Conversation, `limit`: kotlin.UInt?): Conversation?
     
     suspend fun `updateTopic`(`topicId`: kotlin.String, `name`: kotlin.String?, `icon`: kotlin.String?)
     
@@ -4244,26 +4233,6 @@ open class Client: Disposable, AutoCloseable, ClientInterface
         
         // Error FFI converter
         ClientException.ErrorHandler,
-    )
-    }
-
-    
-    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `trySyncChatLogs`(`conversation`: Conversation, `limit`: kotlin.UInt?) : Conversation? {
-        return uniffiRustCallAsync(
-        callWithPointer { thisPtr ->
-            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_try_sync_chat_logs(
-                thisPtr,
-                FfiConverterTypeConversation.lower(`conversation`),FfiConverterOptionalUInt.lower(`limit`),
-            )
-        },
-        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_rust_buffer(future) },
-        // lift function
-        { FfiConverterOptionalTypeConversation.lift(it) },
-        // Error FFI converter
-        UniffiNullRustCallStatusErrorHandler,
     )
     }
 
