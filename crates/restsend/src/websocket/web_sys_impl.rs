@@ -4,6 +4,7 @@ use crate::utils::elapsed;
 use crate::utils::now_millis;
 use crate::Result;
 use js_sys::Promise;
+use log::info;
 use log::warn;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -159,5 +160,12 @@ impl WebSocketImpl {
             ws.set_onclose(None);
             let _ = ws.close();
         }
+    }
+}
+
+impl Drop for WebSocketImpl {
+    fn drop(&mut self) {
+        info!("websocket drop");
+        self.cleanup();
     }
 }
