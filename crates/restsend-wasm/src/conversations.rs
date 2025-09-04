@@ -75,6 +75,7 @@ impl Client {
     /// Sync conversations from server
     /// #Arguments
     /// * `option` - option
+    ///    * `syncMaxCount` - max sync count, default is unlimit
     ///    * `syncLogs` - syncs logs, default false
     ///    * `syncLogsLimit` - sync logs limit, per conversation, default 100
     ///    * `syncLogsMaxCount` - sync logs max count, default 200
@@ -87,9 +88,31 @@ impl Client {
     ///    * `onerror` - onerror callback -> function (error: String)
     pub async fn syncConversations(&self, option: JsValue) {
         let limit = js_util::get_f64(&option, "limit") as u32;
+        let max_count = get_f64(&option, "syncMaxCount") as u32;
         self.inner
-            .sync_conversations(
+            .sync_conversations_ex(
                 get_string(&option, "updatedAt"),
+                Some(max_count),
+                limit,
+                get_bool(&option, "syncLogs"),
+                Some(get_f64(&option, "syncLogsLimit") as u32),
+                Some(get_f64(&option, "syncLogsMaxCount") as u32),
+                get_string(&option, "lastRemovedAt"),
+                Box::new(SyncConversationsCallbackWasmWrap::new(option)),
+            )
+            .await
+    }
+
+    pub async fn syncFirstPageConversations(&self, option: JsValue) {
+        let limit = js_util::get_f64(&option, "limit") as u32;
+        let mut max_count = get_f64(&option, "syncMaxCount") as u32;
+        if max_count == 0 {
+            max_count = limit;
+        }
+        self.inner
+            .sync_conversations_ex(
+                get_string(&option, "updatedAt"),
+                Some(max_count),
                 limit,
                 get_bool(&option, "syncLogs"),
                 Some(get_f64(&option, "syncLogsLimit") as u32),

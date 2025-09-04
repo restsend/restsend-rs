@@ -92,7 +92,7 @@ impl ClientStore {
                                 };
                                 let diff = now_millis() - timestamp;
                                 if diff >= PING_TIMEOUT_SECS * 1000 {
-                                    warn!("ping timeout:{}", diff);
+                                    warn!("ping timeout:{} timestamp:{}", diff, timestamp);
                                 }
                             }
                             _ => {}

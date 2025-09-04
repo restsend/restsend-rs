@@ -179,6 +179,30 @@ impl Client {
         last_removed_at: Option<String>,
         callback: Box<dyn SyncConversationsCallback>,
     ) {
+        self.sync_conversations_ex(
+            updated_at,
+            None,
+            limit,
+            sync_logs,
+            sync_logs_limit,
+            sync_logs_max_count,
+            last_removed_at,
+            callback,
+        )
+        .await
+    }
+
+    pub async fn sync_conversations_ex(
+        &self,
+        updated_at: Option<String>,
+        sync_max_count: Option<u32>,
+        limit: u32,
+        sync_logs: bool,
+        sync_logs_limit: Option<u32>,
+        sync_logs_max_count: Option<u32>,
+        last_removed_at: Option<String>,
+        callback: Box<dyn SyncConversationsCallback>,
+    ) {
         let store_ref = self.store.clone();
         let limit = match limit {
             0 => MAX_CONVERSATION_LIMIT,
@@ -189,6 +213,7 @@ impl Client {
 
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let mut conversations = HashMap::new();
+        let sync_max_count = sync_max_count.unwrap_or(0);
 
         loop {
             match store_ref.get_conversations(&last_updated_at, limit).await {
@@ -215,7 +240,9 @@ impl Client {
                     if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(r.items);
                     }
-
+                    if sync_max_count > 0 && conversations.len() as u32 >= sync_max_count {
+                        break;
+                    }
                     if !r.has_more {
                         break;
                     }
