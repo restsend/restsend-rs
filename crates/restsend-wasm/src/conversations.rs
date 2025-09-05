@@ -81,6 +81,7 @@ impl Client {
     ///    * `syncLogsMaxCount` - sync logs max count, default 200
     ///    * `limit` - limit
     ///    * `updatedAt` String - updated_at optional
+    ///    * `beforeUpdatedAt` String - before_updated_at optional
     ///    * `lastRemovedAt` String - last_removed_at optional
     ///    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
     ///         - updated_at: last updated_at
@@ -90,8 +91,9 @@ impl Client {
         let limit = js_util::get_f64(&option, "limit") as u32;
         let max_count = get_f64(&option, "syncMaxCount") as u32;
         self.inner
-            .sync_conversations_ex(
+            .sync_conversations(
                 get_string(&option, "updatedAt"),
+                get_string(&option, "beforeUpdatedAt"),
                 Some(max_count),
                 limit,
                 get_bool(&option, "syncLogs"),
@@ -110,8 +112,9 @@ impl Client {
             max_count = limit;
         }
         self.inner
-            .sync_conversations_ex(
+            .sync_conversations(
                 get_string(&option, "updatedAt"),
+                get_string(&option, "beforeUpdatedAt"),
                 Some(max_count),
                 limit,
                 get_bool(&option, "syncLogs"),

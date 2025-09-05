@@ -172,29 +172,7 @@ impl Client {
     pub async fn sync_conversations(
         &self,
         updated_at: Option<String>,
-        limit: u32,
-        sync_logs: bool,
-        sync_logs_limit: Option<u32>,
-        sync_logs_max_count: Option<u32>,
-        last_removed_at: Option<String>,
-        callback: Box<dyn SyncConversationsCallback>,
-    ) {
-        self.sync_conversations_ex(
-            updated_at,
-            None,
-            limit,
-            sync_logs,
-            sync_logs_limit,
-            sync_logs_max_count,
-            last_removed_at,
-            callback,
-        )
-        .await
-    }
-
-    pub async fn sync_conversations_ex(
-        &self,
-        updated_at: Option<String>,
+        before_updated_at: Option<String>,
         sync_max_count: Option<u32>,
         limit: u32,
         sync_logs: bool,
@@ -251,7 +229,7 @@ impl Client {
         let mut offset = 0;
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let updated_at = updated_at.unwrap_or_default();
-        let mut last_upadted_at_remote = None;
+        let mut last_updated_at_remote = before_updated_at;
         let mut last_removed_at = last_removed_at.clone();
         loop {
             let st_0 = now_millis();
@@ -259,7 +237,7 @@ impl Client {
                 &self.endpoint,
                 &self.token,
                 &updated_at,
-                last_upadted_at_remote.clone(),
+                last_updated_at_remote.clone(),
                 last_removed_at.clone(),
                 offset,
                 limit,
@@ -272,7 +250,7 @@ impl Client {
                     offset = if lr.last_updated_at.is_none() {
                         lr.offset
                     } else {
-                        last_upadted_at_remote = lr.last_updated_at.clone();
+                        last_updated_at_remote = lr.last_updated_at.clone();
                         0
                     };
 

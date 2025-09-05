@@ -149,7 +149,17 @@ async fn test_sync_conversations() {
     vivian_3.set_callback(Some(vivian3_callback));
     vivian_3.set_countable_callback(Some(vivian3_countable_callback));
     vivian_3
-        .sync_conversations(None, 0, true, None, None, None, vivian2_callback)
+        .sync_conversations(
+            None,
+            None,
+            None,
+            0,
+            true,
+            None,
+            None,
+            None,
+            vivian2_callback,
+        )
         .await;
     assert!(!removed_topic_ids.lock().unwrap().contains(&topic_id));
 

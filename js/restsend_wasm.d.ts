@@ -453,6 +453,7 @@ export class Client {
    *    * `syncLogsMaxCount` - sync logs max count, default 200
    *    * `limit` - limit
    *    * `updatedAt` String - updated_at optional
+   *    * `beforeUpdatedAt` String - before_updated_at optional
    *    * `lastRemovedAt` String - last_removed_at optional
    *    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
    *         - updated_at: last updated_at
@@ -855,8 +856,8 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hafc7650d064a213f: (a: number, b: number) => void;
   readonly closure587_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h4e2c558bb5b847c5: (a: number, b: number) => void;
   readonly closure847_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure888_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
