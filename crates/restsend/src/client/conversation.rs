@@ -240,9 +240,6 @@ impl Client {
                     if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(r.items);
                     }
-                    if sync_max_count > 0 && conversations.len() as u32 >= sync_max_count {
-                        break;
-                    }
                     if !r.has_more {
                         break;
                     }
@@ -316,6 +313,9 @@ impl Client {
                         elapsed(st_0)
                     );
                     if !lr.has_more {
+                        break;
+                    }
+                    if sync_max_count > 0 && conversations.len() as u32 >= sync_max_count {
                         break;
                     }
                 }
