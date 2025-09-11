@@ -304,13 +304,17 @@ impl restsend_sdk::callback::RsCallback for CallbackWasmWrap {
                 .map(|e| web_sys::console::error_1(&e));
         }
     }
-    fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
+    fn on_conversations_updated(&self, conversations: Vec<Conversation>, total: Option<i64>) {
         if let Some(cb) = self.cb_on_conversations_updated.borrow().as_ref() {
             let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
             let conversations = conversations
                 .serialize(serializer)
                 .unwrap_or(JsValue::UNDEFINED);
-            cb.call1(&JsValue::NULL, &conversations)
+            let total = match total {
+                Some(t) => JsValue::from_f64(t as f64),
+                None => JsValue::UNDEFINED,
+            };
+            cb.call2(&JsValue::NULL, &conversations, &total)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
         }

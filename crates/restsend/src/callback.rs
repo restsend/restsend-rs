@@ -47,7 +47,7 @@ pub trait RsCallback: Send + Sync {
         return ChatRequestStatus::default();
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
-    fn on_conversations_updated(&self, conversations: Vec<Conversation>) {}
+    fn on_conversations_updated(&self, conversations: Vec<Conversation>, total: Option<i64>) {}
     fn on_conversation_removed(&self, conversation_id: String) {}
 }
 #[allow(unused_variables)]

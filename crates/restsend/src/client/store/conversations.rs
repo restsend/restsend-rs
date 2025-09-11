@@ -238,7 +238,7 @@ impl ClientStore {
 
     pub fn emit_conversation_update(&self, conversation: Conversation) -> Result<Conversation> {
         if let Some(cb) = self.callback.read().unwrap().as_ref() {
-            cb.on_conversations_updated(vec![conversation.clone()]);
+            cb.on_conversations_updated(vec![conversation.clone()], None);
         }
         Ok(conversation)
     }
@@ -497,7 +497,7 @@ impl ClientStore {
                         }
                     };
                     if let Some(cb) = callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(vec![c]);
+                        cb.on_conversations_updated(vec![c], None);
                     };
                 }
                 Err(e) => {

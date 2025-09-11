@@ -216,7 +216,7 @@ impl Client {
                         .unwrap_or_default();
 
                     if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(r.items);
+                        cb.on_conversations_updated(r.items, None);
                     }
                     if !r.has_more {
                         break;
@@ -278,7 +278,7 @@ impl Client {
 
                     let new_conversations_count = new_conversations.len() as u32;
                     if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(new_conversations);
+                        cb.on_conversations_updated(new_conversations, Some(lr.total));
                     }
 
                     log::info!(
@@ -472,7 +472,7 @@ impl Client {
         }
         // callback
         if let Some(cb) = self.store.callback.read().unwrap().as_ref() {
-            cb.on_conversations_updated(updated_conversations.clone());
+            cb.on_conversations_updated(updated_conversations.clone(), None);
         }
         // sync to store
         let t = self.store.message_storage.table::<Conversation>().await;

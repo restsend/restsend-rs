@@ -40,7 +40,7 @@ impl callback::RsCallback for TestCallbackImpl {
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {
         warn!("on_topic_read: topic_id:{} message:{:?}", topic_id, message);
     }
-    fn on_conversations_updated(&self, conversations: Vec<Conversation>) {
+    fn on_conversations_updated(&self, conversations: Vec<Conversation>, _total: Option<i64>) {
         debug!("on_conversation_updated: {:?}", conversations);
         *self.last_topic_id.lock().unwrap() = conversations[0].topic_id.clone();
         self.is_update_conversation.store(true, Ordering::Relaxed);
