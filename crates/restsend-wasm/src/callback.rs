@@ -145,12 +145,21 @@ impl SyncConversationsCallbackWasmWrap {
 }
 
 impl restsend_sdk::callback::SyncConversationsCallback for SyncConversationsCallbackWasmWrap {
-    fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {
+    fn on_success(
+        &self,
+        updated_at: String,
+        last_removed_at: Option<String>,
+        count: u32,
+        total: u32,
+    ) {
         if let Some(cb) = self.cb_on_success.borrow().as_ref() {
-            let arg1 = JsValue::from_str(&updated_at);
-            let arg2 = JsValue::from_f64(count as f64);
-            let arg3 = JsValue::from_str(&last_removed_at.unwrap_or_default());
-            cb.call3(&JsValue::NULL, &arg1, &arg2, &arg3)
+            let args = js_sys::Array::new();
+            args.push(&JsValue::from_str(&updated_at));
+            args.push(&JsValue::from_f64(count as f64));
+            args.push(&JsValue::from_str(&last_removed_at.unwrap_or_default()));
+            args.push(&JsValue::from_f64(total as f64));
+
+            cb.apply(&JsValue::NULL, &args)
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
         }

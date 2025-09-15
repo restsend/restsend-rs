@@ -231,6 +231,8 @@ impl Client {
         let updated_at = updated_at.unwrap_or_default();
         let mut last_updated_at_remote = before_updated_at;
         let mut last_removed_at = last_removed_at.clone();
+        let mut total = 0;
+
         loop {
             let st_0 = now_millis();
             match get_conversations(
@@ -245,6 +247,7 @@ impl Client {
             .await
             {
                 Ok(lr) => {
+                    total = lr.total as u32;
                     let api_cost = elapsed(st_0);
 
                     offset = if lr.last_updated_at.is_none() {
@@ -384,7 +387,7 @@ impl Client {
                     .ok();
             }
         }
-        callback.on_success(last_updated_at, last_removed_at, count);
+        callback.on_success(last_updated_at, last_removed_at, count, total);
     }
 
     pub async fn batch_sync_chatlogs(

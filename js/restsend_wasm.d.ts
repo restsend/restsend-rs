@@ -1,6 +1,5 @@
 /* tslint:disable */
 /* eslint-disable */
-export function setLogging(level?: string | null): void;
 /**
  * Signin with userId and password or token
  */
@@ -17,176 +16,9 @@ export function guestLogin(endpoint: string, userId: string, extra: any): Promis
  * Logout with token
  */
 export function logout(endpoint: string, token: string): Promise<void>;
+export function setLogging(level?: string | null): void;
 export class Client {
   free(): void;
-  /**
-   * Create a new topic
-   * #Arguments
-   *   name: String,
-   *  icon: String,
-   * #Return
-   * * `Topic` || `undefined`
-   */
-  createTopic(members: string[], name?: string | null, icon?: string | null): Promise<any>;
-  /**
-   * Join a topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `message` - message
-   * * `source` - source
-   */
-  joinTopic(topicId: string, message?: string | null, source?: string | null): Promise<void>;
-  /**
-   * Add user into topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * #Return
-   * * `TopicMember` || `undefined`
-   */
-  addMember(topicId: string, userId: string): Promise<any>;
-  /**
-   * Get topic info
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Topic` || `undefined`
-   */
-  getTopic(topicId: string): Promise<any>;
-  /**
-   * Get topic admins
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Vec<User>` || `undefined`
-   */
-  getTopicAdmins(topicId: string): Promise<any>;
-  /**
-   * Get topic owner
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `User` || `undefined`
-   */
-  getTopicOwner(topicId: string): Promise<any>;
-  /**
-   * Get topic members
-   * #Arguments
-   * * `topicId` - topic id
-   * * `updatedAt` - updated_at
-   * * `limit` - limit
-   * #Return
-   * * `ListUserResult` || `undefined`
-   */
-  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
-  /**
-   * Get topic knocks
-   * #Arguments
-   * * `topicId` - topic id
-   * #Return
-   * * `Vec<TopicKnock>`
-   */
-  getTopicKnocks(topicId: string): Promise<any>;
-  /**
-   * Update topic info
-   * #Arguments
-   * * `topicId` - topic id
-   * * `option` - option
-   *     * `name` - String
-   *     * `icon` - String (url) or base64
-   */
-  updateTopic(topicId: string, option: any): Promise<void>;
-  /**
-   * Update topic notice
-   * #Arguments
-   * * `topicId` - topic id
-   * * `text` - notice text
-   */
-  updateTopicNotice(topicId: string, text: string): Promise<void>;
-  /**
-   * Silence topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-   */
-  silentTopic(topicId: string, duration?: string | null): Promise<void>;
-  /**
-   * Silent topic member
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-   */
-  silentTopicMember(topicId: string, userId: string, duration?: string | null): Promise<void>;
-  /**
-   * Add topic admin
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  addTopicAdmin(topicId: string, userId: string): Promise<void>;
-  /**
-   * Remove topic admin
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
-  /**
-   * Transfer topic
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id to transfer, the user must be a topic member
-   */
-  transferTopic(topicId: string, userId: string): Promise<void>;
-  /**
-   * Quit topic
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  quitTopic(topicId: string): Promise<void>;
-  /**
-   * Dismiss topic
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  dismissTopic(topicId: string): Promise<void>;
-  /**
-   * Accept topic join
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `memo` - accept memo
-   */
-  acceptTopicJoin(topicId: string, userId: string, memo?: string | null): Promise<void>;
-  /**
-   * Decline topic join
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   * * `message` - decline message
-   */
-  declineTopicJoin(topicId: string, userId: string, message?: string | null): Promise<void>;
-  /**
-   * Remove topic member
-   * #Arguments
-   * * `topicId` - topic id
-   * * `userId` - user id
-   */
-  removeTopicMember(topicId: string, userId: string): Promise<void>;
-  /**
-   * Create a new client
-   * # Arguments
-   * * `info` - AuthInfo
-   * * `db_name` - database name (optional), create an indexeddb when set it    
-   */
-  constructor(info: any, db_name?: string | null);
-  /**
-   * connect immediately if the connection is broken    
-   */
-  app_active(): void;
-  shutdown(): Promise<void>;
-  connect(): Promise<void>;
   /**
    *
    * Send message with content
@@ -513,6 +345,174 @@ export class Client {
    */
   filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
   /**
+   * Create a new client
+   * # Arguments
+   * * `info` - AuthInfo
+   * * `db_name` - database name (optional), create an indexeddb when set it    
+   */
+  constructor(info: any, db_name?: string | null);
+  /**
+   * connect immediately if the connection is broken    
+   */
+  app_active(): void;
+  shutdown(): Promise<void>;
+  connect(): Promise<void>;
+  /**
+   * Create a new topic
+   * #Arguments
+   *   name: String,
+   *  icon: String,
+   * #Return
+   * * `Topic` || `undefined`
+   */
+  createTopic(members: string[], name?: string | null, icon?: string | null): Promise<any>;
+  /**
+   * Join a topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `message` - message
+   * * `source` - source
+   */
+  joinTopic(topicId: string, message?: string | null, source?: string | null): Promise<void>;
+  /**
+   * Add user into topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * #Return
+   * * `TopicMember` || `undefined`
+   */
+  addMember(topicId: string, userId: string): Promise<any>;
+  /**
+   * Get topic info
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Topic` || `undefined`
+   */
+  getTopic(topicId: string): Promise<any>;
+  /**
+   * Get topic admins
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Vec<User>` || `undefined`
+   */
+  getTopicAdmins(topicId: string): Promise<any>;
+  /**
+   * Get topic owner
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `User` || `undefined`
+   */
+  getTopicOwner(topicId: string): Promise<any>;
+  /**
+   * Get topic members
+   * #Arguments
+   * * `topicId` - topic id
+   * * `updatedAt` - updated_at
+   * * `limit` - limit
+   * #Return
+   * * `ListUserResult` || `undefined`
+   */
+  getTopicMembers(topicId: string, updatedAt: string, limit: number): Promise<any>;
+  /**
+   * Get topic knocks
+   * #Arguments
+   * * `topicId` - topic id
+   * #Return
+   * * `Vec<TopicKnock>`
+   */
+  getTopicKnocks(topicId: string): Promise<any>;
+  /**
+   * Update topic info
+   * #Arguments
+   * * `topicId` - topic id
+   * * `option` - option
+   *     * `name` - String
+   *     * `icon` - String (url) or base64
+   */
+  updateTopic(topicId: string, option: any): Promise<void>;
+  /**
+   * Update topic notice
+   * #Arguments
+   * * `topicId` - topic id
+   * * `text` - notice text
+   */
+  updateTopicNotice(topicId: string, text: string): Promise<void>;
+  /**
+   * Silence topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+   */
+  silentTopic(topicId: string, duration?: string | null): Promise<void>;
+  /**
+   * Silent topic member
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+   */
+  silentTopicMember(topicId: string, userId: string, duration?: string | null): Promise<void>;
+  /**
+   * Add topic admin
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  addTopicAdmin(topicId: string, userId: string): Promise<void>;
+  /**
+   * Remove topic admin
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  removeTopicAdmin(topicId: string, userId: string): Promise<void>;
+  /**
+   * Transfer topic
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id to transfer, the user must be a topic member
+   */
+  transferTopic(topicId: string, userId: string): Promise<void>;
+  /**
+   * Quit topic
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  quitTopic(topicId: string): Promise<void>;
+  /**
+   * Dismiss topic
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  dismissTopic(topicId: string): Promise<void>;
+  /**
+   * Accept topic join
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `memo` - accept memo
+   */
+  acceptTopicJoin(topicId: string, userId: string, memo?: string | null): Promise<void>;
+  /**
+   * Decline topic join
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   * * `message` - decline message
+   */
+  declineTopicJoin(topicId: string, userId: string, message?: string | null): Promise<void>;
+  /**
+   * Remove topic member
+   * #Arguments
+   * * `topicId` - topic id
+   * * `userId` - user id
+   */
+  removeTopicMember(topicId: string, userId: string): Promise<void>;
+  /**
    * Get user info
    * #Arguments
    * * `userId` - user id
@@ -753,6 +753,22 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
+  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
+  readonly guestLogin: (a: number, b: number, c: number, d: number, e: any) => any;
+  readonly logout: (a: number, b: number, c: number, d: number) => any;
+  readonly client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doTyping: (a: number, b: number, c: number) => any;
+  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendVoice: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendVideo: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendFile: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => any;
+  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: any) => any;
+  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
   readonly client_set_onconnected: (a: number, b: any) => void;
   readonly client_set_onconnecting: (a: number, b: any) => void;
   readonly client_set_ontokenexpired: (a: number, b: any) => void;
@@ -766,6 +782,34 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: any) => void;
   readonly client_set_onconversationsremoved: (a: number, b: any) => void;
   readonly setLogging: (a: number, b: number) => void;
+  readonly client_createChat: (a: number, b: number, c: number) => any;
+  readonly client_cleanMessages: (a: number, b: number, c: number) => any;
+  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_saveChatLogs: (a: number, b: any) => any;
+  readonly client_syncConversations: (a: number, b: any) => any;
+  readonly client_syncFirstPageConversations: (a: number, b: any) => any;
+  readonly client_getConversation: (a: number, b: number, c: number, d: number) => any;
+  readonly client_removeConversation: (a: number, b: number, c: number) => any;
+  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setAllConversationsRead: (a: number) => any;
+  readonly client_setConversationTags: (a: number, b: number, c: number, d: any) => any;
+  readonly client_clearConversation: (a: number, b: number, c: number) => any;
+  readonly client_setConversationExtra: (a: number, b: number, c: number, d: any) => any;
+  readonly client_filterConversation: (a: number, b: any, c: any, d: any) => any;
+  readonly __wbg_client_free: (a: number, b: number) => void;
+  readonly client_new: (a: any, b: number, c: number) => number;
+  readonly client_connectionStatus: (a: number) => [number, number];
+  readonly client_lastAliveAt: (a: number) => bigint;
+  readonly client_unreadCount: (a: number) => any;
+  readonly client_app_active: (a: number) => void;
+  readonly client_set_keepalive: (a: number, b: number) => void;
+  readonly client_shutdown: (a: number) => any;
+  readonly client_connect: (a: number) => any;
+  readonly client_set_ping_interval: (a: number, b: number) => void;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -786,50 +830,6 @@ export interface InitOutput {
   readonly client_acceptTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_declineTopicJoin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_removeTopicMember: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly __wbg_client_free: (a: number, b: number) => void;
-  readonly client_new: (a: any, b: number, c: number) => number;
-  readonly client_connectionStatus: (a: number) => [number, number];
-  readonly client_lastAliveAt: (a: number) => bigint;
-  readonly client_unreadCount: (a: number) => any;
-  readonly client_app_active: (a: number) => void;
-  readonly client_set_keepalive: (a: number, b: number) => void;
-  readonly client_shutdown: (a: number) => any;
-  readonly client_connect: (a: number) => any;
-  readonly client_set_ping_interval: (a: number, b: number) => void;
-  readonly client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doTyping: (a: number, b: number, c: number) => any;
-  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendVoice: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendVideo: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendFile: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => any;
-  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: any) => any;
-  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
-  readonly client_createChat: (a: number, b: number, c: number) => any;
-  readonly client_cleanMessages: (a: number, b: number, c: number) => any;
-  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_saveChatLogs: (a: number, b: any) => any;
-  readonly client_syncConversations: (a: number, b: any) => any;
-  readonly client_syncFirstPageConversations: (a: number, b: any) => any;
-  readonly client_getConversation: (a: number, b: number, c: number, d: number) => any;
-  readonly client_removeConversation: (a: number, b: number, c: number) => any;
-  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setAllConversationsRead: (a: number) => any;
-  readonly client_setConversationTags: (a: number, b: number, c: number, d: any) => any;
-  readonly client_clearConversation: (a: number, b: number, c: number) => any;
-  readonly client_setConversationExtra: (a: number, b: number, c: number, d: any) => any;
-  readonly client_filterConversation: (a: number, b: any, c: any, d: any) => any;
-  readonly signin: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
-  readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
-  readonly guestLogin: (a: number, b: number, c: number, d: number, e: any) => any;
-  readonly logout: (a: number, b: number, c: number, d: number) => any;
   readonly client_getUser: (a: number, b: number, c: number, d: number) => any;
   readonly client_getUsers: (a: number, b: number, c: number) => any;
   readonly client_setUserRemark: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -856,8 +856,8 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure603_externref_shim: (a: number, b: number, c: any) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h1a9e3aace0878b63: (a: number, b: number) => void;
+  readonly closure639_externref_shim: (a: number, b: number, c: any) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hc234b346d2301edd: (a: number, b: number) => void;
   readonly closure846_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure887_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;

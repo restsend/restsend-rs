@@ -95,6 +95,13 @@ pub trait SyncChatLogsCallback: Send + Sync {
 #[allow(unused_variables)]
 #[export_wasm_or_ffi(#[uniffi::export(callback_interface)])]
 pub trait SyncConversationsCallback: Send + Sync {
-    fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {}
+    fn on_success(
+        &self,
+        updated_at: String,
+        last_removed_at: Option<String>,
+        count: u32,
+        total: u32,
+    ) {
+    }
     fn on_fail(&self, e: Error) {}
 }

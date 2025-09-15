@@ -68,18 +68,23 @@ async fn test_sync_conversations() {
     }
 
     impl callback::SyncConversationsCallback for TestSyncConversationCallbackImpl {
-        fn on_success(&self, updated_at: String, last_removed_at: Option<String>, count: u32) {
+        fn on_success(
+            &self,
+            updated_at: String,
+            last_removed_at: Option<String>,
+            count: u32,
+            total: u32,
+        ) {
             log::info!(
-                "on_success updated_at: {} last_removed_at: {:?} count: {}",
+                "on_success updated_at: {} last_removed_at: {:?} count: {count} total: {total}",
                 updated_at,
                 last_removed_at,
-                count
             );
             self.sync_count
                 .store(count, std::sync::atomic::Ordering::Relaxed);
         }
-        fn on_fail(&self, _reason: crate::Error) {
-            panic!("on_fail {:?}", _reason);
+        fn on_fail(&self, reason: crate::Error) {
+            panic!("on_fail {:?}", reason);
         }
     }
 
