@@ -199,14 +199,14 @@ impl Client {
                     if r.items.is_empty() {
                         break;
                     }
+                    let item_len = r.items.len() as u32;
                     r.items.iter().for_each(|c| {
                         conversations.insert(c.topic_id.clone(), c.clone());
                     });
                     log::info!(
-                        "sync conversations from local, count: {} first_updated_at: {} has_more:{}",
-                        r.items.len(),
-                        last_updated_at,
-                        r.has_more
+                        "sync conversations from local, item_len: {item_len} first_updated_at: {last_updated_at} has_more:{} limit: {limit} total:{}",
+                        r.has_more,
+                        conversations.len(),
                     );
 
                     last_updated_at = r
@@ -214,11 +214,10 @@ impl Client {
                         .last()
                         .map(|c| c.updated_at.clone())
                         .unwrap_or_default();
-
                     if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
                         cb.on_conversations_updated(r.items, None);
                     }
-                    if !r.has_more {
+                    if !r.has_more || item_len < limit {
                         break;
                     }
                 }
