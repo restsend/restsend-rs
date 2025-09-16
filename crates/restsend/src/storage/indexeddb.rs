@@ -324,12 +324,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let limit = option.limit;
         let items_clone = items.clone();
         let cursor_req_ref = cursor_req.clone();
+        let on_success_callback = Rc::new(RefCell::new(None));
+        let on_error_callback = Rc::new(RefCell::new(None));
+        let on_success_callback_ref = on_success_callback.clone();
+        let on_error_callback_ref = on_error_callback.clone();
 
         let p = Promise::new(&mut move |resolve, reject| {
             let reject_ref = reject.clone();
             let items_ref = items_clone.clone();
 
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let on_success = Closure::wrap(Box::new(move |e: web_sys::Event| {
                 let cursor = match e
                     .target()
                     .and_then(|v| v.dyn_into::<IdbRequest>().ok())
@@ -352,7 +356,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                                     items_count = items.len();
                                 }
                             }
-                            if v.sortkey == start_sort_value || items_count < (limit + 1) as usize {
+                            if items_count < (limit + 1) as usize {
                                 cursor.continue_().ok();
                                 return;
                             }
@@ -370,18 +374,17 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         reject_ref.call1(&JsValue::NULL, &e).ok();
                     }
                 }
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
+            }) as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::once(move |e: DomException| {
+            let on_error = Closure::once(move |e: DomException| {
                 reject.call1(&JsValue::NULL, &e).ok();
             });
 
-            cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
+            cursor_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+            on_error_callback_ref.borrow_mut().replace(on_error);
 
-            cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
+            cursor_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
+            on_success_callback_ref.borrow_mut().replace(on_success);
         });
 
         let r = JsFuture::from(p).await.ok();
