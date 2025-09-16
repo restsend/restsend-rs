@@ -322,6 +322,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .ok()?;
 
         let limit = option.limit;
+        let option_start_sort_value = option.start_sort_value;
         let items_clone = items.clone();
         let cursor_req_ref = cursor_req.clone();
         let on_success_callback = Rc::new(RefCell::new(None));
@@ -349,14 +350,22 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 let r = match cursor.value() {
                     Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                         Ok(v) => {
-                            let mut items_count = 0;
                             if let Ok(item) = T::from_str(&v.value) {
+                                if v.sortkey as f64 == start_sort_value {
+                                    cursor.continue_().ok();
+                                    return;
+                                }
+
                                 if let Some(items) = items_ref.borrow_mut().as_mut() {
                                     items.push(item);
-                                    items_count = items.len();
+                                    let items_count = items.len();
+
+                                    if items_count < (limit + 1) as usize {
+                                        cursor.continue_().ok();
+                                        return;
+                                    }
                                 }
-                            }
-                            if items_count < (limit + 1) as usize {
+                            } else {
                                 cursor.continue_().ok();
                                 return;
                             }

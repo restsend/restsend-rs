@@ -123,8 +123,8 @@ describe('Conversations', async function () {
         expect(syncDone).toBe(true)
         expect(newItems[0].content.type).toEqual('recall')
         expect(newItems[0].content.text).toEqual(recallId)
-        expect(newItems[1].recall).toBe(false)
-        expect(newItems[1].content.type).toEqual('text')
+        expect(newItems[1].recall).toBe(true)
+        expect(newItems[1].content.type).toEqual('recalled')
     })
 
     it('#sync sync last logs without cache', async () => {
