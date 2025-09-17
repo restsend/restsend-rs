@@ -231,7 +231,7 @@ impl Client {
         let mut last_updated_at_remote = before_updated_at;
         let mut last_removed_at = last_removed_at.clone();
         let mut total = 0;
-
+        let mut sync_count_from_remote = 0;
         loop {
             let st_0 = now_millis();
             match get_conversations(
@@ -255,7 +255,7 @@ impl Client {
                         last_updated_at_remote = lr.last_updated_at.clone();
                         0
                     };
-
+                    sync_count_from_remote += lr.items.len() as u32;
                     if last_updated_at.is_empty() && !lr.items.is_empty() {
                         last_updated_at = lr.items.first().unwrap().updated_at.clone();
                     }
@@ -284,9 +284,9 @@ impl Client {
                     }
 
                     log::info!(
-                        "sync conversations from remote, count: {} removed:{} api_cost:{:?} merge_cost: {:?}, callback_cost: {:?}, total_cost: {:?}",
-                        new_conversations_count,
+                        "sync conversations from remote, count: {new_conversations_count} removed:{} has_more:{} api_cost:{:?} merge_cost: {:?}, callback_cost: {:?}, total_cost: {:?}, sync_max_count: {sync_max_count}",
                         lr.removed.len(),
+                        lr.has_more,
                         api_cost,
                         merge_cost,
                         elapsed(st),
@@ -295,7 +295,7 @@ impl Client {
                     if !lr.has_more {
                         break;
                     }
-                    if sync_max_count > 0 && conversations.len() as u32 >= sync_max_count {
+                    if sync_max_count > 0 && sync_count_from_remote >= sync_max_count {
                         break;
                     }
                 }
