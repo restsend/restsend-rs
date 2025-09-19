@@ -8,8 +8,8 @@ use std::{borrow::Borrow, cell::RefCell, io::Cursor, rc::Rc, time::Duration, vec
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
-    DomException, IdbDatabase, IdbIndexParameters, IdbKeyRange, IdbObjectStoreParameters,
-    IdbOpenDbRequest, IdbRequest, IdbTransactionMode,
+    DomException, IdbDatabase, IdbIndexParameters, IdbKeyRange, IdbObjectStore,
+    IdbObjectStoreParameters, IdbOpenDbRequest, IdbRequest, IdbTransactionMode,
 };
 
 const LAST_DB_VERSION: u32 = 1;
@@ -67,6 +67,7 @@ where
     table_name: String,
     db: IdbDatabase,
     _phantom: std::marker::PhantomData<T>,
+    store: IdbObjectStore,
 }
 
 #[allow(dead_code)]
@@ -174,10 +175,15 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         open_req_ref.set_onsuccess(None);
         open_req_ref.set_onerror(None);
 
+        let store = db_result
+            .transaction_with_str_and_mode(&table_name, IdbTransactionMode::Readwrite)
+            .and_then(|tx| tx.object_store(&table_name))?;
+
         Ok(Box::new(IndexeddbTable {
             table_name: table_name.to_string(),
             db: db_result,
             _phantom: std::marker::PhantomData,
+            store,
         }))
     }
 }
@@ -204,13 +210,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             None => js_sys::Number::POSITIVE_INFINITY,
         };
 
-        let store = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
-            .and_then(|tx| tx.object_store(&self.table_name))
-            .ok()?;
-
-        let index = store.index("partition+sortkey").ok()?;
+        let index = self.store.index("partition+sortkey").ok()?;
         let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
             &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
                 .into(),
@@ -302,13 +302,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             None => js_sys::Number::POSITIVE_INFINITY,
         };
 
-        let store = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
-            .and_then(|tx| tx.object_store(&self.table_name))
-            .ok()?;
-
-        let index = store.index("partition+sortkey").ok()?;
+        let index = self.store.index("partition+sortkey").ok()?;
         let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
             &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into())
                 .into(),
@@ -414,16 +408,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     }
 
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
-        let store = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
-            .and_then(|tx| tx.object_store(&self.table_name))
-            .ok()?;
-
         let query_keys = js_sys::Array::new();
         query_keys.push(&partition.into());
         query_keys.push(&key.into());
-        let get_req = store.get(&query_keys).ok()?;
+        let get_req = self.store.get(&query_keys).ok()?;
         let get_req_ref = get_req.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -457,35 +445,28 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     }
 
     async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
-        let tx = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
-        let store = tx.object_store(&self.table_name)?;
-
         for item in items {
-            let query_keys = js_sys::Array::new();
-            query_keys.push(&item.partition.to_string().into());
-            query_keys.push(&item.key.to_string().into());
             match item.value.as_ref() {
                 None => {
-                    store.delete(&query_keys).ok();
+                    let query_keys = js_sys::Array::new();
+                    query_keys.push(&item.partition.to_string().into());
+                    query_keys.push(&item.key.to_string().into());
+                    self.store.delete(&query_keys).ok();
                 }
                 Some(v) => {
-                    let key = item.key.to_string();
                     let value = StoreValue {
                         sortkey: v.sort_key() as f64,
                         partition: item.partition.to_string(),
-                        key: key.clone(),
+                        key: item.key.to_string(),
                         value: v.to_string(),
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
-                    store.put(&item).ok();
+                    self.store.put(&item).ok();
                 }
             }
         }
-        #[allow(deprecated)]
-        tx.commit().map_err(Into::into)
+        Ok(())
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -493,10 +474,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             None => return self.remove(partition, key).await,
             Some(v) => v,
         };
-        let tx = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
-        let store = tx.object_store(&self.table_name)?;
 
         let item = StoreValue {
             sortkey: value.sort_key() as f64,
@@ -507,24 +484,18 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let item =
             serde_wasm_bindgen::to_value(&item).map_err(|e| ClientError::Storage(e.to_string()))?;
-        store.put(&item)?;
-        #[allow(deprecated)]
-        tx.commit().map_err(Into::into)
+        self.store.put(&item)?;
+        Ok(())
     }
 
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
-        let tx = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
-        let store = tx.object_store(&self.table_name)?;
-
         let cursor_req = if !key.is_empty() {
             let query_keys = js_sys::Array::new();
             query_keys.push(&partition.into());
             query_keys.push(&key.into());
-            store.delete(&query_keys.into())
+            self.store.delete(&query_keys.into())
         } else {
-            let index = store.index("partition+sortkey")?;
+            let index = self.store.index("partition+sortkey")?;
             let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
                 &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into()),
                 &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into()),
@@ -583,18 +554,11 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let _ = done_rx.recv().await;
         cursor_req_ref.set_onerror(None);
         cursor_req_ref.set_onsuccess(None);
-        #[allow(deprecated)]
-        tx.commit().map_err(Into::into)
+        Ok(())
     }
 
     async fn last(&self, partition: &str) -> Option<T> {
-        let store = self
-            .db
-            .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readonly)
-            .and_then(|tx| tx.object_store(&self.table_name))
-            .ok()?;
-
-        let index = store.index("partition+sortkey").ok()?;
+        let index = self.store.index("partition+sortkey").ok()?;
         let query_range: IdbKeyRange = web_sys::IdbKeyRange::bound(
             &js_sys::Array::of2(&partition.into(), &js_sys::Number::NEGATIVE_INFINITY.into()),
             &js_sys::Array::of2(&partition.into(), &js_sys::Number::POSITIVE_INFINITY.into()),
