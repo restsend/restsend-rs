@@ -182,8 +182,6 @@ impl ClientStore {
                                 conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
                                 cb.on_conversations_updated(vec![conversation], None);
                             }
-                        } else {
-                            self.fetch_conversation(&topic_id, false).await;
                         }
                     }
                     None => {

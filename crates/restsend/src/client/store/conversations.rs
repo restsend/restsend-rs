@@ -8,7 +8,7 @@ use crate::{
     request::ChatRequest,
     services::conversation::*,
     storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem},
-    utils::{elapsed, now_millis, spwan_task},
+    utils::{elapsed, now_millis},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
@@ -460,8 +460,8 @@ impl ClientStore {
     pub(crate) async fn get_conversation(
         &self,
         topic_id: &str,
-        blocking: bool,
-        ensure_last_version: bool,
+        _blocking: bool,
+        mut ensure_last_version: bool,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         let conversation = t
@@ -469,47 +469,61 @@ impl ClientStore {
             .await
             .unwrap_or(Conversation::new(topic_id));
 
-        if ensure_last_version
-            || (conversation.is_partial
-                || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS))
+        if conversation.is_partial
+            || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
         {
-            self.fetch_conversation(topic_id, blocking).await;
+            ensure_last_version = true;
+        }
+
+        {
+            match self.pending_conversations.lock() {
+                Ok(mut pending_conversations) => {
+                    if pending_conversations.contains(topic_id) {
+                        return Some(conversation);
+                    }
+                    pending_conversations.insert(topic_id.to_string());
+                }
+                Err(_) => {}
+            }
+        }
+
+        if ensure_last_version {
+            let r = self.fetch_conversation(topic_id).await;
+            self.pending_conversations.lock().ok().map(|mut pcs| {
+                pcs.remove(topic_id);
+            });
+            match r {
+                Ok(c) => return Some(c),
+                Err(e) => {
+                    warn!("fetch_conversation failed: {:?}", e);
+                    return Some(conversation);
+                }
+            }
         }
         Some(conversation)
     }
 
-    pub(super) async fn fetch_conversation(&self, topic_id: &str, blocking: bool) {
-        let endpoint = self.endpoint.clone();
-        let token = self.token.clone();
-        let topic_id = topic_id.to_string();
+    pub(super) async fn fetch_conversation(&self, topic_id: &str) -> Result<Conversation> {
         let message_storage = self.message_storage.clone();
-        let callback = self.callback.clone();
-        log::info!("fetch_conversation: {:?} blocking: {}", topic_id, blocking);
 
-        let runner = async move {
-            match get_conversation(&endpoint, &token, &topic_id).await {
-                Ok(c) => {
-                    let c = match merge_conversation(message_storage, c).await {
-                        Ok(c) => c,
-                        Err(e) => {
-                            warn!("update_conversation_with_storage failed: {:?}", e);
-                            return;
-                        }
-                    };
-                    if let Some(cb) = callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(vec![c], None);
-                    };
+        match get_conversation(&self.endpoint, &self.token, topic_id).await {
+            Ok(c) => {
+                let c = match merge_conversation(message_storage, c).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        warn!("update_conversation_with_storage failed: {:?}", e);
+                        return Err(e);
+                    }
+                };
+                if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                    cb.on_conversations_updated(vec![c.clone()], None);
                 }
-                Err(e) => {
-                    warn!("get_conversation failed: {:?}", e);
-                    return;
-                }
-            };
-        };
-        if blocking {
-            runner.await;
-        } else {
-            spwan_task(runner);
+                return Ok(c);
+            }
+            Err(e) => {
+                warn!("get_conversation failed: {:?}", e);
+                return Err(e);
+            }
         }
     }
 

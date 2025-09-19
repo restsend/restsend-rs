@@ -10,7 +10,9 @@ use crate::{
     MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
 
+use std::collections::HashSet;
 use std::sync::atomic::AtomicI64;
+use std::sync::Mutex;
 use std::{
     collections::{HashMap, VecDeque},
     sync::{
@@ -113,6 +115,7 @@ pub(super) struct ClientStore {
     pub(crate) callback: CallbackRef,
     pub(crate) countable_callback: CountableCallbackRef,
     incoming_logs: RwLock<HashMap<String, Vec<String>>>,
+    pending_conversations: Mutex<HashSet<String>>,
 }
 
 impl ClientStore {
@@ -136,6 +139,7 @@ impl ClientStore {
             callback: Arc::new(RwLock::new(None)),
             countable_callback: Arc::new(RwLock::new(None)),
             incoming_logs: RwLock::new(HashMap::new()),
+            pending_conversations: Mutex::new(HashSet::new()),
         }
     }
 
