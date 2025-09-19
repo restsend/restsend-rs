@@ -20,6 +20,331 @@ export function logout(endpoint: string, token: string): Promise<void>;
 export class Client {
   free(): void;
   /**
+   * Create a new chat with userId
+   * return: Conversation    
+   */
+  createChat(userId: string): Promise<any>;
+  /**
+   * Clean history of a conversation
+   */
+  cleanMessages(topicId: string): Promise<void>;
+  /**
+   * Remove messages from a conversation
+   */
+  removeMessages(topicId: string, chatIds: string[]): Promise<void>;
+  /**
+   * Sync chat logs from server
+   * #Arguments
+   * * `topicId` - topic id
+   * * `lastSeq` - Number, last seq
+   * * `option` - option
+   *     * `limit` - limit
+   *     * `ensureConversationVersion` - ensure conversation version, default false
+   *     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
+   *     * `onerror` - onerror callback -> function (error: String)
+   */
+  syncChatLogs(topicId: string, lastSeq: number | null | undefined, option: any): Promise<void>;
+  saveChatLogs(logs: any): Promise<void>;
+  /**
+   * Sync conversations from server
+   * #Arguments
+   * * `option` - option
+   *    * `syncMaxCount` - max sync count, default is unlimit
+   *    * `syncLogs` - syncs logs, default false
+   *    * `syncLogsLimit` - sync logs limit, per conversation, default 100
+   *    * `syncLogsMaxCount` - sync logs max count, default 200
+   *    * `limit` - limit
+   *    * `updatedAt` String - updated_at optional
+   *    * `beforeUpdatedAt` String - before_updated_at optional
+   *    * `lastRemovedAt` String - last_removed_at optional
+   *    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
+   *         - updated_at: last updated_at
+   *         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
+   *    * `onerror` - onerror callback -> function (error: String)
+   */
+  syncConversations(option: any): Promise<void>;
+  syncFirstPageConversations(option: any): Promise<void>;
+  /**
+   * Get conversation by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   * * `blocking` - blocking optional
+   * return: Conversation or null
+   */
+  getConversation(topicId: string, blocking?: boolean | null): Promise<any>;
+  /**
+   * Remove conversation by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  removeConversation(topicId: string): Promise<void>;
+  /**
+   * Set conversation remark
+   * #Arguments
+   * * `topicId` - topic id
+   * * `remark` - remark
+   */
+  setConversationRemark(topicId: string, remark?: string | null): Promise<any>;
+  /**
+   * Set conversation sticky by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   * * `sticky` - sticky
+   */
+  setConversationSticky(topicId: string, sticky: boolean): Promise<any>;
+  /**
+   * Set conversation mute by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   * * `mute` - mute
+   */
+  setConversationMute(topicId: string, mute: boolean): Promise<any>;
+  /**
+   * Set conversation read by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   * * `heavy` - heavy optional
+   */
+  setConversationRead(topicId: string, heavy?: boolean | null): Promise<void>;
+  /**
+   * Set conversation read by topicId
+   * #Arguments
+   * * `topicId` - topic id
+   * * `heavy` - heavy optional
+   */
+  setAllConversationsRead(): Promise<void>;
+  /**
+   * Set conversation tags
+   * #Arguments
+   * * `topicId` - topic id
+   * * `tags` - tags is array of Tag:
+   *     - id - string
+   *     - type - string
+   *     - label - string
+   */
+  setConversationTags(topicId: string, tags: any): Promise<any>;
+  /**
+   * Clear conversation on local storage
+   * #Arguments
+   * * `topicId` - topic id
+   */
+  clearConversation(topicId: string): Promise<void>;
+  /**
+   * Set conversation extra
+   * #Arguments
+   * * `topicId` - topic id
+   * # `extra` - extra
+   * # Return: Conversation
+   */
+  setConversationExtra(topicId: string, extra: any): Promise<any>;
+  /**
+   * Filter conversation with options
+   * #Arguments
+   * * `predicate` - filter predicate
+   *     -> return true to keep the conversation
+   * * `lastUpdatedAt` - last updated_at
+   * * `limit` - limit
+   * #Return Array of Conversation
+   * #Example
+   * ```js
+   * const conversations = client.filterConversation((c) => {
+   *    return c.remark === 'hello'
+   * })
+   * ```
+   * #Example
+   * ```js
+   * const conversations = await client.filterConversation((c) => {
+   *   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
+   * })
+   */
+  filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
+  /**
+   *
+   * Send message with content
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `content` - The content Object
+   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+   *     * `text` String - The text message
+   *     * `attachment` Object - The attachment object
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+   *     * `size` Number - The size of the content, only for file, optional
+   *     * `placeholder` String - The placeholder of the content, optional
+   *     * `width` Number - The width of the content, only for image/video, optional
+   *     * `height` Number - The height of the content, only for image/video, optional
+   *     * `reply` String - The reply message id, optional
+   *     * `mentions` Array - Mention to users, optional
+   *     * `mentionsAll` Boolean - Mention to all users, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.doSend(topicId, {
+   *     type: 'wx.text',
+   *     text: 'hello',
+   * }, {
+   *     mentions: undefined, // The mention user id list, optional
+   *     mentionAll:  false, // Mention all users, optional
+   *     reply:  undefined, // The reply message id, optional
+   *     onsent:  () => {}, // The callback when message sent
+   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
+   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+   *     onfail:  (reason:String)  => {} // The callback when message failed
+   * });
+   * ```
+   */
+  doSend(topicId: string, content: any, option: any): Promise<string>;
+  /**
+   * Send typing status
+   * # Arguments
+   * * `topicId` - The topic id    
+   */
+  doTyping(topicId: string): Promise<void>;
+  /**
+   * Recall message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `messageId` - The message id
+   */
+  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
+  /**
+   * Send voice message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *     * `mentions` Array - The mention user id list, optional
+   *     * `mentionAll` boolean, // Mention all users, optional
+   *     * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send video message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send file message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   * * `option` - The send option
+   *    * `size` Number - The size of the content, only for file, optional
+   *    * `mentions` Array - The mention user id list, optional
+   *    * `mentionAll` boolean, // Mention all users, optional
+   *    * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Send location message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `latitude` - The latitude
+   * * `longitude` - The longitude
+   * * `address` - The address
+   * * `option` - The send option
+   *   * `mentions` Array - The mention user id list, optional
+   *   * `mentionAll` boolean, // Mention all users, optional
+   *   * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
+  /**
+   * Send link message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `url` - The url
+   * * `option` - The send option
+   *  * `placeholder` String - The placeholder of the content, optional
+   *  * `mentions` Array - The mention user id list, optional
+   *  * `mentionAll` boolean, // Mention all users, optional
+   *  * `reply` String - The reply message id, optional
+   * # Return
+   * The message id
+   */
+  doSendLink(topicId: string, url: string, option: any): Promise<string>;
+  /**
+   * Send invite message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `logIds` Array - The log id list
+   * * `option` - The send option
+   * # Return    
+   * The message id
+   */
+  doSendLogs(topicId: string, sourceTopicId: string, logIds: string[], option: any): Promise<string>;
+  /**
+   * Send text message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `text` - The text message
+   * * `option` - The send option
+   * # Return
+   * The message id
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendText(topicId, text, {
+   *     mentions: [] || undefined, // The mention user id list, optional
+   *     reply: String || undefined, - The reply message id, optional
+   *     onsent:  () => {},
+   *     onprogress:  (progress:Number, total:Number)  =>{},
+   *     onack:  (req:ChatRequest)  => {},
+   *     onfail:  (reason:String)  => {}
+   * });
+   * ```
+   */
+  doSendText(topicId: string, text: string, option: any): Promise<string>;
+  /**
+   *
+   * Send image message
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `attachment` - The attachment object
+   *     * `file` File - The file object
+   *     * `url` String  - The file name
+   * * `option` - The send option
+   * # Example
+   * ```javascript
+   * const client = new Client(info);
+   * await client.connect();
+   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
+   * ```
+   */
+  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
+  /**
+   * Update sent chat message's extra
+   * # Arguments
+   * * `topicId` - The topic id
+   * * `chatId` - The chat id
+   * * `extra` - The extra, optional
+   * * `option` - The send option
+   * # Return
+   * The message id
+   */
+  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
+  /**
    * Create a new topic
    * #Arguments
    *   name: String,
@@ -232,331 +557,6 @@ export class Client {
   shutdown(): Promise<void>;
   connect(): Promise<void>;
   /**
-   *
-   * Send message with content
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `content` - The content Object
-   *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-   *     * `text` String - The text message
-   *     * `attachment` Object - The attachment object
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-   *     * `size` Number - The size of the content, only for file, optional
-   *     * `placeholder` String - The placeholder of the content, optional
-   *     * `width` Number - The width of the content, only for image/video, optional
-   *     * `height` Number - The height of the content, only for image/video, optional
-   *     * `reply` String - The reply message id, optional
-   *     * `mentions` Array - Mention to users, optional
-   *     * `mentionsAll` Boolean - Mention to all users, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.doSend(topicId, {
-   *     type: 'wx.text',
-   *     text: 'hello',
-   * }, {
-   *     mentions: undefined, // The mention user id list, optional
-   *     mentionAll:  false, // Mention all users, optional
-   *     reply:  undefined, // The reply message id, optional
-   *     onsent:  () => {}, // The callback when message sent
-   *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-   *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
-   *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-   *     onfail:  (reason:String)  => {} // The callback when message failed
-   * });
-   * ```
-   */
-  doSend(topicId: string, content: any, option: any): Promise<string>;
-  /**
-   * Send typing status
-   * # Arguments
-   * * `topicId` - The topic id    
-   */
-  doTyping(topicId: string): Promise<void>;
-  /**
-   * Recall message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `messageId` - The message id
-   */
-  doRecall(topicId: string, messageId: string, option: any): Promise<string>;
-  /**
-   * Send voice message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *     * `mentions` Array - The mention user id list, optional
-   *     * `mentionAll` boolean, // Mention all users, optional
-   *     * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendVoice(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send video message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendVideo(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send file message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   * * `option` - The send option
-   *    * `size` Number - The size of the content, only for file, optional
-   *    * `mentions` Array - The mention user id list, optional
-   *    * `mentionAll` boolean, // Mention all users, optional
-   *    * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendFile(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Send location message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `latitude` - The latitude
-   * * `longitude` - The longitude
-   * * `address` - The address
-   * * `option` - The send option
-   *   * `mentions` Array - The mention user id list, optional
-   *   * `mentionAll` boolean, // Mention all users, optional
-   *   * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLocation(topicId: string, latitude: string, longitude: string, address: string, option: any): Promise<string>;
-  /**
-   * Send link message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `url` - The url
-   * * `option` - The send option
-   *  * `placeholder` String - The placeholder of the content, optional
-   *  * `mentions` Array - The mention user id list, optional
-   *  * `mentionAll` boolean, // Mention all users, optional
-   *  * `reply` String - The reply message id, optional
-   * # Return
-   * The message id
-   */
-  doSendLink(topicId: string, url: string, option: any): Promise<string>;
-  /**
-   * Send invite message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `logIds` Array - The log id list
-   * * `option` - The send option
-   * # Return    
-   * The message id
-   */
-  doSendLogs(topicId: string, sourceTopicId: string, logIds: string[], option: any): Promise<string>;
-  /**
-   * Send text message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `text` - The text message
-   * * `option` - The send option
-   * # Return
-   * The message id
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendText(topicId, text, {
-   *     mentions: [] || undefined, // The mention user id list, optional
-   *     reply: String || undefined, - The reply message id, optional
-   *     onsent:  () => {},
-   *     onprogress:  (progress:Number, total:Number)  =>{},
-   *     onack:  (req:ChatRequest)  => {},
-   *     onfail:  (reason:String)  => {}
-   * });
-   * ```
-   */
-  doSendText(topicId: string, text: string, option: any): Promise<string>;
-  /**
-   *
-   * Send image message
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `attachment` - The attachment object
-   *     * `file` File - The file object
-   *     * `url` String  - The file name
-   * * `option` - The send option
-   * # Example
-   * ```javascript
-   * const client = new Client(info);
-   * await client.connect();
-   * await client.sendImage(topicId, {file:new File(['(⌐□_□)'], 'hello_restsend.png', { type: 'image/png' })}, {});
-   * ```
-   */
-  doSendImage(topicId: string, attachment: any, option: any): Promise<string>;
-  /**
-   * Update sent chat message's extra
-   * # Arguments
-   * * `topicId` - The topic id
-   * * `chatId` - The chat id
-   * * `extra` - The extra, optional
-   * * `option` - The send option
-   * # Return
-   * The message id
-   */
-  doUpdateExtra(topicId: string, chatId: string, extra: any, option: any): Promise<string>;
-  /**
-   * Create a new chat with userId
-   * return: Conversation    
-   */
-  createChat(userId: string): Promise<any>;
-  /**
-   * Clean history of a conversation
-   */
-  cleanMessages(topicId: string): Promise<void>;
-  /**
-   * Remove messages from a conversation
-   */
-  removeMessages(topicId: string, chatIds: string[]): Promise<void>;
-  /**
-   * Sync chat logs from server
-   * #Arguments
-   * * `topicId` - topic id
-   * * `lastSeq` - Number, last seq
-   * * `option` - option
-   *     * `limit` - limit
-   *     * `ensureConversationVersion` - ensure conversation version, default false
-   *     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
-   *     * `onerror` - onerror callback -> function (error: String)
-   */
-  syncChatLogs(topicId: string, lastSeq: number | null | undefined, option: any): Promise<void>;
-  saveChatLogs(logs: any): Promise<void>;
-  /**
-   * Sync conversations from server
-   * #Arguments
-   * * `option` - option
-   *    * `syncMaxCount` - max sync count, default is unlimit
-   *    * `syncLogs` - syncs logs, default false
-   *    * `syncLogsLimit` - sync logs limit, per conversation, default 100
-   *    * `syncLogsMaxCount` - sync logs max count, default 200
-   *    * `limit` - limit
-   *    * `updatedAt` String - updated_at optional
-   *    * `beforeUpdatedAt` String - before_updated_at optional
-   *    * `lastRemovedAt` String - last_removed_at optional
-   *    * `onsuccess` - onsuccess callback -> function (updated_at:String, count: u32)
-   *         - updated_at: last updated_at
-   *         - count: count of conversations, if count == limit, there may be more conversations, you can call syncConversations again with updated_at, stop when count < limit
-   *    * `onerror` - onerror callback -> function (error: String)
-   */
-  syncConversations(option: any): Promise<void>;
-  syncFirstPageConversations(option: any): Promise<void>;
-  /**
-   * Get conversation by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   * * `blocking` - blocking optional
-   * return: Conversation or null
-   */
-  getConversation(topicId: string, blocking?: boolean | null): Promise<any>;
-  /**
-   * Remove conversation by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  removeConversation(topicId: string): Promise<void>;
-  /**
-   * Set conversation remark
-   * #Arguments
-   * * `topicId` - topic id
-   * * `remark` - remark
-   */
-  setConversationRemark(topicId: string, remark?: string | null): Promise<any>;
-  /**
-   * Set conversation sticky by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   * * `sticky` - sticky
-   */
-  setConversationSticky(topicId: string, sticky: boolean): Promise<any>;
-  /**
-   * Set conversation mute by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   * * `mute` - mute
-   */
-  setConversationMute(topicId: string, mute: boolean): Promise<any>;
-  /**
-   * Set conversation read by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   * * `heavy` - heavy optional
-   */
-  setConversationRead(topicId: string, heavy?: boolean | null): Promise<void>;
-  /**
-   * Set conversation read by topicId
-   * #Arguments
-   * * `topicId` - topic id
-   * * `heavy` - heavy optional
-   */
-  setAllConversationsRead(): Promise<void>;
-  /**
-   * Set conversation tags
-   * #Arguments
-   * * `topicId` - topic id
-   * * `tags` - tags is array of Tag:
-   *     - id - string
-   *     - type - string
-   *     - label - string
-   */
-  setConversationTags(topicId: string, tags: any): Promise<any>;
-  /**
-   * Clear conversation on local storage
-   * #Arguments
-   * * `topicId` - topic id
-   */
-  clearConversation(topicId: string): Promise<void>;
-  /**
-   * Set conversation extra
-   * #Arguments
-   * * `topicId` - topic id
-   * # `extra` - extra
-   * # Return: Conversation
-   */
-  setConversationExtra(topicId: string, extra: any): Promise<any>;
-  /**
-   * Filter conversation with options
-   * #Arguments
-   * * `predicate` - filter predicate
-   *     -> return true to keep the conversation
-   * * `lastUpdatedAt` - last updated_at
-   * * `limit` - limit
-   * #Return Array of Conversation
-   * #Example
-   * ```js
-   * const conversations = client.filterConversation((c) => {
-   *    return c.remark === 'hello'
-   * })
-   * ```
-   * #Example
-   * ```js
-   * const conversations = await client.filterConversation((c) => {
-   *   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
-   * })
-   */
-  filterConversation(predicate: any, lastUpdatedAt: any, limit: any): Promise<any>;
-  /**
    * Set the callback when connection connected
    */
   set onconnected(value: any);
@@ -753,6 +753,24 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
   readonly memory: WebAssembly.Memory;
+  readonly client_createChat: (a: number, b: number, c: number) => any;
+  readonly client_cleanMessages: (a: number, b: number, c: number) => any;
+  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_saveChatLogs: (a: number, b: any) => any;
+  readonly client_syncConversations: (a: number, b: any) => any;
+  readonly client_syncFirstPageConversations: (a: number, b: any) => any;
+  readonly client_getConversation: (a: number, b: number, c: number, d: number) => any;
+  readonly client_removeConversation: (a: number, b: number, c: number) => any;
+  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => any;
+  readonly client_setAllConversationsRead: (a: number) => any;
+  readonly client_setConversationTags: (a: number, b: number, c: number, d: any) => any;
+  readonly client_clearConversation: (a: number, b: number, c: number) => any;
+  readonly client_setConversationExtra: (a: number, b: number, c: number, d: any) => any;
+  readonly client_filterConversation: (a: number, b: any, c: any, d: any) => any;
   readonly client_set_onconnected: (a: number, b: any) => void;
   readonly client_set_onconnecting: (a: number, b: any) => void;
   readonly client_set_ontokenexpired: (a: number, b: any) => void;
@@ -766,6 +784,18 @@ export interface InitOutput {
   readonly client_set_onconversationsupdated: (a: number, b: any) => void;
   readonly client_set_onconversationsremoved: (a: number, b: any) => void;
   readonly setLogging: (a: number, b: number) => void;
+  readonly client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doTyping: (a: number, b: number, c: number) => any;
+  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendVoice: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendVideo: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendFile: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => any;
+  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: any) => any;
+  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
+  readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
+  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
   readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -806,36 +836,6 @@ export interface InitOutput {
   readonly signup: (a: number, b: number, c: number, d: number, e: number, f: number) => any;
   readonly guestLogin: (a: number, b: number, c: number, d: number, e: any) => any;
   readonly logout: (a: number, b: number, c: number, d: number) => any;
-  readonly client_doSend: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doTyping: (a: number, b: number, c: number) => any;
-  readonly client_doRecall: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendVoice: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendVideo: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendFile: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doSendLocation: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: any) => any;
-  readonly client_doSendLink: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendLogs: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: any) => any;
-  readonly client_doSendText: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
-  readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
-  readonly client_createChat: (a: number, b: number, c: number) => any;
-  readonly client_cleanMessages: (a: number, b: number, c: number) => any;
-  readonly client_removeMessages: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly client_syncChatLogs: (a: number, b: number, c: number, d: number, e: number, f: any) => any;
-  readonly client_saveChatLogs: (a: number, b: any) => any;
-  readonly client_syncConversations: (a: number, b: any) => any;
-  readonly client_syncFirstPageConversations: (a: number, b: any) => any;
-  readonly client_getConversation: (a: number, b: number, c: number, d: number) => any;
-  readonly client_removeConversation: (a: number, b: number, c: number) => any;
-  readonly client_setConversationRemark: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly client_setConversationSticky: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setConversationMute: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setConversationRead: (a: number, b: number, c: number, d: number) => any;
-  readonly client_setAllConversationsRead: (a: number) => any;
-  readonly client_setConversationTags: (a: number, b: number, c: number, d: any) => any;
-  readonly client_clearConversation: (a: number, b: number, c: number) => any;
-  readonly client_setConversationExtra: (a: number, b: number, c: number, d: any) => any;
-  readonly client_filterConversation: (a: number, b: any, c: any, d: any) => any;
   readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
   readonly intounderlyingbytesource_type: (a: number) => [number, number];
   readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
@@ -856,10 +856,10 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure656_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure644_externref_shim: (a: number, b: number, c: any) => void;
   readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hb8244aa3255c06dc: (a: number, b: number) => void;
-  readonly closure850_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure891_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure779_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure820_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

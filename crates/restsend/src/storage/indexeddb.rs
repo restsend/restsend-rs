@@ -84,96 +84,91 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let table_name_clone = table_name.to_string();
         let open_req_ref = open_req.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let table_name_ref = table_name_clone.clone();
-            let reject_ref = reject.clone();
-            let on_upgradeneeded_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let db = match e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
-                    .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
-                    .unwrap_or(JsValue::UNDEFINED)
-                    .dyn_into::<IdbDatabase>()
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
-                        return;
-                    }
-                };
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-                let key_path_id = js_sys::Array::new();
-                key_path_id.push(&"partition".into());
-                key_path_id.push(&"key".into());
-                let mut create_params = IdbObjectStoreParameters::new();
-                create_params.set_key_path(&key_path_id);
-                let db_store = match db
-                    .create_object_store_with_optional_parameters(&table_name_ref, &create_params)
-                {
-                    Ok(v) => v,
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
-                        return;
-                    }
-                };
-
-                let key_path_sortkey = js_sys::Array::new();
-                key_path_sortkey.push(&"partition".into());
-                key_path_sortkey.push(&"sortkey".into());
-                let mut params = IdbIndexParameters::new();
-                params.set_unique(false);
-                match db_store.create_index_with_str_sequence_and_optional_parameters(
-                    "partition+sortkey",
-                    &key_path_sortkey,
-                    &params,
-                ) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
-                        return;
-                    }
-                }
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
-
-            let table_name_ref = table_name_clone.to_string();
-            let reject_ref = reject.clone();
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                match e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
-                    .and_then(|open_req| open_req.result().ok())
-                {
-                    Some(v) => resolve.call1(&JsValue::NULL, &v),
-                    None => {
-                        reject_ref
-                            .call1(&JsValue::NULL, &"open db failed".into())
-                            .ok();
-                        return;
-                    }
-                };
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
-
-            let reject_ref = reject.clone();
-            let on_error_callback = Closure::once(move |e: DomException| {
-                reject_ref.call1(&JsValue::NULL, &e).ok();
-            });
-
-            open_req.set_onupgradeneeded(Some(on_upgradeneeded_callback.as_ref().unchecked_ref()));
-            on_upgradeneeded_callback.forget();
-
-            open_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
-
-            open_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
-        });
-        let db_result = match JsFuture::from(p).await? {
-            v => v
+        let table_name_ref = table_name_clone.clone();
+        let reject_tx = done_tx.clone();
+        let on_upgradeneeded_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let db = match e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
+                .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
+                .unwrap_or(JsValue::UNDEFINED)
                 .dyn_into::<IdbDatabase>()
-                .map_err(|e| ClientError::from(e))?,
-        };
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    reject_tx.send(Err(ClientError::from(e))).ok();
+                    return;
+                }
+            };
+
+            let key_path_id = js_sys::Array::new();
+            key_path_id.push(&"partition".into());
+            key_path_id.push(&"key".into());
+            let mut create_params = IdbObjectStoreParameters::new();
+            create_params.set_key_path(&key_path_id);
+            let db_store = match db
+                .create_object_store_with_optional_parameters(&table_name_ref, &create_params)
+            {
+                Ok(v) => v,
+                Err(e) => {
+                    reject_tx.send(Err(ClientError::from(e))).ok();
+                    return;
+                }
+            };
+
+            let key_path_sortkey = js_sys::Array::new();
+            key_path_sortkey.push(&"partition".into());
+            key_path_sortkey.push(&"sortkey".into());
+            let mut params = IdbIndexParameters::new();
+            params.set_unique(false);
+            match db_store.create_index_with_str_sequence_and_optional_parameters(
+                "partition+sortkey",
+                &key_path_sortkey,
+                &params,
+            ) {
+                Ok(_) => {}
+                Err(e) => {
+                    reject_tx.send(Err(ClientError::from(e))).ok();
+                    return;
+                }
+            }
+        }) as Box<dyn FnMut(web_sys::Event)>);
+
+        let on_success = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            match e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbOpenDbRequest>().ok())
+                .and_then(|open_req| open_req.result().ok())
+            {
+                Some(v) => {
+                    done_tx.send(Ok(v)).ok();
+                }
+                None => {
+                    done_tx
+                        .send(Err(ClientError::Storage("open db failed".to_string())))
+                        .ok();
+                }
+            }
+        }) as Box<dyn FnMut(web_sys::Event)>);
+
+        let on_error = Closure::once(move |e: DomException| {
+            done_tx_clone.send(Err(ClientError::from(e))).ok();
+        });
+
+        open_req.set_onupgradeneeded(Some(on_upgradeneeded_callback.as_ref().unchecked_ref()));
+        open_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
+        open_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+
+        let result = done_rx
+            .recv()
+            .await
+            .unwrap_or(Err(ClientError::Storage("No response".to_string())))?;
+        let db_result = result
+            .dyn_into::<IdbDatabase>()
+            .map_err(|e| ClientError::from(e))?;
 
         open_req_ref.set_onupgradeneeded(None);
         open_req_ref.set_onsuccess(None);
@@ -232,70 +227,68 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let predicate = Rc::new(predicate);
         let cursor_req_ref = cursor_req.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let reject_ref = reject.clone();
-            let predicate_ref = predicate.clone();
-            let items_ref = items_clone.clone();
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                if let Some(limit) = limit {
-                    let items_count = items_ref
-                        .borrow_mut()
-                        .as_mut()
-                        .map(|v| v.len())
-                        .unwrap_or_default() as u32;
-                    if items_count >= limit {
-                        resolve.call0(&JsValue::NULL).ok();
-                        return;
-                    }
-                }
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-                let cursor = match e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok())
-                    .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
-                {
-                    Some(v) => v,
-                    None => {
-                        resolve.call0(&JsValue::NULL).ok();
-                        return;
-                    }
-                };
-                let r = match cursor.value() {
-                    Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
-                        Ok(v) => {
-                            if let Ok(Some(item)) =
-                                T::from_str(&v.value).map(|item| predicate_ref(item))
-                            {
-                                items_ref.borrow_mut().as_mut().unwrap().push(item);
-                            }
-                            cursor.continue_().ok();
-                            Ok(())
+        let reject_tx = done_tx.clone();
+        let predicate_ref = predicate.clone();
+        let items_ref = items_clone.clone();
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            if let Some(limit) = limit {
+                let items_count = items_ref
+                    .borrow_mut()
+                    .as_mut()
+                    .map(|v| v.len())
+                    .unwrap_or_default() as u32;
+                if items_count >= limit {
+                    done_tx.send(JsValue::NULL).ok();
+                    return;
+                }
+            }
+
+            let cursor = match e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbRequest>().ok())
+                .and_then(|cursor_req| cursor_req.result().ok())
+                .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
+            {
+                Some(v) => v,
+                None => {
+                    done_tx.send(JsValue::NULL).ok();
+                    return;
+                }
+            };
+            let r = match cursor.value() {
+                Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
+                    Ok(v) => {
+                        if let Ok(Some(item)) =
+                            T::from_str(&v.value).map(|item| predicate_ref(item))
+                        {
+                            items_ref.borrow_mut().as_mut().unwrap().push(item);
                         }
-                        Err(e) => Err(JsValue::from_str(&e.to_string())),
-                    },
-                    Err(e) => Err(e.into()),
-                };
-                match r {
-                    Ok(_) => {}
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
+                        cursor.continue_().ok();
+                        Ok(())
                     }
+                    Err(e) => Err(JsValue::from_str(&e.to_string())),
+                },
+                Err(e) => Err(e.into()),
+            };
+            match r {
+                Ok(_) => {}
+                Err(e) => {
+                    reject_tx.send(e).ok();
                 }
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
+            }
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::once(move |e: DomException| {
-                reject.call1(&JsValue::NULL, &e).ok();
-            });
-
-            cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
-
-            cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
+        let on_error_callback = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
-        let r = JsFuture::from(p).await.ok();
+
+        cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+        cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+
+        let r = done_rx.recv().await;
         cursor_req_ref.set_onerror(None);
         cursor_req_ref.set_onsuccess(None);
         _ = r?;
@@ -336,76 +329,82 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let on_success_callback_ref = on_success_callback.clone();
         let on_error_callback_ref = on_error_callback.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let reject_ref = reject.clone();
-            let items_ref = items_clone.clone();
-
-            let on_success = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let cursor = match e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok())
-                    .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
-                {
-                    Some(v) => v,
-                    None => {
-                        resolve.call0(&JsValue::NULL).ok();
-                        return;
-                    }
-                };
-                let r = match cursor.value() {
-                    Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
-                        Ok(v) => {
-                            if let Ok(item) = T::from_str(&v.value) {
-                                if v.sortkey as f64 == start_sort_value {
-                                    cursor.continue_().ok();
-                                    return;
-                                }
-
-                                if let Some(items) = items_ref.borrow_mut().as_mut() {
-                                    items.push(item);
-                                    let items_count = items.len();
-
-                                    if items_count < (limit + 1) as usize {
-                                        cursor.continue_().ok();
-                                        return;
-                                    }
-                                }
-                            } else {
+        // let p = Promise::new(&mut move |resolve, reject| {
+        //     let reject_ref = reject.clone();
+        let items_ref = items_clone.clone();
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
+        let on_success = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let cursor = match e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbRequest>().ok())
+                .and_then(|cursor_req| cursor_req.result().ok())
+                .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
+            {
+                Some(v) => v,
+                None => {
+                    done_tx.send(JsValue::NULL).ok();
+                    return;
+                }
+            };
+            let r = match cursor.value() {
+                Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
+                    Ok(v) => {
+                        if let Ok(item) = T::from_str(&v.value) {
+                            if v.sortkey as f64 == start_sort_value {
                                 cursor.continue_().ok();
                                 return;
                             }
-                            Ok(())
+
+                            if let Some(items) = items_ref.borrow_mut().as_mut() {
+                                items.push(item);
+                                let items_count = items.len();
+
+                                if items_count < (limit + 1) as usize {
+                                    cursor.continue_().ok();
+                                    return;
+                                }
+                            }
+                        } else {
+                            cursor.continue_().ok();
+                            return;
                         }
-                        Err(e) => Err(JsValue::from_str(&e.to_string())),
-                    },
-                    Err(e) => Err(e.into()),
-                };
-                match r {
-                    Ok(_) => {
-                        resolve.call0(&JsValue::NULL).ok();
+                        Ok(())
                     }
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
-                    }
+                    Err(e) => Err(JsValue::from_str(&e.to_string())),
+                },
+                Err(e) => Err(e.into()),
+            };
+            match r {
+                Ok(_) => {
+                    done_tx.send(JsValue::NULL).ok();
                 }
-            }) as Box<dyn FnMut(web_sys::Event)>);
+                Err(e) => {
+                    done_tx.send(e).ok();
+                }
+            }
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error = Closure::once(move |e: DomException| {
-                reject.call1(&JsValue::NULL, &e).ok();
-            });
-
-            cursor_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-            on_error_callback_ref.borrow_mut().replace(on_error);
-
-            cursor_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
-            on_success_callback_ref.borrow_mut().replace(on_success);
+        let on_error = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
 
-        let r = JsFuture::from(p).await.ok();
+        cursor_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+        on_error_callback_ref.borrow_mut().replace(on_error);
+
+        cursor_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
+        on_success_callback_ref.borrow_mut().replace(on_success);
+        let r = done_rx.recv().await;
+
+        match r {
+            Some(v) if v.is_instance_of::<DomException>() => {
+                return None;
+            }
+            _ => {}
+        }
+
         cursor_req_ref.set_onerror(None);
         cursor_req_ref.set_onsuccess(None);
-        _ = r?;
 
         // take only limit items
         let mut items = items.take().unwrap_or_default();
@@ -434,30 +433,27 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         query_keys.push(&key.into());
         let get_req = store.get(&query_keys).ok()?;
         let get_req_ref = get_req.clone();
-        let p = Promise::new(&mut move |resolve, reject| {
-            let reject_ref = reject.clone();
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let result = e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
-                    .unwrap_or(JsValue::UNDEFINED);
-                resolve.call1(&JsValue::NULL, &result);
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::once(move |e: DomException| {
-                reject_ref.call1(&JsValue::NULL, &e).ok();
-            });
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-            get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let result = e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbRequest>().ok())
+                .map(|v| v.result().unwrap_or(JsValue::UNDEFINED))
+                .unwrap_or(JsValue::UNDEFINED);
+            done_tx.send(result).ok();
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
+        let on_error_callback = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
 
-        let result = JsFuture::from(p).await.ok();
+        get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+        get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+
+        let result = done_rx.recv().await;
         get_req_ref.set_onsuccess(None);
         get_req_ref.set_onerror(None);
 
@@ -497,23 +493,23 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
                     let get_req = store.get_key(&query_keys)?;
                     let get_req_ref = get_req.clone();
-                    let p = Promise::new(&mut move |resolve, reject| {
-                        let on_success_callback =
-                            Closure::wrap(Box::new(move |e: web_sys::Event| {
-                                resolve.call0(&JsValue::NULL).ok();
-                            })
-                                as Box<dyn FnMut(web_sys::Event)>);
-                        get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-                        on_success_callback.forget();
 
-                        let on_error_callback = Closure::once(move |e: DomException| {
-                            reject.call1(&JsValue::NULL, &e).ok();
-                        });
+                    let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+                    let done_tx_clone = done_tx.clone();
 
-                        get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-                        on_error_callback.forget();
+                    let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+                        done_tx.send(JsValue::NULL).ok();
+                    })
+                        as Box<dyn FnMut(web_sys::Event)>);
+
+                    let on_error_callback = Closure::once(move |e: DomException| {
+                        done_tx_clone.send(e.into()).ok();
                     });
-                    JsFuture::from(p).await.ok();
+
+                    get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+                    get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+
+                    done_rx.recv().await;
                     get_req_ref.set_onsuccess(None);
                     get_req_ref.set_onerror(None);
                     store.put(&item).ok();
@@ -546,23 +542,21 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let put_req = store.put(&item)?;
         let put_req_ref = put_req.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                resolve.call0(&JsValue::NULL).ok();
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-            put_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            done_tx.send(JsValue::NULL).ok();
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            let on_error_callback = Closure::once(move |e: DomException| {
-                reject.call1(&JsValue::NULL, &e).ok();
-            });
-            put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
+        let on_error_callback = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
 
-        let r = JsFuture::from(p).await;
+        put_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+        put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+
+        let r = done_rx.recv().await;
         put_req_ref.set_onsuccess(None);
         put_req_ref.set_onerror(None);
         #[allow(deprecated)]
@@ -590,54 +584,54 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         }?;
         let cursor_req_ref = cursor_req.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let reject_ref = reject.clone();
-            let partition = partition.to_string();
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let cursor = match e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok())
-                    .and_then(|result| result.dyn_into::<web_sys::IdbCursor>().ok())
-                {
-                    Some(v) => v,
-                    None => {
-                        resolve.call0(&JsValue::NULL).ok();
-                        return;
-                    }
-                };
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-                let r = match cursor.key() {
-                    Ok(keys) => match keys.dyn_into::<js_sys::Array>() {
-                        Ok(v) => {
-                            if v.get(0).as_string().unwrap_or_default() == partition {
-                                cursor.delete().ok();
-                            }
-                            cursor.continue_().ok();
-                            Ok(())
-                        }
-                        Err(e) => Err(e),
-                    },
-                    Err(e) => Err(e.into()),
-                };
-                match r {
-                    Ok(_) => {}
-                    Err(e) => {
-                        reject_ref.call1(&JsValue::NULL, &e).ok();
-                    }
+        let reject_tx = done_tx.clone();
+        let partition_clone = partition.to_string();
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let cursor = match e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbRequest>().ok())
+                .and_then(|cursor_req| cursor_req.result().ok())
+                .and_then(|result| result.dyn_into::<web_sys::IdbCursor>().ok())
+            {
+                Some(v) => v,
+                None => {
+                    done_tx.send(JsValue::NULL).ok();
+                    return;
                 }
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
+            };
 
-            let on_error_callback = Closure::once(move |_e: DomException| {});
+            let r = match cursor.key() {
+                Ok(keys) => match keys.dyn_into::<js_sys::Array>() {
+                    Ok(v) => {
+                        if v.get(0).as_string().unwrap_or_default() == partition_clone {
+                            cursor.delete().ok();
+                        }
+                        cursor.continue_().ok();
+                        Ok(())
+                    }
+                    Err(e) => Err(e),
+                },
+                Err(e) => Err(e.into()),
+            };
+            match r {
+                Ok(_) => {}
+                Err(e) => {
+                    reject_tx.send(e).ok();
+                }
+            }
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
-
-            cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
+        let on_error_callback = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
-        let _ = JsFuture::from(p).await;
+
+        cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+        cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+
+        let _ = done_rx.recv().await;
         cursor_req_ref.set_onerror(None);
         cursor_req_ref.set_onsuccess(None);
         #[allow(deprecated)]
@@ -663,33 +657,31 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .ok()?;
         let cursor_request_ref = cursor_request.clone();
 
-        let p = Promise::new(&mut move |resolve, reject| {
-            let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                let result = e
-                    .target()
-                    .and_then(|v| v.dyn_into::<IdbRequest>().ok())
-                    .and_then(|cursor_req| cursor_req.result().ok())
-                    .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
-                    .map(|result| result.value().ok().unwrap_or(JsValue::UNDEFINED))
-                    .unwrap_or(JsValue::UNDEFINED);
+        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+        let done_tx_clone = done_tx.clone();
 
-                resolve.call1(&JsValue::NULL, &result).ok();
-            })
-                as Box<dyn FnMut(web_sys::Event)>);
+        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
+            let result = e
+                .target()
+                .and_then(|v| v.dyn_into::<IdbRequest>().ok())
+                .and_then(|cursor_req| cursor_req.result().ok())
+                .and_then(|result| result.dyn_into::<web_sys::IdbCursorWithValue>().ok())
+                .map(|result| result.value().ok().unwrap_or(JsValue::UNDEFINED))
+                .unwrap_or(JsValue::UNDEFINED);
 
-            let on_error_callback = Closure::once(move |e: DomException| {
-                reject.call1(&JsValue::NULL, &e).ok();
-            });
+            done_tx.send(result).ok();
+        }) as Box<dyn FnMut(web_sys::Event)>);
 
-            cursor_request.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-            on_success_callback.forget();
-
-            cursor_request.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-            on_error_callback.forget();
+        let on_error_callback = Closure::once(move |e: DomException| {
+            done_tx_clone.send(e.into()).ok();
         });
-        let result = JsFuture::from(p)
+
+        cursor_request.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
+        cursor_request.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+
+        let result = done_rx
+            .recv()
             .await
-            .ok()
             .and_then(|v| {
                 serde_wasm_bindgen::from_value::<StoreValue>(v)
                     .map_err(|e| ClientError::Storage(e.to_string()))
