@@ -324,13 +324,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let option_start_sort_value = option.start_sort_value;
         let items_clone = items.clone();
         let cursor_req_ref = cursor_req.clone();
-        let on_success_callback = Rc::new(RefCell::new(None));
-        let on_error_callback = Rc::new(RefCell::new(None));
-        let on_success_callback_ref = on_success_callback.clone();
-        let on_error_callback_ref = on_error_callback.clone();
 
-        // let p = Promise::new(&mut move |resolve, reject| {
-        //     let reject_ref = reject.clone();
         let items_ref = items_clone.clone();
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -390,11 +384,12 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         });
 
         cursor_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-        on_error_callback_ref.borrow_mut().replace(on_error);
-
         cursor_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
-        on_success_callback_ref.borrow_mut().replace(on_success);
+
         let r = done_rx.recv().await;
+
+        cursor_req_ref.set_onerror(None);
+        cursor_req_ref.set_onsuccess(None);
 
         match r {
             Some(v) if v.is_instance_of::<DomException>() => {
@@ -402,9 +397,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             }
             _ => {}
         }
-
-        cursor_req_ref.set_onerror(None);
-        cursor_req_ref.set_onsuccess(None);
 
         // take only limit items
         let mut items = items.take().unwrap_or_default();
@@ -469,6 +461,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .db
             .transaction_with_str_and_mode(&self.table_name, IdbTransactionMode::Readwrite)?;
         let store = tx.object_store(&self.table_name)?;
+
         for item in items {
             let query_keys = js_sys::Array::new();
             query_keys.push(&item.partition.to_string().into());
@@ -478,40 +471,15 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     store.delete(&query_keys).ok();
                 }
                 Some(v) => {
+                    let key = item.key.to_string();
                     let value = StoreValue {
                         sortkey: v.sort_key() as f64,
                         partition: item.partition.to_string(),
-                        key: item.key.to_string(),
+                        key: key.clone(),
                         value: v.to_string(),
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
-
-                    // ???
-                    // Why is it much faster to get first and then put?
-                    //store.put(&item).ok();
-
-                    let get_req = store.get_key(&query_keys)?;
-                    let get_req_ref = get_req.clone();
-
-                    let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
-                    let done_tx_clone = done_tx.clone();
-
-                    let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-                        done_tx.send(JsValue::NULL).ok();
-                    })
-                        as Box<dyn FnMut(web_sys::Event)>);
-
-                    let on_error_callback = Closure::once(move |e: DomException| {
-                        done_tx_clone.send(e.into()).ok();
-                    });
-
-                    get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-                    get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-
-                    done_rx.recv().await;
-                    get_req_ref.set_onsuccess(None);
-                    get_req_ref.set_onerror(None);
                     store.put(&item).ok();
                 }
             }
@@ -539,26 +507,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let item =
             serde_wasm_bindgen::to_value(&item).map_err(|e| ClientError::Storage(e.to_string()))?;
-        let put_req = store.put(&item)?;
-        let put_req_ref = put_req.clone();
-
-        let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
-        let done_tx_clone = done_tx.clone();
-
-        let on_success_callback = Closure::wrap(Box::new(move |e: web_sys::Event| {
-            done_tx.send(JsValue::NULL).ok();
-        }) as Box<dyn FnMut(web_sys::Event)>);
-
-        let on_error_callback = Closure::once(move |e: DomException| {
-            done_tx_clone.send(e.into()).ok();
-        });
-
-        put_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
-        put_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
-
-        let r = done_rx.recv().await;
-        put_req_ref.set_onsuccess(None);
-        put_req_ref.set_onerror(None);
+        store.put(&item)?;
         #[allow(deprecated)]
         tx.commit().map_err(Into::into)
     }
