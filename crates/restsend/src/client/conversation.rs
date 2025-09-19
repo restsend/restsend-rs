@@ -528,6 +528,7 @@ impl Client {
     async fn batch_build_unreads(&self, conversations: &mut Vec<Conversation>) {
         let log_t = self.store.message_storage.table::<ChatLog>().await;
         let mut stored_conversations = vec![];
+        let st = now_millis();
         // build conversatoin's unread
         for c in conversations.iter_mut() {
             if c.last_read_seq >= c.last_message_seq.unwrap_or(c.last_seq) {
@@ -558,7 +559,7 @@ impl Client {
                     &c.topic_id,
                     start_seq,
                     Some(c.last_seq),
-                    unread_diff.max(MAX_LOGS_LIMIT as i64) as u32,
+                    unread_diff.min(MAX_LOGS_LIMIT as i64) as u32,
                 )
                 .await
             {
@@ -588,10 +589,20 @@ impl Client {
                 });
             }
         }
+        let logs_db_cost = elapsed(st);
+        let st_1 = now_millis();
         if !stored_conversations.is_empty() {
             let t = self.store.message_storage.table::<Conversation>().await;
             t.batch_update(&stored_conversations).await.ok();
         }
+        log::info!(
+            "batch_build_unreads conversations.len:{} need_update.len:{} logs.db_cost:{:?} conversations.db_cost:{:?} total_cost:{:?}",
+            conversations.len(),
+            stored_conversations.len(),
+            logs_db_cost,
+            elapsed(st_1),
+            elapsed(st)
+        );
     }
     pub async fn filter_conversation(
         &self,
