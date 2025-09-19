@@ -7,7 +7,7 @@ use crate::{
     },
     request::ChatRequest,
     services::conversation::*,
-    storage::{QueryOption, QueryResult, Storage, StoreModel, ValueItem},
+    storage::{QueryOption, QueryResult, Storage, StoreModel, Table, ValueItem},
     utils::{elapsed, now_millis},
     CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS,
 };
@@ -668,20 +668,25 @@ impl ClientStore {
         t.set(&log.topic_id, &log.id, Some(&log)).await
     }
 
-    pub(crate) async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
-        let t = self.message_storage.table::<ChatLog>().await;
+    pub(crate) async fn save_chat_logs(
+        &self,
+        table: &Box<dyn Table<ChatLog>>,
+        logs: &Vec<ChatLog>,
+    ) -> Result<()> {
+        //let table = self.message_storage.table::<ChatLog>().await;
         let mut items = vec![];
         for chat_log in logs {
             let item = match ContentType::from(chat_log.content.content_type.to_string()) {
                 ContentType::None => Some(chat_log), // remove local log
                 ContentType::Recall => {
-                    match t.get(&chat_log.topic_id, &chat_log.content.text).await {
+                    match table.get(&chat_log.topic_id, &chat_log.content.text).await {
                         Some(recall_log) => {
                             if !recall_log.recall {
                                 let mut log = recall_log.clone();
                                 log.recall = true;
                                 log.content = Content::new(ContentType::Recalled);
-                                t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
+                                table
+                                    .set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
                                     .await
                                     .ok();
                             }
@@ -691,12 +696,13 @@ impl ClientStore {
                     Some(chat_log)
                 }
                 ContentType::UpdateExtra => {
-                    match t.get(&chat_log.topic_id, &chat_log.content.text).await {
+                    match table.get(&chat_log.topic_id, &chat_log.content.text).await {
                         Some(update_log) => {
                             if !update_log.recall {
                                 let mut log = update_log.clone();
                                 log.content.extra = chat_log.content.extra.clone();
-                                t.set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
+                                table
+                                    .set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
                                     .await
                                     .ok();
                             }
@@ -716,7 +722,7 @@ impl ClientStore {
                 });
             }
         }
-        t.batch_update(&items).await
+        table.batch_update(&items).await
     }
 
     pub async fn get_chat_logs(
@@ -726,8 +732,20 @@ impl ClientStore {
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
+        let log_t = self.message_storage.table::<ChatLog>().await;
+        self.get_chat_logs_with_table(&log_t, topic_id, conversation_start_seq, last_seq, limit)
+            .await
+    }
+
+    pub async fn get_chat_logs_with_table(
+        &self,
+        table: &Box<dyn Table<ChatLog>>,
+        topic_id: &str,
+        conversation_start_seq: i64,
+        last_seq: Option<i64>,
+        limit: u32,
+    ) -> Result<(QueryResult<ChatLog>, bool)> {
         let st = now_millis();
-        let t = self.message_storage.table::<ChatLog>().await;
 
         let mut r = QueryResult {
             start_sort_value: 0,
@@ -748,7 +766,7 @@ impl ClientStore {
                 limit,
             };
             total_limit += limit;
-            let result = match t.query(topic_id, &option).await {
+            let result = match table.query(topic_id, &option).await {
                 Some(result) => result,
                 None => break,
             };
@@ -822,7 +840,7 @@ impl ClientStore {
                     match r.items.iter_mut().find(|v| v.id == log_id) {
                         Some(_) => {}
                         None => {
-                            if let Some(item) = t.get(topic_id, &log_id).await {
+                            if let Some(item) = table.get(topic_id, &log_id).await {
                                 log::info!(
                                     "get_chat_logs: find lost log log_id: {} seq: {}",
                                     log_id,
@@ -843,11 +861,6 @@ impl ClientStore {
     pub async fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
         let t = self.message_storage.table().await;
         t.get(topic_id, chat_id).await
-    }
-
-    pub async fn get_last_log(&self, topic_id: &str) -> Option<ChatLog> {
-        let t = self.message_storage.table().await;
-        t.last(topic_id).await
     }
 
     pub async fn remove_messages(&self, topic_id: &str, chat_ids: &[String]) {

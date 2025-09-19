@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::models::conversation::{Extra, Tags};
@@ -12,10 +10,12 @@ use crate::services::conversation::{
 use crate::services::conversation::{
     clean_messages, get_chat_logs_desc, get_conversations, remove_messages,
 };
+use crate::storage::{StoreModel, ValueItem};
 use crate::utils::{elapsed, now_millis};
 use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT, MAX_SYNC_LOGS_MAX_COUNT};
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
+use std::collections::HashMap;
 
 #[export_wasm_or_ffi]
 impl Client {
@@ -124,7 +124,8 @@ impl Client {
     }
 
     pub async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
-        self.store.save_chat_logs(logs).await
+        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        self.store.save_chat_logs(&log_t, logs).await
     }
 
     async fn fetch_chat_logs_desc(
@@ -145,7 +146,8 @@ impl Client {
                         ChatLogStatus::Received
                     };
                 }
-                self.store.save_chat_logs(&lr.items).await.ok();
+                let log_t = self.store.message_storage.table::<ChatLog>().await;
+                self.store.save_chat_logs(&log_t, &lr.items).await.ok();
                 info!(
                     "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} save_cost:{:?} total_cost:{:?}",
                     topic_id,
@@ -306,62 +308,13 @@ impl Client {
                 }
             }
         }
-        // build conversatoin's unread
-        for (_, c) in conversations.iter_mut() {
-            if c.last_read_seq >= c.last_message_seq.unwrap_or(c.last_seq) {
-                continue;
-            }
-            let start_seq = c.start_seq.max(c.last_read_seq);
-            let unread_diff = c.last_seq - c.last_read_seq;
-            if unread_diff <= 0 {
-                continue;
-            }
 
-            if unread_diff >= MAX_LOGS_LIMIT as i64 {
-                if c.unread < MAX_LOGS_LIMIT as i64 {
-                    c.unread = unread_diff;
-                    let t = self.store.message_storage.table::<Conversation>().await;
-                    t.set("", &c.topic_id, Some(c)).await.ok();
-                    continue;
-                }
-            }
-            let logs = match self
-                .store
-                .get_chat_logs(
-                    &c.topic_id,
-                    start_seq,
-                    Some(c.last_seq),
-                    unread_diff.max(MAX_LOGS_LIMIT as i64) as u32,
-                )
-                .await
-            {
-                Ok((logs, _)) => logs,
-                Err(_) => continue,
-            };
-            let mut unread = 0;
-            for log in logs.items.iter() {
-                let is_countable =
-                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
-                        cb.is_countable(log.content.clone())
-                    } else {
-                        !log.content.unreadable
-                    };
-
-                if is_countable && log.seq > c.last_read_seq {
-                    unread += 1;
-                }
-            }
-            if c.unread != unread {
-                c.unread = unread;
-                // update conversation to local db
-                let t = self.store.message_storage.table::<Conversation>().await;
-                t.set("", &c.topic_id, Some(c)).await.ok();
-            }
-        }
         let count = conversations.len() as u32;
+        let mut conversations: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
+        self.batch_build_unreads(&mut conversations).await;
+
         if sync_logs {
-            let mut vals: Vec<_> = conversations.into_iter().map(|it| it.1).collect();
-            vals.sort_by(|a, b| {
+            conversations.sort_by(|a, b| {
                 let a_updated_at =
                     chrono::DateTime::parse_from_rfc3339(&a.updated_at).unwrap_or_default();
                 let b_updated_at =
@@ -370,10 +323,10 @@ impl Client {
             });
 
             if sync_logs_max_count > 0 {
-                vals.truncate(sync_logs_max_count as usize);
+                conversations.truncate(sync_logs_max_count as usize);
             }
 
-            for chunk in vals.chunks(MAX_SYNC_LOGS_MAX_COUNT as usize) {
+            for chunk in conversations.chunks(MAX_SYNC_LOGS_MAX_COUNT as usize) {
                 let conversations = chunk
                     .into_iter()
                     .map(|c| (c.topic_id.clone(), c.clone()))
@@ -395,8 +348,9 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<()> {
         let mut try_sync_conversations = vec![];
+        let log_t = self.store.message_storage.table::<ChatLog>().await;
         for (_, c) in conversations.iter() {
-            match self.store.get_last_log(&c.topic_id).await {
+            match log_t.last(&c.topic_id).await {
                 Some(log) => {
                     if log.seq >= c.last_seq {
                         continue;
@@ -427,6 +381,8 @@ impl Client {
         let r = batch_get_chat_logs_desc(&self.endpoint, &self.token, form).await?;
 
         let mut updated_conversations = vec![];
+        let mut store_conversations = vec![];
+
         for mut lr in r {
             // flush to local db
             let now: i64 = now_millis();
@@ -444,7 +400,7 @@ impl Client {
                         !c.content.unreadable
                     };
             }
-            self.store.save_chat_logs(&lr.items).await.ok();
+            self.store.save_chat_logs(&log_t, &lr.items).await.ok();
 
             let topic_id = match lr.topic_id {
                 Some(ref topic_id) => topic_id.clone(),
@@ -470,16 +426,21 @@ impl Client {
                     conversation.last_message_seq = Some(c.seq);
                 }
             }
-            updated_conversations.push(conversation);
-        }
-        // callback
-        if let Some(cb) = self.store.callback.read().unwrap().as_ref() {
-            cb.on_conversations_updated(updated_conversations.clone(), None);
+            updated_conversations.push(conversation.clone());
+
+            store_conversations.push(ValueItem {
+                partition: "".to_string(),
+                key: conversation.topic_id.clone(),
+                sort_key: conversation.sort_key(),
+                value: Some(conversation),
+            })
         }
         // sync to store
         let t = self.store.message_storage.table::<Conversation>().await;
-        for c in updated_conversations.iter_mut() {
-            t.set("", &c.topic_id, Some(c)).await.ok();
+        t.batch_update(&store_conversations).await.ok();
+        // callback
+        if let Some(cb) = self.store.callback.read().unwrap().as_ref() {
+            cb.on_conversations_updated(updated_conversations.clone(), None);
         }
         Ok(())
     }
@@ -564,6 +525,74 @@ impl Client {
 }
 
 impl Client {
+    async fn batch_build_unreads(&self, conversations: &mut Vec<Conversation>) {
+        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        let mut stored_conversations = vec![];
+        // build conversatoin's unread
+        for c in conversations.iter_mut() {
+            if c.last_read_seq >= c.last_message_seq.unwrap_or(c.last_seq) {
+                continue;
+            }
+            let start_seq = c.start_seq.max(c.last_read_seq);
+            let unread_diff = c.last_seq - c.last_read_seq;
+            if unread_diff <= 0 {
+                continue;
+            }
+
+            if unread_diff >= MAX_LOGS_LIMIT as i64 {
+                if c.unread < MAX_LOGS_LIMIT as i64 {
+                    c.unread = unread_diff;
+                    stored_conversations.push(ValueItem {
+                        partition: "".to_string(),
+                        key: c.topic_id.clone(),
+                        sort_key: c.sort_key(),
+                        value: Some(c.clone()),
+                    });
+                    continue;
+                }
+            }
+            let logs = match self
+                .store
+                .get_chat_logs_with_table(
+                    &log_t,
+                    &c.topic_id,
+                    start_seq,
+                    Some(c.last_seq),
+                    unread_diff.max(MAX_LOGS_LIMIT as i64) as u32,
+                )
+                .await
+            {
+                Ok((logs, _)) => logs,
+                Err(_) => continue,
+            };
+            let mut unread = 0;
+            for log in logs.items.iter() {
+                let is_countable =
+                    if let Some(cb) = self.store.countable_callback.read().unwrap().as_ref() {
+                        cb.is_countable(log.content.clone())
+                    } else {
+                        !log.content.unreadable
+                    };
+
+                if is_countable && log.seq > c.last_read_seq {
+                    unread += 1;
+                }
+            }
+            if c.unread != unread {
+                c.unread = unread;
+                stored_conversations.push(ValueItem {
+                    partition: "".to_string(),
+                    key: c.topic_id.clone(),
+                    sort_key: c.sort_key(),
+                    value: Some(c.clone()),
+                });
+            }
+        }
+        if !stored_conversations.is_empty() {
+            let t = self.store.message_storage.table::<Conversation>().await;
+            t.batch_update(&stored_conversations).await.ok();
+        }
+    }
     pub async fn filter_conversation(
         &self,
         predicate: Box<dyn Fn(Conversation) -> Option<Conversation> + Send>,
