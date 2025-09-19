@@ -187,6 +187,12 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     }
 }
 
+impl<T: StoreModel> Drop for IndexeddbTable<T> {
+    fn drop(&mut self) {
+        self.db.close();
+    }
+}
+
 unsafe impl<T: StoreModel> Send for IndexeddbTable<T> {}
 unsafe impl<T: StoreModel> Sync for IndexeddbTable<T> {}
 
