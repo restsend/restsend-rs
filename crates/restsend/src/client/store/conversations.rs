@@ -23,20 +23,26 @@ pub(crate) async fn merge_conversation(
     let t = message_storage.table::<Conversation>().await;
     let mut conversation = conversation;
 
+    let mut sync_last_readable = false;
     if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+        if old_conversation.last_message_seq != conversation.last_message_seq {
+            sync_last_readable = true;
+        }
         conversation.last_read_at = old_conversation.last_read_at;
         conversation.last_read_seq = old_conversation.last_read_seq;
         conversation.unread = old_conversation.unread;
     }
 
-    if let Some(log) =
-        get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
-            .await
-    {
-        conversation.last_message = Some(log.content.clone());
-        conversation.last_message_at = log.created_at.clone();
-        conversation.last_sender_id = log.sender_id;
-        conversation.last_message_seq = Some(log.seq);
+    if sync_last_readable {
+        if let Some(log) =
+            get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
+                .await
+        {
+            conversation.last_message = Some(log.content.clone());
+            conversation.last_message_at = log.created_at.clone();
+            conversation.last_sender_id = log.sender_id;
+            conversation.last_message_seq = Some(log.seq);
+        }
     }
 
     conversation.is_partial = false;

@@ -72,7 +72,6 @@ impl Client {
             limit
         }
         .min(MAX_LOGS_LIMIT);
-        let mut fetch_conversation = false;
         let conversation = if ensure_conversation_last_version.unwrap_or_default() {
             self.store
                 .get_conversation(
@@ -82,7 +81,6 @@ impl Client {
                 )
                 .await
         } else {
-            fetch_conversation = true;
             let t = self.store.message_storage.table::<Conversation>().await;
             t.get("", &topic_id).await
         }
@@ -111,18 +109,19 @@ impl Client {
                 if !need_fetch {
                     let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
                     callback.on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
-                    if !fetch_conversation {
-                        return;
+                    if conversation.is_partial {
+                        self.store
+                            .get_conversation_by(conversation, false, true)
+                            .await;
                     }
+                    return;
                 }
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);
             }
         }
-        if fetch_conversation {
-            self.store.get_conversation(&topic_id, false, true).await;
-        }
+
         match self.fetch_chat_logs_desc(topic_id, last_seq, limit).await {
             Ok(lr) => {
                 callback.on_success(lr);
