@@ -177,11 +177,9 @@ impl ClientStore {
                                 conversation.last_seq,
                             )));
                         }
-                        if !conversation.is_partial {
-                            if let Some(cb) = callback.read().unwrap().as_ref() {
-                                conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
-                                cb.on_conversations_updated(vec![conversation], None);
-                            }
+                        if let Some(cb) = callback.read().unwrap().as_ref() {
+                            conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
+                            cb.on_conversations_updated(vec![conversation], None);
                         }
                     }
                     None => {

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
 use crate::storage::Storage;
-use crate::utils::spwan_task;
+use crate::utils::spawn_task;
 use crate::{models::User, services::user::get_user, utils::now_millis};
 use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
@@ -71,7 +71,7 @@ impl ClientStore {
         if blocking {
             Some(runner.await.unwrap_or(u))
         } else {
-            spwan_task(async {
+            spawn_task(async {
                 runner.await;
             });
             Some(u)

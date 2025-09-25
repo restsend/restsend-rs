@@ -461,14 +461,23 @@ impl ClientStore {
         &self,
         topic_id: &str,
         _blocking: bool,
-        mut ensure_last_version: bool,
+        ensure_last_version: bool,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await;
         let conversation = t
             .get("", topic_id)
             .await
-            .unwrap_or(Conversation::new(topic_id));
+            .unwrap_or_else(|| Conversation::new(topic_id));
+        self.get_conversation_by(conversation, _blocking, ensure_last_version)
+            .await
+    }
 
+    pub(crate) async fn get_conversation_by(
+        &self,
+        conversation: Conversation,
+        _blocking: bool,
+        mut ensure_last_version: bool,
+    ) -> Option<Conversation> {
         if conversation.is_partial
             || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
         {
@@ -478,19 +487,18 @@ impl ClientStore {
         {
             match self.pending_conversations.lock() {
                 Ok(mut pending_conversations) => {
-                    if pending_conversations.contains(topic_id) {
+                    if pending_conversations.contains(&conversation.topic_id) {
                         return Some(conversation);
                     }
-                    pending_conversations.insert(topic_id.to_string());
+                    pending_conversations.insert(conversation.topic_id.to_string());
                 }
                 Err(_) => {}
             }
         }
-
         if ensure_last_version {
-            let r = self.fetch_conversation(topic_id).await;
+            let r = self.fetch_conversation(&conversation.topic_id).await;
             self.pending_conversations.lock().ok().map(|mut pcs| {
-                pcs.remove(topic_id);
+                pcs.remove(&conversation.topic_id);
             });
             match r {
                 Ok(c) => return Some(c),

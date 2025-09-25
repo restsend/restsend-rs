@@ -63,7 +63,7 @@ lazy_static::lazy_static! {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn spwan_task<F>(f: F) -> JoinHandle<F::Output>
+pub fn spawn_task<F>(f: F) -> JoinHandle<F::Output>
 where
     F: Future<Output = ()> + Send + 'static,
 {
@@ -80,7 +80,7 @@ extern "C" {
 }
 
 #[cfg(target_family = "wasm")]
-pub fn spwan_task<F>(f: F)
+pub fn spawn_task<F>(f: F)
 where
     F: Future<Output = ()> + 'static,
 {

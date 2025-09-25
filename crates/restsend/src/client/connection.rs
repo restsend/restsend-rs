@@ -4,7 +4,7 @@ use super::{
 };
 use crate::{
     request::{ChatRequest, ChatRequestType},
-    utils::{sleep, spwan_task},
+    utils::{sleep, spawn_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
     KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS, PING_INTERVAL_SECS,
 };
@@ -284,7 +284,7 @@ impl Client {
         let token = self.token.clone();
         let is_cross_domain = self.is_cross_domain;
 
-        spwan_task(async move {
+        spawn_task(async move {
             serve_connection(&endpoint, &token, is_cross_domain, store_ref, state_ref).await;
             warn!("connection serve_connection done");
         });
