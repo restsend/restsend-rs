@@ -72,15 +72,20 @@ impl Client {
             limit
         }
         .min(MAX_LOGS_LIMIT);
-        let conversation = self
-            .store
-            .get_conversation(
-                &topic_id,
-                false,
-                ensure_conversation_last_version.unwrap_or(false),
-            )
-            .await
-            .unwrap_or_default();
+
+        let conversation = if ensure_conversation_last_version.unwrap_or_default() {
+            self.store
+                .get_conversation(
+                    &topic_id,
+                    false,
+                    ensure_conversation_last_version.unwrap_or(false),
+                )
+                .await
+        } else {
+            let t = self.store.message_storage.table::<Conversation>().await;
+            t.get("", &topic_id).await
+        }
+        .unwrap_or(Conversation::new(&topic_id));
 
         let store_st = now_millis();
         match self
@@ -112,7 +117,6 @@ impl Client {
                 warn!("sync_chat_logs failed: {:?}", e);
             }
         }
-
         match self.fetch_chat_logs_desc(topic_id, last_seq, limit).await {
             Ok(lr) => {
                 callback.on_success(lr);
