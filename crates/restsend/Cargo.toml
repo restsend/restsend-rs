@@ -1,6 +1,6 @@
 [package]
 name = "restsend-sdk"
-version = "1.1.11"
+version = "1.2.12"
 edition = "2021"
 
 [lib]

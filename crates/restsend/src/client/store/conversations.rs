@@ -13,8 +13,11 @@ use crate::{
 };
 use crate::{Error, Result};
 use log::warn;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Mutex,
+};
+use std::{collections::HashSet, sync::Arc};
 
 pub(crate) async fn merge_conversation(
     message_storage: Arc<Storage>,
@@ -490,6 +493,21 @@ impl ClientStore {
             ensure_last_version = true;
         }
 
+        struct PendingGuard<'a> {
+            pending_conversations: &'a Mutex<HashSet<String>>,
+            topic_id: &'a String,
+        }
+        impl<'a> Drop for PendingGuard<'a> {
+            fn drop(&mut self) {
+                match self.pending_conversations.lock() {
+                    Ok(mut pending_conversations) => {
+                        pending_conversations.remove(self.topic_id);
+                    }
+                    Err(_) => {}
+                }
+            }
+        }
+
         {
             match self.pending_conversations.lock() {
                 Ok(mut pending_conversations) => {
@@ -501,13 +519,31 @@ impl ClientStore {
                 Err(_) => {}
             }
         }
+        let _guard = PendingGuard {
+            pending_conversations: &self.pending_conversations,
+            topic_id: &conversation.topic_id.clone(),
+        };
+
         if ensure_last_version {
-            let r = self.fetch_conversation(&conversation.topic_id).await;
-            self.pending_conversations.lock().ok().map(|mut pcs| {
-                pcs.remove(&conversation.topic_id);
-            });
-            match r {
-                Ok(c) => return Some(c),
+            match get_conversation(&self.endpoint, &self.token, &conversation.topic_id).await {
+                Ok(mut new_conversation) => {
+                    new_conversation.is_partial = false;
+                    new_conversation.cached_at = now_millis();
+                    if conversation.last_message_seq > new_conversation.last_message_seq {
+                        new_conversation.last_read_at = conversation.last_read_at;
+                        new_conversation.last_read_seq = conversation.last_read_seq;
+                        new_conversation.unread = conversation.unread;
+                    }
+
+                    let t = self.message_storage.table::<Conversation>().await;
+                    t.set("", &new_conversation.topic_id, Some(&new_conversation))
+                        .await
+                        .ok();
+                    if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                        cb.on_conversations_updated(vec![new_conversation.clone()], None);
+                    }
+                    return Some(new_conversation);
+                }
                 Err(e) => {
                     warn!("fetch_conversation failed: {:?}", e);
                     return Some(conversation);
@@ -515,30 +551,6 @@ impl ClientStore {
             }
         }
         Some(conversation)
-    }
-
-    pub(super) async fn fetch_conversation(&self, topic_id: &str) -> Result<Conversation> {
-        let message_storage = self.message_storage.clone();
-
-        match get_conversation(&self.endpoint, &self.token, topic_id).await {
-            Ok(c) => {
-                let c = match merge_conversation(message_storage, c).await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        warn!("update_conversation_with_storage failed: {:?}", e);
-                        return Err(e);
-                    }
-                };
-                if let Some(cb) = self.callback.read().unwrap().as_ref() {
-                    cb.on_conversations_updated(vec![c.clone()], None);
-                }
-                return Ok(c);
-            }
-            Err(e) => {
-                warn!("get_conversation failed: {:?}", e);
-                return Err(e);
-            }
-        }
     }
 
     pub(super) async fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {
