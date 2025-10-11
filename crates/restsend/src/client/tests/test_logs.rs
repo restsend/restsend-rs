@@ -51,7 +51,7 @@ async fn test_client_fetch_logs() {
         .expect("create chat failed")
         .topic_id;
 
-    let (local_logs, need_fetch) = c.store.get_chat_logs(&topic_id,  0,  None, 10).await.unwrap();
+    let (local_logs, need_fetch) = c.store.get_chat_logs(&topic_id, 0, None, 10).await.unwrap();
     assert_eq!(need_fetch, true);
     assert_eq!(local_logs.items.len(), 0);
     let mut last_seq = 0;
@@ -86,7 +86,7 @@ async fn test_client_fetch_logs() {
         result: result.clone(),
     };
 
-    c.sync_chat_logs(
+    c.sync_chat_logs_quick(
         topic_id.to_string(),
         None,
         send_count,
@@ -102,7 +102,7 @@ async fn test_client_fetch_logs() {
     let r = result.lock().unwrap().take().unwrap();
     let (local_logs, need_fetch) = c
         .store
-        .get_chat_logs(&topic_id,  0, None, send_count)
+        .get_chat_logs(&topic_id, 0, None, send_count)
         .await
         .unwrap();
     assert_eq!(need_fetch, false);
@@ -197,7 +197,7 @@ async fn test_client_recall_log() {
 
     let (local_logs, need_fetch) = c
         .store
-        .get_chat_logs(&topic_id,  0, None, send_count + 1)
+        .get_chat_logs(&topic_id, 0, None, send_count + 1)
         .await
         .unwrap();
     assert_eq!(need_fetch, true);
@@ -322,7 +322,7 @@ async fn test_client_sync_logs() {
     let callback = Box::new(TestSyncLogsCallbackImpl {
         result: result.clone(),
     });
-    c.sync_chat_logs(topic_id, None, 0, callback, Some(true))
+    c.sync_chat_logs_quick(topic_id, None, 0, callback, Some(true))
         .await;
     let r = result.lock().unwrap().take().unwrap();
     assert!(!r.has_more);

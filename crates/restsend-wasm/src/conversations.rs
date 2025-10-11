@@ -57,7 +57,7 @@ impl Client {
                 .map(|v| v.as_bool().unwrap_or(false));
 
         self.inner
-            .sync_chat_logs(
+            .sync_chat_logs_quick(
                 topicId,
                 lastSeq.map(|v| v as i64),
                 limit,

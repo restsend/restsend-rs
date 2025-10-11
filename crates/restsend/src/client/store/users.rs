@@ -46,7 +46,7 @@ impl ClientStore {
 
     pub async fn get_user(&self, user_id: &str, blocking: bool) -> Option<User> {
         let u = {
-            let t = self.message_storage.table::<User>().await;
+            let t = self.message_storage.readonly_table::<User>().await;
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
@@ -82,7 +82,7 @@ impl ClientStore {
         let mut missing_ids = vec![];
         let mut pending_users = HashMap::new();
         {
-            let t = self.message_storage.table::<User>().await;
+            let t = self.message_storage.readonly_table::<User>().await;
             for user_id in user_ids {
                 let u = t.get("", &user_id).await.unwrap_or(User::new(&user_id));
                 if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
@@ -107,7 +107,7 @@ impl ClientStore {
 
     pub async fn fetch_user(&self, user_id: &str) -> Result<User> {
         let u = {
-            let t = self.message_storage.table::<User>().await;
+            let t = self.message_storage.readonly_table::<User>().await;
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
@@ -156,7 +156,6 @@ pub(super) async fn update_user_with_storage(storage: &Storage, mut user: User) 
     user.is_partial = false;
     user.cached_at = now_millis();
 
-    let t = storage.table::<User>().await;
     t.set("", &user_id, Some(&user)).await.ok();
     Ok(user)
 }

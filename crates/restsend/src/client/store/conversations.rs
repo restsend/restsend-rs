@@ -60,7 +60,7 @@ async fn get_conversation_last_readable_message(
     message_storage: Arc<Storage>,
     topic_id: &str,
 ) -> Option<ChatLog> {
-    let t = message_storage.table::<ChatLog>().await;
+    let t = message_storage.readonly_table::<ChatLog>().await;
     let last_log = t.last(topic_id).await?;
     if !last_log.content.unreadable {
         return Some(last_log);
@@ -137,7 +137,7 @@ pub(super) async fn merge_conversation_from_chat(
             ContentType::UpdateExtra => {
                 //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
                 if let Some(lastlog_seq) = conversation.last_message_seq {
-                    let log_t = message_storage.table::<ChatLog>().await;
+                    let log_t = message_storage.readonly_table::<ChatLog>().await;
                     if let Some(log_in_store) = log_t.get(&req.topic_id, &content.text).await {
                         if lastlog_seq == log_in_store.seq {
                             if let Some(last_message_content) = conversation.last_message.as_mut() {
@@ -434,7 +434,7 @@ impl ClientStore {
             Err(_) => {}
         }
 
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.readonly_table::<Conversation>().await;
         if let Some(_) = t.get("", topic_id).await {
             self.clear_conversation(topic_id).await.ok();
             if let Some(cb) = self.callback.read().unwrap().as_ref() {
@@ -472,19 +472,18 @@ impl ClientStore {
         _blocking: bool,
         ensure_last_version: bool,
     ) -> Option<Conversation> {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.readonly_table::<Conversation>().await;
         let conversation = t
             .get("", topic_id)
             .await
             .unwrap_or_else(|| Conversation::new(topic_id));
-        self.get_conversation_by(conversation, _blocking, ensure_last_version)
+        self.get_conversation_by(conversation, ensure_last_version)
             .await
     }
 
     pub(crate) async fn get_conversation_by(
         &self,
         conversation: Conversation,
-        _blocking: bool,
         mut ensure_last_version: bool,
     ) -> Option<Conversation> {
         if conversation.is_partial
@@ -758,7 +757,7 @@ impl ClientStore {
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
-        let log_t = self.message_storage.table::<ChatLog>().await;
+        let log_t = self.message_storage.readonly_table::<ChatLog>().await;
         self.get_chat_logs_with_table(&log_t, topic_id, conversation_start_seq, last_seq, limit)
             .await
     }
@@ -885,7 +884,7 @@ impl ClientStore {
     }
 
     pub async fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
-        let t = self.message_storage.table().await;
+        let t = self.message_storage.readonly_table().await;
         t.get(topic_id, chat_id).await
     }
 
@@ -945,13 +944,13 @@ impl ClientStore {
         end_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<Conversation>> {
-        let t = self.message_storage.table().await;
+        let t = self.message_storage.readonly_table().await;
         t.filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
             .await
     }
 
     pub async fn get_unread_count(&self) -> u32 {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.readonly_table::<Conversation>().await;
         let count = Arc::new(AtomicUsize::new(0));
         let count_ref = count.clone();
         t.filter(

@@ -79,6 +79,12 @@ impl InMemoryStorage {
     {
         MemoryTable::from(self.make_table::<T>())
     }
+    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    where
+        T: StoreModel + 'static,
+    {
+        self.table::<T>().await
+    }
 }
 
 #[derive(Debug)]
@@ -273,7 +279,7 @@ impl<T: StoreModel> MemoryTable<T> {
         table?.last().and_then(|v| T::from_str(v).ok())
     }
 
-    async fn clear(&self, partition:&str) -> crate::Result<()> {
+    async fn clear(&self, partition: &str) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         match table {

@@ -53,6 +53,24 @@ impl IndexeddbStorage {
         IndexeddbTable::open_async(
             tbl_name.to_string(),
             self.last_version.unwrap_or(LAST_DB_VERSION),
+            false,
+        )
+        .await
+        .unwrap_or(self.memory_storage.table::<T>().await)
+    }
+    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    where
+        T: StoreModel + 'static,
+    {
+        if self.db_prefix.is_empty() {
+            return self.memory_storage.table::<T>().await;
+        }
+        let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
+
+        IndexeddbTable::open_async(
+            tbl_name.to_string(),
+            self.last_version.unwrap_or(LAST_DB_VERSION),
+            true,
         )
         .await
         .unwrap_or(self.memory_storage.table::<T>().await)
@@ -75,6 +93,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
     pub async fn open_async(
         table_name: String,
         version: u32,
+        readonly: bool,
     ) -> crate::Result<Box<dyn super::Table<T>>> {
         let idb = web_sys::window()
             .ok_or(ClientError::Storage("window is none".to_string()))?
@@ -174,9 +193,14 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         open_req_ref.set_onupgradeneeded(None);
         open_req_ref.set_onsuccess(None);
         open_req_ref.set_onerror(None);
+        let mode = if readonly {
+            IdbTransactionMode::Readonly
+        } else {
+            IdbTransactionMode::Readwrite
+        };
 
         let store = db_result
-            .transaction_with_str_and_mode(&table_name, IdbTransactionMode::Readwrite)
+            .transaction_with_str_and_mode(&table_name, mode)
             .and_then(|tx| tx.object_store(&table_name))?;
 
         Ok(Box::new(IndexeddbTable {

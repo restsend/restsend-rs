@@ -60,6 +60,13 @@ impl SqliteStorage {
         let table = SqliteTable::new(self.conn.clone(), &tbl_name);
         Box::new(table)
     }
+
+    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    where
+        T: StoreModel + 'static,
+    {
+        self.table::<T>().await
+    }
 }
 
 struct SqliteTable<T>

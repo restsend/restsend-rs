@@ -1,5 +1,6 @@
 use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
+use crate::client::store::is_cache_expired;
 use crate::models::conversation::{Extra, Tags};
 use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
 use crate::request::ChatRequest;
@@ -12,7 +13,10 @@ use crate::services::conversation::{
 };
 use crate::storage::{StoreModel, ValueItem};
 use crate::utils::{elapsed, now_millis};
-use crate::{Result, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT, MAX_SYNC_LOGS_MAX_COUNT};
+use crate::{
+    Result, CONVERSATION_CACHE_EXPIRE_SECS, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT,
+    MAX_SYNC_LOGS_MAX_COUNT,
+};
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::collections::HashMap;
@@ -56,8 +60,7 @@ impl Client {
         warn!("search_chat_log not implemented");
         None
     }
-
-    pub async fn sync_chat_logs(
+    pub async fn sync_chat_logs_quick(
         &self,
         topic_id: String,
         last_seq: Option<i64>,
@@ -72,19 +75,96 @@ impl Client {
             limit
         }
         .min(MAX_LOGS_LIMIT);
-        let conversation = if ensure_conversation_last_version.unwrap_or_default() {
-            self.store
-                .get_conversation(
-                    &topic_id,
-                    false,
-                    ensure_conversation_last_version.unwrap_or(false),
-                )
-                .await
+        {
+            let t = self
+                .store
+                .message_storage
+                .readonly_table::<Conversation>()
+                .await;
+
+            let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
+            match t.get("", &topic_id).await {
+                Some(conversation) => {
+                    if !need_fetch_conversation {
+                        need_fetch_conversation = conversation.is_partial
+                            || is_cache_expired(
+                                conversation.cached_at,
+                                CONVERSATION_CACHE_EXPIRE_SECS,
+                            );
+                    }
+
+                    let store_st = now_millis();
+                    match self
+                        .store
+                        .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
+                        .await
+                    {
+                        Ok((local_logs, need_fetch_logs)) => {
+                            let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
+
+                            info!(
+                                "sync_chat_logs has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                                has_more,
+                                local_logs.items.len(),
+                                conversation.start_seq,
+                                last_seq,
+                                limit,
+                                local_logs.start_sort_value,
+                                local_logs.end_sort_value,
+                                need_fetch_logs,
+                                elapsed(store_st),
+                                elapsed(st)
+                            );
+
+                            callback.on_success(GetChatLogsResult::from_local_logs(
+                                local_logs, has_more,
+                            ));
+                            if !need_fetch_logs && !need_fetch_conversation {
+                                return;
+                            }
+                        }
+                        Err(_) => {}
+                    };
+                }
+                None => {}
+            }
+
+            self.fetch_chat_logs_desc(&topic_id, last_seq, limit, callback)
+                .await;
+
+            if need_fetch_conversation {
+                self.store
+                    .get_conversation_by(Conversation::new(&topic_id), true)
+                    .await;
+            }
+        };
+    }
+
+    pub async fn sync_chat_logs_heavy(
+        &self,
+        topic_id: String,
+        last_seq: Option<i64>,
+        limit: u32,
+        callback: Box<dyn SyncChatLogsCallback>,
+        ensure_conversation_last_version: Option<bool>,
+    ) {
+        let st = now_millis();
+        let limit = if limit == 0 {
+            MAX_LOGS_LIMIT / 2
         } else {
-            let t = self.store.message_storage.table::<Conversation>().await;
-            t.get("", &topic_id).await
+            limit
         }
-        .unwrap_or(Conversation::new(&topic_id));
+        .min(MAX_LOGS_LIMIT);
+
+        let conversation = self
+            .store
+            .get_conversation(
+                &topic_id,
+                false,
+                ensure_conversation_last_version.unwrap_or(false),
+            )
+            .await
+            .unwrap_or(Conversation::new(&topic_id));
 
         let store_st = now_millis();
         match self
@@ -93,8 +173,10 @@ impl Client {
             .await
         {
             Ok((local_logs, need_fetch)) => {
+                let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
                 info!(
-                    "sync_chat_logs local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                    "sync_chat_logs has_more: {} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                    has_more,
                     local_logs.items.len(),
                     conversation.start_seq,
                     last_seq,
@@ -105,14 +187,12 @@ impl Client {
                     elapsed(store_st),
                     elapsed(st)
                 );
-
                 if !need_fetch {
-                    let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
                     callback.on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
-                    if conversation.is_partial {
-                        self.store
-                            .get_conversation_by(conversation, false, true)
-                            .await;
+                    if conversation.is_partial
+                        || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
+                    {
+                        self.store.get_conversation_by(conversation, true).await;
                     }
                     return;
                 }
@@ -121,15 +201,8 @@ impl Client {
                 warn!("sync_chat_logs failed: {:?}", e);
             }
         }
-
-        match self.fetch_chat_logs_desc(topic_id, last_seq, limit).await {
-            Ok(lr) => {
-                callback.on_success(lr);
-            }
-            Err(e) => {
-                callback.on_fail(e);
-            }
-        }
+        self.fetch_chat_logs_desc(&topic_id, last_seq, limit, callback)
+            .await;
     }
 
     pub async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
@@ -139,12 +212,13 @@ impl Client {
 
     async fn fetch_chat_logs_desc(
         &self,
-        topic_id: String,
+        topic_id: &str,
         last_seq: Option<i64>,
         limit: u32,
-    ) -> Result<GetChatLogsResult> {
+        callback: Box<dyn SyncChatLogsCallback>,
+    ) {
         let st_fetch = now_millis();
-        match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
+        match get_chat_logs_desc(&self.endpoint, &self.token, topic_id, last_seq, limit).await {
             Ok(mut lr) => {
                 let now = now_millis();
                 for c in lr.items.iter_mut() {
@@ -155,22 +229,23 @@ impl Client {
                         ChatLogStatus::Received
                     };
                 }
+                let items = lr.items.clone();
+                callback.on_success(lr.into());
                 let log_t = self.store.message_storage.table::<ChatLog>().await;
-                self.store.save_chat_logs(&log_t, &lr.items).await.ok();
+                self.store.save_chat_logs(&log_t, &items).await.ok();
                 info!(
                     "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} save_cost:{:?} total_cost:{:?}",
                     topic_id,
                     last_seq,
                     limit,
-                    lr.items.len(),
+                    items.len(),
                     elapsed(now),
                     elapsed(st_fetch)
                 );
-                Ok(lr.into())
             }
             Err(e) => {
                 warn!("sync_chat_logs failed: {:?}", e);
-                Err(e)
+                callback.on_fail(e);
             }
         }
     }
@@ -357,7 +432,7 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<()> {
         let mut try_sync_conversations = vec![];
-        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
         for (_, c) in conversations.iter() {
             match log_t.last(&c.topic_id).await {
                 Some(log) => {
@@ -535,7 +610,7 @@ impl Client {
 
 impl Client {
     async fn batch_build_unreads(&self, conversations: &mut Vec<Conversation>) {
-        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
         let mut stored_conversations = vec![];
         let st = now_millis();
         // build conversatoin's unread
