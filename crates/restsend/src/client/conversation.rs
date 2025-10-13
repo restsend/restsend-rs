@@ -91,41 +91,59 @@ impl Client {
                         || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS);
                 }
 
-                let store_st = now_millis();
-                match self
-                    .store
-                    .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
-                    .await
-                {
-                    Ok((local_logs, mut need_fetch_logs)) => {
-                        info!(
-                                "sync_chat_logs_quick has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
-                                local_logs.has_more,
-                                local_logs.items.len(),
-                                conversation.start_seq,
-                                last_seq,
-                                limit,
-                                local_logs.start_sort_value,
-                                local_logs.end_sort_value,
-                                need_fetch_logs,
-                                elapsed(store_st),
-                                elapsed(st)
-                            );
-                        if last_seq.is_none() && conversation.last_seq > local_logs.start_sort_value
-                        {
-                            need_fetch_logs = true;
+                if !need_fetch_conversation {
+                    let t = self.store.message_storage.readonly_table::<ChatLog>().await;
+                    match t.last(&topic_id).await {
+                        Some(log) => {
+                            if log.seq != conversation.last_seq {
+                                need_fetch_conversation = true;
+                            }
                         }
-
-                        let has_more = local_logs.has_more;
-
-                        callback
-                            .on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
-                        if !need_fetch_logs && !need_fetch_conversation {
-                            return;
-                        }
+                        None => {}
                     }
-                    Err(_) => {}
-                };
+                }
+
+                if !need_fetch_conversation {
+                    let store_st = now_millis();
+                    match self
+                        .store
+                        .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
+                        .await
+                    {
+                        Ok((local_logs, mut need_fetch_logs)) => {
+                            info!("sync_chat_logs_quick has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                            local_logs.has_more,
+                            local_logs.items.len(),
+                            conversation.start_seq,
+                            last_seq,
+                            limit,
+                            local_logs.start_sort_value,
+                            local_logs.end_sort_value,
+                            need_fetch_logs,
+                            elapsed(store_st),
+                            elapsed(st)
+                        );
+
+                            if last_seq.is_none()
+                                && conversation.last_seq > local_logs.start_sort_value
+                            {
+                                need_fetch_logs = true;
+                            }
+
+                            let has_more = local_logs.has_more;
+                            if local_logs.items.len() == 0 {
+                                need_fetch_logs = true;
+                            }
+                            if !need_fetch_logs {
+                                callback.on_success(GetChatLogsResult::from_local_logs(
+                                    local_logs, has_more,
+                                ));
+                                return;
+                            }
+                        }
+                        Err(_) => {}
+                    };
+                }
             }
             None => {}
         }
