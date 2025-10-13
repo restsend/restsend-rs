@@ -55,16 +55,31 @@ impl Client {
             js_sys::Reflect::get(&option, &JsValue::from_str("ensureConversationVersion"))
                 .ok()
                 .map(|v| v.as_bool().unwrap_or(false));
-
-        self.inner
-            .sync_chat_logs_quick(
-                topicId,
-                lastSeq.map(|v| v as i64),
-                limit,
-                Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
-                ensureConversationVersion,
-            )
-            .await
+        let heavy = js_sys::Reflect::get(&option, &JsValue::from_str("heavy"))
+            .ok()
+            .map(|v| v.as_bool().unwrap_or(false))
+            .unwrap_or(false);
+        if !heavy {
+            self.inner
+                .sync_chat_logs_quick(
+                    topicId,
+                    lastSeq.map(|v| v as i64),
+                    limit,
+                    Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
+                    ensureConversationVersion,
+                )
+                .await
+        } else {
+            self.inner
+                .sync_chat_logs_heavy(
+                    topicId,
+                    lastSeq.map(|v| v as i64),
+                    limit,
+                    Box::new(SyncChatLogsCallbackWasmWrap::new(option)),
+                    ensureConversationVersion,
+                )
+                .await
+        }
     }
 
     pub async fn saveChatLogs(&self, logs: JsValue) -> Result<(), JsValue> {

@@ -604,7 +604,7 @@ impl ClientStore {
             return Ok(());
         }
 
-        let t = self.message_storage.table::<ChatLog>().await;
+        let log_t = self.message_storage.table::<ChatLog>().await;
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
         let now = now_millis();
@@ -624,7 +624,7 @@ impl ClientStore {
                         None => return Err(Error::Other("[recall] invalid content".to_string())),
                     };
 
-                    match t.get(&topic_id, recall_chat_id).await {
+                    match log_t.get(&topic_id, recall_chat_id).await {
                         Some(recall_log) => {
                             if recall_log.recall {
                                 return Ok(());
@@ -650,7 +650,8 @@ impl ClientStore {
                             let mut recall_log = recall_log.clone();
                             recall_log.recall = true;
                             recall_log.content = Content::new(ContentType::None);
-                            t.set(&topic_id, &recall_chat_id, Some(&recall_log))
+                            log_t
+                                .set(&topic_id, &recall_chat_id, Some(&recall_log))
                                 .await
                                 .ok();
                         }
@@ -665,10 +666,10 @@ impl ClientStore {
                         }
                     };
 
-                    match t.get(&topic_id, update_chat_id).await {
+                    match log_t.get(&topic_id, update_chat_id).await {
                         Some(mut log) => {
                             log.content.extra = extra.clone();
-                            t.set(&topic_id, &update_chat_id, Some(&log)).await.ok();
+                            log_t.set(&topic_id, &update_chat_id, Some(&log)).await.ok();
                         }
                         None => {}
                     }
@@ -678,7 +679,7 @@ impl ClientStore {
             None => {}
         }
 
-        if let Some(old_log) = t.get(&topic_id, &chat_id).await {
+        if let Some(old_log) = log_t.get(&topic_id, &chat_id).await {
             match old_log.status {
                 ChatLogStatus::Sending => new_status = ChatLogStatus::Sent,
                 _ => return Ok(()),
@@ -690,7 +691,7 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
-        t.set(&log.topic_id, &log.id, Some(&log)).await
+        log_t.set(&log.topic_id, &log.id, Some(&log)).await
     }
 
     pub(crate) async fn save_chat_logs(
@@ -799,7 +800,7 @@ impl ClientStore {
             if result.items.len() == 0 {
                 break;
             }
-            let diff = result.start_sort_value - result.end_sort_value + 1;
+            let diff = result.start_sort_value - result.end_sort_value;
             if diff > result.items.len() as i64 {
                 break;
             }

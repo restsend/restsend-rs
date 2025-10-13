@@ -75,36 +75,32 @@ impl Client {
             limit
         }
         .min(MAX_LOGS_LIMIT);
-        {
-            let t = self
-                .store
-                .message_storage
-                .readonly_table::<Conversation>()
-                .await;
+        let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
+        let conversation = self
+            .store
+            .message_storage
+            .readonly_table::<Conversation>()
+            .await
+            .get("", &topic_id)
+            .await;
 
-            let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
-            match t.get("", &topic_id).await {
-                Some(conversation) => {
-                    if !need_fetch_conversation {
-                        need_fetch_conversation = conversation.is_partial
-                            || is_cache_expired(
-                                conversation.cached_at,
-                                CONVERSATION_CACHE_EXPIRE_SECS,
-                            );
-                    }
+        match conversation {
+            Some(conversation) => {
+                if !need_fetch_conversation {
+                    need_fetch_conversation = conversation.is_partial
+                        || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS);
+                }
 
-                    let store_st = now_millis();
-                    match self
-                        .store
-                        .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
-                        .await
-                    {
-                        Ok((local_logs, need_fetch_logs)) => {
-                            let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
-
-                            info!(
-                                "sync_chat_logs has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
-                                has_more,
+                let store_st = now_millis();
+                match self
+                    .store
+                    .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
+                    .await
+                {
+                    Ok((local_logs, mut need_fetch_logs)) => {
+                        info!(
+                                "sync_chat_logs_quick has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                                local_logs.has_more,
                                 local_logs.items.len(),
                                 conversation.start_seq,
                                 last_seq,
@@ -115,29 +111,33 @@ impl Client {
                                 elapsed(store_st),
                                 elapsed(st)
                             );
-
-                            callback.on_success(GetChatLogsResult::from_local_logs(
-                                local_logs, has_more,
-                            ));
-                            if !need_fetch_logs && !need_fetch_conversation {
-                                return;
-                            }
+                        if last_seq.is_none() && conversation.last_seq > local_logs.start_sort_value
+                        {
+                            need_fetch_logs = true;
                         }
-                        Err(_) => {}
-                    };
-                }
-                None => {}
-            }
 
-            self.fetch_chat_logs_desc(&topic_id, last_seq, limit, callback)
+                        let has_more = local_logs.has_more;
+
+                        callback
+                            .on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
+                        if !need_fetch_logs && !need_fetch_conversation {
+                            return;
+                        }
+                    }
+                    Err(_) => {}
+                };
+            }
+            None => {}
+        }
+
+        self.fetch_chat_logs_desc(&topic_id, last_seq, limit, callback)
+            .await;
+
+        if need_fetch_conversation {
+            self.store
+                .get_conversation_by(Conversation::new(&topic_id), true)
                 .await;
-
-            if need_fetch_conversation {
-                self.store
-                    .get_conversation_by(Conversation::new(&topic_id), true)
-                    .await;
-            }
-        };
+        }
     }
 
     pub async fn sync_chat_logs_heavy(
@@ -175,7 +175,7 @@ impl Client {
             Ok((local_logs, need_fetch)) => {
                 let has_more = local_logs.end_sort_value > conversation.start_seq + 1;
                 info!(
-                    "sync_chat_logs has_more: {} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
+                    "sync_chat_logs_heavy has_more: {} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
                     has_more,
                     local_logs.items.len(),
                     conversation.start_seq,
@@ -432,25 +432,27 @@ impl Client {
         limit: Option<u32>,
     ) -> Result<()> {
         let mut try_sync_conversations = vec![];
-        let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
-        for (_, c) in conversations.iter() {
-            match log_t.last(&c.topic_id).await {
-                Some(log) => {
-                    if log.seq >= c.last_seq {
-                        continue;
+        {
+            let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
+            for (_, c) in conversations.iter() {
+                match log_t.last(&c.topic_id).await {
+                    Some(log) => {
+                        if log.seq >= c.last_seq {
+                            continue;
+                        }
                     }
+                    None => {}
                 }
-                None => {}
+
+                if c.last_seq <= c.start_seq {
+                    continue;
+                }
+                try_sync_conversations.push(c.clone());
             }
 
-            if c.last_seq <= c.start_seq {
-                continue;
+            if try_sync_conversations.is_empty() {
+                return Ok(());
             }
-            try_sync_conversations.push(c.clone());
-        }
-
-        if try_sync_conversations.is_empty() {
-            return Ok(());
         }
 
         let form = try_sync_conversations
@@ -467,6 +469,7 @@ impl Client {
         let mut updated_conversations = vec![];
         let mut store_conversations = vec![];
 
+        let log_t = self.store.message_storage.table::<ChatLog>().await;
         for mut lr in r {
             // flush to local db
             let now: i64 = now_millis();

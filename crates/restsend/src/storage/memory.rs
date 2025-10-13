@@ -117,7 +117,7 @@ impl<T: StoreModel> MemoryTable<T> {
         let mut table = data.get_mut(partition)?;
         let mut items = Vec::<T>::new();
 
-        let start_sort_value = match start_sort_value {
+        let start_sort_value: Bound<i64> = match start_sort_value {
             Some(v) => Bound::Included(v),
             None => Bound::Unbounded,
         };
@@ -195,7 +195,7 @@ impl<T: StoreModel> MemoryTable<T> {
         }
         let has_more = items.len() > option.limit as usize;
         if has_more {
-            items.pop();
+            items.truncate(option.limit as usize);
         }
         Some(QueryResult {
             start_sort_value: items.first().map(|v| v.sort_key()).unwrap_or(0),

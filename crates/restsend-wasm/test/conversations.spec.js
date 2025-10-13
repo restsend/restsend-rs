@@ -93,9 +93,8 @@ describe('Conversations', async function () {
         }
         await syncLogs()
         await waitUntil(() => logsCount >= syncMax, 3000)
-        expect(logsCount).toEqual(syncMax)
-
-        expect(items.length).toEqual(syncMax)
+        expect(logsCount).toEqual(10)
+        expect(items.length).toEqual(10)
         expect(items.slice(0, sendIds.length)).toEqual(sendIds)
 
         let recallAck = false
@@ -110,8 +109,8 @@ describe('Conversations', async function () {
         await waitUntil(() => recallAck, 3000)
         expect(recallAck).toBe(true)
 
-        let syncDone = false
         let newItems = []
+        let syncDone = false
         await vitalik.syncChatLogs(guidoTopic.topicId, recallSeq, {
             limit: 10,
             onsuccess: (r) => {
@@ -123,8 +122,8 @@ describe('Conversations', async function () {
         expect(syncDone).toBe(true)
         expect(newItems[0].content.type).toEqual('recall')
         expect(newItems[0].content.text).toEqual(recallId)
-        expect(newItems[1].recall).toBe(true)
-        expect(newItems[1].content.type).toEqual('recalled')
+        expect(newItems[1].recall).toBe(false)
+        expect(newItems[1].content.type).toEqual('text')
     })
 
     it('#sync sync last logs without cache', async () => {

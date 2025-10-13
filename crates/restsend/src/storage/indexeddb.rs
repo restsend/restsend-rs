@@ -363,16 +363,9 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                     Ok(v) => {
                         if let Ok(item) = T::from_str(&v.value) {
-                            if v.sortkey as f64 == start_sort_value {
-                                cursor.continue_().ok();
-                                return;
-                            }
-
                             if let Some(items) = items_ref.borrow_mut().as_mut() {
                                 items.push(item);
-                                let items_count = items.len();
-
-                                if items_count < (limit + 1) as usize {
+                                if items.len() < (limit + 1) as usize {
                                     cursor.continue_().ok();
                                     return;
                                 }
@@ -420,7 +413,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let mut items = items.take().unwrap_or_default();
         let has_more = items.len() > limit as usize;
         if has_more {
-            items.pop();
+            items.truncate(limit as usize);
         }
 
         Some(QueryResult {
