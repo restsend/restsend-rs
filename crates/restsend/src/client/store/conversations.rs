@@ -544,7 +544,17 @@ impl ClientStore {
                     return Some(new_conversation);
                 }
                 Err(e) => {
-                    warn!("fetch_conversation failed: {:?}", e);
+                    warn!(
+                        "fetch_conversation {} failed: {:?}",
+                        conversation.topic_id, e
+                    );
+                    if e.to_string().contains("404") {
+                        self.clear_conversation(&conversation.topic_id).await.ok();
+                        if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                            cb.on_conversation_removed(conversation.topic_id.clone());
+                        }
+                        return None;
+                    }
                     return Some(conversation);
                 }
             }
