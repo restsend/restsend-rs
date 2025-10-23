@@ -9,7 +9,6 @@ use crate::{
     services::conversation::*,
     storage::{QueryOption, QueryResult, Storage, StoreModel, Table, ValueItem},
     utils::{elapsed, now_millis},
-    CONVERSATION_CACHE_EXPIRE_SECS, MAX_INCOMING_LOG_CACHE_COUNT, MAX_RECALL_SECS,
 };
 use crate::{Error, Result};
 use log::warn;
@@ -487,7 +486,12 @@ impl ClientStore {
         mut ensure_last_version: bool,
     ) -> Option<Conversation> {
         if conversation.is_partial
-            || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
+            || is_cache_expired(
+                conversation.cached_at,
+                self.option
+                    .conversation_cache_expire_secs
+                    .load(Ordering::Relaxed) as i64,
+            )
         {
             ensure_last_version = true;
         }
@@ -603,7 +607,12 @@ impl ClientStore {
             Err(_) => return,
         };
         let items = logs.entry(topic_id.to_string()).or_insert(vec![]);
-        if items.len() > MAX_INCOMING_LOG_CACHE_COUNT {
+        if items.len()
+            > self
+                .option
+                .max_incoming_log_cache_count
+                .load(Ordering::Relaxed)
+        {
             items.remove(0);
         }
         items.push(log_id.to_string());
@@ -639,9 +648,10 @@ impl ClientStore {
                             if recall_log.recall {
                                 return Ok(());
                             }
-
-                            if MAX_RECALL_SECS > 0
-                                && now - recall_log.cached_at > MAX_RECALL_SECS * 1000
+                            let max_recall_secs =
+                                self.option.max_recall_secs.load(Ordering::Relaxed) as i64;
+                            if max_recall_secs > 0
+                                && now - recall_log.cached_at > max_recall_secs * 1000
                             {
                                 return Err(Error::Other("[recall] timeout".to_string()));
                             }

@@ -283,4 +283,12 @@ impl Client {
             .extra(extra);
         self.send_chat_request_via_connection(req, callback).await
     }
+    pub async fn do_ping(
+        &self,
+        content: String,
+        callback: Option<Box<dyn MessageCallback>>,
+    ) -> Result<String> {
+        let req = ChatRequest::new_ping(content);
+        self.send_chat_request_via_connection(req, callback).await
+    }
 }

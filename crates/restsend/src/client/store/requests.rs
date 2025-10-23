@@ -1,3 +1,5 @@
+use std::sync::atomic::Ordering;
+
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
 use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::client::store::is_cache_expired;
@@ -7,7 +9,6 @@ use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
 };
-use crate::{PING_TIMEOUT_SECS, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS};
 use http::StatusCode;
 use log::{info, warn};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
@@ -38,17 +39,6 @@ impl ClientStore {
             Some(content) => content.content_type.clone(),
             None => req.req_type.clone(),
         };
-
-        let chat_id = if req.chat_id.is_empty() {
-            "".to_string()
-        } else {
-            format!("chat_id:{} ", req.chat_id)
-        };
-
-        info!(
-            "process_incoming, type:{} topic_id:{} seq:{} {}",
-            content_type, req.topic_id, req.seq, chat_id
-        );
 
         let topic_id = req.topic_id.clone();
         let chat_id = req.chat_id.clone();
@@ -91,7 +81,10 @@ impl ClientStore {
                                     None => return vec![],
                                 };
                                 let diff = now_millis() - timestamp;
-                                if diff >= PING_TIMEOUT_SECS * 1000 {
+                                if diff
+                                    >= self.option.ping_timeout_secs.load(Ordering::Relaxed) as i64
+                                        * 1000
+                                {
                                     warn!("ping timeout:{} timestamp:{}", diff, timestamp);
                                 }
                             }
@@ -99,10 +92,11 @@ impl ClientStore {
                         }
                     }
                 }
-
-                self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
-                    .await
-                    .ok();
+                if content_type != "ping" {
+                    self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
+                        .await
+                        .ok();
+                }
                 vec![]
             }
             ChatRequestType::Chat => {
@@ -123,7 +117,12 @@ impl ClientStore {
                         .copied()
                 };
                 if let Some(removed_at) = removed_at {
-                    if !is_cache_expired(removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS) {
+                    if !is_cache_expired(
+                        removed_at,
+                        self.option
+                            .removed_conversation_cache_expire_secs
+                            .load(Ordering::Relaxed) as i64,
+                    ) {
                         return resps;
                     }
                     match self.removed_conversations.try_write() {
@@ -242,7 +241,7 @@ impl ClientStore {
         callback: Option<Box<dyn MessageCallback>>,
     ) {
         let chat_id = req.chat_id.clone();
-        let pending_request = PendingRequest::new(req, callback);
+        let pending_request = PendingRequest::new(req, callback, self.option.clone());
         match ChatRequestType::from(&pending_request.req.req_type) {
             ChatRequestType::Typing | ChatRequestType::Read => {}
             _ => {

@@ -3,17 +3,17 @@ use super::{
     Client,
 };
 use crate::{
+    client::store::ClientOptionRef,
     request::{ChatRequest, ChatRequestType},
     utils::{sleep, spawn_task},
     websocket::{WebSocket, WebSocketCallback, WebsocketOption},
-    KEEPALIVE_INTERVAL_SECS, MAX_CONNECT_INTERVAL_SECS, PING_INTERVAL_SECS,
 };
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
     collections::VecDeque,
     sync::{
-        atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
         Arc, Mutex,
     },
     time::Duration,
@@ -52,30 +52,28 @@ impl ToString for ConnectionStatus {
 pub(super) struct ConnectState {
     must_shutdown: AtomicBool,
     broken_count: AtomicU64,
-    keepalive_inerval_secs: AtomicU32,
-    ping_interval_secs: AtomicU32,
     last_broken_at: Mutex<Option<i64>>,
     last_alive_at: AtomicI64,
     state_tx: broadcast::Sender<ConnectionStatus>,
     last_state: Mutex<ConnectionStatus>,
     error_collector: ErrorLogCollector,
+    option: ClientOptionRef,
 }
 
 pub(super) type ConnectStateRef = Arc<ConnectState>;
 
 impl ConnectState {
-    pub fn new() -> Self {
+    pub fn new(option: ClientOptionRef) -> Self {
         let (state_tx, _) = broadcast::channel(32);
         Self {
             must_shutdown: AtomicBool::new(false),
             broken_count: AtomicU64::new(0),
-            keepalive_inerval_secs: AtomicU32::new(KEEPALIVE_INTERVAL_SECS as u32),
-            ping_interval_secs: AtomicU32::new(PING_INTERVAL_SECS as u32),
             last_broken_at: Mutex::new(None),
             last_alive_at: AtomicI64::new(crate::utils::now_millis()),
             state_tx,
             last_state: Mutex::new(ConnectionStatus::Shutdown),
             error_collector: ErrorLogCollector::new(100),
+            option,
         }
     }
 
@@ -121,14 +119,16 @@ impl ConnectState {
     }
 
     pub fn set_keepalive_interval_secs(&self, secs: u32) {
-        self.keepalive_inerval_secs
-            .store(secs as u32, Ordering::Relaxed);
-        self.ping_interval_secs
-            .store(secs as u32, Ordering::Relaxed);
+        self.option
+            .keepalive_interval_secs
+            .store(secs as usize, Ordering::Relaxed);
+        self.option
+            .ping_interval_secs
+            .store(secs as usize, Ordering::Relaxed);
     }
 
     pub fn get_ping_interval_secs(&self) -> u32 {
-        self.ping_interval_secs.load(Ordering::Relaxed)
+        self.option.ping_interval_secs.load(Ordering::Relaxed) as u32
     }
     pub fn get_last_alive_at(&self) -> i64 {
         self.last_alive_at.load(Ordering::Relaxed)
@@ -139,7 +139,11 @@ impl ConnectState {
             return;
         }
 
-        let remain_secs = broken_count.min(MAX_CONNECT_INTERVAL_SECS);
+        let remain_secs = broken_count.min(
+            self.option
+                .max_connect_interval_secs
+                .load(Ordering::Relaxed) as u64,
+        );
         let mut rx = self.state_tx.subscribe();
 
         select! {
@@ -376,7 +380,11 @@ async fn serve_connection(
 
                     let timestamp = crate::utils::now_millis();
                     let error_logs = state_ref.get_and_clear_errors();
-                    let ping_req = ChatRequest::new_ping(timestamp, error_logs);
+                    let content = serde_json::json!({
+                        "timestamp": timestamp,
+                        "error_logs": error_logs
+                    });
+                    let ping_req = ChatRequest::new_ping(content.to_string());
 
                     if let Err(e) = conn.send((&ping_req).into()).await {
                         let error_msg = format!("ping send failed: {:?}", e);

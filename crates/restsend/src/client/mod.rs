@@ -29,7 +29,7 @@ pub struct Client {
     pub endpoint: String,
     pub is_cross_domain: bool,
 
-    store: ClientStoreRef,
+    pub store: ClientStoreRef,
     state: ConnectStateRef,
 }
 
@@ -76,8 +76,8 @@ impl Client {
             token: info.token.to_string(),
             endpoint: info.endpoint.to_string().trim_end_matches("/").to_string(),
             is_cross_domain: info.is_cross_domain,
+            state: Arc::new(ConnectState::new(store.option.clone())),
             store: Arc::new(store),
-            state: Arc::new(ConnectState::new()),
         }
     }
 }

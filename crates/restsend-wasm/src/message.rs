@@ -374,4 +374,19 @@ impl Client {
             .await
             .map_err(|e| e.into())
     }
+    /// Send ping message
+    /// # Arguments
+    /// * `content` - The content string
+    /// * `option` - The send option
+    /// # Return
+    /// The message id
+    pub async fn doPing(&self, content: String, option: JsValue) -> Result<String, JsValue> {
+        self.inner
+            .do_ping(
+                content,
+                Some(Box::new(MessageCallbackWasmWrap::new(option))),
+            )
+            .await
+            .map_err(|e| e.into())
+    }
 }

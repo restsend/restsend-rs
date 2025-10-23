@@ -1,11 +1,12 @@
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 
 use super::{is_cache_expired, ClientStore};
 use crate::services::user::{get_users, set_user_block, set_user_remark, set_user_star};
 use crate::storage::Storage;
 use crate::utils::spawn_task;
+use crate::Result;
 use crate::{models::User, services::user::get_user, utils::now_millis};
-use crate::{Result, USER_CACHE_EXPIRE_SECS};
 use log::warn;
 
 impl ClientStore {
@@ -50,7 +51,12 @@ impl ClientStore {
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
-        if !(u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS)) {
+        if !(u.is_partial
+            || is_cache_expired(
+                u.cached_at,
+                self.option.user_cache_expire_secs.load(Ordering::Relaxed) as i64,
+            ))
+        {
             return Some(u);
         }
 
@@ -85,7 +91,12 @@ impl ClientStore {
             let t = self.message_storage.readonly_table::<User>().await;
             for user_id in user_ids {
                 let u = t.get("", &user_id).await.unwrap_or(User::new(&user_id));
-                if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+                if u.is_partial
+                    || is_cache_expired(
+                        u.cached_at,
+                        self.option.user_cache_expire_secs.load(Ordering::Relaxed) as i64,
+                    )
+                {
                     missing_ids.push(user_id.clone());
                 }
                 pending_users.insert(user_id, u);
@@ -111,7 +122,12 @@ impl ClientStore {
             t.get("", user_id).await.unwrap_or(User::new(user_id))
         };
 
-        if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+        if u.is_partial
+            || is_cache_expired(
+                u.cached_at,
+                self.option.user_cache_expire_secs.load(Ordering::Relaxed) as i64,
+            )
+        {
             let user = get_user(&self.endpoint, &self.token, &user_id).await?;
             return self.update_user(user).await;
         }
@@ -123,7 +139,12 @@ impl ClientStore {
         let mut missing_ids = vec![];
         for user_id in user_ids {
             let u = self.fetch_user(&user_id).await?;
-            if u.is_partial || is_cache_expired(u.cached_at, USER_CACHE_EXPIRE_SECS) {
+            if u.is_partial
+                || is_cache_expired(
+                    u.cached_at,
+                    self.option.user_cache_expire_secs.load(Ordering::Relaxed) as i64,
+                )
+            {
                 missing_ids.push(user_id);
             } else {
                 users.push(u);

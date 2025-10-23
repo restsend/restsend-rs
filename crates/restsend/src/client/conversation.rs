@@ -13,13 +13,11 @@ use crate::services::conversation::{
 };
 use crate::storage::{StoreModel, ValueItem};
 use crate::utils::{elapsed, now_millis};
-use crate::{
-    Result, CONVERSATION_CACHE_EXPIRE_SECS, MAX_CONVERSATION_LIMIT, MAX_LOGS_LIMIT,
-    MAX_SYNC_LOGS_MAX_COUNT,
-};
+use crate::Result;
 use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::collections::HashMap;
+use std::sync::atomic::Ordering;
 
 #[export_wasm_or_ffi]
 impl Client {
@@ -69,12 +67,19 @@ impl Client {
         ensure_conversation_last_version: Option<bool>,
     ) {
         let st = now_millis();
+
+        let max_logs_limit = self
+            .store
+            .option
+            .max_logs_limit
+            .load(std::sync::atomic::Ordering::Relaxed) as u32;
+
         let limit = if limit == 0 {
-            MAX_LOGS_LIMIT / 2
+            max_logs_limit / 2
         } else {
             limit
         }
-        .min(MAX_LOGS_LIMIT);
+        .min(max_logs_limit);
         let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
         let conversation = self
             .store
@@ -88,7 +93,14 @@ impl Client {
             Some(conversation) => {
                 if !need_fetch_conversation {
                     need_fetch_conversation = conversation.is_partial
-                        || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS);
+                        || is_cache_expired(
+                            conversation.cached_at,
+                            self.store
+                                .option
+                                .conversation_cache_expire_secs
+                                .load(std::sync::atomic::Ordering::Relaxed)
+                                as i64,
+                        );
                 }
 
                 if !need_fetch_conversation {
@@ -167,12 +179,17 @@ impl Client {
         ensure_conversation_last_version: Option<bool>,
     ) {
         let st = now_millis();
+        let max_logs_limit = self
+            .store
+            .option
+            .max_logs_limit
+            .load(std::sync::atomic::Ordering::Relaxed) as u32;
         let limit = if limit == 0 {
-            MAX_LOGS_LIMIT / 2
+            max_logs_limit / 2
         } else {
             limit
         }
-        .min(MAX_LOGS_LIMIT);
+        .min(max_logs_limit);
 
         let conversation = self
             .store
@@ -208,7 +225,13 @@ impl Client {
                 if !need_fetch {
                     callback.on_success(GetChatLogsResult::from_local_logs(local_logs, has_more));
                     if conversation.is_partial
-                        || is_cache_expired(conversation.cached_at, CONVERSATION_CACHE_EXPIRE_SECS)
+                        || is_cache_expired(
+                            conversation.cached_at,
+                            self.store
+                                .option
+                                .conversation_cache_expire_secs
+                                .load(Ordering::Relaxed) as i64,
+                        )
                     {
                         self.store.get_conversation_by(conversation, true).await;
                     }
@@ -286,12 +309,18 @@ impl Client {
         callback: Box<dyn SyncConversationsCallback>,
     ) {
         let store_ref = self.store.clone();
+        let max_conversation_limit = store_ref
+            .option
+            .max_conversation_limit
+            .load(Ordering::Relaxed) as u32;
         let limit = match limit {
-            0 => MAX_CONVERSATION_LIMIT,
+            0 => max_conversation_limit,
             _ => limit,
         }
-        .min(MAX_CONVERSATION_LIMIT);
-        let sync_logs_max_count = sync_logs_max_count.unwrap_or(MAX_SYNC_LOGS_MAX_COUNT);
+        .min(max_conversation_limit);
+        let max_sync_logs_limit =
+            store_ref.option.max_sync_logs_limit.load(Ordering::Relaxed) as u32;
+        let sync_logs_max_count = sync_logs_max_count.unwrap_or(max_sync_logs_limit);
 
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let mut conversations = HashMap::new();
@@ -428,7 +457,7 @@ impl Client {
                 conversations.truncate(sync_logs_max_count as usize);
             }
 
-            for chunk in conversations.chunks(MAX_SYNC_LOGS_MAX_COUNT as usize) {
+            for chunk in conversations.chunks(max_sync_logs_limit as usize) {
                 let conversations = chunk
                     .into_iter()
                     .map(|c| (c.topic_id.clone(), c.clone()))
@@ -634,6 +663,9 @@ impl Client {
         let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
         let mut stored_conversations = vec![];
         let st = now_millis();
+
+        let max_logs_limit = self.store.option.max_logs_limit.load(Ordering::Relaxed) as i64;
+
         // build conversatoin's unread
         for c in conversations.iter_mut() {
             if c.last_read_seq >= c.last_message_seq.unwrap_or(c.last_seq) {
@@ -645,8 +677,8 @@ impl Client {
                 continue;
             }
 
-            if unread_diff >= MAX_LOGS_LIMIT as i64 {
-                if c.unread < MAX_LOGS_LIMIT as i64 {
+            if unread_diff >= max_logs_limit {
+                if c.unread < max_logs_limit {
                     c.unread = unread_diff;
                     stored_conversations.push(ValueItem {
                         partition: "".to_string(),
@@ -664,7 +696,7 @@ impl Client {
                     &c.topic_id,
                     start_seq,
                     Some(c.last_seq),
-                    unread_diff.min(MAX_LOGS_LIMIT as i64) as u32,
+                    unread_diff.min(max_logs_limit) as u32,
                 )
                 .await
             {

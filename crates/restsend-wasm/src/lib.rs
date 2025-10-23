@@ -1,7 +1,7 @@
 use crate::{callback::CallbackWasmWrap, js_util::get_bool};
 use js_util::get_string;
 use restsend_sdk::models::{conversation::Extra, AuthInfo};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering};
 use wasm_bindgen::prelude::*;
 
 #[cfg(feature = "auth")]
@@ -107,6 +107,133 @@ impl Client {
     pub fn set_ping_interval(&self, secs: u32) {
         self.inner.set_keepalive_interval_secs(secs);
     }
+    /// set the max retry count
+    /// default is 2
+    #[wasm_bindgen(setter)]
+    pub fn set_maxRetry(&self, count: u32) {
+        self.inner
+            .store
+            .option
+            .max_retry
+            .store(count as usize, Ordering::Relaxed);
+    }
+    /// set the max send idle seconds
+    /// default is 20 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_maxSendIdleSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .max_send_idle_secs
+            .store(secs as u64, Ordering::Relaxed);
+    }
+    /// set the max recall seconds
+    /// default is 120 seconds
+    /// note: server may have a limit as well
+    /// for example, restsend server limit is 2 minutes
+    #[wasm_bindgen(setter)]
+    pub fn set_maxRecallSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .max_recall_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+    /// set the max conversation limit
+    /// default is 1000
+    /// note: this limit is for local storage only
+    #[wasm_bindgen(setter)]
+    pub fn set_maxConversationLimit(&self, limit: u32) {
+        self.inner
+            .store
+            .option
+            .max_conversation_limit
+            .store(limit as usize, Ordering::Relaxed);
+    }
+    /// set the max logs limit per request
+    /// default is 100
+    /// note: this limit is for each request to fetch logs from server
+    #[wasm_bindgen(setter)]
+    pub fn set_maxLogsLimit(&self, limit: u32) {
+        self.inner
+            .store
+            .option
+            .max_logs_limit
+            .store(limit as usize, Ordering::Relaxed);
+    }
+    /// set the max sync logs max count
+    /// default is 200
+    /// note: this limit is for each sync logs operation
+    #[wasm_bindgen(setter)]
+    pub fn set_maxSyncLogsMaxCount(&self, count: u32) {
+        self.inner
+            .store
+            .option
+            .max_sync_logs_max_count
+            .store(count as usize, Ordering::Relaxed);
+    }
+
+    /// set the max connect interval seconds
+    /// default is 5 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_maxConnectIntervalSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .max_connect_interval_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+    /// set the max sync logs limit
+    /// default is 500
+    #[wasm_bindgen(setter)]
+    pub fn set_maxSyncLogsLimit(&self, limit: u32) {
+        self.inner
+            .store
+            .option
+            .max_sync_logs_limit
+            .store(limit as usize, Ordering::Relaxed);
+    }
+    /// set the conversation cache expire seconds
+    /// default is 60 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_conversationCacheExpireSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .conversation_cache_expire_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+    /// set the user cache expire seconds
+    /// default is 60 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_userCacheExpireSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .user_cache_expire_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+    /// set the removed conversation cache expire seconds
+    /// default is 10 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_removedConversationCacheExpireSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .removed_conversation_cache_expire_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+    /// set the ping timeout seconds
+    /// default is 5 seconds
+    #[wasm_bindgen(setter)]
+    pub fn set_pingTimeoutSecs(&self, secs: u32) {
+        self.inner
+            .store
+            .option
+            .ping_timeout_secs
+            .store(secs as usize, Ordering::Relaxed);
+    }
+
     pub async fn shutdown(&self) {
         self.inner.shutdown().await
     }

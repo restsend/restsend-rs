@@ -1,4 +1,5 @@
 use super::{ClientStore, PendingRequest};
+use crate::client::store::ClientOptionRef;
 use crate::models::Content;
 use crate::utils::elapsed;
 use crate::Error;
@@ -7,7 +8,6 @@ use crate::{
     media::{build_upload_url, upload_file},
     services::response::Upload,
     utils::now_millis,
-    MEDIA_PROGRESS_INTERVAL,
 };
 use log::{info, warn};
 use std::sync::{
@@ -17,6 +17,7 @@ use std::sync::{
 use tokio::sync::oneshot;
 
 pub(super) struct UploadTask {
+    option: ClientOptionRef,
     req: Mutex<Option<PendingRequest>>,
     #[allow(unused)]
     cancel_tx: Mutex<Option<oneshot::Sender<()>>>,
@@ -25,8 +26,13 @@ pub(super) struct UploadTask {
 }
 
 impl UploadTask {
-    pub fn new(req: PendingRequest, cancel_tx: oneshot::Sender<()>) -> Self {
+    pub fn new(
+        req: PendingRequest,
+        cancel_tx: oneshot::Sender<()>,
+        option: ClientOptionRef,
+    ) -> Self {
         Self {
+            option,
             req: Mutex::new(Some(req)),
             cancel_tx: Mutex::new(Some(cancel_tx)),
             updated_at: AtomicI64::new(now_millis()),
@@ -42,8 +48,12 @@ impl UploadTask {
         let req = &self.req.lock().unwrap();
         let last_progress = self.last_progress.load(Ordering::Relaxed);
 
-        if elapsed(last_progress).as_millis() < MEDIA_PROGRESS_INTERVAL {
-            // 300ms
+        let media_progress_interval = self
+            .option
+            .media_progress_interval
+            .load(Ordering::Relaxed)
+            .max(300);
+        if elapsed(last_progress).as_millis() < media_progress_interval as u128 {
             return;
         }
         self.last_progress.store(now_millis(), Ordering::Relaxed);
@@ -143,7 +153,7 @@ impl ClientStore {
             }
         };
 
-        let task = Arc::new(UploadTask::new(req, cancel_tx));
+        let task = Arc::new(UploadTask::new(req, cancel_tx, self.option.clone()));
         let task_callback = Box::new(UploadTaskCallback { task: task.clone() });
 
         let endpoint = self.endpoint.to_string();

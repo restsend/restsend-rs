@@ -3,15 +3,13 @@ use crate::callback::{CountableCallback, RsCallback};
 use crate::models::Attachment;
 use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
-use crate::REMOVED_CONVERSATION_CACHE_EXPIRE_SECS;
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
-    MAX_RETRIES, MAX_SEND_IDLE_SECS,
 };
 
 use std::collections::HashSet;
-use std::sync::atomic::AtomicI64;
+use std::sync::atomic::{AtomicI64, AtomicU64};
 use std::sync::Mutex;
 use std::{
     collections::{HashMap, VecDeque},
@@ -32,6 +30,7 @@ pub fn is_cache_expired(cached_at: i64, expire_secs: i64) -> bool {
 }
 
 pub struct PendingRequest {
+    pub option: ClientOptionRef,
     pub callback: Option<Box<dyn MessageCallback>>,
     pub req: ChatRequest,
     pub retry: AtomicUsize,
@@ -41,13 +40,18 @@ pub struct PendingRequest {
 }
 
 impl PendingRequest {
-    pub fn new(req: ChatRequest, callback: Option<Box<dyn MessageCallback>>) -> Self {
+    pub fn new(
+        req: ChatRequest,
+        callback: Option<Box<dyn MessageCallback>>,
+        option: ClientOptionRef,
+    ) -> Self {
         let can_retry = match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Typing | ChatRequestType::Read => false,
             _ => true,
         };
 
         PendingRequest {
+            option,
             callback,
             req,
             retry: AtomicUsize::new(0),
@@ -62,7 +66,9 @@ impl PendingRequest {
             return true;
         }
         let retry_count = self.retry.load(Ordering::Relaxed);
-        retry_count >= MAX_RETRIES || elapsed(self.updated_at).as_secs() > MAX_SEND_IDLE_SECS
+        retry_count >= self.option.max_retry.load(Ordering::Relaxed)
+            || elapsed(self.updated_at).as_secs()
+                > self.option.max_send_idle_secs.load(Ordering::Relaxed)
     }
 
     pub fn did_retry(&self) {
@@ -98,11 +104,55 @@ impl PendingRequest {
 }
 
 type PendingRequests = Arc<RwLock<HashMap<String, PendingRequest>>>;
+pub struct ClientOption {
+    pub max_retry: AtomicUsize,
+    pub max_send_idle_secs: AtomicU64,
+    pub max_recall_secs: AtomicUsize,
+    pub max_conversation_limit: AtomicUsize,
+    pub max_logs_limit: AtomicUsize,
+    pub max_sync_logs_max_count: AtomicUsize,
+    pub max_connect_interval_secs: AtomicUsize,
+    pub max_attachment_concurrent: AtomicUsize,
+    pub max_incoming_log_cache_count: AtomicUsize,
+    pub max_sync_logs_limit: AtomicUsize,
+    pub keepalive_interval_secs: AtomicUsize,
+    pub ping_interval_secs: AtomicUsize,
+    pub media_progress_interval: AtomicUsize,
+    pub conversation_cache_expire_secs: AtomicUsize,
+    pub user_cache_expire_secs: AtomicUsize,
+    pub removed_conversation_cache_expire_secs: AtomicUsize,
+    pub ping_timeout_secs: AtomicUsize,
+}
 
-pub(super) type ClientStoreRef = Arc<ClientStore>;
+impl Default for ClientOption {
+    fn default() -> Self {
+        Self {
+            max_retry: AtomicUsize::new(2),
+            max_send_idle_secs: AtomicU64::new(20),
+            max_recall_secs: AtomicUsize::new(2 * 60),
+            max_conversation_limit: AtomicUsize::new(1000),
+            max_logs_limit: AtomicUsize::new(100),
+            max_sync_logs_max_count: AtomicUsize::new(200),
+            max_connect_interval_secs: AtomicUsize::new(5),
+            max_attachment_concurrent: AtomicUsize::new(12),
+            max_incoming_log_cache_count: AtomicUsize::new(300),
+            max_sync_logs_limit: AtomicUsize::new(500),
+            keepalive_interval_secs: AtomicUsize::new(50),
+            ping_interval_secs: AtomicUsize::new(30),
+            media_progress_interval: AtomicUsize::new(300),
+            conversation_cache_expire_secs: AtomicUsize::new(60),
+            user_cache_expire_secs: AtomicUsize::new(60),
+            removed_conversation_cache_expire_secs: AtomicUsize::new(10),
+            ping_timeout_secs: AtomicUsize::new(5),
+        }
+    }
+}
+
+pub type ClientOptionRef = Arc<ClientOption>;
+pub type ClientStoreRef = Arc<ClientStore>;
 pub(super) type CallbackRef = Arc<RwLock<Option<Box<dyn RsCallback>>>>;
 pub(super) type CountableCallbackRef = Arc<RwLock<Option<Box<dyn CountableCallback>>>>;
-pub(super) struct ClientStore {
+pub struct ClientStore {
     user_id: String,
     endpoint: String,
     token: String,
@@ -116,6 +166,7 @@ pub(super) struct ClientStore {
     pub(crate) countable_callback: CountableCallbackRef,
     incoming_logs: RwLock<HashMap<String, Vec<String>>>,
     pending_conversations: Mutex<HashSet<String>>,
+    pub option: ClientOptionRef,
 }
 
 impl ClientStore {
@@ -140,6 +191,7 @@ impl ClientStore {
             countable_callback: Arc::new(RwLock::new(None)),
             incoming_logs: RwLock::new(HashMap::new()),
             pending_conversations: Mutex::new(HashSet::new()),
+            option: Arc::new(ClientOption::default()),
         }
     }
 
@@ -179,7 +231,12 @@ impl ClientStore {
         match self.removed_conversations.try_write() {
             Ok(mut removed_conversations) => {
                 removed_conversations.retain(|_, removed_at| {
-                    !is_cache_expired(*removed_at, REMOVED_CONVERSATION_CACHE_EXPIRE_SECS)
+                    !is_cache_expired(
+                        *removed_at,
+                        self.option
+                            .removed_conversation_cache_expire_secs
+                            .load(Ordering::Relaxed) as i64,
+                    )
                 });
             }
             Err(_) => {}

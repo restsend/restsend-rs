@@ -207,18 +207,14 @@ impl ChatRequest {
             ..Default::default()
         }
     }
-    pub fn new_ping(timestamp: i64, error_logs: Vec<String>) -> Self {
+    pub fn new_ping(content: String) -> Self {
         use crate::models::Content;
-        let content = serde_json::json!({
-            "timestamp": timestamp,
-            "error_logs": error_logs
-        });
         ChatRequest {
             req_type: String::from(ChatRequestType::Ping),
             chat_id: random_text(crate::CHAT_ID_LEN),
             content: Some(Content {
                 content_type: "ping".to_string(),
-                text: content.to_string(),
+                text: content,
                 ..Default::default()
             }),
             ..Default::default()
