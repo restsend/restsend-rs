@@ -27,6 +27,69 @@ struct StoreValue {
     value: String,
 }
 
+struct OpenDbRequestGuard {
+    request: IdbOpenDbRequest,
+    on_success: Option<Closure<dyn FnMut(web_sys::Event)>>,
+    on_error: Option<Closure<dyn FnMut(DomException)>>,
+    on_upgradeneeded: Option<Closure<dyn FnMut(web_sys::Event)>>,
+}
+
+impl OpenDbRequestGuard {
+    fn new(
+        request: IdbOpenDbRequest,
+        on_success: Closure<dyn FnMut(web_sys::Event)>,
+        on_error: Closure<dyn FnMut(DomException)>,
+        on_upgradeneeded: Option<Closure<dyn FnMut(web_sys::Event)>>,
+    ) -> Self {
+        Self {
+            request,
+            on_success: Some(on_success),
+            on_error: Some(on_error),
+            on_upgradeneeded,
+        }
+    }
+}
+
+impl Drop for OpenDbRequestGuard {
+    fn drop(&mut self) {
+        self.request.set_onupgradeneeded(None);
+        self.request.set_onsuccess(None);
+        self.request.set_onerror(None);
+        self.on_success.take();
+        self.on_error.take();
+        self.on_upgradeneeded.take();
+    }
+}
+
+struct RequestGuard {
+    request: IdbRequest,
+    on_success: Option<Closure<dyn FnMut(web_sys::Event)>>,
+    on_error: Option<Closure<dyn FnMut(DomException)>>,
+}
+
+impl RequestGuard {
+    fn new(
+        request: IdbRequest,
+        on_success: Closure<dyn FnMut(web_sys::Event)>,
+        on_error: Closure<dyn FnMut(DomException)>,
+    ) -> Self {
+        Self {
+            request,
+            on_success: Some(on_success),
+            on_error: Some(on_error),
+        }
+    }
+}
+
+impl Drop for RequestGuard {
+    fn drop(&mut self) {
+        self.request.set_onsuccess(None);
+        self.request.set_onerror(None);
+        self.on_success.take();
+        self.on_error.take();
+    }
+}
+
 impl IndexeddbStorage {
     #[allow(dead_code)]
     pub async fn new_async(db_name: &str) -> Self {
@@ -102,7 +165,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let open_req = idb.open_with_u32(&table_name, version)?;
         let table_name_clone = table_name.to_string();
-        let open_req_ref = open_req.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -174,13 +236,20 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             }
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error = Closure::once(move |e: DomException| {
+        let on_error = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(Err(ClientError::from(e))).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         open_req.set_onupgradeneeded(Some(on_upgradeneeded_callback.as_ref().unchecked_ref()));
         open_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
         open_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+
+        let _open_guard = OpenDbRequestGuard::new(
+            open_req.clone(),
+            on_success,
+            on_error,
+            Some(on_upgradeneeded_callback),
+        );
 
         let result = done_rx
             .recv()
@@ -189,10 +258,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let db_result = result
             .dyn_into::<IdbDatabase>()
             .map_err(|e| ClientError::from(e))?;
-
-        open_req_ref.set_onupgradeneeded(None);
-        open_req_ref.set_onsuccess(None);
-        open_req_ref.set_onerror(None);
         let mode = if readonly {
             IdbTransactionMode::Readonly
         } else {
@@ -249,7 +314,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let items = Rc::new(RefCell::new(Some(vec![])));
         let items_clone = items.clone();
         let predicate = Rc::new(predicate);
-        let cursor_req_ref = cursor_req.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -305,16 +369,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             }
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error_callback = Closure::once(move |e: DomException| {
+        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(e.into()).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
         cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
 
+        let _guard = RequestGuard::new(cursor_req.clone(), on_success_callback, on_error_callback);
+
         let r = done_rx.recv().await;
-        cursor_req_ref.set_onerror(None);
-        cursor_req_ref.set_onsuccess(None);
         _ = r?;
         items.take()
     }
@@ -341,7 +405,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let limit = option.limit;
         let option_start_sort_value = option.start_sort_value;
         let items_clone = items.clone();
-        let cursor_req_ref = cursor_req.clone();
 
         let items_ref = items_clone.clone();
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
@@ -390,17 +453,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             }
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error = Closure::once(move |e: DomException| {
+        let on_error = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(e.into()).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         cursor_req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
         cursor_req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
 
-        let r = done_rx.recv().await;
+        let _guard = RequestGuard::new(cursor_req.clone(), on_success, on_error);
 
-        cursor_req_ref.set_onerror(None);
-        cursor_req_ref.set_onsuccess(None);
+        let r = done_rx.recv().await;
 
         match r {
             Some(v) if v.is_instance_of::<DomException>() => {
@@ -429,7 +491,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         query_keys.push(&partition.into());
         query_keys.push(&key.into());
         let get_req = self.store.get(&query_keys).ok()?;
-        let get_req_ref = get_req.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -443,16 +504,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             done_tx.send(result).ok();
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error_callback = Closure::once(move |e: DomException| {
+        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(e.into()).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         get_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
         get_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
 
+        let _guard = RequestGuard::new(get_req.clone(), on_success_callback, on_error_callback);
+
         let result = done_rx.recv().await;
-        get_req_ref.set_onsuccess(None);
-        get_req_ref.set_onerror(None);
 
         let result = result?;
         serde_wasm_bindgen::from_value::<StoreValue>(result)
@@ -519,7 +580,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             )?;
             index.open_key_cursor_with_range(&query_range)
         }?;
-        let cursor_req_ref = cursor_req.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -561,16 +621,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             }
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error_callback = Closure::once(move |e: DomException| {
+        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(e.into()).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         cursor_req.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
         cursor_req.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
 
+        let _guard = RequestGuard::new(cursor_req.clone(), on_success_callback, on_error_callback);
+
         let _ = done_rx.recv().await;
-        cursor_req_ref.set_onerror(None);
-        cursor_req_ref.set_onsuccess(None);
         Ok(())
     }
 
@@ -585,7 +645,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         let cursor_request = index
             .open_cursor_with_range_and_direction(&query_range, web_sys::IdbCursorDirection::Prev)
             .ok()?;
-        let cursor_request_ref = cursor_request.clone();
 
         let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
         let done_tx_clone = done_tx.clone();
@@ -602,12 +661,18 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             done_tx.send(result).ok();
         }) as Box<dyn FnMut(web_sys::Event)>);
 
-        let on_error_callback = Closure::once(move |e: DomException| {
+        let on_error_callback = Closure::wrap(Box::new(move |e: DomException| {
             done_tx_clone.send(e.into()).ok();
-        });
+        }) as Box<dyn FnMut(DomException)>);
 
         cursor_request.set_onsuccess(Some(on_success_callback.as_ref().unchecked_ref()));
         cursor_request.set_onerror(Some(on_error_callback.as_ref().unchecked_ref()));
+
+        let _guard = RequestGuard::new(
+            cursor_request.clone(),
+            on_success_callback,
+            on_error_callback,
+        );
 
         let result = done_rx
             .recv()
@@ -618,8 +683,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     .ok()
             })
             .and_then(|v| T::from_str(&v.value).ok());
-        cursor_request_ref.set_onsuccess(None);
-        cursor_request_ref.set_onerror(None);
         result
     }
 

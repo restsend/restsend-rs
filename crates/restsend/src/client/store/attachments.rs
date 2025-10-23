@@ -70,7 +70,6 @@ impl UploadTask {
             result.file_name, result.size, result.path
         );
 
-
         let original = pending
             .req
             .content

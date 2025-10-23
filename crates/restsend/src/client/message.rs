@@ -38,10 +38,7 @@ pub fn save_logs_to_blob(file_name: &str, data: String) -> Result<Attachment> {
     array.push(&JsValue::from_str(&data));
     let mut options = web_sys::BlobPropertyBag::new();
     options.set_type("application/json");
-    match web_sys::Blob::new_with_str_sequence_and_options(
-        &array,
-        &options,
-    ) {
+    match web_sys::Blob::new_with_str_sequence_and_options(&array, &options) {
         Ok(blob) => Ok(Attachment::from_blob(
             blob,
             Some(file_name.to_string()),
