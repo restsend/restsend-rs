@@ -444,12 +444,6 @@ impl ClientStore {
 
     pub(crate) async fn remove_conversation(&self, topic_id: &str) {
         {
-            match self.removed_conversations.try_write() {
-                Ok(mut removed_conversations) => {
-                    removed_conversations.insert(topic_id.to_string(), now_millis());
-                }
-                Err(_) => {}
-            }
             self.clear_conversation(topic_id).await.ok();
         }
 

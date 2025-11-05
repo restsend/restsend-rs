@@ -142,7 +142,7 @@ impl Default for ClientOption {
             media_progress_interval: AtomicUsize::new(300),
             conversation_cache_expire_secs: AtomicUsize::new(60),
             user_cache_expire_secs: AtomicUsize::new(60),
-            removed_conversation_cache_expire_secs: AtomicUsize::new(10),
+            removed_conversation_cache_expire_secs: AtomicUsize::new(2),
             ping_timeout_secs: AtomicUsize::new(5),
         }
     }
