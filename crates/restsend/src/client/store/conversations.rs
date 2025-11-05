@@ -91,7 +91,7 @@ impl ClientStore {
         let mut conversation = match t.get("", &req.topic_id).await {
             Some(c) => c,
             None => self
-                .get_conversation(&req.topic_id, false, true)
+                .get_conversation_by(Conversation::new(&req.topic_id), true, false)
                 .await
                 .unwrap_or_else(|| Conversation::new(&req.topic_id)),
         };
@@ -538,11 +538,11 @@ impl ClientStore {
                         new_conversation.last_read_seq = conversation.last_read_seq;
                         new_conversation.unread = conversation.unread;
                     }
+                    let t = self.message_storage.table::<Conversation>().await;
+                    t.set("", &new_conversation.topic_id, Some(&new_conversation))
+                        .await
+                        .ok();
                     if cb_updated {
-                        let t = self.message_storage.table::<Conversation>().await;
-                        t.set("", &new_conversation.topic_id, Some(&new_conversation))
-                            .await
-                            .ok();
                         if let Some(cb) = self.callback.read().unwrap().as_ref() {
                             cb.on_conversations_updated(vec![new_conversation.clone()], None);
                         }
