@@ -165,7 +165,7 @@ impl Client {
 
         if need_fetch_conversation {
             self.store
-                .get_conversation_by(Conversation::new(&topic_id), true)
+                .get_conversation_by(Conversation::new(&topic_id), true, true)
                 .await;
         }
     }
@@ -233,7 +233,9 @@ impl Client {
                                 .load(Ordering::Relaxed) as i64,
                         )
                     {
-                        self.store.get_conversation_by(conversation, true).await;
+                        self.store
+                            .get_conversation_by(conversation, true, true)
+                            .await;
                     }
                     return;
                 }
@@ -579,8 +581,8 @@ impl Client {
         Ok(())
     }
 
-    pub async fn get_conversation(&self, topic_id: String, blocking: bool) -> Option<Conversation> {
-        self.store.get_conversation(&topic_id, blocking, true).await
+    pub async fn get_conversation(&self, topic_id: String) -> Option<Conversation> {
+        self.store.get_conversation(&topic_id, false, true).await
     }
 
     pub async fn remove_conversation(&self, topic_id: String) {

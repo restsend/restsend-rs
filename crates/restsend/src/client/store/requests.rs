@@ -1,7 +1,6 @@
 use std::sync::atomic::Ordering;
 
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
-use crate::client::store::conversations::merge_conversation_from_chat;
 use crate::client::store::is_cache_expired;
 use crate::models::ChatLogStatus;
 use crate::utils::now_millis;
@@ -158,13 +157,9 @@ impl ClientStore {
                         !req.content.as_ref().map(|c| c.unreadable).unwrap_or(false)
                     };
 
-                match merge_conversation_from_chat(
-                    self.message_storage.clone(),
-                    &req,
-                    &req_status,
-                    is_countable,
-                )
-                .await
+                match self
+                    .merge_conversation_from_chat(&req, &req_status, is_countable)
+                    .await
                 {
                     Some(mut conversation) => {
                         if req_status.has_read

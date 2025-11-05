@@ -147,8 +147,9 @@ impl Client {
     /// return: Conversation or null
     pub async fn getConversation(&self, topicId: String, blocking: Option<bool>) -> JsValue {
         let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
+        let _ = blocking;
         self.inner
-            .get_conversation(topicId, blocking.unwrap_or(false))
+            .get_conversation(topicId)
             .await
             .and_then(|v| v.serialize(serializer).ok())
             .unwrap_or(JsValue::UNDEFINED)

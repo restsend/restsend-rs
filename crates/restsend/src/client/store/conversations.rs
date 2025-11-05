@@ -80,109 +80,115 @@ async fn get_conversation_last_readable_message(
     None
 }
 
-pub(super) async fn merge_conversation_from_chat(
-    message_storage: Arc<Storage>,
-    req: &ChatRequest,
-    req_status: &ChatRequestStatus,
-    is_countable: bool,
-) -> Option<Conversation> {
-    let t = message_storage.table::<Conversation>().await;
-    let mut conversation = t
-        .get("", &req.topic_id)
-        .await
-        .unwrap_or(Conversation::from(req));
-    if let Some(content) = req.content.as_ref() {
-        match ContentType::from(content.content_type.clone()) {
-            ContentType::None | ContentType::Recall => {}
-            ContentType::TopicJoin => {
-                conversation.last_message_at = req.created_at.clone();
-                conversation.is_partial = true; // force fetch conversation
-            }
-            ContentType::TopicChangeOwner => {
-                conversation.topic_owner_id = Some(req.attendee.clone());
-            }
-            ContentType::ConversationUpdate => {
-                match serde_json::from_str::<ConversationUpdateFields>(&content.text) {
-                    Ok(fields) => {
-                        conversation.updated_at = req.created_at.clone();
-                        if fields.extra.is_some() {
-                            conversation.extra = fields.extra;
-                        }
-                        if fields.tags.is_some() {
-                            conversation.tags = fields.tags;
-                        }
-                        if fields.remark.is_some() {
-                            conversation.remark = fields.remark;
-                        }
-                        conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
-                        conversation.mute = fields.mute.unwrap_or(conversation.mute);
-                    }
-                    Err(_) => {}
+impl ClientStore {
+    pub(super) async fn merge_conversation_from_chat(
+        &self,
+        req: &ChatRequest,
+        req_status: &ChatRequestStatus,
+        is_countable: bool,
+    ) -> Option<Conversation> {
+        let t = self.message_storage.table::<Conversation>().await;
+        let mut conversation = match t.get("", &req.topic_id).await {
+            Some(c) => c,
+            None => self
+                .get_conversation(&req.topic_id, false, true)
+                .await
+                .unwrap_or_else(|| Conversation::new(&req.topic_id)),
+        };
+
+        if let Some(content) = req.content.as_ref() {
+            match ContentType::from(content.content_type.clone()) {
+                ContentType::None | ContentType::Recall => {}
+                ContentType::TopicJoin => {
+                    conversation.last_message_at = req.created_at.clone();
+                    conversation.is_partial = true; // force fetch conversation
                 }
-            }
-            ContentType::ConversationRemoved => {
-                return None;
-            }
-            ContentType::TopicUpdate => {
-                match serde_json::from_str::<crate::models::Topic>(&content.text) {
-                    Ok(topic) => {
-                        conversation.name = topic.name;
-                        conversation.icon = topic.icon;
-                        conversation.topic_extra = topic.extra;
-                    }
-                    Err(_) => {}
+                ContentType::TopicChangeOwner => {
+                    conversation.topic_owner_id = Some(req.attendee.clone());
                 }
-            }
-            ContentType::UpdateExtra => {
-                //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
-                if let Some(lastlog_seq) = conversation.last_message_seq {
-                    let log_t = message_storage.readonly_table::<ChatLog>().await;
-                    if let Some(log_in_store) = log_t.get(&req.topic_id, &content.text).await {
-                        if lastlog_seq == log_in_store.seq {
-                            if let Some(last_message_content) = conversation.last_message.as_mut() {
-                                last_message_content.extra = content.extra.clone();
+                ContentType::ConversationUpdate => {
+                    match serde_json::from_str::<ConversationUpdateFields>(&content.text) {
+                        Ok(fields) => {
+                            conversation.updated_at = req.created_at.clone();
+                            if fields.extra.is_some() {
+                                conversation.extra = fields.extra;
+                            }
+                            if fields.tags.is_some() {
+                                conversation.tags = fields.tags;
+                            }
+                            if fields.remark.is_some() {
+                                conversation.remark = fields.remark;
+                            }
+                            conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
+                            conversation.mute = fields.mute.unwrap_or(conversation.mute);
+                        }
+                        Err(_) => {}
+                    }
+                }
+                ContentType::ConversationRemoved => {
+                    return None;
+                }
+                ContentType::TopicUpdate => {
+                    match serde_json::from_str::<crate::models::Topic>(&content.text) {
+                        Ok(topic) => {
+                            conversation.name = topic.name;
+                            conversation.icon = topic.icon;
+                            conversation.topic_extra = topic.extra;
+                        }
+                        Err(_) => {}
+                    }
+                }
+                ContentType::UpdateExtra => {
+                    //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
+                    if let Some(lastlog_seq) = conversation.last_message_seq {
+                        let log_t = self.message_storage.readonly_table::<ChatLog>().await;
+                        if let Some(log_in_store) = log_t.get(&req.topic_id, &content.text).await {
+                            if lastlog_seq == log_in_store.seq {
+                                if let Some(last_message_content) =
+                                    conversation.last_message.as_mut()
+                                {
+                                    last_message_content.extra = content.extra.clone();
+                                }
                             }
                         }
                     }
                 }
-            }
-            _ => {
-                if req.seq > conversation.last_read_seq
-                    && is_countable
-                    && !req.chat_id.is_empty()
-                    && req_status.unread_countable
-                {
-                    conversation.unread += 1;
+                _ => {
+                    if req.seq > conversation.last_read_seq
+                        && is_countable
+                        && !req.chat_id.is_empty()
+                        && req_status.unread_countable
+                    {
+                        conversation.unread += 1;
+                    }
                 }
             }
         }
-    }
-    if req.seq >= conversation.last_seq {
-        conversation.last_seq = req.seq;
+        if req.seq >= conversation.last_seq {
+            conversation.last_seq = req.seq;
 
-        if is_countable && !req.chat_id.is_empty() {
-            conversation.last_sender_id = req.attendee.clone();
-            conversation.last_message_at = req.created_at.clone();
-            conversation.last_message = req.content.clone();
-            conversation.last_message_seq = Some(req.seq);
-            conversation.updated_at = req.created_at.clone();
+            if is_countable && !req.chat_id.is_empty() {
+                conversation.last_sender_id = req.attendee.clone();
+                conversation.last_message_at = req.created_at.clone();
+                conversation.last_message = req.content.clone();
+                conversation.last_message_seq = Some(req.seq);
+                conversation.updated_at = req.created_at.clone();
+            }
         }
+
+        if req_status.has_read {
+            conversation.last_read_at = Some(req.created_at.clone());
+            conversation.last_read_seq = conversation.last_seq;
+            conversation.unread = 0;
+        }
+
+        conversation.cached_at = now_millis();
+        t.set("", &conversation.topic_id, Some(&conversation))
+            .await
+            .ok();
+        Some(conversation)
     }
 
-    if req_status.has_read {
-        conversation.last_read_at = Some(req.created_at.clone());
-        conversation.last_read_seq = conversation.last_seq;
-        conversation.unread = 0;
-    }
-
-    conversation.cached_at = now_millis();
-    t.set("", &conversation.topic_id, Some(&conversation))
-        .await
-        .ok();
-    Some(conversation)
-}
-
-impl ClientStore {
     pub(crate) async fn merge_conversations(
         &self,
         conversations: Vec<Conversation>,
@@ -462,7 +468,7 @@ impl ClientStore {
     pub(crate) async fn get_conversation(
         &self,
         topic_id: &str,
-        _blocking: bool,
+        cb_updated: bool,
         ensure_last_version: bool,
     ) -> Option<Conversation> {
         let t = self.message_storage.readonly_table::<Conversation>().await;
@@ -470,7 +476,7 @@ impl ClientStore {
             .get("", topic_id)
             .await
             .unwrap_or_else(|| Conversation::new(topic_id));
-        self.get_conversation_by(conversation, ensure_last_version)
+        self.get_conversation_by(conversation, ensure_last_version, cb_updated)
             .await
     }
 
@@ -478,6 +484,7 @@ impl ClientStore {
         &self,
         conversation: Conversation,
         mut ensure_last_version: bool,
+        cb_updated: bool,
     ) -> Option<Conversation> {
         if conversation.is_partial
             || is_cache_expired(
@@ -531,13 +538,14 @@ impl ClientStore {
                         new_conversation.last_read_seq = conversation.last_read_seq;
                         new_conversation.unread = conversation.unread;
                     }
-
-                    let t = self.message_storage.table::<Conversation>().await;
-                    t.set("", &new_conversation.topic_id, Some(&new_conversation))
-                        .await
-                        .ok();
-                    if let Some(cb) = self.callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(vec![new_conversation.clone()], None);
+                    if cb_updated {
+                        let t = self.message_storage.table::<Conversation>().await;
+                        t.set("", &new_conversation.topic_id, Some(&new_conversation))
+                            .await
+                            .ok();
+                        if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                            cb.on_conversations_updated(vec![new_conversation.clone()], None);
+                        }
                     }
                     return Some(new_conversation);
                 }
