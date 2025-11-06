@@ -197,6 +197,14 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
+/**
+ * @param {string | null} [level]
+ */
+export function setLogging(level) {
+    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    wasm.setLogging(ptr0, len0);
+}
 
 function passArrayJsValueToWasm0(array, malloc) {
     const ptr = malloc(array.length * 4, 4) >>> 0;
@@ -277,17 +285,8 @@ export function logout(endpoint, token) {
     return ret;
 }
 
-/**
- * @param {string | null} [level]
- */
-export function setLogging(level) {
-    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    wasm.setLogging(ptr0, len0);
-}
-
 function __wbg_adapter_54(arg0, arg1, arg2) {
-    wasm.closure523_externref_shim(arg0, arg1, arg2);
+    wasm.closure546_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_57(arg0, arg1) {
@@ -328,6 +327,190 @@ export class Client {
     free() {
         const ptr = this.__destroy_into_raw();
         wasm.__wbg_client_free(ptr, 0);
+    }
+    /**
+     * Create a new client
+     * # Arguments
+     * * `info` - AuthInfo
+     * * `db_name` - database name (optional), create an indexeddb when set it
+     * @param {any} info
+     * @param {string | null} [db_name]
+     */
+    constructor(info, db_name) {
+        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_new(info, ptr0, len0);
+        this.__wbg_ptr = ret >>> 0;
+        ClientFinalization.register(this, this.__wbg_ptr, this);
+        return this;
+    }
+    /**
+     * get the current connection status
+     * return: connecting, connected, broken, shutdown
+     * @returns {string}
+     */
+    get connectionStatus() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.client_connectionStatus(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * get the last alive at
+     * @returns {bigint}
+     */
+    get lastAliveAt() {
+        const ret = wasm.client_lastAliveAt(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Promise<number>}
+     */
+    get unreadCount() {
+        const ret = wasm.client_unreadCount(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * connect immediately if the connection is broken
+     */
+    app_active() {
+        wasm.client_app_active(this.__wbg_ptr);
+    }
+    /**
+     * set the keepalive interval with seconds
+     * @param {number} secs
+     */
+    set keepalive(secs) {
+        wasm.client_set_keepalive(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the ping interval with seconds (for health check with error logs)
+     * default is 30 seconds
+     * @param {number} secs
+     */
+    set ping_interval(secs) {
+        wasm.client_set_keepalive(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max retry count
+     * default is 2
+     * @param {number} count
+     */
+    set maxRetry(count) {
+        wasm.client_set_maxRetry(this.__wbg_ptr, count);
+    }
+    /**
+     * set the max send idle seconds
+     * default is 20 seconds
+     * @param {number} secs
+     */
+    set maxSendIdleSecs(secs) {
+        wasm.client_set_maxSendIdleSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max recall seconds
+     * default is 120 seconds
+     * note: server may have a limit as well
+     * for example, restsend server limit is 2 minutes
+     * @param {number} secs
+     */
+    set maxRecallSecs(secs) {
+        wasm.client_set_maxRecallSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max conversation limit
+     * default is 1000
+     * note: this limit is for local storage only
+     * @param {number} limit
+     */
+    set maxConversationLimit(limit) {
+        wasm.client_set_maxConversationLimit(this.__wbg_ptr, limit);
+    }
+    /**
+     * set the max logs limit per request
+     * default is 100
+     * note: this limit is for each request to fetch logs from server
+     * @param {number} limit
+     */
+    set maxLogsLimit(limit) {
+        wasm.client_set_maxLogsLimit(this.__wbg_ptr, limit);
+    }
+    /**
+     * set the max sync logs max count
+     * default is 200
+     * note: this limit is for each sync logs operation
+     * @param {number} count
+     */
+    set maxSyncLogsMaxCount(count) {
+        wasm.client_set_maxSyncLogsMaxCount(this.__wbg_ptr, count);
+    }
+    /**
+     * set the max connect interval seconds
+     * default is 5 seconds
+     * @param {number} secs
+     */
+    set maxConnectIntervalSecs(secs) {
+        wasm.client_set_maxConnectIntervalSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max sync logs limit
+     * default is 500
+     * @param {number} limit
+     */
+    set maxSyncLogsLimit(limit) {
+        wasm.client_set_maxSyncLogsLimit(this.__wbg_ptr, limit);
+    }
+    /**
+     * set the conversation cache expire seconds
+     * default is 60 seconds
+     * @param {number} secs
+     */
+    set conversationCacheExpireSecs(secs) {
+        wasm.client_set_conversationCacheExpireSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the user cache expire seconds
+     * default is 60 seconds
+     * @param {number} secs
+     */
+    set userCacheExpireSecs(secs) {
+        wasm.client_set_userCacheExpireSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the removed conversation cache expire seconds
+     * default is 10 seconds
+     * @param {number} secs
+     */
+    set removedConversationCacheExpireSecs(secs) {
+        wasm.client_set_removedConversationCacheExpireSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the ping timeout seconds
+     * default is 5 seconds
+     * @param {number} secs
+     */
+    set pingTimeoutSecs(secs) {
+        wasm.client_set_pingTimeoutSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return ret;
     }
     /**
      *
@@ -921,6 +1104,7 @@ export class Client {
      *    * `syncLogsLimit` - sync logs limit, per conversation, default 100
      *    * `syncLogsMaxCount` - sync logs max count, default 200
      *    * `limit` - limit
+     *    * `category` - category optional
      *    * `updatedAt` String - updated_at optional
      *    * `beforeUpdatedAt` String - before_updated_at optional
      *    * `lastRemovedAt` String - last_removed_at optional
@@ -1118,96 +1302,6 @@ export class Client {
      */
     filterConversation(predicate, lastUpdatedAt, limit) {
         const ret = wasm.client_filterConversation(this.__wbg_ptr, predicate, lastUpdatedAt, limit);
-        return ret;
-    }
-    /**
-     * Get user info
-     * #Arguments
-     * * `userId` - user id
-     * * `blocking` - blocking fetch from server
-     * #Return
-     * User info
-     * @param {string} userId
-     * @param {boolean | null} [blocking]
-     * @returns {Promise<any>}
-     */
-    getUser(userId, blocking) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
-        return ret;
-    }
-    /**
-     * Get multiple users info
-     * #Arguments
-     * * `userIds` - Array of user id
-     * #Return
-     * Array of user info
-     * @param {string[]} userIds
-     * @returns {Promise<any>}
-     */
-    getUsers(userIds) {
-        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Set user remark name
-     * #Arguments
-     * * `userId` - user id
-     * * `remark` - remark name
-     * @param {string} userId
-     * @param {string} remark
-     * @returns {Promise<void>}
-     */
-    setUserRemark(userId, remark) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Set user star
-     * #Arguments
-     * * `userId` - user id
-     * * `star` - star
-     * @param {string} userId
-     * @param {boolean} star
-     * @returns {Promise<void>}
-     */
-    setUserStar(userId, star) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
-        return ret;
-    }
-    /**
-     * Set user block
-     * #Arguments
-     * * `userId` - user id
-     * * `block` - block
-     * @param {string} userId
-     * @param {boolean} block
-     * @returns {Promise<void>}
-     */
-    setUserBlock(userId, block) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
-        return ret;
-    }
-    /**
-     * Set allow guest chat
-     * #Arguments
-     * * `allow` - allow
-     * @param {boolean} allow
-     * @returns {Promise<void>}
-     */
-    setAllowGuestChat(allow) {
-        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return ret;
     }
     /**
@@ -1562,187 +1656,93 @@ export class Client {
         return ret;
     }
     /**
-     * Create a new client
-     * # Arguments
-     * * `info` - AuthInfo
-     * * `db_name` - database name (optional), create an indexeddb when set it
-     * @param {any} info
-     * @param {string | null} [db_name]
+     * Get user info
+     * #Arguments
+     * * `userId` - user id
+     * * `blocking` - blocking fetch from server
+     * #Return
+     * User info
+     * @param {string} userId
+     * @param {boolean | null} [blocking]
+     * @returns {Promise<any>}
      */
-    constructor(info, db_name) {
-        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_new(info, ptr0, len0);
-        this.__wbg_ptr = ret >>> 0;
-        ClientFinalization.register(this, this.__wbg_ptr, this);
-        return this;
-    }
-    /**
-     * get the current connection status
-     * return: connecting, connected, broken, shutdown
-     * @returns {string}
-     */
-    get connectionStatus() {
-        let deferred1_0;
-        let deferred1_1;
-        try {
-            const ret = wasm.client_connectionStatus(this.__wbg_ptr);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
-            return getStringFromWasm0(ret[0], ret[1]);
-        } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
-        }
-    }
-    /**
-     * get the last alive at
-     * @returns {bigint}
-     */
-    get lastAliveAt() {
-        const ret = wasm.client_lastAliveAt(this.__wbg_ptr);
+    getUser(userId, blocking) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
         return ret;
     }
     /**
-     * @returns {Promise<number>}
+     * Get multiple users info
+     * #Arguments
+     * * `userIds` - Array of user id
+     * #Return
+     * Array of user info
+     * @param {string[]} userIds
+     * @returns {Promise<any>}
      */
-    get unreadCount() {
-        const ret = wasm.client_unreadCount(this.__wbg_ptr);
+    getUsers(userIds) {
+        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
-     * connect immediately if the connection is broken
-     */
-    app_active() {
-        wasm.client_app_active(this.__wbg_ptr);
-    }
-    /**
-     * set the keepalive interval with seconds
-     * @param {number} secs
-     */
-    set keepalive(secs) {
-        wasm.client_set_keepalive(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the ping interval with seconds (for health check with error logs)
-     * default is 30 seconds
-     * @param {number} secs
-     */
-    set ping_interval(secs) {
-        wasm.client_set_keepalive(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max retry count
-     * default is 2
-     * @param {number} count
-     */
-    set maxRetry(count) {
-        wasm.client_set_maxRetry(this.__wbg_ptr, count);
-    }
-    /**
-     * set the max send idle seconds
-     * default is 20 seconds
-     * @param {number} secs
-     */
-    set maxSendIdleSecs(secs) {
-        wasm.client_set_maxSendIdleSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max recall seconds
-     * default is 120 seconds
-     * note: server may have a limit as well
-     * for example, restsend server limit is 2 minutes
-     * @param {number} secs
-     */
-    set maxRecallSecs(secs) {
-        wasm.client_set_maxRecallSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max conversation limit
-     * default is 1000
-     * note: this limit is for local storage only
-     * @param {number} limit
-     */
-    set maxConversationLimit(limit) {
-        wasm.client_set_maxConversationLimit(this.__wbg_ptr, limit);
-    }
-    /**
-     * set the max logs limit per request
-     * default is 100
-     * note: this limit is for each request to fetch logs from server
-     * @param {number} limit
-     */
-    set maxLogsLimit(limit) {
-        wasm.client_set_maxLogsLimit(this.__wbg_ptr, limit);
-    }
-    /**
-     * set the max sync logs max count
-     * default is 200
-     * note: this limit is for each sync logs operation
-     * @param {number} count
-     */
-    set maxSyncLogsMaxCount(count) {
-        wasm.client_set_maxSyncLogsMaxCount(this.__wbg_ptr, count);
-    }
-    /**
-     * set the max connect interval seconds
-     * default is 5 seconds
-     * @param {number} secs
-     */
-    set maxConnectIntervalSecs(secs) {
-        wasm.client_set_maxConnectIntervalSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max sync logs limit
-     * default is 500
-     * @param {number} limit
-     */
-    set maxSyncLogsLimit(limit) {
-        wasm.client_set_maxSyncLogsLimit(this.__wbg_ptr, limit);
-    }
-    /**
-     * set the conversation cache expire seconds
-     * default is 60 seconds
-     * @param {number} secs
-     */
-    set conversationCacheExpireSecs(secs) {
-        wasm.client_set_conversationCacheExpireSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the user cache expire seconds
-     * default is 60 seconds
-     * @param {number} secs
-     */
-    set userCacheExpireSecs(secs) {
-        wasm.client_set_userCacheExpireSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the removed conversation cache expire seconds
-     * default is 10 seconds
-     * @param {number} secs
-     */
-    set removedConversationCacheExpireSecs(secs) {
-        wasm.client_set_removedConversationCacheExpireSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the ping timeout seconds
-     * default is 5 seconds
-     * @param {number} secs
-     */
-    set pingTimeoutSecs(secs) {
-        wasm.client_set_pingTimeoutSecs(this.__wbg_ptr, secs);
-    }
-    /**
+     * Set user remark name
+     * #Arguments
+     * * `userId` - user id
+     * * `remark` - remark name
+     * @param {string} userId
+     * @param {string} remark
      * @returns {Promise<void>}
      */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
+    setUserRemark(userId, remark) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
     /**
+     * Set user star
+     * #Arguments
+     * * `userId` - user id
+     * * `star` - star
+     * @param {string} userId
+     * @param {boolean} star
      * @returns {Promise<void>}
      */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
+    setUserStar(userId, star) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
+        return ret;
+    }
+    /**
+     * Set user block
+     * #Arguments
+     * * `userId` - user id
+     * * `block` - block
+     * @param {string} userId
+     * @param {boolean} block
+     * @returns {Promise<void>}
+     */
+    setUserBlock(userId, block) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
+        return ret;
+    }
+    /**
+     * Set allow guest chat
+     * #Arguments
+     * * `allow` - allow
+     * @param {boolean} allow
+     * @returns {Promise<void>}
+     */
+    setAllowGuestChat(allow) {
+        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return ret;
     }
 }
@@ -2688,27 +2688,27 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1125 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 524, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1138 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1126 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 524, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper1139 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_57);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1127 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 524, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1140 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1128 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 524, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1141 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1130 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 524, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1143 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper2271 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper2282 = function(arg0, arg1, arg2) {
         const ret = makeMutClosure(arg0, arg1, 775, __wbg_adapter_66);
         return ret;
     };

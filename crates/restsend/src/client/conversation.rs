@@ -302,6 +302,7 @@ impl Client {
         &self,
         updated_at: Option<String>,
         before_updated_at: Option<String>,
+        category: Option<String>,
         sync_max_count: Option<u32>,
         limit: u32,
         sync_logs: bool,
@@ -328,35 +329,37 @@ impl Client {
         let mut conversations = HashMap::new();
         let sync_max_count = sync_max_count.unwrap_or(0);
 
-        loop {
-            match store_ref.get_conversations(&last_updated_at, limit).await {
-                Ok(r) => {
-                    if r.items.is_empty() {
-                        break;
-                    }
-                    let item_len = r.items.len() as u32;
-                    r.items.iter().for_each(|c| {
-                        conversations.insert(c.topic_id.clone(), c.clone());
-                    });
-                    log::info!(
+        if category.is_some() {
+            loop {
+                match store_ref.get_conversations(&last_updated_at, limit).await {
+                    Ok(r) => {
+                        if r.items.is_empty() {
+                            break;
+                        }
+                        let item_len = r.items.len() as u32;
+                        r.items.iter().for_each(|c| {
+                            conversations.insert(c.topic_id.clone(), c.clone());
+                        });
+                        log::info!(
                         "sync conversations from local, item_len: {item_len} first_updated_at: {last_updated_at} has_more:{} limit: {limit} total:{}",
                         r.has_more,
                         conversations.len(),
                     );
 
-                    last_updated_at = r
-                        .items
-                        .last()
-                        .map(|c| c.updated_at.clone())
-                        .unwrap_or_default();
-                    if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
-                        cb.on_conversations_updated(r.items, None);
+                        last_updated_at = r
+                            .items
+                            .last()
+                            .map(|c| c.updated_at.clone())
+                            .unwrap_or_default();
+                        if let Some(cb) = store_ref.callback.read().unwrap().as_ref() {
+                            cb.on_conversations_updated(r.items, None);
+                        }
+                        if !r.has_more || item_len < limit {
+                            break;
+                        }
                     }
-                    if !r.has_more || item_len < limit {
-                        break;
-                    }
+                    Err(_) => break,
                 }
-                Err(_) => break,
             }
         }
 
@@ -373,6 +376,7 @@ impl Client {
                 &self.endpoint,
                 &self.token,
                 &updated_at,
+                category.as_deref(),
                 last_updated_at_remote.clone(),
                 last_removed_at.clone(),
                 offset,

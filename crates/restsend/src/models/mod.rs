@@ -52,6 +52,14 @@ pub struct ListUserResult {
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct ConversationCategory {
+    pub name: String,
+    pub total: i64,
+    pub unread: i64,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ListConversationResult {
     pub total: i64,
     pub has_more: bool,
@@ -65,6 +73,8 @@ pub struct ListConversationResult {
     pub last_updated_at: Option<String>,
     #[serde(default)]
     pub last_removed_at: Option<String>,
+    #[serde(default)]
+    pub categories: Vec<ConversationCategory>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

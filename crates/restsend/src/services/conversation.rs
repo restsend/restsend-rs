@@ -26,6 +26,7 @@ pub async fn get_conversations(
     endpoint: &str,
     token: &str,
     updated_at: &str,
+    category: Option<&str>,
     last_updated_at: Option<String>,
     last_removed_at: Option<String>,
     offset: u32,
@@ -35,6 +36,11 @@ pub async fn get_conversations(
         "offset": offset,
         "limit": limit,
     });
+    if let Some(category) = category {
+        if !category.is_empty() {
+            data["category"] = serde_json::json!(category);
+        }
+    }
     if !updated_at.is_empty() {
         data["updatedAt"] = serde_json::json!(updated_at);
     }

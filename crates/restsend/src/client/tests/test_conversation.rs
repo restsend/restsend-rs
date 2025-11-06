@@ -158,6 +158,7 @@ async fn test_sync_conversations() {
             None,
             None,
             None,
+            None,
             0,
             true,
             None,

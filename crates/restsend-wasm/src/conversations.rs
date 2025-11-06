@@ -95,6 +95,7 @@ impl Client {
     ///    * `syncLogsLimit` - sync logs limit, per conversation, default 100
     ///    * `syncLogsMaxCount` - sync logs max count, default 200
     ///    * `limit` - limit
+    ///    * `category` - category optional
     ///    * `updatedAt` String - updated_at optional
     ///    * `beforeUpdatedAt` String - before_updated_at optional
     ///    * `lastRemovedAt` String - last_removed_at optional
@@ -109,6 +110,7 @@ impl Client {
             .sync_conversations(
                 get_string(&option, "updatedAt"),
                 get_string(&option, "beforeUpdatedAt"),
+                get_string(&option, "category"),
                 Some(max_count),
                 limit,
                 get_bool(&option, "syncLogs"),
@@ -130,6 +132,7 @@ impl Client {
             .sync_conversations(
                 get_string(&option, "updatedAt"),
                 get_string(&option, "beforeUpdatedAt"),
+                get_string(&option, "category"),
                 Some(max_count),
                 limit,
                 get_bool(&option, "syncLogs"),
