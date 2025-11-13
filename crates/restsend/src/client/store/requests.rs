@@ -1,7 +1,6 @@
 use std::sync::atomic::Ordering;
 
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
-use crate::client::store::is_cache_expired;
 use crate::models::ChatLogStatus;
 use crate::utils::now_millis;
 use crate::{
@@ -16,6 +15,10 @@ impl ClientStore {
     pub async fn handle_outgoing(&self, outgoing_tx: UnboundedSender<ChatRequest>) {
         let (msg_tx, mut msg_rx) = unbounded_channel::<String>();
         self.msg_tx.write().unwrap().replace(msg_tx.clone());
+        self.msg_direct_tx
+            .write()
+            .unwrap()
+            .replace(outgoing_tx.clone());
 
         while let Some(chat_id) = msg_rx.recv().await {
             let outgoings = self.outgoings.read().unwrap();
@@ -115,13 +118,8 @@ impl ClientStore {
                         .get(&req.topic_id)
                         .copied()
                 };
-                if let Some(removed_at) = removed_at {
-                    if !is_cache_expired(
-                        removed_at,
-                        self.option
-                            .removed_conversation_cache_expire_secs
-                            .load(Ordering::Relaxed) as i64,
-                    ) {
+                if let Some((_, removed_seq)) = removed_at {
+                    if req.seq > 0 && req.seq <= removed_seq {
                         return resps;
                     }
                     match self.removed_conversations.try_write() {
@@ -179,7 +177,8 @@ impl ClientStore {
                     None => {
                         match self.removed_conversations.try_write() {
                             Ok(mut removed_conversations) => {
-                                removed_conversations.insert(topic_id.to_string(), now_millis());
+                                removed_conversations
+                                    .insert(topic_id.to_string(), (now_millis(), req.seq));
                             }
                             Err(_) => {}
                         }
@@ -235,11 +234,19 @@ impl ClientStore {
         req: ChatRequest,
         callback: Option<Box<dyn MessageCallback>>,
     ) {
-        let chat_id = req.chat_id.clone();
-        let pending_request = PendingRequest::new(req, callback, self.option.clone());
-        match ChatRequestType::from(&pending_request.req.req_type) {
-            ChatRequestType::Typing | ChatRequestType::Read => {}
+        match ChatRequestType::from(&req.req_type) {
+            ChatRequestType::Typing | ChatRequestType::Read => {
+                let outgoing_tx = self.msg_direct_tx.read().unwrap();
+                match outgoing_tx.as_ref() {
+                    Some(tx) => {
+                        tx.send(req).ok();
+                    }
+                    None => {}
+                }
+            }
             _ => {
+                let chat_id = req.chat_id.clone();
+                let pending_request = PendingRequest::new(req, callback, self.option.clone());
                 // save to db
                 if let Err(e) = self.save_outgoing_chat_log(&pending_request.req).await {
                     warn!(

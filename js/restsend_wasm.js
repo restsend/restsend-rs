@@ -286,11 +286,11 @@ export function logout(endpoint, token) {
 }
 
 function __wbg_adapter_54(arg0, arg1, arg2) {
-    wasm.closure546_externref_shim(arg0, arg1, arg2);
+    wasm.closure545_externref_shim(arg0, arg1, arg2);
 }
 
 function __wbg_adapter_57(arg0, arg1) {
-    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__h17e13574824f55c5(arg0, arg1);
+    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hbeba327db7cd15b7(arg0, arg1);
 }
 
 function __wbg_adapter_66(arg0, arg1, arg2) {
@@ -510,6 +510,447 @@ export class Client {
      */
     connect() {
         const ret = wasm.client_connect(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Create a new topic
+     * #Arguments
+     *   name: String,
+     *  icon: String,
+     * #Return
+     * * `Topic` || `undefined`
+     * @param {string[]} members
+     * @param {string | null} [name]
+     * @param {string | null} [icon]
+     * @returns {Promise<any>}
+     */
+    createTopic(members, name, icon) {
+        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Join a topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `message` - message
+     * * `source` - source
+     * @param {string} topicId
+     * @param {string | null} [message]
+     * @param {string | null} [source]
+     * @returns {Promise<void>}
+     */
+    joinTopic(topicId, message, source) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Add user into topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * #Return
+     * * `TopicMember` || `undefined`
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<any>}
+     */
+    addMember(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Get topic info
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Topic` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Get topic admins
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Vec<User>` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicAdmins(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Get topic owner
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `User` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicOwner(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Get topic members
+     * #Arguments
+     * * `topicId` - topic id
+     * * `updatedAt` - updated_at
+     * * `limit` - limit
+     * #Return
+     * * `ListUserResult` || `undefined`
+     * @param {string} topicId
+     * @param {string} updatedAt
+     * @param {number} limit
+     * @returns {Promise<any>}
+     */
+    getTopicMembers(topicId, updatedAt, limit) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
+        return ret;
+    }
+    /**
+     * Get topic knocks
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Vec<TopicKnock>`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicKnocks(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Update topic info
+     * #Arguments
+     * * `topicId` - topic id
+     * * `option` - option
+     *     * `name` - String
+     *     * `icon` - String (url) or base64
+     * @param {string} topicId
+     * @param {any} option
+     * @returns {Promise<void>}
+     */
+    updateTopic(topicId, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, option);
+        return ret;
+    }
+    /**
+     * Update topic notice
+     * #Arguments
+     * * `topicId` - topic id
+     * * `text` - notice text
+     * @param {string} topicId
+     * @param {string} text
+     * @returns {Promise<void>}
+     */
+    updateTopicNotice(topicId, text) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Silence topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+     * @param {string} topicId
+     * @param {string | null} [duration]
+     * @returns {Promise<void>}
+     */
+    silentTopic(topicId, duration) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Silent topic member
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [duration]
+     * @returns {Promise<void>}
+     */
+    silentTopicMember(topicId, userId, duration) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Add topic admin
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    addTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Remove topic admin
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    removeTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Transfer topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id to transfer, the user must be a topic member
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    transferTopic(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Quit topic
+     * #Arguments
+     * * `topicId` - topic id
+     * @param {string} topicId
+     * @returns {Promise<void>}
+     */
+    quitTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Dismiss topic
+     * #Arguments
+     * * `topicId` - topic id
+     * @param {string} topicId
+     * @returns {Promise<void>}
+     */
+    dismissTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Accept topic join
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `memo` - accept memo
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [memo]
+     * @returns {Promise<void>}
+     */
+    acceptTopicJoin(topicId, userId, memo) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Decline topic join
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `message` - decline message
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [message]
+     * @returns {Promise<void>}
+     */
+    declineTopicJoin(topicId, userId, message) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Remove topic member
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    removeTopicMember(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Get user info
+     * #Arguments
+     * * `userId` - user id
+     * * `blocking` - blocking fetch from server
+     * #Return
+     * User info
+     * @param {string} userId
+     * @param {boolean | null} [blocking]
+     * @returns {Promise<any>}
+     */
+    getUser(userId, blocking) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
+        return ret;
+    }
+    /**
+     * Get multiple users info
+     * #Arguments
+     * * `userIds` - Array of user id
+     * #Return
+     * Array of user info
+     * @param {string[]} userIds
+     * @returns {Promise<any>}
+     */
+    getUsers(userIds) {
+        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Set user remark name
+     * #Arguments
+     * * `userId` - user id
+     * * `remark` - remark name
+     * @param {string} userId
+     * @param {string} remark
+     * @returns {Promise<void>}
+     */
+    setUserRemark(userId, remark) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Set user star
+     * #Arguments
+     * * `userId` - user id
+     * * `star` - star
+     * @param {string} userId
+     * @param {boolean} star
+     * @returns {Promise<void>}
+     */
+    setUserStar(userId, star) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
+        return ret;
+    }
+    /**
+     * Set user block
+     * #Arguments
+     * * `userId` - user id
+     * * `block` - block
+     * @param {string} userId
+     * @param {boolean} block
+     * @returns {Promise<void>}
+     */
+    setUserBlock(userId, block) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
+        return ret;
+    }
+    /**
+     * Set allow guest chat
+     * #Arguments
+     * * `allow` - allow
+     * @param {boolean} allow
+     * @returns {Promise<void>}
+     */
+    setAllowGuestChat(allow) {
+        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return ret;
     }
     /**
@@ -1302,447 +1743,6 @@ export class Client {
      */
     filterConversation(predicate, lastUpdatedAt, limit) {
         const ret = wasm.client_filterConversation(this.__wbg_ptr, predicate, lastUpdatedAt, limit);
-        return ret;
-    }
-    /**
-     * Create a new topic
-     * #Arguments
-     *   name: String,
-     *  icon: String,
-     * #Return
-     * * `Topic` || `undefined`
-     * @param {string[]} members
-     * @param {string | null} [name]
-     * @param {string | null} [icon]
-     * @returns {Promise<any>}
-     */
-    createTopic(members, name, icon) {
-        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Join a topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `message` - message
-     * * `source` - source
-     * @param {string} topicId
-     * @param {string | null} [message]
-     * @param {string | null} [source]
-     * @returns {Promise<void>}
-     */
-    joinTopic(topicId, message, source) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Add user into topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * #Return
-     * * `TopicMember` || `undefined`
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<any>}
-     */
-    addMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Get topic info
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Topic` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic admins
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Vec<User>` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicAdmins(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic owner
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `User` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicOwner(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic members
-     * #Arguments
-     * * `topicId` - topic id
-     * * `updatedAt` - updated_at
-     * * `limit` - limit
-     * #Return
-     * * `ListUserResult` || `undefined`
-     * @param {string} topicId
-     * @param {string} updatedAt
-     * @param {number} limit
-     * @returns {Promise<any>}
-     */
-    getTopicMembers(topicId, updatedAt, limit) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
-        return ret;
-    }
-    /**
-     * Get topic knocks
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Vec<TopicKnock>`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicKnocks(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Update topic info
-     * #Arguments
-     * * `topicId` - topic id
-     * * `option` - option
-     *     * `name` - String
-     *     * `icon` - String (url) or base64
-     * @param {string} topicId
-     * @param {any} option
-     * @returns {Promise<void>}
-     */
-    updateTopic(topicId, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, option);
-        return ret;
-    }
-    /**
-     * Update topic notice
-     * #Arguments
-     * * `topicId` - topic id
-     * * `text` - notice text
-     * @param {string} topicId
-     * @param {string} text
-     * @returns {Promise<void>}
-     */
-    updateTopicNotice(topicId, text) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Silence topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-     * @param {string} topicId
-     * @param {string | null} [duration]
-     * @returns {Promise<void>}
-     */
-    silentTopic(topicId, duration) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Silent topic member
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [duration]
-     * @returns {Promise<void>}
-     */
-    silentTopicMember(topicId, userId, duration) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Add topic admin
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    addTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Remove topic admin
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    removeTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Transfer topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id to transfer, the user must be a topic member
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    transferTopic(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Quit topic
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    quitTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Dismiss topic
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    dismissTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Accept topic join
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `memo` - accept memo
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [memo]
-     * @returns {Promise<void>}
-     */
-    acceptTopicJoin(topicId, userId, memo) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Decline topic join
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `message` - decline message
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [message]
-     * @returns {Promise<void>}
-     */
-    declineTopicJoin(topicId, userId, message) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Remove topic member
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    removeTopicMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Get user info
-     * #Arguments
-     * * `userId` - user id
-     * * `blocking` - blocking fetch from server
-     * #Return
-     * User info
-     * @param {string} userId
-     * @param {boolean | null} [blocking]
-     * @returns {Promise<any>}
-     */
-    getUser(userId, blocking) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
-        return ret;
-    }
-    /**
-     * Get multiple users info
-     * #Arguments
-     * * `userIds` - Array of user id
-     * #Return
-     * Array of user info
-     * @param {string[]} userIds
-     * @returns {Promise<any>}
-     */
-    getUsers(userIds) {
-        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Set user remark name
-     * #Arguments
-     * * `userId` - user id
-     * * `remark` - remark name
-     * @param {string} userId
-     * @param {string} remark
-     * @returns {Promise<void>}
-     */
-    setUserRemark(userId, remark) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Set user star
-     * #Arguments
-     * * `userId` - user id
-     * * `star` - star
-     * @param {string} userId
-     * @param {boolean} star
-     * @returns {Promise<void>}
-     */
-    setUserStar(userId, star) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
-        return ret;
-    }
-    /**
-     * Set user block
-     * #Arguments
-     * * `userId` - user id
-     * * `block` - block
-     * @param {string} userId
-     * @param {boolean} block
-     * @returns {Promise<void>}
-     */
-    setUserBlock(userId, block) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
-        return ret;
-    }
-    /**
-     * Set allow guest chat
-     * #Arguments
-     * * `allow` - allow
-     * @param {boolean} allow
-     * @returns {Promise<void>}
-     */
-    setAllowGuestChat(allow) {
-        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return ret;
     }
 }
@@ -2689,26 +2689,26 @@ function __wbg_get_imports() {
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1138 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
+        const ret = makeMutClosure(arg0, arg1, 546, __wbg_adapter_54);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1139 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_57);
+        const ret = makeMutClosure(arg0, arg1, 546, __wbg_adapter_57);
         return ret;
     };
     imports.wbg.__wbindgen_closure_wrapper1140 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
+        const ret = makeMutClosure(arg0, arg1, 546, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1141 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1142 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 546, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper1143 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 547, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1145 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 546, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper2282 = function(arg0, arg1, arg2) {
+    imports.wbg.__wbindgen_closure_wrapper2281 = function(arg0, arg1, arg2) {
         const ret = makeMutClosure(arg0, arg1, 775, __wbg_adapter_66);
         return ret;
     };

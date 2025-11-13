@@ -142,7 +142,7 @@ impl Default for ClientOption {
             media_progress_interval: AtomicUsize::new(300),
             conversation_cache_expire_secs: AtomicUsize::new(60),
             user_cache_expire_secs: AtomicUsize::new(60),
-            removed_conversation_cache_expire_secs: AtomicUsize::new(1),
+            removed_conversation_cache_expire_secs: AtomicUsize::new(5), // 5 seconds
             ping_timeout_secs: AtomicUsize::new(5),
         }
     }
@@ -160,7 +160,8 @@ pub struct ClientStore {
     outgoings: PendingRequests,
     upload_tasks: RwLock<HashMap<String, Arc<UploadTask>>>,
     msg_tx: RwLock<Option<UnboundedSender<String>>>,
-    removed_conversations: RwLock<HashMap<String, i64>>,
+    msg_direct_tx: RwLock<Option<UnboundedSender<ChatRequest>>>,
+    removed_conversations: RwLock<HashMap<String, (i64 /* removed_at */, i64 /* seq */)>>,
     pub(crate) message_storage: Arc<Storage>,
     pub(crate) callback: CallbackRef,
     pub(crate) countable_callback: CountableCallbackRef,
@@ -185,6 +186,7 @@ impl ClientStore {
             outgoings: Arc::new(RwLock::new(HashMap::new())),
             upload_tasks: RwLock::new(HashMap::new()),
             msg_tx: RwLock::new(None),
+            msg_direct_tx: RwLock::new(None),
             removed_conversations: RwLock::new(HashMap::new()),
             message_storage: Arc::new(Storage::new(db_path)),
             callback: Arc::new(RwLock::new(None)),
@@ -230,7 +232,7 @@ impl ClientStore {
     pub(crate) fn process_removed_conversations(&self) {
         match self.removed_conversations.try_write() {
             Ok(mut removed_conversations) => {
-                removed_conversations.retain(|_, removed_at| {
+                removed_conversations.retain(|_, (removed_at, _)| {
                     !is_cache_expired(
                         *removed_at,
                         self.option
