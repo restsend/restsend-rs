@@ -1,6 +1,6 @@
 [package]
 name = "restsend-wasm"
-version = "1.2.24"
+version = "1.2.25"
 edition = "2021"
 description = "Restsend  Instant Messaging Javascript/Wasm SDK"
 authors = ["Restsend Team <kui@fourz.cn>"]

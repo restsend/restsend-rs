@@ -85,6 +85,7 @@ pub struct Conversation {
     pub source: String,
 
     #[serde(default)]
+    #[serde(alias = "unreadCount")]
     pub unread: i64,
 
     #[serde(skip_serializing_if = "String::is_empty")]
@@ -142,6 +143,95 @@ impl Conversation {
             ..Default::default()
         }
     }
+
+    pub fn merge_local_read_state(&mut self, local: &Conversation) {
+        if local.last_read_seq > self.last_read_seq {
+            self.last_read_seq = local.last_read_seq;
+            self.last_read_at = local.last_read_at.clone();
+            self.unread = local.unread;
+        } else if local.last_read_seq == self.last_read_seq
+            && self.last_read_at.is_none()
+            && local.last_read_at.is_some()
+        {
+            self.last_read_at = local.last_read_at.clone();
+        }
+
+        if self.last_read_at.is_none() && local.last_read_at.is_some() {
+            self.last_read_at = local.last_read_at.clone();
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Conversation, Topic};
+
+    #[test]
+    fn merge_local_prefers_newer_local_state() {
+        let mut remote = Conversation {
+            last_seq: 120,
+            last_read_seq: 40,
+            unread: 80,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            last_read_seq: 80,
+            last_read_at: Some("2024-01-01T00:00:00Z".to_string()),
+            unread: 0,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.last_read_seq, 80);
+        assert_eq!(remote.last_read_at, local.last_read_at);
+        assert_eq!(remote.unread, 0);
+    }
+
+    #[test]
+    fn merge_local_keeps_remote_state_when_newer() {
+        let mut remote = Conversation {
+            last_read_seq: 90,
+            unread: 5,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            last_read_seq: 80,
+            last_read_at: Some("2024-01-02T00:00:00Z".to_string()),
+            unread: 1,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.last_read_seq, 90);
+        assert_eq!(remote.unread, 5);
+        assert_eq!(
+            remote.last_read_at,
+            Some("2024-01-02T00:00:00Z".to_string())
+        );
+    }
+
+    #[test]
+    fn conversation_from_topic_copies_topic_owner() {
+        let topic = Topic {
+            id: "topic-id".to_string(),
+            owner_id: "owner-1".to_string(),
+            created_at: "2024-01-01T00:00:00Z".to_string(),
+            ..Topic::default()
+        };
+
+        let conversation = Conversation::from(&topic);
+
+        assert_eq!(conversation.owner_id, "owner-1");
+        assert_eq!(conversation.topic_owner_id.as_deref(), Some("owner-1"));
+        assert_eq!(
+            conversation.topic_created_at.as_deref(),
+            Some("2024-01-01T00:00:00Z")
+        );
+    }
 }
 
 impl FromStr for Conversation {
@@ -190,6 +280,16 @@ impl From<&Topic> for Conversation {
             name: topic.name.clone(),
             icon: topic.icon.clone(),
             attendee: topic.attendee_id.clone(),
+            topic_owner_id: if topic.owner_id.is_empty() {
+                None
+            } else {
+                Some(topic.owner_id.clone())
+            },
+            topic_created_at: if topic.created_at.is_empty() {
+                None
+            } else {
+                Some(topic.created_at.clone())
+            },
             is_partial: false,
             ..Default::default()
         }

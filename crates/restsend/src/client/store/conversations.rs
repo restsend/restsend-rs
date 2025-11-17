@@ -6,7 +6,7 @@ use crate::{
         ChatLog, ChatLogStatus, Content, ContentType, Conversation,
     },
     request::ChatRequest,
-    services::conversation::*,
+    services::{conversation::*, topic::get_topic},
     storage::{QueryOption, QueryResult, Storage, StoreModel, Table, ValueItem},
     utils::{elapsed, now_millis},
 };
@@ -30,9 +30,7 @@ pub(crate) async fn merge_conversation(
         if old_conversation.last_message_seq != conversation.last_message_seq {
             sync_last_readable = true;
         }
-        conversation.last_read_at = old_conversation.last_read_at;
-        conversation.last_read_seq = old_conversation.last_read_seq;
-        conversation.unread = old_conversation.unread;
+        conversation.merge_local_read_state(&old_conversation);
     }
 
     if sync_last_readable {
@@ -182,6 +180,7 @@ impl ClientStore {
             conversation.unread = 0;
         }
 
+        self.ensure_topic_owner_id(&mut conversation).await;
         conversation.cached_at = now_millis();
         t.set("", &conversation.topic_id, Some(&conversation))
             .await
@@ -203,8 +202,9 @@ impl ClientStore {
                 if let Some(topic_created_at) = conversation.topic_created_at.as_ref() {
                     let old_conversation_created_at = old_conversation
                         .topic_created_at
+                        .as_ref()
                         .map(|v| {
-                            chrono::DateTime::parse_from_rfc3339(&v)
+                            chrono::DateTime::parse_from_rfc3339(v)
                                 .map(|v| v.timestamp_millis())
                                 .unwrap_or(0)
                         })
@@ -220,9 +220,7 @@ impl ClientStore {
                     }
                 }
 
-                conversation.last_read_at = old_conversation.last_read_at;
-                conversation.last_read_seq = old_conversation.last_read_seq;
-                conversation.unread = old_conversation.unread;
+                conversation.merge_local_read_state(&old_conversation);
             }
 
             if let Some(log) = get_conversation_last_readable_message(
@@ -237,6 +235,7 @@ impl ClientStore {
                 conversation.last_message_seq = Some(log.seq);
             }
 
+            self.ensure_topic_owner_id(&mut conversation).await;
             conversation.is_partial = false;
             conversation.cached_at = now;
             results.push(ValueItem {
@@ -264,7 +263,12 @@ impl ClientStore {
     }
 
     pub async fn update_conversation(&self, conversation: Conversation) -> Result<Conversation> {
-        merge_conversation(self.message_storage.clone(), conversation).await
+        let mut conversation =
+            merge_conversation(self.message_storage.clone(), conversation).await?;
+        if self.ensure_topic_owner_id(&mut conversation).await {
+            self.persist_conversation(&conversation).await;
+        }
+        Ok(conversation)
     }
 
     pub async fn set_conversation_remark(
@@ -281,7 +285,10 @@ impl ClientStore {
         }
 
         let c = set_conversation_remark(&self.endpoint, &self.token, &topic_id, remark).await?;
-        let c = merge_conversation(self.message_storage.clone(), c).await?;
+        let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        if self.ensure_topic_owner_id(&mut c).await {
+            self.persist_conversation(&c).await;
+        }
         self.emit_conversation_update(c)
     }
 
@@ -299,7 +306,10 @@ impl ClientStore {
         }
 
         let c = set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky).await?;
-        let c = merge_conversation(self.message_storage.clone(), c).await?;
+        let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        if self.ensure_topic_owner_id(&mut c).await {
+            self.persist_conversation(&c).await;
+        }
         self.emit_conversation_update(c)
     }
 
@@ -313,7 +323,10 @@ impl ClientStore {
         }
 
         let c = set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute).await?;
-        let c = merge_conversation(self.message_storage.clone(), c).await?;
+        let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        if self.ensure_topic_owner_id(&mut c).await {
+            self.persist_conversation(&c).await;
+        }
         self.emit_conversation_update(c)
     }
 
@@ -393,7 +406,10 @@ impl ClientStore {
             "tags": tags.unwrap_or_default(),
         });
         let c = update_conversation(&self.endpoint, &self.token, &topic_id, &values).await?;
-        let c = merge_conversation(self.message_storage.clone(), c).await?;
+        let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        if self.ensure_topic_owner_id(&mut c).await {
+            self.persist_conversation(&c).await;
+        }
         self.emit_conversation_update(c)
     }
 
@@ -415,7 +431,10 @@ impl ClientStore {
         });
 
         let c = update_conversation(&self.endpoint, &self.token, &topic_id, &values).await?;
-        let c = merge_conversation(self.message_storage.clone(), c).await?;
+        let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        if self.ensure_topic_owner_id(&mut c).await {
+            self.persist_conversation(&c).await;
+        }
         self.emit_conversation_update(c)
     }
 
@@ -538,6 +557,7 @@ impl ClientStore {
                         new_conversation.last_read_seq = conversation.last_read_seq;
                         new_conversation.unread = conversation.unread;
                     }
+                    self.ensure_topic_owner_id(&mut new_conversation).await;
                     let t = self.message_storage.table::<Conversation>().await;
                     t.set("", &new_conversation.topic_id, Some(&new_conversation))
                         .await
@@ -918,6 +938,76 @@ impl ClientStore {
         }
     }
 
+    async fn persist_conversation(&self, conversation: &Conversation) {
+        let t = self.message_storage.table::<Conversation>().await;
+        t.set("", &conversation.topic_id, Some(conversation))
+            .await
+            .ok();
+    }
+
+    fn get_cached_topic_owner(&self, topic_id: &str) -> Option<String> {
+        self.topic_owner_cache
+            .read()
+            .ok()
+            .and_then(|cache| cache.get(topic_id).cloned())
+            .and_then(|(owner_id, cached_at)| {
+                if is_cache_expired(
+                    cached_at,
+                    self.option
+                        .topic_owner_cache_expire_secs
+                        .load(Ordering::Relaxed) as i64,
+                ) {
+                    None
+                } else {
+                    Some(owner_id)
+                }
+            })
+    }
+
+    fn cache_topic_owner(&self, topic_id: &str, owner_id: &str) {
+        if owner_id.is_empty() {
+            return;
+        }
+        if let Ok(mut cache) = self.topic_owner_cache.write() {
+            cache.insert(topic_id.to_string(), (owner_id.to_string(), now_millis()));
+        }
+    }
+
+    async fn ensure_topic_owner_id(&self, conversation: &mut Conversation) -> bool {
+        if !conversation.multiple {
+            return false;
+        }
+
+        if let Some(owner_id) = conversation.topic_owner_id.as_ref() {
+            self.cache_topic_owner(&conversation.topic_id, owner_id);
+            return false;
+        }
+
+        if let Some(owner_id) = self.get_cached_topic_owner(&conversation.topic_id) {
+            conversation.topic_owner_id = Some(owner_id);
+            return true;
+        }
+
+        match get_topic(&self.endpoint, &self.token, &conversation.topic_id).await {
+            Ok(topic) => {
+                if !topic.owner_id.is_empty() {
+                    self.cache_topic_owner(&conversation.topic_id, &topic.owner_id);
+                    conversation.topic_owner_id = Some(topic.owner_id.clone());
+                    if conversation.topic_created_at.is_none() && !topic.created_at.is_empty() {
+                        conversation.topic_created_at = Some(topic.created_at.clone());
+                    }
+                    return true;
+                }
+            }
+            Err(err) => warn!(
+                "ensure_topic_owner_id failed to fetch topic {}: {:?}",
+                conversation.topic_id, err
+            ),
+        }
+
+        false
+    }
+
     pub async fn get_conversations(
         &self,
         updated_at: &str,
@@ -945,6 +1035,7 @@ impl ClientStore {
             },
         };
 
+        let mut updated_topic_owner = Vec::new();
         for conversation in &mut result.items {
             if let Some(log) = get_conversation_last_readable_message(
                 self.message_storage.clone(),
@@ -957,6 +1048,18 @@ impl ClientStore {
                 conversation.last_sender_id = log.sender_id;
                 conversation.last_message_seq = Some(log.seq);
             }
+
+            if self.ensure_topic_owner_id(conversation).await {
+                updated_topic_owner.push(conversation.clone());
+            }
+        }
+
+        if !updated_topic_owner.is_empty() {
+            for conversation in updated_topic_owner.iter() {
+                t.set("", &conversation.topic_id, Some(conversation))
+                    .await
+                    .ok();
+            }
         }
         Ok(result)
     }
@@ -968,8 +1071,28 @@ impl ClientStore {
         limit: Option<u32>,
     ) -> Option<Vec<Conversation>> {
         let t = self.message_storage.readonly_table().await;
-        t.filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
-            .await
+        let mut conversations = t
+            .filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
+            .await?;
+
+        let mut updated_topic_owner = Vec::new();
+        for conversation in conversations.iter_mut() {
+            if self.ensure_topic_owner_id(conversation).await {
+                updated_topic_owner.push(conversation.clone());
+            }
+        }
+
+        if !updated_topic_owner.is_empty() {
+            let table = self.message_storage.table::<Conversation>().await;
+            for conversation in updated_topic_owner.iter() {
+                table
+                    .set("", &conversation.topic_id, Some(conversation))
+                    .await
+                    .ok();
+            }
+        }
+
+        Some(conversations)
     }
 
     pub async fn get_unread_count(&self) -> u32 {

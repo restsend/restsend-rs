@@ -120,6 +120,7 @@ pub struct ClientOption {
     pub media_progress_interval: AtomicUsize,
     pub conversation_cache_expire_secs: AtomicUsize,
     pub user_cache_expire_secs: AtomicUsize,
+    pub topic_owner_cache_expire_secs: AtomicUsize,
     pub removed_conversation_cache_expire_secs: AtomicUsize,
     pub ping_timeout_secs: AtomicUsize,
 }
@@ -142,6 +143,7 @@ impl Default for ClientOption {
             media_progress_interval: AtomicUsize::new(300),
             conversation_cache_expire_secs: AtomicUsize::new(60),
             user_cache_expire_secs: AtomicUsize::new(60),
+            topic_owner_cache_expire_secs: AtomicUsize::new(5 * 60),
             removed_conversation_cache_expire_secs: AtomicUsize::new(5), // 5 seconds
             ping_timeout_secs: AtomicUsize::new(5),
         }
@@ -167,6 +169,7 @@ pub struct ClientStore {
     pub(crate) countable_callback: CountableCallbackRef,
     incoming_logs: RwLock<HashMap<String, Vec<String>>>,
     pending_conversations: Mutex<HashSet<String>>,
+    topic_owner_cache: RwLock<HashMap<String, (String, i64)>>,
     pub option: ClientOptionRef,
 }
 
@@ -193,6 +196,7 @@ impl ClientStore {
             countable_callback: Arc::new(RwLock::new(None)),
             incoming_logs: RwLock::new(HashMap::new()),
             pending_conversations: Mutex::new(HashSet::new()),
+            topic_owner_cache: RwLock::new(HashMap::new()),
             option: Arc::new(ClientOption::default()),
         }
     }
