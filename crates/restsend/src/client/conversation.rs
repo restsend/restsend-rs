@@ -666,6 +666,15 @@ impl Client {
 
 impl Client {
     async fn batch_build_unreads(&self, conversations: &mut Vec<Conversation>) {
+        if !self
+            .store
+            .option
+            .build_local_unreadable
+            .load(Ordering::Relaxed)
+        {
+            return;
+        }
+
         let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
         let mut stored_conversations = vec![];
         let st = now_millis();

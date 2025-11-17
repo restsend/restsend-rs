@@ -9,7 +9,7 @@ use crate::{
 };
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicI64, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::Mutex;
 use std::{
     collections::{HashMap, VecDeque},
@@ -123,6 +123,7 @@ pub struct ClientOption {
     pub topic_owner_cache_expire_secs: AtomicUsize,
     pub removed_conversation_cache_expire_secs: AtomicUsize,
     pub ping_timeout_secs: AtomicUsize,
+    pub build_local_unreadable: AtomicBool,
 }
 
 impl Default for ClientOption {
@@ -146,6 +147,7 @@ impl Default for ClientOption {
             topic_owner_cache_expire_secs: AtomicUsize::new(5 * 60),
             removed_conversation_cache_expire_secs: AtomicUsize::new(5), // 5 seconds
             ping_timeout_secs: AtomicUsize::new(5),
+            build_local_unreadable: AtomicBool::new(false),
         }
     }
 }

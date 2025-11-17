@@ -233,6 +233,16 @@ impl Client {
             .ping_timeout_secs
             .store(secs as usize, Ordering::Relaxed);
     }
+    // set build local unreadable
+    // default is false
+    #[wasm_bindgen(setter)]
+    pub fn set_build_local_unreadable(&self, value: bool) {
+        self.inner
+            .store
+            .option
+            .build_local_unreadable
+            .store(value, Ordering::Relaxed);
+    }
 
     pub async fn shutdown(&self) {
         self.inner.shutdown().await
