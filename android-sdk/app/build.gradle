@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.Exec
+
 plugins {
     id 'com.android.library'
     //alias(libs.plugins.android.application)
@@ -19,7 +21,7 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -42,41 +44,38 @@ dependencies {
     androidTestImplementation libs.androidx.espresso.core   
 }
 
+def cargoTomlFile = layout.projectDirectory.file('../../crates/restsend/Cargo.toml')
+def cargoVersionProvider = providers.fileContents(cargoTomlFile).asText.map { text ->
+    def m = text =~ /version\s*=\s*"(.+?)"/
+    if (m) m[0][1] else throw new GradleException("Version not found in Cargo.toml")
+}
 
-
-task getCargoVersion {
+tasks.register('getCargoVersion') {
+    inputs.file(cargoTomlFile)
+    outputs.upToDateWhen { false }
     doLast {
-        def cargoToml = file('../../crates/restsend/Cargo.toml')
-        def cargoContent = cargoToml.text
-        def versionMatcher = cargoContent =~ /version\s*=\s*"(.*)"/
-        if (versionMatcher) {
-            def version = versionMatcher[0][1]
-            println "Cargo.toml version: $version"
-            project.ext.cargoVersion = version
-        } else {
-            throw "Version not found in Cargo.toml"
-        }
+        logger.lifecycle("Cargo.toml version: ${cargoVersionProvider.get()}")
     }
 }
 
-task scpAar {
-    dependsOn getCargoVersion
-    dependsOn tasks.named('assemble')
-    doLast {
-        def aarFile = file("build/outputs/aar/app-release.aar")
-        if (!aarFile.exists()) {
-            throw "AAR file not found: ${aarFile}"
-        }
-        def version = project.ext.cargoVersion
-        def targetFileName = "restsend-sdk-${version}.aar"
-        def targetFilePath = "ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/${targetFileName}"
-        println "Copying build/outputs/aar/app-release.aar to ${targetFilePath}"
-        exec {
-            commandLine 'rsync', "-avz", aarFile.absolutePath, targetFilePath
-        }
-    }
-}
+tasks.register('buildAndDeploy', Exec) {
+    dependsOn('assemble', 'getCargoVersion')
 
-task buildAndDeploy {
-    dependsOn scpAar
+    // lazily locate the release AAR
+    def aarFile = layout.buildDirectory.file('outputs/aar/app-release.aar')
+
+    inputs.file(aarFile)
+    inputs.file(cargoTomlFile)
+
+    doFirst {
+        def resolvedAar = aarFile.get().asFile
+        if (!resolvedAar.exists()) {
+            throw new GradleException("AAR file not found: $resolvedAar")
+        }
+        def version = cargoVersionProvider.get()
+        def targetPath = "ubuntu@chat.ruzhila.cn:/var/www/chat/downloads/restsend-sdk-${version}.aar"
+
+        commandLine('rsync', '-az', resolvedAar.absolutePath, targetPath)
+        println "Copying ${resolvedAar.absolutePath} to ${targetPath}"
+    }
 }

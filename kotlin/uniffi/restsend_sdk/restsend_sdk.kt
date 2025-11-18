@@ -719,7 +719,7 @@ internal interface UniffiCallbackInterfaceRsCallbackMethod9 : com.sun.jna.Callba
     fun callback(`uniffiHandle`: Long,`topicId`: RustBuffer.ByValue,`message`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceRsCallbackMethod10 : com.sun.jna.Callback {
-    fun callback(`uniffiHandle`: Long,`conversations`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+    fun callback(`uniffiHandle`: Long,`conversations`: RustBuffer.ByValue,`total`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceRsCallbackMethod11 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`conversationId`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
@@ -731,7 +731,7 @@ internal interface UniffiCallbackInterfaceSyncChatLogsCallbackMethod1 : com.sun.
     fun callback(`uniffiHandle`: Long,`e`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceSyncConversationsCallbackMethod0 : com.sun.jna.Callback {
-    fun callback(`uniffiHandle`: Long,`updatedAt`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`count`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+    fun callback(`uniffiHandle`: Long,`updatedAt`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`count`: Int,`total`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
 internal interface UniffiCallbackInterfaceSyncConversationsCallbackMethod1 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`e`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
@@ -1179,6 +1179,10 @@ internal open class UniffiVTableCallbackInterfaceUploadCallback(
 
 
 
+
+
+
+
 // For large crates we prevent `MethodTooLargeException` (see #2340)
 // N.B. the name of the extension is very misleading, since it is 
 // rather `InterfaceTooLargeException`, caused by too many methods 
@@ -1237,6 +1241,8 @@ fun uniffi_restsend_sdk_checksum_method_client_create_topic(
 fun uniffi_restsend_sdk_checksum_method_client_decline_topic_join(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_dismiss_topic(
+): Short
+fun uniffi_restsend_sdk_checksum_method_client_do_ping(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_do_read(
 ): Short
@@ -1346,7 +1352,9 @@ fun uniffi_restsend_sdk_checksum_method_client_silent_topic(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_silent_topic_member(
 ): Short
-fun uniffi_restsend_sdk_checksum_method_client_sync_chat_logs(
+fun uniffi_restsend_sdk_checksum_method_client_sync_chat_logs_heavy(
+): Short
+fun uniffi_restsend_sdk_checksum_method_client_sync_chat_logs_quick(
 ): Short
 fun uniffi_restsend_sdk_checksum_method_client_sync_conversations(
 ): Short
@@ -1504,6 +1512,8 @@ fun uniffi_restsend_sdk_fn_method_client_decline_topic_join(`ptr`: Pointer,`topi
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_dismiss_topic(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,
 ): Long
+fun uniffi_restsend_sdk_fn_method_client_do_ping(`ptr`: Pointer,`content`: RustBuffer.ByValue,`callback`: RustBuffer.ByValue,
+): Long
 fun uniffi_restsend_sdk_fn_method_client_do_read(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_do_recall(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`chatId`: RustBuffer.ByValue,`callback`: RustBuffer.ByValue,
@@ -1534,11 +1544,11 @@ fun uniffi_restsend_sdk_fn_method_client_do_update_extra(`ptr`: Pointer,`topicId
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_download_file(`ptr`: Pointer,`fileUrl`: RustBuffer.ByValue,`callback`: Long,
 ): Long
-fun uniffi_restsend_sdk_fn_method_client_fetch_chat_logs_desc(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`lastSeq`: RustBuffer.ByValue,`limit`: Int,
+fun uniffi_restsend_sdk_fn_method_client_fetch_chat_logs_desc(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`lastSeq`: RustBuffer.ByValue,`limit`: Int,`callback`: Long,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_chat_log(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`chatId`: RustBuffer.ByValue,
 ): Long
-fun uniffi_restsend_sdk_fn_method_client_get_conversation(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`blocking`: Byte,
+fun uniffi_restsend_sdk_fn_method_client_get_conversation(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_get_last_alive_at(`ptr`: Pointer,uniffi_out_err: UniffiRustCallStatus, 
 ): Long
@@ -1612,9 +1622,11 @@ fun uniffi_restsend_sdk_fn_method_client_silent_topic(`ptr`: Pointer,`topicId`: 
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_silent_topic_member(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`userId`: RustBuffer.ByValue,`duration`: RustBuffer.ByValue,
 ): Long
-fun uniffi_restsend_sdk_fn_method_client_sync_chat_logs(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`lastSeq`: RustBuffer.ByValue,`limit`: Int,`callback`: Long,`ensureConversationLastVersion`: RustBuffer.ByValue,
+fun uniffi_restsend_sdk_fn_method_client_sync_chat_logs_heavy(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`lastSeq`: RustBuffer.ByValue,`limit`: Int,`callback`: Long,`ensureConversationLastVersion`: RustBuffer.ByValue,
 ): Long
-fun uniffi_restsend_sdk_fn_method_client_sync_conversations(`ptr`: Pointer,`updatedAt`: RustBuffer.ByValue,`limit`: Int,`syncLogs`: Byte,`syncLogsLimit`: RustBuffer.ByValue,`syncLogsMaxCount`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`callback`: Long,
+fun uniffi_restsend_sdk_fn_method_client_sync_chat_logs_quick(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`lastSeq`: RustBuffer.ByValue,`limit`: Int,`callback`: Long,`ensureConversationLastVersion`: RustBuffer.ByValue,
+): Long
+fun uniffi_restsend_sdk_fn_method_client_sync_conversations(`ptr`: Pointer,`updatedAt`: RustBuffer.ByValue,`beforeUpdatedAt`: RustBuffer.ByValue,`category`: RustBuffer.ByValue,`syncMaxCount`: RustBuffer.ByValue,`limit`: Int,`syncLogs`: Byte,`syncLogsLimit`: RustBuffer.ByValue,`syncLogsMaxCount`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`callback`: Long,
 ): Long
 fun uniffi_restsend_sdk_fn_method_client_transfer_topic(`ptr`: Pointer,`topicId`: RustBuffer.ByValue,`userId`: RustBuffer.ByValue,
 ): Long
@@ -1844,6 +1856,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_client_dismiss_topic() != 31429.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_restsend_sdk_checksum_method_client_do_ping() != 2385.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_restsend_sdk_checksum_method_client_do_read() != 27645.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -1889,13 +1904,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_client_download_file() != 20251.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_client_fetch_chat_logs_desc() != 26657.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_client_fetch_chat_logs_desc() != 49290.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_chat_log() != 48877.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_client_get_conversation() != 705.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_client_get_conversation() != 53522.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_get_last_alive_at() != 52345.toShort()) {
@@ -2006,10 +2021,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_client_silent_topic_member() != 49737.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_client_sync_chat_logs() != 58755.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_client_sync_chat_logs_heavy() != 61450.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_client_sync_conversations() != 65129.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_client_sync_chat_logs_quick() != 8822.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_restsend_sdk_checksum_method_client_sync_conversations() != 7309.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_client_transfer_topic() != 22182.toShort()) {
@@ -2081,7 +2099,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_rscallback_on_topic_read() != 9031.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_rscallback_on_conversations_updated() != 23679.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_rscallback_on_conversations_updated() != 9791.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_rscallback_on_conversation_removed() != 40106.toShort()) {
@@ -2093,7 +2111,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_restsend_sdk_checksum_method_syncchatlogscallback_on_fail() != 6877.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_success() != 9765.toShort()) {
+    if (lib.uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_success() != 2976.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_restsend_sdk_checksum_method_syncconversationscallback_on_fail() != 18218.toShort()) {
@@ -2174,8 +2192,33 @@ interface Disposable {
     fun destroy()
     companion object {
         fun destroy(vararg args: Any?) {
-            args.filterIsInstance<Disposable>()
-                .forEach(Disposable::destroy)
+            for (arg in args) {
+                when (arg) {
+                    is Disposable -> arg.destroy()
+                    is ArrayList<*> -> {
+                        for (idx in arg.indices) {
+                            val element = arg[idx]
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                    is Map<*, *> -> {
+                        for (element in arg.values) {
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                    is Iterable<*> -> {
+                        for (element in arg) {
+                            if (element is Disposable) {
+                                element.destroy()
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -2200,7 +2243,102 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  *
  * @suppress
  * */
-object NoPointer
+object NoPointer// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+/**
+ * The cleaner interface for Object finalization code to run.
+ * This is the entry point to any implementation that we're using.
+ *
+ * The cleaner registers objects and returns cleanables, so now we are
+ * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
+ * different implmentations available at compile time.
+ *
+ * @suppress
+ */
+interface UniffiCleaner {
+    interface Cleanable {
+        fun clean()
+    }
+
+    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
+
+    companion object
+}
+
+// The fallback Jna cleaner, which is available for both Android, and the JVM.
+private class UniffiJnaCleaner : UniffiCleaner {
+    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class UniffiJnaCleanable(
+    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
+
+
+// We decide at uniffi binding generation time whether we were
+// using Android or not.
+// There are further runtime checks to chose the correct implementation
+// of the cleaner.
+private fun UniffiCleaner.Companion.create(): UniffiCleaner =
+    try {
+        // For safety's sake: if the library hasn't been run in android_cleaner = true
+        // mode, but is being run on Android, then we still need to think about
+        // Android API versions.
+        // So we check if java.lang.ref.Cleaner is there, and use that…
+        java.lang.Class.forName("java.lang.ref.Cleaner")
+        JavaLangRefCleaner()
+    } catch (e: ClassNotFoundException) {
+        // … otherwise, fallback to the JNA cleaner.
+        UniffiJnaCleaner()
+    }
+
+private class JavaLangRefCleaner : UniffiCleaner {
+    val cleaner = java.lang.ref.Cleaner.create()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class JavaLangRefCleanable(
+    val cleanable: java.lang.ref.Cleaner.Cleanable
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
 
 /**
  * @suppress
@@ -2496,70 +2634,6 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 //
 
 
-/**
- * The cleaner interface for Object finalization code to run.
- * This is the entry point to any implementation that we're using.
- *
- * The cleaner registers objects and returns cleanables, so now we are
- * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
- * different implmentations available at compile time.
- *
- * @suppress
- */
-interface UniffiCleaner {
-    interface Cleanable {
-        fun clean()
-    }
-
-    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
-
-    companion object
-}
-
-// The fallback Jna cleaner, which is available for both Android, and the JVM.
-private class UniffiJnaCleaner : UniffiCleaner {
-    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
-
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
-}
-
-private class UniffiJnaCleanable(
-    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
-}
-
-
-// We decide at uniffi binding generation time whether we were
-// using Android or not.
-// There are further runtime checks to chose the correct implementation
-// of the cleaner.
-private fun UniffiCleaner.Companion.create(): UniffiCleaner =
-    try {
-        // For safety's sake: if the library hasn't been run in android_cleaner = true
-        // mode, but is being run on Android, then we still need to think about
-        // Android API versions.
-        // So we check if java.lang.ref.Cleaner is there, and use that…
-        java.lang.Class.forName("java.lang.ref.Cleaner")
-        JavaLangRefCleaner()
-    } catch (e: ClassNotFoundException) {
-        // … otherwise, fallback to the JNA cleaner.
-        UniffiJnaCleaner()
-    }
-
-private class JavaLangRefCleaner : UniffiCleaner {
-    val cleaner = java.lang.ref.Cleaner.create()
-
-    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
-        JavaLangRefCleanable(cleaner.register(value, cleanUpTask))
-}
-
-private class JavaLangRefCleanable(
-    val cleanable: java.lang.ref.Cleaner.Cleanable
-) : UniffiCleaner.Cleanable {
-    override fun clean() = cleanable.clean()
-}
 public interface ClientInterface {
     
     suspend fun `acceptTopicJoin`(`topicId`: kotlin.String, `userId`: kotlin.String, `memo`: kotlin.String?)
@@ -2589,6 +2663,8 @@ public interface ClientInterface {
     suspend fun `declineTopicJoin`(`topicId`: kotlin.String, `userId`: kotlin.String, `message`: kotlin.String?)
     
     suspend fun `dismissTopic`(`topicId`: kotlin.String)
+    
+    suspend fun `doPing`(`content`: kotlin.String, `callback`: MessageCallback?): kotlin.String
     
     suspend fun `doRead`(`topicId`: kotlin.String)
     
@@ -2620,11 +2696,11 @@ public interface ClientInterface {
     
     suspend fun `downloadFile`(`fileUrl`: kotlin.String, `callback`: DownloadCallback): kotlin.String
     
-    suspend fun `fetchChatLogsDesc`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt): GetChatLogsResult
+    suspend fun `fetchChatLogsDesc`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback)
     
     suspend fun `getChatLog`(`topicId`: kotlin.String, `chatId`: kotlin.String): ChatLog?
     
-    suspend fun `getConversation`(`topicId`: kotlin.String, `blocking`: kotlin.Boolean): Conversation?
+    suspend fun `getConversation`(`topicId`: kotlin.String): Conversation?
     
     fun `getLastAliveAt`(): kotlin.Long
     
@@ -2698,9 +2774,11 @@ public interface ClientInterface {
     
     suspend fun `silentTopicMember`(`topicId`: kotlin.String, `userId`: kotlin.String, `duration`: kotlin.String?)
     
-    suspend fun `syncChatLogs`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?)
+    suspend fun `syncChatLogsHeavy`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?)
     
-    suspend fun `syncConversations`(`updatedAt`: kotlin.String?, `limit`: kotlin.UInt, `syncLogs`: kotlin.Boolean, `syncLogsLimit`: kotlin.UInt?, `syncLogsMaxCount`: kotlin.UInt?, `lastRemovedAt`: kotlin.String?, `callback`: SyncConversationsCallback)
+    suspend fun `syncChatLogsQuick`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?)
+    
+    suspend fun `syncConversations`(`updatedAt`: kotlin.String?, `beforeUpdatedAt`: kotlin.String?, `category`: kotlin.String?, `syncMaxCount`: kotlin.UInt?, `limit`: kotlin.UInt, `syncLogs`: kotlin.Boolean, `syncLogsLimit`: kotlin.UInt?, `syncLogsMaxCount`: kotlin.UInt?, `lastRemovedAt`: kotlin.String?, `callback`: SyncConversationsCallback)
     
     suspend fun `transferTopic`(`topicId`: kotlin.String, `userId`: kotlin.String)
     
@@ -3075,6 +3153,27 @@ open class Client: Disposable, AutoCloseable, ClientInterface
     
     @Throws(ClientException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `doPing`(`content`: kotlin.String, `callback`: MessageCallback?) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_do_ping(
+                thisPtr,
+                FfiConverterString.lower(`content`),FfiConverterOptionalTypeMessageCallback.lower(`callback`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ClientException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ClientException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `doRead`(`topicId`: kotlin.String) {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
@@ -3390,23 +3489,23 @@ open class Client: Disposable, AutoCloseable, ClientInterface
     }
 
     
-    @Throws(ClientException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `fetchChatLogsDesc`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt) : GetChatLogsResult {
+    override suspend fun `fetchChatLogsDesc`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback) {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
             UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_fetch_chat_logs_desc(
                 thisPtr,
-                FfiConverterString.lower(`topicId`),FfiConverterOptionalLong.lower(`lastSeq`),FfiConverterUInt.lower(`limit`),
+                FfiConverterString.lower(`topicId`),FfiConverterOptionalLong.lower(`lastSeq`),FfiConverterUInt.lower(`limit`),FfiConverterTypeSyncChatLogsCallback.lower(`callback`),
             )
         },
-        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_rust_buffer(future) },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_void(future) },
         // lift function
-        { FfiConverterTypeGetChatLogsResult.lift(it) },
+        { Unit },
+        
         // Error FFI converter
-        ClientException.ErrorHandler,
+        UniffiNullRustCallStatusErrorHandler,
     )
     }
 
@@ -3432,12 +3531,12 @@ open class Client: Disposable, AutoCloseable, ClientInterface
 
     
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `getConversation`(`topicId`: kotlin.String, `blocking`: kotlin.Boolean) : Conversation? {
+    override suspend fun `getConversation`(`topicId`: kotlin.String) : Conversation? {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
             UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_get_conversation(
                 thisPtr,
-                FfiConverterString.lower(`topicId`),FfiConverterBoolean.lower(`blocking`),
+                FfiConverterString.lower(`topicId`),
             )
         },
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -4174,10 +4273,10 @@ open class Client: Disposable, AutoCloseable, ClientInterface
 
     
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `syncChatLogs`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?) {
+    override suspend fun `syncChatLogsHeavy`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?) {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
-            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_sync_chat_logs(
+            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_sync_chat_logs_heavy(
                 thisPtr,
                 FfiConverterString.lower(`topicId`),FfiConverterOptionalLong.lower(`lastSeq`),FfiConverterUInt.lower(`limit`),FfiConverterTypeSyncChatLogsCallback.lower(`callback`),FfiConverterOptionalBoolean.lower(`ensureConversationLastVersion`),
             )
@@ -4195,12 +4294,33 @@ open class Client: Disposable, AutoCloseable, ClientInterface
 
     
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `syncConversations`(`updatedAt`: kotlin.String?, `limit`: kotlin.UInt, `syncLogs`: kotlin.Boolean, `syncLogsLimit`: kotlin.UInt?, `syncLogsMaxCount`: kotlin.UInt?, `lastRemovedAt`: kotlin.String?, `callback`: SyncConversationsCallback) {
+    override suspend fun `syncChatLogsQuick`(`topicId`: kotlin.String, `lastSeq`: kotlin.Long?, `limit`: kotlin.UInt, `callback`: SyncChatLogsCallback, `ensureConversationLastVersion`: kotlin.Boolean?) {
+        return uniffiRustCallAsync(
+        callWithPointer { thisPtr ->
+            UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_sync_chat_logs_quick(
+                thisPtr,
+                FfiConverterString.lower(`topicId`),FfiConverterOptionalLong.lower(`lastSeq`),FfiConverterUInt.lower(`limit`),FfiConverterTypeSyncChatLogsCallback.lower(`callback`),FfiConverterOptionalBoolean.lower(`ensureConversationLastVersion`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        UniffiNullRustCallStatusErrorHandler,
+    )
+    }
+
+    
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `syncConversations`(`updatedAt`: kotlin.String?, `beforeUpdatedAt`: kotlin.String?, `category`: kotlin.String?, `syncMaxCount`: kotlin.UInt?, `limit`: kotlin.UInt, `syncLogs`: kotlin.Boolean, `syncLogsLimit`: kotlin.UInt?, `syncLogsMaxCount`: kotlin.UInt?, `lastRemovedAt`: kotlin.String?, `callback`: SyncConversationsCallback) {
         return uniffiRustCallAsync(
         callWithPointer { thisPtr ->
             UniffiLib.INSTANCE.uniffi_restsend_sdk_fn_method_client_sync_conversations(
                 thisPtr,
-                FfiConverterOptionalString.lower(`updatedAt`),FfiConverterUInt.lower(`limit`),FfiConverterBoolean.lower(`syncLogs`),FfiConverterOptionalUInt.lower(`syncLogsLimit`),FfiConverterOptionalUInt.lower(`syncLogsMaxCount`),FfiConverterOptionalString.lower(`lastRemovedAt`),FfiConverterTypeSyncConversationsCallback.lower(`callback`),
+                FfiConverterOptionalString.lower(`updatedAt`),FfiConverterOptionalString.lower(`beforeUpdatedAt`),FfiConverterOptionalString.lower(`category`),FfiConverterOptionalUInt.lower(`syncMaxCount`),FfiConverterUInt.lower(`limit`),FfiConverterBoolean.lower(`syncLogs`),FfiConverterOptionalUInt.lower(`syncLogsLimit`),FfiConverterOptionalUInt.lower(`syncLogsMaxCount`),FfiConverterOptionalString.lower(`lastRemovedAt`),FfiConverterTypeSyncConversationsCallback.lower(`callback`),
             )
         },
         { future, callback, continuation -> UniffiLib.INSTANCE.ffi_restsend_sdk_rust_future_poll_void(future, callback, continuation) },
@@ -5636,38 +5756,7 @@ public interface CountableCallback {
     companion object
 }
 
-// Magic number for the Rust proxy to call using the same mechanism as every other method,
-// to free the callback once it's dropped by Rust.
-internal const val IDX_CALLBACK_FREE = 0
-// Callback return codes
-internal const val UNIFFI_CALLBACK_SUCCESS = 0
-internal const val UNIFFI_CALLBACK_ERROR = 1
-internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
 
-/**
- * @suppress
- */
-public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
-    internal val handleMap = UniffiHandleMap<CallbackInterface>()
-
-    internal fun drop(handle: Long) {
-        handleMap.remove(handle)
-    }
-
-    override fun lift(value: Long): CallbackInterface {
-        return handleMap.get(value)
-    }
-
-    override fun read(buf: ByteBuffer) = lift(buf.getLong())
-
-    override fun lower(value: CallbackInterface) = handleMap.insert(value)
-
-    override fun allocationSize(value: CallbackInterface) = 8UL
-
-    override fun write(value: CallbackInterface, buf: ByteBuffer) {
-        buf.putLong(lower(value))
-    }
-}
 
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceCountableCallback {
@@ -5934,7 +6023,7 @@ public interface RsCallback {
     
     fun `onTopicRead`(`topicId`: kotlin.String, `message`: ChatRequest)
     
-    fun `onConversationsUpdated`(`conversations`: List<Conversation>)
+    fun `onConversationsUpdated`(`conversations`: List<Conversation>, `total`: kotlin.Long?)
     
     fun `onConversationRemoved`(`conversationId`: kotlin.String)
     
@@ -6067,11 +6156,12 @@ internal object uniffiCallbackInterfaceRsCallback {
         }
     }
     internal object `onConversationsUpdated`: UniffiCallbackInterfaceRsCallbackMethod10 {
-        override fun callback(`uniffiHandle`: Long,`conversations`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+        override fun callback(`uniffiHandle`: Long,`conversations`: RustBuffer.ByValue,`total`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeRsCallback.handleMap.get(uniffiHandle)
             val makeCall = { ->
                 uniffiObj.`onConversationsUpdated`(
                     FfiConverterSequenceTypeConversation.lift(`conversations`),
+                    FfiConverterOptionalLong.lift(`total`),
                 )
             }
             val writeReturn = { _: Unit -> Unit }
@@ -6201,7 +6291,7 @@ public object FfiConverterTypeSyncChatLogsCallback: FfiConverterCallbackInterfac
 
 public interface SyncConversationsCallback {
     
-    fun `onSuccess`(`updatedAt`: kotlin.String, `lastRemovedAt`: kotlin.String?, `count`: kotlin.UInt)
+    fun `onSuccess`(`updatedAt`: kotlin.String, `lastRemovedAt`: kotlin.String?, `count`: kotlin.UInt, `total`: kotlin.UInt)
     
     fun `onFail`(`e`: ClientException)
     
@@ -6213,13 +6303,14 @@ public interface SyncConversationsCallback {
 // Put the implementation in an object so we don't pollute the top-level namespace
 internal object uniffiCallbackInterfaceSyncConversationsCallback {
     internal object `onSuccess`: UniffiCallbackInterfaceSyncConversationsCallbackMethod0 {
-        override fun callback(`uniffiHandle`: Long,`updatedAt`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`count`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+        override fun callback(`uniffiHandle`: Long,`updatedAt`: RustBuffer.ByValue,`lastRemovedAt`: RustBuffer.ByValue,`count`: Int,`total`: Int,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
             val uniffiObj = FfiConverterTypeSyncConversationsCallback.handleMap.get(uniffiHandle)
             val makeCall = { ->
                 uniffiObj.`onSuccess`(
                     FfiConverterString.lift(`updatedAt`),
                     FfiConverterOptionalString.lift(`lastRemovedAt`),
                     FfiConverterUInt.lift(`count`),
+                    FfiConverterUInt.lift(`total`),
                 )
             }
             val writeReturn = { _: Unit -> Unit }

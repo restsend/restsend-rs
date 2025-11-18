@@ -39,12 +39,5 @@ log = "0.4.26"
 [dev-dependencies]
 wasm-bindgen-test = "0.3.49"
 
-[profile.release]
-strip = true
-opt-level = "z"
-lto = true
-codegen-units = 1
-panic = "abort"
-
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = true

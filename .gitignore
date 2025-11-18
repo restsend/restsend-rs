@@ -25,3 +25,4 @@ bindings_swift/rssdk.swift
 .idea
 .vscode
 jniLibs/
+.gradle/
