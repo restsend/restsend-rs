@@ -60,17 +60,10 @@ Add JNA (or your preferred loader) plus network/storage permissions in your Andr
 The package under `dart/restsend_dart` uses `flutter_rust_bridge`.
 
 ```shell
-cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
-cd dart/restsend_dart
-dart pub get
-dart run build_runner build --delete-conflicting-outputs
-flutter_rust_bridge_codegen \
-  --rust-input ../../crates/restsend-dart/src/lib.rs \
-  --rust-output ../../crates/restsend-dart/src/frb_generated.rs \
-  --dart-output lib/src/bridge_generated.dart \
-  --class-name RestsendApi
-cargo build -p restsend-dart --release   # produces the dynamic library Flutter loads
+dart run build.dart   # runs all required steps from the repo root
 ```
+
+The helper script installs/updates `flutter_rust_bridge_codegen`, installs Dart deps, runs `build_runner`, regenerates bindings, and finally builds the `restsend-dart` crate.
 
 Run `flutter run` from `dart/restsend_dart/example` to try the demo UI.
 

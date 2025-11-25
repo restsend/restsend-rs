@@ -10,7 +10,7 @@ class RestsendRuntime {
     if (_initialized) {
       return;
     }
-    await RustLib.init();
+    await RestsendApi.init();
     _initialized = true;
   }
 }
