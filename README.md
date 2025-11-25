@@ -1,154 +1,95 @@
-restsend client sdk
-=====
+# RestSend Client SDK
 
-RestSend is a secure instant messaging system, with the server written in Go:
-- Unit test coverage is over `80%`
-- Supports millions of concurrent connections on a single machine and supports cluster deployment
-- High-reliability protocol design, supporting reliable message transmission
-- Based on synchronous protocol design
-- Complete `OpenAPI` and `Webhook` support, the server supports various forms of extensions: 
-- Avatar generation
-- Highly extensible account and permission system, no need to migrate existing user systems
-- Flow control and content detection
-- SDK is written in `Rust`, providing SDK implementations for `Android`, `iOS`, and `WASM`, capable of rendering `100,000` sessions on a single machine
-- Code can be managed with `go module` and can be directly embedded into existing Go projects
+RestSend is a secure instant-messaging platform (server in Go, client SDK in Rust) that targets Android, iOS, Flutter, WASM, and desktop. The Rust core exposes a high-reliability protocol, sync callbacks, and full OpenAPI/Webhook support so that existing user systems can extend or embed the service with minimal effort.
 
-For testing, you can visit the [online demo](https://chat.ruzhila.cn?from=github) or contact me at: kui@fourz.cn
+- Benchmarked with 80%+ unit-test coverage and millions of concurrent connections per node.
+- SDK crates live in `crates/` and power mobile bindings (`android-sdk`, `swift/`) plus WebAssembly (`crates/restsend-wasm`).
+- A Flutter/Dart package is shipped under `dart/restsend_dart` for cross-platform UI apps.
 
-The RestSend client SDK is written in Rust, providing SDK implementations for Android and iOS. It requires a Rust version of at least `1.85.0`. If the version is lower, please update Rust using `rustup update`.
-Check the Rust version:
+Try the [online demo](https://chat.ruzhila.cn?from=github) or reach out at `kui@fourz.cn`.
+
+## Requirements
+
+- Rust 1.85+ (`rustup update` if needed) and basic build dependencies (`clang`, `cmake`).
+- Optional: [rsproxy.cn](https://rsproxy.cn) mirrors for faster builds inside China.
+- Platform extras:
+  - **iOS/macOS**: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-darwin` and Xcode 15+.
+  - **Android**: Android NDK r25c+, set `NDK_HOME`, install `cargo-ndk`, and add `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android` targets.
+  - **Flutter/Dart**: Flutter 3.24+, Dart 3.5+, `flutter_rust_bridge_codegen 2.11.1`.
+  - **WASM**: Node.js 20+, `wasm-pack`, `wasm-bindgen-cli`, `wasm-opt` from Binaryen.
+
+## Quick Start
 
 ```shell
-mpi@mpis-Mac-mini restsend-sdk % rustc --version
-rustc 1.85.0 (4d91de4e4 2025-02-17)
+git clone https://github.com/restsend/restsend-rs.git
+cd restsend-rs
+cargo test                     # verify the Rust core
 ```
 
-## Code Dependencies and Environment Preparation
+Choose a target build from the sections below.
 
-- Requires `rust 1.72.0 (5680fa18f 2023-08-23)` or higher, and setting up [rsproxy.cn](https://rsproxy.cn) to speed up compilation
-- For iOS, prepare the development environment (for M1/M2):
+### iOS / macOS Swift SDK
 
-        ```shell
-        rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-darwin
-        ```
-
-- For Android, prepare the development environment:
-     Install NDK and set the `NDK_HOME` environment variable to point to the NDK installation directory.
-     1. Download NDK from [NDK download page](https://developer.android.com/ndk/downloads?hl=en)
-       - wget "<https://dl.google.com/android/repository/android-ndk-r25c-linux.zip?hl=en>"
-       - Extract the NDK directory and modify the `.profile` file to add the environment variable:
-        ```shell
-        export NDK_HOME=/home/xxx/ndk/android-ndk-r25c
-        ```
-
-     2. Add Android toolchain to cargo
-        ```shell
-        cargo install cargo-ndk
-        rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android armv7-linux-androideabi
-        ```
-
-### Compile for iOS
-
-Tested only on M2 machines, please use an M2 machine for compilation.
-
-- Development test version: Simulator
-
-        ```ruby
-        # Add to Podfile in Xcode project
-        pod 'restsendSdk', :path => '../restsend-rs'
-        ```
-
-  1. compile the Rust library
-        ```shell
-        cargo build --target aarch64-apple-ios-sim
-        # For x86 Mac machines
-        cargo build  --target x86_64-apple-darwin 
-        ```
-  1. Compile the Swift binding code
-
-        ```shell
-        cargo run --bin bindgen -- --language swift
-        ```
-
-- Release version:
-
+1. Add the pod inside your Xcode project:
+   ```ruby
+   pod 'restsendSdk', :path => '../restsend-rs'
+   ```
+2. Build the Rust library for simulator/device:
    ```shell
    cargo build --release --target aarch64-apple-ios-sim --target aarch64-apple-ios --target x86_64-apple-darwin
-
-   cargo run --release --bin bindgen -- --language swift
    ```
-   To release the official pod version:
-
+3. Regenerate Swift bindings when the API changes:
    ```shell
-    cargo run --release --bin bindgen -- --language swift -p true
+   cargo run --release --bin bindgen -- --language swift [-p true]   # add -p true to publish the pod bundle
    ```
 
-### Compile for Wasm
-
-It is recommended to use Node version 20 or above.
-
-First, manually download the wasm-opt tool from binaryen and place it in the PATH. Download from: <https://github.com/WebAssembly/binaryen/releases/>
-After extraction, place wasm-opt in the PATH, for example, in the `/usr/local/bin` directory.
+### Android / Kotlin SDK
 
 ```shell
- cargo install wasm-pack wasm-bindgen-cli
- cd crates/restsend-wasm
- npm install --force
- 
- # For Linux/WSL, install dependencies first
- # npx playwright install-deps
- 
- npx playwright install webkit
- npm run build
-```
-
-### Compile for Android
-
-Tested only on M2 machines, currently only supports ARM simulators, x86_64 simulators are pending.
-First, configure the NDK directory to point to the NDK, for example, if downloaded to ~/ndk directory:
-
-```shell
-export NDK_HOME=$HOME/ndk
+export NDK_HOME=/path/to/android-ndk-r25c
 cargo ndk -t arm64-v8a -t armeabi-v7a build --release
-cargo run --release --bin bindgen -- --language kotlin 
-cargo ndk -t arm64-v8a -t armeabi-v7a -o ./jniLibs build --release
-
-cd android-sdk
-# test
-# gradle connectedAndroidTest
-
-gradle assembleRelease
-
-# for Publish aar
-gradle buildAndDeploy
+cargo run --release --bin bindgen -- --language kotlin
+cargo ndk -t arm64-v8a -t armeabi-v7a -o ./jniLibs build --release   # copies .so into jniLibs/
+cd android-sdk && ./gradlew assembleRelease
 ```
 
-### How to Test
+Add JNA (or your preferred loader) plus network/storage permissions in your Android app manifest when embedding the produced AAR.
 
-- For cargo development phase testing, test on PC:
-  ```shell
-  cargo test
-  ```
+### Flutter / Dart bindings
 
-- Rust version demo requires a GUI environment, such as Windows/Mac to run
-   ```shell
-   cargo run -p demo
-   ```
+The package under `dart/restsend_dart` uses `flutter_rust_bridge`.
 
-### Android Configuration
+```shell
+cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
+cd dart/restsend_dart
+dart pub get
+dart run build_runner build --delete-conflicting-outputs
+flutter_rust_bridge_codegen \
+  --rust-input ../../crates/restsend-dart/src/lib.rs \
+  --rust-output ../../crates/restsend-dart/src/frb_generated.rs \
+  --dart-output lib/src/bridge_generated.dart \
+  --class-name RestsendApi
+cargo build -p restsend-dart --release   # produces the dynamic library Flutter loads
+```
 
-- In `app/build.gradle`, add JNA support using AAR to automatically compile the required .so files
+Run `flutter run` from `dart/restsend_dart/example` to try the demo UI.
 
-        ```gradle
-        dependencies {
-                implementation 'net.java.dev.jna:jna:5.16.0@aar'
-                ....
-        }
-        ```
+### WebAssembly package
 
-- In `AndroidManifest.xml`, add storage and network permissions
+```shell
+cargo install wasm-pack wasm-bindgen-cli
+cd crates/restsend-wasm
+npm install --force
+npx playwright install webkit
+npm run build
+```
 
-        ```xml
-                <uses-permission android:name="android.permission.INTERNET"></uses-permission>
-                <application ...>
-        ```
+Ship the generated artifacts from `crates/restsend-wasm/pkg/` (plus `assets/`) in your web app.
+
+## Testing & Demos
+
+- `cargo test` exercises the core logic.
+- `cargo run -p demo` launches the native desktop sample (requires GUI environment).
+- `dart/restsend_dart/example` showcases the Flutter bindings end to end.
+
+Need help or commercial support? Email `kui@fourz.cn`.
