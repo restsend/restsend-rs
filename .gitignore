@@ -26,3 +26,11 @@ bindings_swift/rssdk.swift
 .vscode
 jniLibs/
 .gradle/
+
+frb_generated.rs
+.dart_tool/
+bridge_generated.dart/
+pubspec.lock
+restsend_dart/example/build/
+restsend_dart/example/linux/flutter/ephemeral/
+dart/restsend_dart/example/restsend_demo.sqlite3

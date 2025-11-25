@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["crates/restsend-macros", "crates/restsend", "crates/restsend-wasm"]
+members = [
+	"crates/restsend-macros",
+	"crates/restsend",
+	"crates/restsend-wasm",
+	"crates/restsend-dart",
+]
 
 [profile.release]
 opt-level = "z"
