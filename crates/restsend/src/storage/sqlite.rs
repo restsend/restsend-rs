@@ -110,10 +110,17 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             "SELECT value FROM {} {} WHERE partition = ?",
             self.name, sort_by_cond
         );
-        let mut stmt = conn.prepare(&stmt).ok()?;
+        let mut stmt = conn
+            .prepare(&stmt)
+            .map_err(|e| {
+                log::warn!("{} filter prepare failed: {}", self.name, e);
+                e
+            })
+            .ok()?;
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
-            Err(_) => {
+            Err(e) => {
+                log::warn!("{} filter query failed: {}", self.name, e);
                 return None;
             }
             Ok(rows) => rows,
@@ -159,9 +166,19 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             self.name, sort_by_cond,
         );
 
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let mut stmt = conn
+            .prepare(&stmt)
+            .map_err(|e| {
+                log::warn!("{} query prepare failed: {}", self.name, e);
+                e
+            })
+            .ok()?;
         let mut rows = stmt
             .query(&[&partition, format!("{}", option.limit + 1).as_str()])
+            .map_err(|e| {
+                log::warn!("{} query failed: {}", self.name, e);
+                e
+            })
             .ok()?;
 
         let mut items: Vec<T> = vec![];
@@ -210,10 +227,17 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             "SELECT value FROM {} WHERE partition = ? AND key = ?",
             self.name
         );
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let mut stmt = conn
+            .prepare(&stmt)
+            .map_err(|e| {
+                log::warn!("{} get prepare failed: {}", self.name, e);
+                e
+            })
+            .ok()?;
         let rows = stmt.query(&[&partition, &key]);
         let mut rows = match rows {
-            Err(_) => {
+            Err(e) => {
+                log::warn!("{} get query failed: {}", self.name, e);
                 return None;
             }
             Ok(rows) => rows,
@@ -244,7 +268,10 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         );
         let delete_stmt = format!("DELETE FROM {} WHERE partition = ? AND key = ?", self.name);
 
-        let mut stmt = conn.prepare(&update_stmt).unwrap();
+        let mut stmt = conn.prepare(&update_stmt).map_err(|e| {
+            log::warn!("{} batch_update prepare failed: {}", self.name, e);
+            ClientError::Storage(format!("{} batch_update prepare failed: {}", self.name, e))
+        })?;
         for v in items {
             let partition = &v.partition;
             let key = &v.key;
@@ -256,6 +283,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 None => conn.execute(&delete_stmt, &[&partition, &key]),
             }
             .map_err(|e| {
+                log::warn!("{} batch_update {} failed: {}", self.name, key, e);
                 ClientError::Storage(format!("{} batch_update {} failed: {}", self.name, key, e))
             })
             .ok();
@@ -274,11 +302,15 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                     "INSERT OR REPLACE INTO {} (partition, key, value, sort_by) VALUES (?, ?, ?, ?)",
                     self.name
                 );
-                let mut stmt = conn.prepare(&stmt).unwrap();
+                let mut stmt = conn.prepare(&stmt).map_err(|e| {
+                    log::warn!("{} set prepare failed: {}", self.name, e);
+                    ClientError::Storage(format!("{} set prepare failed: {}", self.name, e))
+                })?;
                 let value = v.to_string();
                 stmt.execute(params![&partition, &key, &value, v.sort_key()])
                     .map(|_| ())
                     .map_err(|e| {
+                        log::warn!("{} set {} failed: {}", self.name, key, e);
                         ClientError::Storage(format!("{} set {} failed: {}", self.name, key, e))
                     })
             }
@@ -292,8 +324,12 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!("DELETE FROM {} WHERE partition = ? AND key = ?", self.name);
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let mut stmt = conn.prepare(&stmt).map_err(|e| {
+            log::warn!("{} remove prepare failed: {}", self.name, e);
+            ClientError::Storage(format!("{} remove prepare failed: {}", self.name, e))
+        })?;
         stmt.execute(&[&partition, &key]).map(|_| ()).map_err(|e| {
+            log::warn!("{} remove {} failed: {}", self.name, key, e);
             ClientError::Storage(format!("{} remove {} failed: {}", self.name, key, e))
         })
     }
@@ -307,10 +343,17 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             "SELECT value FROM {} WHERE partition = ? ORDER BY sort_by DESC LIMIT 1",
             self.name
         );
-        let mut stmt = conn.prepare(&stmt).unwrap();
+        let mut stmt = conn
+            .prepare(&stmt)
+            .map_err(|e| {
+                log::warn!("{} last prepare failed: {}", self.name, e);
+                e
+            })
+            .ok()?;
         let rows = stmt.query(&[&partition]);
         let mut rows = match rows {
-            Err(_) => {
+            Err(e) => {
+                log::warn!("{} last query failed: {}", self.name, e);
                 return None;
             }
             Ok(rows) => rows,
@@ -336,10 +379,14 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         let conn = conn.as_mut().unwrap();
 
         let stmt = format!("DELETE FROM {} WHERE partition = ?", self.name);
-        let mut stmt = conn.prepare(&stmt).unwrap();
-        stmt.execute([&partition])
-            .map(|_| ())
-            .map_err(|e| ClientError::Storage(format!("{} clear failed: {}", self.name, e)))
+        let mut stmt = conn.prepare(&stmt).map_err(|e| {
+            log::warn!("{} clear prepare failed: {}", self.name, e);
+            ClientError::Storage(format!("{} clear prepare failed: {}", self.name, e))
+        })?;
+        stmt.execute([&partition]).map(|_| ()).map_err(|e| {
+            log::warn!("{} clear failed: {}", self.name, e);
+            ClientError::Storage(format!("{} clear failed: {}", self.name, e))
+        })
     }
 }
 
