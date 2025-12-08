@@ -104,7 +104,7 @@ impl IndexeddbStorage {
             memory_storage,
         }
     }
-    pub async fn table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {
@@ -113,15 +113,18 @@ impl IndexeddbStorage {
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
 
-        IndexeddbTable::open_async(
+        match IndexeddbTable::open_async(
             tbl_name.to_string(),
             self.last_version.unwrap_or(LAST_DB_VERSION),
             false,
         )
         .await
-        .unwrap_or(self.memory_storage.table::<T>().await)
+        {
+            Ok(t) => Ok(t),
+            Err(_) => self.memory_storage.table::<T>().await,
+        }
     }
-    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn readonly_table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {
@@ -130,13 +133,16 @@ impl IndexeddbStorage {
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
 
-        IndexeddbTable::open_async(
+        match IndexeddbTable::open_async(
             tbl_name.to_string(),
             self.last_version.unwrap_or(LAST_DB_VERSION),
             true,
         )
         .await
-        .unwrap_or(self.memory_storage.table::<T>().await)
+        {
+            Ok(t) => Ok(t),
+            Err(_) => self.memory_storage.table::<T>().await,
+        }
     }
 }
 

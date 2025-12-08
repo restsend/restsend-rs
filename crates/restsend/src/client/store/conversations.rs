@@ -22,7 +22,7 @@ pub(crate) async fn merge_conversation(
     message_storage: Arc<Storage>,
     conversation: Conversation,
 ) -> Result<Conversation> {
-    let t = message_storage.table::<Conversation>().await;
+    let t = message_storage.table::<Conversation>().await?;
     let mut conversation = conversation;
 
     let mut sync_last_readable = false;
@@ -57,7 +57,7 @@ async fn get_conversation_last_readable_message(
     message_storage: Arc<Storage>,
     topic_id: &str,
 ) -> Option<ChatLog> {
-    let t = message_storage.readonly_table::<ChatLog>().await;
+    let t = message_storage.readonly_table::<ChatLog>().await.ok()?;
     let last_log = t.last(topic_id).await?;
     if !last_log.content.unreadable {
         return Some(last_log);
@@ -85,7 +85,7 @@ impl ClientStore {
         req_status: &ChatRequestStatus,
         is_countable: bool,
     ) -> Option<Conversation> {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.table::<Conversation>().await.ok()?;
         let mut conversation = match t.get("", &req.topic_id).await {
             Some(c) => c,
             None => self
@@ -139,13 +139,16 @@ impl ClientStore {
                 ContentType::UpdateExtra => {
                     //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
                     if let Some(lastlog_seq) = conversation.last_message_seq {
-                        let log_t = self.message_storage.readonly_table::<ChatLog>().await;
-                        if let Some(log_in_store) = log_t.get(&req.topic_id, &content.text).await {
-                            if lastlog_seq == log_in_store.seq {
-                                if let Some(last_message_content) =
-                                    conversation.last_message.as_mut()
-                                {
-                                    last_message_content.extra = content.extra.clone();
+                        if let Ok(log_t) = self.message_storage.readonly_table::<ChatLog>().await {
+                            if let Some(log_in_store) =
+                                log_t.get(&req.topic_id, &content.text).await
+                            {
+                                if lastlog_seq == log_in_store.seq {
+                                    if let Some(last_message_content) =
+                                        conversation.last_message.as_mut()
+                                    {
+                                        last_message_content.extra = content.extra.clone();
+                                    }
                                 }
                             }
                         }
@@ -193,7 +196,10 @@ impl ClientStore {
         conversations: Vec<Conversation>,
     ) -> Vec<Conversation> {
         let mut results = vec![];
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = match self.message_storage.table::<Conversation>().await {
+            Ok(t) => t,
+            Err(_) => return vec![],
+        };
         let now = now_millis();
         for conversation in conversations {
             let mut conversation = conversation;
@@ -215,8 +221,9 @@ impl ClientStore {
                             .unwrap_or(0);
                     // clean all logs
                     if new_conversation_created_at != old_conversation_created_at {
-                        let log_t = self.message_storage.table::<ChatLog>().await;
-                        log_t.clear(&conversation.topic_id).await.ok();
+                        if let Ok(log_t) = self.message_storage.table::<ChatLog>().await {
+                            log_t.clear(&conversation.topic_id).await.ok();
+                        }
                     }
                 }
 
@@ -277,7 +284,7 @@ impl ClientStore {
         remark: Option<String>,
     ) -> Result<Conversation> {
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.remark = remark.clone();
                 t.set("", topic_id, Some(&conversation)).await.ok();
@@ -298,7 +305,7 @@ impl ClientStore {
         sticky: bool,
     ) -> Result<Conversation> {
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.sticky = sticky;
                 t.set("", topic_id, Some(&conversation)).await.ok();
@@ -315,7 +322,7 @@ impl ClientStore {
 
     pub async fn set_conversation_mute(&self, topic_id: &str, mute: bool) -> Result<Conversation> {
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.mute = mute;
                 t.set("", topic_id, Some(&conversation)).await.ok();
@@ -336,7 +343,7 @@ impl ClientStore {
         last_read_at: &str,
         last_seq: Option<i64>,
     ) -> Option<Conversation> {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.table::<Conversation>().await.ok()?;
         match t.get("", topic_id).await {
             Some(mut conversation) => {
                 if conversation.is_partial {
@@ -358,7 +365,7 @@ impl ClientStore {
     }
 
     pub async fn set_all_conversations_read_local(&self) -> Option<()> {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.table::<Conversation>().await.ok()?;
         let items = t
             .filter(
                 "",
@@ -395,7 +402,7 @@ impl ClientStore {
         tags: Option<Tags>,
     ) -> Result<Conversation> {
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.tags = tags.clone();
                 t.set("", topic_id, Some(&conversation)).await.ok();
@@ -419,7 +426,7 @@ impl ClientStore {
         extra: Option<Extra>,
     ) -> Result<Conversation> {
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 conversation.extra = extra.clone();
                 t.set("", topic_id, Some(&conversation)).await.ok();
@@ -441,11 +448,12 @@ impl ClientStore {
     pub async fn clear_conversation(&self, topic_id: &str) -> Result<()> {
         self.pop_incoming_logs(topic_id);
         {
-            let t = self.message_storage.table::<ChatLog>().await;
-            t.clear(topic_id).await.ok();
+            if let Ok(t) = self.message_storage.table::<ChatLog>().await {
+                t.clear(topic_id).await.ok();
+            }
         }
         {
-            let t = self.message_storage.table::<Conversation>().await;
+            let t = self.message_storage.table::<Conversation>().await?;
             t.remove("", topic_id).await
         }
     }
@@ -458,11 +466,12 @@ impl ClientStore {
             Err(_) => {}
         }
 
-        let t = self.message_storage.readonly_table::<Conversation>().await;
-        if let Some(_) = t.get("", topic_id).await {
-            self.clear_conversation(topic_id).await.ok();
-            if let Some(cb) = self.callback.read().unwrap().as_ref() {
-                cb.on_conversation_removed(topic_id.to_string());
+        if let Ok(t) = self.message_storage.readonly_table::<Conversation>().await {
+            if let Some(_) = t.get("", topic_id).await {
+                self.clear_conversation(topic_id).await.ok();
+                if let Some(cb) = self.callback.read().unwrap().as_ref() {
+                    cb.on_conversation_removed(topic_id.to_string());
+                }
             }
         }
     }
@@ -490,7 +499,11 @@ impl ClientStore {
         cb_updated: bool,
         ensure_last_version: bool,
     ) -> Option<Conversation> {
-        let t = self.message_storage.readonly_table::<Conversation>().await;
+        let t = self
+            .message_storage
+            .readonly_table::<Conversation>()
+            .await
+            .ok()?;
         let conversation = t
             .get("", topic_id)
             .await
@@ -558,10 +571,11 @@ impl ClientStore {
                         new_conversation.unread = conversation.unread;
                     }
                     self.ensure_topic_owner_id(&mut new_conversation).await;
-                    let t = self.message_storage.table::<Conversation>().await;
-                    t.set("", &new_conversation.topic_id, Some(&new_conversation))
-                        .await
-                        .ok();
+                    if let Ok(t) = self.message_storage.table::<Conversation>().await {
+                        t.set("", &new_conversation.topic_id, Some(&new_conversation))
+                            .await
+                            .ok();
+                    }
                     if cb_updated {
                         if let Some(cb) = self.callback.read().unwrap().as_ref() {
                             cb.on_conversations_updated(vec![new_conversation.clone()], None);
@@ -589,7 +603,7 @@ impl ClientStore {
     }
 
     pub(super) async fn save_outgoing_chat_log(&self, req: &ChatRequest) -> Result<()> {
-        let t = self.message_storage.table::<ChatLog>().await;
+        let t = self.message_storage.table::<ChatLog>().await?;
 
         let mut log = ChatLog::from(req);
         log.status = ChatLogStatus::Sending;
@@ -606,7 +620,7 @@ impl ClientStore {
         status: ChatLogStatus,
         seq: Option<i64>,
     ) -> Result<()> {
-        let t = self.message_storage.table::<ChatLog>().await;
+        let t = self.message_storage.table::<ChatLog>().await?;
 
         if let Some(mut log) = t.get(topic_id, chat_id).await {
             log.status = status;
@@ -645,7 +659,7 @@ impl ClientStore {
             return Ok(());
         }
 
-        let log_t = self.message_storage.table::<ChatLog>().await;
+        let log_t = self.message_storage.table::<ChatLog>().await?;
         let topic_id = &req.topic_id;
         let chat_id = &req.chat_id;
         let now = now_millis();
@@ -800,7 +814,7 @@ impl ClientStore {
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
-        let log_t = self.message_storage.readonly_table::<ChatLog>().await;
+        let log_t = self.message_storage.readonly_table::<ChatLog>().await?;
         self.get_chat_logs_with_table(&log_t, topic_id, conversation_start_seq, last_seq, limit)
             .await
     }
@@ -927,22 +941,24 @@ impl ClientStore {
     }
 
     pub async fn get_chat_log(&self, topic_id: &str, chat_id: &str) -> Option<ChatLog> {
-        let t = self.message_storage.readonly_table().await;
+        let t = self.message_storage.readonly_table().await.ok()?;
         t.get(topic_id, chat_id).await
     }
 
     pub async fn remove_messages(&self, topic_id: &str, chat_ids: &[String]) {
-        let t = self.message_storage.table::<ChatLog>().await;
-        for chat_id in chat_ids {
-            t.remove(topic_id, chat_id).await.ok();
+        if let Ok(t) = self.message_storage.table::<ChatLog>().await {
+            for chat_id in chat_ids {
+                t.remove(topic_id, chat_id).await.ok();
+            }
         }
     }
 
     async fn persist_conversation(&self, conversation: &Conversation) {
-        let t = self.message_storage.table::<Conversation>().await;
-        t.set("", &conversation.topic_id, Some(conversation))
-            .await
-            .ok();
+        if let Ok(t) = self.message_storage.table::<Conversation>().await {
+            t.set("", &conversation.topic_id, Some(conversation))
+                .await
+                .ok();
+        }
     }
 
     fn get_cached_topic_owner(&self, topic_id: &str) -> Option<String> {
@@ -1013,7 +1029,7 @@ impl ClientStore {
         updated_at: &str,
         limit: u32,
     ) -> Result<QueryResult<Conversation>> {
-        let t = self.message_storage.table::<Conversation>().await;
+        let t = self.message_storage.table::<Conversation>().await?;
 
         let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
             .map(|v| v.timestamp_millis())
@@ -1070,7 +1086,7 @@ impl ClientStore {
         end_sort_value: Option<i64>,
         limit: Option<u32>,
     ) -> Option<Vec<Conversation>> {
-        let t = self.message_storage.readonly_table().await;
+        let t = self.message_storage.readonly_table().await.ok()?;
         let mut conversations = t
             .filter("", Box::new(move |c| predicate(c)), end_sort_value, limit)
             .await?;
@@ -1083,12 +1099,13 @@ impl ClientStore {
         }
 
         if !updated_topic_owner.is_empty() {
-            let table = self.message_storage.table::<Conversation>().await;
-            for conversation in updated_topic_owner.iter() {
-                table
-                    .set("", &conversation.topic_id, Some(conversation))
-                    .await
-                    .ok();
+            if let Ok(table) = self.message_storage.table::<Conversation>().await {
+                for conversation in updated_topic_owner.iter() {
+                    table
+                        .set("", &conversation.topic_id, Some(conversation))
+                        .await
+                        .ok();
+                }
             }
         }
 
@@ -1096,7 +1113,10 @@ impl ClientStore {
     }
 
     pub async fn get_unread_count(&self) -> u32 {
-        let t = self.message_storage.readonly_table::<Conversation>().await;
+        let t = match self.message_storage.readonly_table::<Conversation>().await {
+            Ok(t) => t,
+            Err(_) => return 0,
+        };
         let count = Arc::new(AtomicUsize::new(0));
         let count_ref = count.clone();
         t.filter(

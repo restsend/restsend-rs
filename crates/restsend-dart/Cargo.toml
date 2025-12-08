@@ -1,6 +1,6 @@
 [package]
 name = "restsend-dart"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Flutter bindings for the restsend SDK"
 authors = ["Restsend Team <kui@fourz.cn>"]

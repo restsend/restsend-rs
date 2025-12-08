@@ -73,13 +73,13 @@ impl InMemoryStorage {
         tables.insert(tbl_name, t.clone());
         t
     }
-    pub async fn table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {
-        MemoryTable::from(self.make_table::<T>())
+        Ok(MemoryTable::from(self.make_table::<T>()))
     }
-    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn readonly_table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {

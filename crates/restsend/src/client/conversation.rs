@@ -81,13 +81,15 @@ impl Client {
         }
         .min(max_logs_limit);
         let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
-        let conversation = self
+        let conversation = match self
             .store
             .message_storage
             .readonly_table::<Conversation>()
             .await
-            .get("", &topic_id)
-            .await;
+        {
+            Ok(t) => t.get("", &topic_id).await,
+            Err(_) => None,
+        };
 
         match conversation {
             Some(conversation) => {
@@ -104,14 +106,15 @@ impl Client {
                 }
 
                 if !need_fetch_conversation {
-                    let t = self.store.message_storage.readonly_table::<ChatLog>().await;
-                    match t.last(&topic_id).await {
-                        Some(log) => {
-                            if log.seq != conversation.last_seq {
-                                need_fetch_conversation = true;
+                    if let Ok(t) = self.store.message_storage.readonly_table::<ChatLog>().await {
+                        match t.last(&topic_id).await {
+                            Some(log) => {
+                                if log.seq != conversation.last_seq {
+                                    need_fetch_conversation = true;
+                                }
                             }
+                            None => {}
                         }
-                        None => {}
                     }
                 }
 
@@ -249,7 +252,7 @@ impl Client {
     }
 
     pub async fn save_chat_logs(&self, logs: &Vec<ChatLog>) -> Result<()> {
-        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        let log_t = self.store.message_storage.table::<ChatLog>().await?;
         self.store.save_chat_logs(&log_t, logs).await
     }
 
@@ -274,8 +277,9 @@ impl Client {
                 }
                 let items = lr.items.clone();
                 callback.on_success(lr.into());
-                let log_t = self.store.message_storage.table::<ChatLog>().await;
-                self.store.save_chat_logs(&log_t, &items).await.ok();
+                if let Ok(log_t) = self.store.message_storage.table::<ChatLog>().await {
+                    self.store.save_chat_logs(&log_t, &items).await.ok();
+                }
                 info!(
                     "fetch_chat_logs_desc topic_id: {} last_seq: {:?} limit: {} items.len: {} save_cost:{:?} total_cost:{:?}",
                     topic_id,
@@ -486,21 +490,22 @@ impl Client {
     ) -> Result<()> {
         let mut try_sync_conversations = vec![];
         {
-            let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
-            for (_, c) in conversations.iter() {
-                match log_t.last(&c.topic_id).await {
-                    Some(log) => {
-                        if log.seq >= c.last_seq {
-                            continue;
+            if let Ok(log_t) = self.store.message_storage.readonly_table::<ChatLog>().await {
+                for (_, c) in conversations.iter() {
+                    match log_t.last(&c.topic_id).await {
+                        Some(log) => {
+                            if log.seq >= c.last_seq {
+                                continue;
+                            }
                         }
+                        None => {}
                     }
-                    None => {}
-                }
 
-                if c.last_seq <= c.start_seq {
-                    continue;
+                    if c.last_seq <= c.start_seq {
+                        continue;
+                    }
+                    try_sync_conversations.push(c.clone());
                 }
-                try_sync_conversations.push(c.clone());
             }
 
             if try_sync_conversations.is_empty() {
@@ -522,7 +527,7 @@ impl Client {
         let mut updated_conversations = vec![];
         let mut store_conversations = vec![];
 
-        let log_t = self.store.message_storage.table::<ChatLog>().await;
+        let log_t = self.store.message_storage.table::<ChatLog>().await?;
         for mut lr in r {
             // flush to local db
             let now: i64 = now_millis();
@@ -576,8 +581,9 @@ impl Client {
             })
         }
         // sync to store
-        let t = self.store.message_storage.table::<Conversation>().await;
-        t.batch_update(&store_conversations).await.ok();
+        if let Ok(t) = self.store.message_storage.table::<Conversation>().await {
+            t.batch_update(&store_conversations).await.ok();
+        }
         // callback
         if let Some(cb) = self.store.callback.read().unwrap().as_ref() {
             cb.on_conversations_updated(updated_conversations.clone(), None);
@@ -675,7 +681,10 @@ impl Client {
             return;
         }
 
-        let log_t = self.store.message_storage.readonly_table::<ChatLog>().await;
+        let log_t = match self.store.message_storage.readonly_table::<ChatLog>().await {
+            Ok(t) => t,
+            Err(_) => return,
+        };
         let mut stored_conversations = vec![];
         let st = now_millis();
 
@@ -744,8 +753,9 @@ impl Client {
         let logs_db_cost = elapsed(st);
         let st_1 = now_millis();
         if !stored_conversations.is_empty() {
-            let t = self.store.message_storage.table::<Conversation>().await;
-            t.batch_update(&stored_conversations).await.ok();
+            if let Ok(t) = self.store.message_storage.table::<Conversation>().await {
+                t.batch_update(&stored_conversations).await.ok();
+            }
         }
         log::info!(
             "batch_build_unreads conversations.len:{} need_update.len:{} logs.db_cost:{:?} conversations.db_cost:{:?} total_cost:{:?}",

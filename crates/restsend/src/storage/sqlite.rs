@@ -43,25 +43,26 @@ impl SqliteStorage {
             tbl_name
         );
         conn.execute_batch(&create_sql).map_err(|e| {
+            log::warn!("create table {} failed: {}", tbl_name, e);
             ClientError::Storage(format!("create table {} failed: {}", tbl_name, e))
         })?;
         self.tables.lock().unwrap().insert(tbl_name.clone());
         Ok(())
     }
 
-    pub async fn table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {
         let tbl_name = super::table_name::<T>();
         if self.tables.lock().unwrap().get(&tbl_name).is_none() {
-            self.make_table::<T>().unwrap();
+            self.make_table::<T>()?;
         }
         let table = SqliteTable::new(self.conn.clone(), &tbl_name);
-        Box::new(table)
+        Ok(Box::new(table))
     }
 
-    pub async fn readonly_table<T>(&self) -> Box<dyn super::Table<T>>
+    pub async fn readonly_table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
         T: StoreModel + 'static,
     {

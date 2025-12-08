@@ -99,7 +99,7 @@ pub(super) fn table_name<T>() -> String {
 async fn test_store_i32() {
     let storage = Storage::new(":memory:");
 
-    let t = storage.table::<i32>().await;
+    let t = storage.table::<i32>().await.unwrap();
     t.set("", "1", Some(&1)).await.ok();
     t.set("", "2", Some(&2)).await.ok();
 
@@ -119,7 +119,7 @@ async fn test_store_i32() {
 #[tokio::test]
 async fn test_store_query() {
     let storage = Storage::new(":memory:");
-    let table = storage.table::<i32>().await;
+    let table = storage.table::<i32>().await.unwrap();
     for i in 0..500 {
         table.set("", &i.to_string(), Some(&i)).await.ok();
     }
