@@ -38,6 +38,22 @@ impl From<restsend_sdk::Error> for RestsendDartError {
 
 pub type ExtraData = HashMap<String, String>;
 
+pub fn init_logger(level: String) {
+    let _level = level
+        .parse::<log::LevelFilter>()
+        .unwrap_or(log::LevelFilter::Info);
+    #[cfg(target_os = "android")]
+    {
+        android_logger::init_once(android_logger::Config::default().with_max_level(_level));
+    }
+    #[cfg(target_os = "ios")]
+    {
+        let _ = oslog::OsLogger::new("com.restsend.sdk")
+            .level_filter(_level)
+            .init();
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AttachmentData {
