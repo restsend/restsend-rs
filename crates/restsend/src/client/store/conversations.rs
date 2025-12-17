@@ -82,7 +82,7 @@ impl ClientStore {
     pub(super) async fn merge_conversation_from_chat(
         &self,
         req: &ChatRequest,
-        req_status: &ChatRequestStatus,
+        req_status: &mut ChatRequestStatus,
         is_countable: bool,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await.ok()?;
@@ -116,6 +116,10 @@ impl ClientStore {
                             }
                             if fields.remark.is_some() {
                                 conversation.remark = fields.remark;
+                            }
+                            if fields.mark_unread.unwrap_or(false) && conversation.unread == 0 {
+                                conversation.unread = 1;
+                                req_status.has_read = false;
                             }
                             conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
                             conversation.mute = fields.mute.unwrap_or(conversation.mute);
@@ -418,6 +422,23 @@ impl ClientStore {
             self.persist_conversation(&c).await;
         }
         self.emit_conversation_update(c)
+    }
+
+    pub async fn mark_conversation_unread(&self, topic_id: &str) -> Result<()> {
+        {
+            let t = self.message_storage.table::<Conversation>().await?;
+            if let Some(mut conversation) = t.get("", topic_id).await {
+                if conversation.unread == 0 {
+                    conversation.unread = 1;
+                    t.set("", topic_id, Some(&conversation)).await.ok();
+                    self.emit_conversation_update(conversation).ok();
+                }
+            }
+        }
+        mark_conversation_unread(&self.endpoint, &self.token, &topic_id)
+            .await
+            .ok();
+        Ok(())
     }
 
     pub async fn set_conversation_extra(

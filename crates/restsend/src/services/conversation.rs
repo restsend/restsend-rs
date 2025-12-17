@@ -97,6 +97,14 @@ pub async fn update_conversation(
     .await
 }
 
+pub async fn mark_conversation_unread(
+    endpoint: &str,
+    token: &str,
+    topic_id: &str,
+) -> Result<Conversation> {
+    api_call(endpoint, &format!("/chat/unread/{}", topic_id), token, None).await
+}
+
 pub async fn set_conversation_remark(
     endpoint: &str,
     token: &str,

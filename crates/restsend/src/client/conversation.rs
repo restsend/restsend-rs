@@ -658,6 +658,10 @@ impl Client {
         self.store.set_conversation_tags(&topic_id, tags).await
     }
 
+    pub async fn mark_conversation_unread(&self, topic_id: String) -> Result<()> {
+        self.store.mark_conversation_unread(&topic_id).await
+    }
+
     pub async fn set_conversation_extra(
         &self,
         topic_id: String,

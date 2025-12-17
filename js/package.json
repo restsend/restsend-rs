@@ -5,7 +5,7 @@
     "Restsend Team <kui@fourz.cn>"
   ],
   "description": "Restsend  Instant Messaging Javascript/Wasm SDK",
-  "version": "1.2.26",
+  "version": "1.2.27",
   "files": [
     "restsend_wasm_bg.wasm",
     "restsend_wasm.js",

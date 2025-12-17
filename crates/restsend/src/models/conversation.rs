@@ -318,4 +318,8 @@ pub struct ConversationUpdateFields {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<Tags>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mark_unread: Option<bool>,
 }

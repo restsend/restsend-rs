@@ -241,7 +241,12 @@ impl Client {
         let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
         r.serialize(serializer).map_err(|e| e.into())
     }
-
+    /// Mark conversation as unread
+    /// #Arguments
+    /// * `topicId` - topic id
+    pub async fn markConversationUnread(&self, topicId: String) {
+        self.inner.mark_conversation_unread(topicId).await.ok();
+    }
     /// Clear conversation on local storage
     /// #Arguments
     /// * `topicId` - topic id

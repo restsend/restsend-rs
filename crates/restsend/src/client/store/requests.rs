@@ -138,7 +138,7 @@ impl ClientStore {
                     return resps;
                 }
 
-                let req_status = callback
+                let mut req_status = callback
                     .read()
                     .unwrap()
                     .as_ref()
@@ -156,7 +156,7 @@ impl ClientStore {
                     };
 
                 match self
-                    .merge_conversation_from_chat(&req, &req_status, is_countable)
+                    .merge_conversation_from_chat(&req, &mut req_status, is_countable)
                     .await
                 {
                     Some(mut conversation) => {
@@ -170,7 +170,9 @@ impl ClientStore {
                             )));
                         }
                         if let Some(cb) = callback.read().unwrap().as_ref() {
-                            conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
+                            if req.seq != 0 {
+                                conversation.last_seq = req.seq; // don't use conversation.last_seq, it's may be newer
+                            }
                             cb.on_conversations_updated(vec![conversation], None);
                         }
                     }
