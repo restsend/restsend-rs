@@ -516,6 +516,10 @@
                 this.current.setConversationSticky(conversation.topicId, conversation.sticky).then();
             },
 
+            doMarkUnread: function (conversation) {
+                this.current.markConversationUnread(conversation.topicId).then();
+            },
+
             onConversationsUpdated: function (items) {
                 let hintCurrent = undefined
                 items.forEach((item) => {
@@ -1095,6 +1099,14 @@
                                                     viewBox="0 0 24 24">
                                                     <path fill="currentColor"
                                                         d="M22.11 21.46L2.39 1.73L1.11 3l6 6H5l7 7l1.06-1.05L16.11 18H5v2h13.11l2.73 2.73zM11 5h2v4.8l2.6 2.6L19 9h-4V3H9v2.8l2 2z" />
+                                                </svg>
+                                            </button>
+                                            <button class="hover:text-gray-600 invisible group-hover:visible"
+                                                title="Mark Unread" @click.stop="doMarkUnread(item)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                                    viewBox="0 0 24 24">
+                                                    <path fill="currentColor"
+                                                        d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8s8 3.59 8 8s-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
                                                 </svg>
                                             </button>
                                             <button class="hover:text-gray-600"

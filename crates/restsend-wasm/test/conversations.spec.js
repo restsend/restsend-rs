@@ -235,6 +235,45 @@ describe('Conversations', async function () {
         })
         expect(conversations[0].unread).toEqual(0)
     })
+
+    it('#mark unread with two clients', async () => {
+        let vitalik1 = await authClient('vitalik', 'vitalik:demo', true, 'vitalik-1')
+        let vitalik2 = await authClient('vitalik', 'vitalik:demo', true, 'vitalik-2')
+
+        // Ensure both have the conversation
+        await vitalik1.syncConversations({ limit: 10 })
+        await vitalik2.syncConversations({ limit: 10 })
+
+        let topicId = guidoTopic.topicId
+
+        // Mark as read first
+        await vitalik1.setConversationRead(topicId)
+
+        // Wait for sync/update on vitalik2
+        await waitUntil(async () => {
+            let c = await vitalik2.getConversation(topicId)
+            return c && c.unread === 0
+        }, 3000)
+
+        let updatedOnClient2 = false
+        vitalik2.onconversationsupdated = (items) => {
+            if (items.some(c => c.topicId === topicId && c.unread === 1)) {
+                updatedOnClient2 = true
+            }
+        }
+
+        // Mark as unread on Client 1
+        await vitalik1.markConversationUnread(topicId)
+
+        // Verify on Client 2 via push
+        await waitUntil(() => updatedOnClient2, 5000)
+        expect(updatedOnClient2).toBe(true)
+
+        // Verify on Client 2 via getConversation
+        let c2 = await vitalik2.getConversation(topicId)
+        expect(c2.unread).toBe(1)
+    })
+
     it('#remove conversation', async () => {
         let conversations = await vitalik.filterConversation(c => { return c.attendee === 'guido' })
         expect(conversations.length).toEqual(1)

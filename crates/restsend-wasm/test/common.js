@@ -4,7 +4,7 @@ export const endpoint = 'https://chat.ruzhila.cn/'
 export async function waitUntil(fn, timeout) {
     let start = Date.now()
     while (true) {
-        if (fn()) {
+        if (await fn()) {
             return true
         }
         if (Date.now() - start > timeout) {
