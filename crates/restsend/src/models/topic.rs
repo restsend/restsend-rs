@@ -43,6 +43,10 @@ pub struct Topic {
 
     #[serde(skip_serializing_if = "String::is_empty")]
     #[serde(default)]
+    pub kind: String,
+
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
     pub remark: String,
 
     #[serde(skip_serializing_if = "String::is_empty")]

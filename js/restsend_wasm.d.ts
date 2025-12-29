@@ -368,7 +368,7 @@ export class Client {
    * #Return
    * * `Topic` || `undefined`
    */
-  createTopic(members: string[], name?: string | null, icon?: string | null): Promise<any>;
+  createTopic(members: string[], name?: string | null, icon?: string | null, kind?: string | null): Promise<any>;
   /**
    * Join a topic
    * #Arguments
@@ -435,6 +435,7 @@ export class Client {
    * * `option` - option
    *     * `name` - String
    *     * `icon` - String (url) or base64
+   *     * `kind` - String
    */
   updateTopic(topicId: string, option: any): Promise<void>;
   /**
@@ -884,7 +885,7 @@ export interface InitOutput {
   readonly client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
   readonly client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
   readonly client_doPing: (a: number, b: number, c: number, d: any) => any;
-  readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+  readonly client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
   readonly client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly client_getTopic: (a: number, b: number, c: number) => any;
@@ -953,7 +954,7 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hee81ac57ea73bad3: (a: number, b: number) => void;
+  readonly _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha870cad04961a599: (a: number, b: number) => void;
   readonly closure45_externref_shim: (a: number, b: number, c: any) => void;
   readonly closure92_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;

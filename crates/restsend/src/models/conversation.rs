@@ -72,6 +72,10 @@ pub struct Conversation {
     #[serde(default)]
     pub icon: String,
 
+    #[serde(skip_serializing_if = "String::is_empty")]
+    #[serde(default)]
+    pub kind: String,
+
     #[serde(skip_serializing_if = "omit_empty")]
     #[serde(default)]
     pub sticky: bool,

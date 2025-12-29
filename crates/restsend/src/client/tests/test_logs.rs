@@ -274,7 +274,7 @@ async fn test_client_sync_logs() {
     let members = vec!["vivian2".to_string(), "vivian3".to_string()];
 
     let topic = c
-        .create_topic(members, None, None)
+        .create_topic(members, None, None, None)
         .await
         .expect("create_topic");
     let topic_id = topic.topic_id;

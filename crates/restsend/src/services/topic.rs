@@ -56,10 +56,12 @@ pub async fn create_topic(
     members: Vec<String>,
     name: Option<String>,
     icon: Option<String>,
+    kind: Option<String>,
 ) -> Result<Topic> {
     let data = serde_json::json!({
         "name": name,
         "icon": icon,
+        "kind": kind,
         "members": members
     })
     .to_string();

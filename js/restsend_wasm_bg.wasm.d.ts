@@ -50,7 +50,7 @@ export const client_doSendText: (a: number, b: number, c: number, d: number, e: 
 export const client_doSendImage: (a: number, b: number, c: number, d: any, e: any) => any;
 export const client_doUpdateExtra: (a: number, b: number, c: number, d: number, e: number, f: any, g: any) => any;
 export const client_doPing: (a: number, b: number, c: number, d: any) => any;
-export const client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+export const client_createTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const client_joinTopic: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const client_addMember: (a: number, b: number, c: number, d: number, e: number) => any;
 export const client_getTopic: (a: number, b: number, c: number) => any;
@@ -119,7 +119,7 @@ export const __externref_table_alloc: () => number;
 export const __wbindgen_export_4: WebAssembly.Table;
 export const __wbindgen_export_5: WebAssembly.Table;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
-export const _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__hee81ac57ea73bad3: (a: number, b: number) => void;
+export const _dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha870cad04961a599: (a: number, b: number) => void;
 export const closure45_externref_shim: (a: number, b: number, c: any) => void;
 export const closure92_externref_shim: (a: number, b: number, c: any, d: any) => void;
 export const __wbindgen_start: () => void;

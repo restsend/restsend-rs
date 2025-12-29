@@ -11,10 +11,11 @@ impl Client {
     pub async fn create_topic(
         &self,
         members: Vec<String>,
-        icon: Option<String>,
         name: Option<String>,
+        icon: Option<String>,
+        kind: Option<String>,
     ) -> Result<Conversation> {
-        create_topic(&self.endpoint, &self.token, members, icon, name)
+        create_topic(&self.endpoint, &self.token, members, name, icon, kind)
             .await
             .map(|t| Conversation::from(&t))
     }
@@ -77,8 +78,9 @@ impl Client {
         topic_id: String,
         name: Option<String>,
         icon: Option<String>,
+        kind: Option<String>,
     ) -> Result<()> {
-        update_topic(&self.endpoint, &self.token, &topic_id, name, icon).await
+        update_topic(&self.endpoint, &self.token, &topic_id, name, icon, kind).await
     }
 
     pub async fn update_topic_notice(&self, topic_id: String, text: String) -> Result<()> {

@@ -151,10 +151,12 @@ pub async fn update_topic(
     topic_id: &str,
     name: Option<String>,
     icon: Option<String>,
+    kind: Option<String>,
 ) -> Result<()> {
     let data = serde_json::json!({
         "name":name,
         "icon":icon,
+        "kind":kind,
     })
     .to_string();
 

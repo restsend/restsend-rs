@@ -18,9 +18,10 @@ impl Client {
         members: Vec<String>,
         name: Option<String>,
         icon: Option<String>,
+        kind: Option<String>,
     ) -> Result<JsValue, JsValue> {
         let serializer = &serde_wasm_bindgen::Serializer::new().serialize_maps_as_objects(true);
-        let r = self.inner.create_topic(members, name, icon).await?;
+        let r = self.inner.create_topic(members, name, icon, kind).await?;
         r.serialize(serializer).map_err(|e| e.into())
     }
 
@@ -126,12 +127,14 @@ impl Client {
     /// * `option` - option
     ///     * `name` - String
     ///     * `icon` - String (url) or base64
+    ///     * `kind` - String
     pub async fn updateTopic(&self, topicId: String, option: JsValue) -> Result<(), JsValue> {
         self.inner
             .update_topic(
                 topicId,
                 get_string(&option, "name"),
                 get_string(&option, "icon"),
+                get_string(&option, "kind"),
             )
             .await
             .map_err(|e| e.into())
