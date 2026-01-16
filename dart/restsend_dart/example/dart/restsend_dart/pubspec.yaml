@@ -1,0 +1,8 @@
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: RestsendDartPlugin
+      macos:
+        pluginClass: RestsendDartPlugin

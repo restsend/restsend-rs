@@ -13,9 +13,9 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _endpointController = TextEditingController();
-  final _userIdController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _endpointController = TextEditingController(text: 'https://chat.ruzhila.cn');
+  final _userIdController = TextEditingController(text: 'bob');
+  final _passwordController = TextEditingController(text: 'bob');
   final _nameController = TextEditingController();
   final _avatarController = TextEditingController();
   final _dbPathController = TextEditingController();
@@ -75,7 +75,9 @@ class _LoginScreenState extends State<LoginScreen> {
         isCrossDomain: auth.isCrossDomain,
       );
       await controller.login(auth: enrichedAuth, options: options);
-    } catch (err) {
+    } catch (err, stack) {
+      debugPrint('Login failed: $err');
+      debugPrintStack(stackTrace: stack);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Login failed: $err')),

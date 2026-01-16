@@ -67,7 +67,9 @@ class DemoController extends ChangeNotifier {
       );
       notifyListeners();
       await loadConversations(refresh: true);
-    } catch (err) {
+    } catch (err, stack) {
+      debugPrint('DemoController login error: $err');
+      debugPrintStack(stackTrace: stack);
       _errorMessage = 'Login failed: $err';
       _phase = DemoPhase.error;
       notifyListeners();

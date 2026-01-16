@@ -21,22 +21,22 @@ The app lets you:
 
 	```bash
 	cargo check
+	dart build.dart
 	(or the usual flutter_rust_bridge codegen flow)
 	```
 
 2. Fetch dependencies for both the Dart package and the example:
 
 	```bash
-	cd dart/restsend_dart
-	dart pub get
-	cd example
+	cd dart/restsend_dart/example
 	flutter pub get
 	```
 
-3. Run the demo:
+3. Run the demo: (macos)
 
 	```bash
-	flutter run
+	flutter clean 
+	flutter run -d macos
 	```
 
 Fill in the login form with valid endpoint, user ID, and password values from your
