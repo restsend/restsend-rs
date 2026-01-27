@@ -16,5 +16,6 @@ A new Flutter plugin project.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 
-  s.vendored_frameworks = 'restsend_dart_ffi.xcframework'
+  # Use vendored_libraries instead of vendored_frameworks when xcframework is not available
+  s.vendored_libraries = 'librestsend_dart.dylib'
 end

@@ -59,13 +59,36 @@ Add JNA (or your preferred loader) plus network/storage permissions in your Andr
 
 The package under `dart/restsend_dart` uses `flutter_rust_bridge`.
 
+#### Quick Start (macOS Desktop - No Xcode Required)
+
+```shell
+# Build and run on macOS desktop
+./build_macos.sh
+cd dart/restsend_dart/example
+flutter run -d macos
+```
+
+#### iOS Simulator (Requires Xcode)
+
+```shell
+# First time: Install Xcode from Mac App Store, then:
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+
+# Build and run on iOS simulator
+./build_ios_sim.sh
+cd dart/restsend_dart/example
+flutter run
+```
+
+#### Full Build (All Platforms)
+
 ```shell
 dart run build.dart   # runs all required steps from the repo root
 ```
 
 The helper script installs/updates `flutter_rust_bridge_codegen`, installs Dart deps, runs `build_runner`, regenerates bindings, and finally builds the `restsend-dart` crate.
 
-Run `flutter run` from `dart/restsend_dart/example` to try the demo UI.
+See `dart/restsend_dart/README.md` for detailed documentation.
 
 ### WebAssembly package
 

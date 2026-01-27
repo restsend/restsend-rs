@@ -88,15 +88,32 @@ rand = "0.8.5"
 clap = "4.5.23"
 camino = "1.1.9"
 tempdir = "0.3.7"
-openssl = { version = "0.10.68", features = ["vendored"] }
 rusqlite = { version = "0.32.1", features = ["bundled"] }
+tokio = { version = "1.42.0", features = ["full"] }
+
+[target.'cfg(all(not(target_arch = "wasm32"), not(any(target_os = "ios", target_os = "macos"))))'.dependencies]
+openssl = { version = "0.10.68", features = ["vendored"] }
 tokio-websockets = { version = "0.10.1", features = [
     "native-tls",
     "client",
     "openssl",
     "rand",
 ] }
-tokio = { version = "1.42.0", features = ["full"] }
+reqwest = { version = "0.12.9", default-features = false, features = [
+    "json",
+    "multipart",
+    "stream",
+    "native-tls",
+] }
+
+[target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
+openssl = { version = "0.10.68" }
+tokio-websockets = { version = "0.10.1", features = [
+    "native-tls",
+    "client",
+    "openssl",
+    "rand",
+] }
 reqwest = { version = "0.12.9", default-features = false, features = [
     "json",
     "multipart",

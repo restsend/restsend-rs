@@ -16,7 +16,11 @@ class RestsendRuntime {
 
     ExternalLibrary? externalLibrary;
     if (!kIsWeb) {
-      if (Platform.isMacOS) {
+      if (Platform.isIOS) {
+        // iOS uses the framework bundled in the app
+        // The framework is loaded automatically, no need to specify path
+        externalLibrary = ExternalLibrary.open('restsend_dart_ffi.framework/restsend_dart_ffi');
+      } else if (Platform.isMacOS) {
         try {
           externalLibrary =
               ExternalLibrary.open('restsend_dart_ffi.framework/restsend_dart_ffi');
@@ -37,6 +41,9 @@ class RestsendRuntime {
             }
           }
         }
+      } else if (Platform.isAndroid) {
+        // Android loads the library automatically from jniLibs
+        externalLibrary = ExternalLibrary.open('librestsend_dart.so');
       } else if (Platform.isLinux || Platform.isWindows) {
         final dylibName = Platform.isWindows ? 'restsend_dart.dll' : 'librestsend_dart.so';
         externalLibrary = ExternalLibrary.open(dylibName);
