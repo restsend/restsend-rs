@@ -77,6 +77,33 @@ Future<void> main(List<String> arguments) async {
   );
 
   await _createXcframework();
+  await _createMacosDylib();
+}
+
+Future<void> _createMacosDylib() async {
+  stdout.writeln('\n>>> Creating macOS universal dylib');
+
+  const dylibName = 'librestsend_dart.dylib';
+  final macosArmDylib = 'target/aarch64-apple-darwin/release/$dylibName';
+  final macosX64Dylib = 'target/x86_64-apple-darwin/release/$dylibName';
+
+  // Create fat dylib for macOS
+  final macosFatDir = 'target/macos-fat/release';
+  await Directory(macosFatDir).create(recursive: true);
+  final macosFatDylib = '$macosFatDir/$dylibName';
+  
+  await _runStep(
+    name: 'Lipo macOS dylibs',
+    executable: 'lipo',
+    arguments: ['-create', macosArmDylib, macosX64Dylib, '-output', macosFatDylib],
+  );
+
+  // Copy to macos directory for non-CocoaPods builds
+  await _runStep(
+    name: 'Copy dylib to macos/',
+    executable: 'cp',
+    arguments: [macosFatDylib, 'dart/restsend_dart/macos/'],
+  );
 }
 
 Future<void> _createXcframework() async {
