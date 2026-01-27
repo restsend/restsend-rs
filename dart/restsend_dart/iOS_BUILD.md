@@ -1,116 +1,402 @@
-# RestsendDart 构建与运行说明
+# iOS 构建指南
 
-## 当前状态
+## 背景：为什么 iOS 需要动态库
 
-✅ **已完成的修复**：
-1. 修复了 `runtime.dart` - 添加了对 iOS 和 Android 的支持
-2. 修复了 `Cargo.toml` - 针对 iOS/macOS 平台优化了 OpenSSL 配置
-3. 创建了 `build_macos.sh` - macOS 构建脚本（无需 Xcode）
-4. 创建了 `build_ios_sim.sh` - iOS 模拟器构建脚本（需要 Xcode）
+在 iOS 开发中，使用 Flutter Rust Bridge 时，**必须使用动态库（.dylib）** 而不是静态库（.a）。
 
-## 快速开始 - macOS 桌面版（推荐）
+### 技术原因
 
-如果你只是想快速测试功能，在 macOS 桌面版运行**不需要 Xcode**：
+1. **符号可见性**：
+   - 静态库：符号在编译时链接，但 flutter_rust_bridge 在运行时通过 `dlsym` 动态查找符号
+   - 动态库：符号在运行时可见，`dlsym` 可以正确查找到 FFI 函数
+
+2. **链接时机**：
+   - 静态库需要在编译时显式链接所有符号
+   - 动态库允许运行时动态加载和符号解析
+
+3. **Flutter FFI 工作方式**：
+   ```dart
+   // runtime.dart 中的实际代码
+   ExternalLibrary.open('librestsend_dart.dylib')  // ✅ 运行时加载
+   ```
+
+### 常见错误示例
+
+使用静态库时会遇到：
+```
+Failed to lookup symbol 'frb_get_rust_content_hash': symbol not found
+```
+
+这是因为静态库中的符号虽然存在，但在运行时无法通过 dlsym 找到。
+
+## 构建 iOS 模拟器动态库
+
+### 前置要求
 
 ```bash
-cd /Users/pi/workspace/rs/restsend-rs
+# 1. 安装 Xcode（从 App Store，约 15GB）
+# 2. 配置命令行工具
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 
-# 1. 编译 macOS 版本
-./build_macos.sh
+# 3. 验证安装
+xcodebuild -version
+# 应显示：Xcode 15.x 或更高版本
 
-# 2. 运行 Flutter 应用
+# 4. 安装 Rust targets
+rustup target add aarch64-apple-ios-sim  # Apple Silicon Mac 模拟器
+rustup target add x86_64-apple-ios       # Intel Mac 模拟器
+
+# 5. 验证 target 安装
+rustup target list | grep installed
+# 应包含：
+# aarch64-apple-ios-sim
+# x86_64-apple-ios
+```
+
+### 构建通用动态库
+
+使用 `build_ios_sim_dylib.sh` 脚本（已创建并验证）：
+
+```bash
+cd /path/to/restsend-rs
+
+# 查看脚本内容
+cat build_ios_sim_dylib.sh
+
+# 执行构建（约 2-5 分钟）
+./build_ios_sim_dylib.sh
+```
+
+### 脚本工作流程
+
+```bash
+#!/bin/bash
+
+# 1. 生成 FFI 绑定（如果需要）
+dart run build.dart
+
+# 2. 编译 arm64 版本（Apple Silicon）
+cd crates/restsend-dart
+cargo build --release --target aarch64-apple-ios-sim
+
+# 3. 编译 x86_64 版本（Intel Mac）
+cargo build --release --target x86_64-apple-ios
+
+# 4. 合并为通用二进制
+lipo -create \
+  ../../target/aarch64-apple-ios-sim/release/librestsend_dart.dylib \
+  ../../target/x86_64-apple-ios/release/librestsend_dart.dylib \
+  -output ../../dart/restsend_dart/ios/librestsend_dart.dylib
+
+# 5. 验证架构
+lipo -info ../../dart/restsend_dart/ios/librestsend_dart.dylib
+# 应显示：Architectures in the fat file: ... are: x86_64 arm64
+```
+
+### 验证构建产物
+
+```bash
+# 检查文件是否存在
+ls -lh dart/restsend_dart/ios/librestsend_dart.dylib
+
+# 查看支持的架构
+lipo -info dart/restsend_dart/ios/librestsend_dart.dylib
+# 应输出：Architectures in the fat file: ... are: x86_64 arm64
+
+# 检查符号是否存在
+nm -g dart/restsend_dart/ios/librestsend_dart.dylib | grep frb_get_rust_content_hash
+# 应看到符号地址
+
+# 验证是否为动态库
+file dart/restsend_dart/ios/librestsend_dart.dylib
+# 应包含 "Mach-O universal binary with 2 architectures"
+```
+
+## 配置 Flutter 项目
+
+### 1. CocoaPods 配置
+
+`dart/restsend_dart/ios/restsend_dart.podspec`：
+
+```ruby
+Pod::Spec.new do |s|
+  s.name             = 'restsend_dart'
+  s.version          = '1.0.0'
+  s.summary          = 'Restsend SDK for Flutter'
+  s.homepage         = 'https://github.com/restsend/restsend-rs'
+  s.license          = { :file => '../LICENSE' }
+  s.author           = { 'Restsend' => 'dev@restsend.com' }
+  
+  s.source           = { :path => '.' }
+  s.source_files     = 'Classes/**/*'
+  s.public_header_files = 'Classes/**/*.h'
+  
+  # ⭐ 关键：使用 vendored_libraries
+  s.vendored_libraries = 'librestsend_dart.dylib'
+  
+  s.dependency 'Flutter'
+  s.platform = :ios, '12.0'
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+end
+```
+
+### 2. Runtime 配置
+
+`dart/restsend_dart/lib/src/runtime.dart`：
+
+```dart
+import 'dart:ffi';
+import 'dart:io';
+import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';
+
+ExternalLibrary getRustLibrary() {
+  if (Platform.isMacOS) {
+    return ExternalLibrary.open('librestsend_dart.dylib');
+  } else if (Platform.isIOS) {
+    // ⭐ iOS 使用动态库
+    return ExternalLibrary.open('librestsend_dart.dylib');
+  } else if (Platform.isAndroid) {
+    return ExternalLibrary.open('librestsend_dart.so');
+  }
+  throw UnsupportedError('Unsupported platform: ${Platform.operatingSystem}');
+}
+```
+
+### 3. Pubspec 配置
+
+`dart/restsend_dart/pubspec.yaml`：
+
+```yaml
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: RestsendDartPlugin
+      macos:
+        pluginClass: RestsendDartPlugin
+```
+
+## 运行应用
+
+### 完整流程
+
+```bash
+# 1. 构建动态库
+cd /path/to/restsend-rs
+./build_ios_sim_dylib.sh
+
+# 2. 清理并安装依赖
 cd dart/restsend_dart/example
 flutter clean
 flutter pub get
-flutter run -d macos
+cd ios && pod install && cd ..
+
+# 3. 列出可用设备
+flutter devices
+
+# 4. 运行应用
+flutter run -d ios
+# 或指定设备 ID
+flutter run -d <device-id>
 ```
 
-## iOS 模拟器版本（需要 Xcode）
+### 预期输出
 
-### 前置条件
+```
+✓ Built build/ios/iphoneos/Runner.app (4.5s)
+Launching lib/main.dart on iPhone 16e in debug mode...
+Running Xcode build...
+└─Compiling, linking and signing...                      4.5s
+Xcode build done.                                        5.2s
 
-1. **安装 Xcode**：
-   - 从 Mac App Store 下载并安装 Xcode
-   - 安装完成后运行：
-     ```bash
-     sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-     ```
-
-2. **安装 Rust targets**：
-   ```bash
-   rustup target add aarch64-apple-ios-sim aarch64-apple-ios
-   ```
-
-3. **构建 iOS 模拟器版本**：
-   ```bash
-   cd /Users/pi/workspace/rs/restsend-rs
-   ./build_ios_sim.sh
-   ```
-
-4. **运行 Flutter 应用**：
-   ```bash
-   cd dart/restsend_dart/example
-   flutter clean
-   flutter pub get
-   cd ios && pod install && cd ..
-   flutter run
-   ```
-
-### 方案 2：使用 GitHub Actions 预编译（暂时没有可用的预编译版本）
-
-如果你不想安装 Xcode，可以：
-1. 在有 Xcode 的机器上运行 `./build_ios_sim.sh`
-2. 将生成的 `dart/restsend_dart/ios/restsend_dart_ffi.xcframework` 复制到你的机器
-
-### 方案 3：仅在 macOS 桌面运行
-
-如果只是要测试功能，可以在 macOS 桌面版运行：
-```bash
-cd dart/restsend_dart/example
-flutter clean
-flutter pub get  
-flutter run -d macos
+✓ Flutter run on iPhone 16e completed successfully
 ```
 
-## 当前修复内容
+### 验证 FFI 工作
 
-1. **修复了 runtime.dart** - 添加了对 iOS 的支持
-2. **修复了 Cargo.toml** - 针对 iOS/macOS 平台禁用了 OpenSSL vendored feature
-3. **创建了 build_ios_sim.sh** - 简化的 iOS 模拟器构建脚本
+在应用日志中应看到：
+```
+[INFO] RestsendApi initialized successfully
+[INFO] Login attempt with endpoint: https://api.example.com
+```
 
-## 构建脚本说明
-
-### build_ios_sim.sh
-只编译 iOS 模拟器版本（arm64），适合快速开发测试。
-
-### build.dart
-完整的构建脚本，编译所有平台（iOS、iOS模拟器、macOS），并创建通用的 xcframework。
+如果看到业务逻辑错误（如 "invalid password"），说明 FFI 已正常工作。
 
 ## 故障排除
 
-### 错误：SDK "iphonesimulator" cannot be located
-**原因**：没有安装 Xcode 或 xcode-select 指向命令行工具
-**解决**：
-```bash
-# 检查当前配置
-xcode-select -p
+### 错误 1: 符号未找到
 
-# 应该显示：/Applications/Xcode.app/Contents/Developer
-# 如果显示 /Library/Developer/CommandLineTools，则需要切换：
-sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+**错误**：
+```
+Failed to lookup symbol 'frb_get_rust_content_hash': symbol not found
 ```
 
-### 错误：Failed to load dynamic library 'restsend_dart.framework/restsend_dart'
-**原因**：xcframework 没有被正确构建或复制到 iOS 项目目录
+**原因**：使用了静态库或符号未导出
+
 **解决**：
-1. 确保运行了构建脚本
-2. 确保 `dart/restsend_dart/ios/restsend_dart_ffi.xcframework` 存在
-3. 运行 `cd dart/restsend_dart/example/ios && pod install`
+```bash
+# 1. 确认使用 build_ios_sim_dylib.sh（不是 build_ios_sim.sh）
+./build_ios_sim_dylib.sh
 
-### macOS 桌面版运行正常
-如果 macOS 桌面版可以运行，说明：
-- Rust 编译环境正常
-- Flutter 配置正常
-- 只是缺少 iOS SDK 支持
+# 2. 检查 podspec
+cat dart/restsend_dart/ios/restsend_dart.podspec | grep vendored_libraries
+# 应显示：s.vendored_libraries = 'librestsend_dart.dylib'
 
-在这种情况下，建议先使用 macOS 桌面版进行开发和测试。
+# 3. 检查 runtime.dart
+cat dart/restsend_dart/lib/src/runtime.dart | grep iOS -A 2
+# 应显示：ExternalLibrary.open('librestsend_dart.dylib')
+
+# 4. 验证符号存在
+nm -g dart/restsend_dart/ios/librestsend_dart.dylib | grep frb_get_rust_content_hash
+```
+
+### 错误 2: 架构不匹配
+
+**错误**：
+```
+Unable to find matching slice in 'ios-arm64 ios-arm64-simulator' for (arm64 x86_64)
+```
+
+**原因**：缺少 x86_64 架构（Intel Mac 需要）
+
+**解决**：
+```bash
+# 1. 确保安装了 x86_64 target
+rustup target add x86_64-apple-ios
+
+# 2. 重新构建包含两种架构的通用库
+./build_ios_sim_dylib.sh
+
+# 3. 验证架构
+lipo -info dart/restsend_dart/ios/librestsend_dart.dylib
+# 应显示：x86_64 arm64
+```
+
+### 错误 3: SDK not found
+
+**错误**：
+```
+SDK "iphonesimulator" cannot be located
+```
+
+**原因**：未安装 Xcode 或配置错误
+
+**解决**：
+```bash
+# 1. 检查 Xcode 安装
+xcode-select -p
+# 应显示：/Applications/Xcode.app/Contents/Developer
+
+# 2. 如果不正确，切换到 Xcode
+sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
+
+# 3. 验证
+xcodebuild -version
+# 应显示：Xcode 15.x
+
+# 4. 如果还没有 Xcode，需要从 App Store 下载（约 15GB）
+```
+
+### 错误 4: CocoaPods 警告
+
+**警告**：
+```
+[!] `restsend_dart` does not specify a Swift version
+[!] no license specified in `restsend_dart`
+```
+
+**解决**：
+```bash
+# 1. 创建 LICENSE 文件
+touch dart/restsend_dart/LICENSE
+
+# 2. 在 podspec 中添加 swift_version（可选）
+# s.swift_version = '5.0'
+```
+
+## 开发工作流
+
+### 快速迭代
+
+1. **只修改 Dart 代码**：直接使用热重载，无需重新编译 Rust
+   ```bash
+   flutter run -d ios
+   # 按 'r' 进行热重载
+   ```
+
+2. **修改 Rust 代码**：重新编译并重启
+   ```bash
+   ./build_ios_sim_dylib.sh
+   cd dart/restsend_dart/example
+   flutter run -d ios
+   ```
+
+3. **修改 FFI 接口**：重新生成绑定并编译
+   ```bash
+   dart run build.dart
+   ./build_ios_sim_dylib.sh
+   cd dart/restsend_dart/example
+   flutter run -d ios
+   ```
+
+### 调试技巧
+
+1. **查看完整日志**：
+   ```bash
+   flutter run -d ios -v
+   ```
+
+2. **查看 FFI 调用**：在 Dart 代码中添加日志
+   ```dart
+   print('Calling Rust function...');
+   final result = await api.someFunction();
+   print('Rust returned: $result');
+   ```
+
+3. **查看 Xcode 控制台**：
+   - 打开 Xcode
+   - Window → Devices and Simulators
+   - 选择设备 → Open Console
+   - 查看底层日志
+
+4. **检查库加载**：
+   ```dart
+   try {
+     final lib = getRustLibrary();
+     print('Library loaded successfully');
+   } catch (e) {
+     print('Failed to load library: $e');
+   }
+   ```
+
+## 最佳实践
+
+1. **始终使用动态库**：iOS 上避免使用静态库和 xcframework
+2. **构建通用二进制**：同时支持 arm64 和 x86_64 架构
+3. **使用 CocoaPods**：简化依赖管理
+4. **清理构建缓存**：遇到奇怪问题时运行 `flutter clean`
+5. **验证符号导出**：构建后使用 `nm -g` 检查符号
+
+## 参考资源
+
+- [Flutter Rust Bridge 文档](https://cjycode.com/flutter_rust_bridge/)
+- [iOS Dynamic Libraries](https://developer.apple.com/library/archive/documentation/DeveloperTools/Conceptual/DynamicLibraries/)
+- [Rust FFI Guide](https://doc.rust-lang.org/nomicon/ffi.html)
+- [CocoaPods Guides](https://guides.cocoapods.org/)
+
+## 总结
+
+✅ **成功配置清单**：
+- [x] 安装 Xcode 和 Rust targets
+- [x] 使用 `build_ios_sim_dylib.sh` 构建动态库
+- [x] 配置 `restsend_dart.podspec` 使用 `vendored_libraries`
+- [x] 配置 `runtime.dart` 使用 `ExternalLibrary.open()`
+- [x] 运行 `pod install` 安装 CocoaPods 依赖
+- [x] 使用 `flutter run -d ios` 启动应用
+- [x] 验证 FFI 调用正常工作
+
+🎯 **关键点**：
+- iOS 必须使用动态库（.dylib）
+- 需要支持 arm64 + x86_64 双架构
+- 使用 CocoaPods vendored_libraries
+- ExternalLibrary.open() 进行运行时加载

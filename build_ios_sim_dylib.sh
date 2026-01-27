@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Building restsend-dart for iOS Simulator (arm64 + x86_64)..."
+echo "Building restsend-dart dynamic library for iOS Simulator (arm64 + x86_64)..."
 
 # Build for iOS Simulator arm64
 cargo build -p restsend-dart --release --target aarch64-apple-ios-sim
@@ -9,9 +9,9 @@ cargo build -p restsend-dart --release --target aarch64-apple-ios-sim
 # Build for iOS Simulator x86_64
 cargo build -p restsend-dart --release --target x86_64-apple-ios
 
-echo "Creating universal iOS Simulator library..."
+echo "Creating universal iOS Simulator dynamic library..."
 
-LIB_NAME="librestsend_dart.a"
+LIB_NAME="librestsend_dart.dylib"
 IOS_SIM_ARM64="target/aarch64-apple-ios-sim/release/$LIB_NAME"
 IOS_SIM_X86="target/x86_64-apple-ios/release/$LIB_NAME"
 IOS_SIM_UNIVERSAL="target/ios-sim-universal/release/$LIB_NAME"
@@ -22,22 +22,14 @@ mkdir -p "target/ios-sim-universal/release"
 # Combine arm64 and x86_64 into a universal library
 lipo -create "$IOS_SIM_ARM64" "$IOS_SIM_X86" -output "$IOS_SIM_UNIVERSAL"
 
-echo "Creating xcframework for iOS Simulator..."
+echo "Copying to iOS plugin directory..."
 
 OUTPUT_DIR="dart/restsend_dart/ios"
-XCFRAMEWORK="$OUTPUT_DIR/restsend_dart_ffi.xcframework"
 
-# Remove existing xcframework if present
-if [ -d "$XCFRAMEWORK" ]; then
-    rm -rf "$XCFRAMEWORK"
-fi
+# Copy universal dylib
+cp "$IOS_SIM_UNIVERSAL" "$OUTPUT_DIR/librestsend_dart.dylib"
 
-# Create xcframework with universal iOS Simulator support
-xcodebuild -create-xcframework \
-    -library "$IOS_SIM_UNIVERSAL" \
-    -output "$XCFRAMEWORK"
-
-echo "✅ iOS Simulator framework created at: $XCFRAMEWORK"
+echo "✅ iOS Simulator dynamic library created at: $OUTPUT_DIR/librestsend_dart.dylib"
 echo ""
 echo "Now you can run:"
 echo "  cd dart/restsend_dart/example"

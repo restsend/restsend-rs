@@ -1,3 +1,4 @@
+import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
@@ -17,9 +18,8 @@ class RestsendRuntime {
     ExternalLibrary? externalLibrary;
     if (!kIsWeb) {
       if (Platform.isIOS) {
-        // iOS uses the framework bundled in the app
-        // The framework is loaded automatically, no need to specify path
-        externalLibrary = ExternalLibrary.open('restsend_dart_ffi.framework/restsend_dart_ffi');
+        // iOS uses dynamic library loaded from the framework
+        externalLibrary = ExternalLibrary.open('librestsend_dart.dylib');
       } else if (Platform.isMacOS) {
         try {
           externalLibrary =

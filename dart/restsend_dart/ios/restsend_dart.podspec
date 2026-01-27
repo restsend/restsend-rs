@@ -17,8 +17,6 @@ A new Flutter plugin project.
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
   s.swift_version = '5.0'
 
-  # Check if xcframework exists, otherwise this will be handled by runtime.dart
-  if File.exist?('restsend_dart_ffi.xcframework')
-    s.vendored_frameworks = 'restsend_dart_ffi.xcframework'
-  end
+  # Link dynamic library
+  s.vendored_libraries = 'librestsend_dart.dylib'
 end
