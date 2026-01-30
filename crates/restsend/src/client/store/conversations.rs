@@ -34,14 +34,23 @@ pub(crate) async fn merge_conversation(
     }
 
     if sync_last_readable {
+        let server_last_message_seq = conversation.last_message_seq;
         if let Some(log) =
             get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
                 .await
         {
-            conversation.last_message = Some(log.content.clone());
-            conversation.last_message_at = log.created_at.clone();
-            conversation.last_sender_id = log.sender_id;
-            conversation.last_message_seq = Some(log.seq);
+            let local_seq = log.seq;
+            let should_use_local = match server_last_message_seq {
+                Some(server_seq) => local_seq >= server_seq,
+                None => true,
+            };
+
+            if should_use_local {
+                conversation.last_message = Some(log.content.clone());
+                conversation.last_message_at = log.created_at.clone();
+                conversation.last_sender_id = log.sender_id;
+                conversation.last_message_seq = Some(log.seq);
+            }
         }
     }
 
