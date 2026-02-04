@@ -52,6 +52,13 @@ pub fn init_logger(level: String) {
             .level_filter(_level)
             .init();
     }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let _ = simple_logger::SimpleLogger::new()
+            .with_level(_level)
+            .with_utc_timestamps()
+            .init();
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

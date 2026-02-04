@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:restsend_dart/restsend_dart.dart';
@@ -17,6 +19,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   final List<RestsendChatLog> _messages = [];
+  StreamSubscription<RestsendClientEvent>? _eventSub;
 
   bool _isLoading = true;
   bool _isSyncing = false;
@@ -27,6 +30,31 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadLocal();
+    _listenEvents();
+  }
+
+  void _listenEvents() {
+    final controller = context.read<DemoController>();
+    _eventSub = controller.events.listen((event) {
+      event.when(
+        connected: () {},
+        connecting: () {},
+        tokenExpired: (_) {},
+        netBroken: (_) {},
+        kickedOffByOtherClient: (_) {},
+        conversationsUpdated: (_, __) {},
+        conversationRemoved: (_) {},
+        messageReceived: (topicId, message, status) {
+          if (topicId != widget.conversation.topicId) {
+            return;
+          }
+          _updateMessages([message]);
+          _scrollToBottom();
+        },
+        syncConversationsProgress: (_, __, ___, ____) {},
+        syncConversationsFailed: (_) {},
+      );
+    });
   }
 
   Future<void> _loadLocal() async {
@@ -153,6 +181,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _eventSub?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     super.dispose();

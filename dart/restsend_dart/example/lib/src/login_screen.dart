@@ -15,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _endpointController = TextEditingController(text: 'https://chat.ruzhila.cn');
   final _userIdController = TextEditingController(text: 'bob');
-  final _passwordController = TextEditingController(text: 'bob');
+  final _passwordController = TextEditingController(text: 'bob:demo');
   final _nameController = TextEditingController();
   final _avatarController = TextEditingController();
   final _dbPathController = TextEditingController();

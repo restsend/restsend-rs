@@ -28,6 +28,8 @@ class DemoController extends ChangeNotifier {
   RestsendAuthInfo? _authInfo;
   RestsendClientOptions? _clientOptions;
   StreamSubscription<RestsendClientEvent>? _eventSub;
+  final StreamController<RestsendClientEvent> _eventController =
+      StreamController<RestsendClientEvent>.broadcast();
   List<RestsendConversation> _conversations = const [];
   bool _isLoadingConversations = false;
   bool _isSyncing = false;
@@ -42,6 +44,7 @@ class DemoController extends ChangeNotifier {
   RestsendClient? get client => _client;
   String? get currentUserId => _authInfo?.userId;
   bool get isAuthenticated => _client != null;
+  Stream<RestsendClientEvent> get events => _eventController.stream;
 
   Future<void> login({
     required RestsendAuthInfo auth,
@@ -145,6 +148,7 @@ class DemoController extends ChangeNotifier {
   }
 
   void _handleEvent(RestsendClientEvent event) {
+    _eventController.add(event);
     event.when(
       connected: () {
         if (_phase != DemoPhase.ready) {
@@ -169,6 +173,13 @@ class DemoController extends ChangeNotifier {
         notifyListeners();
       },
       conversationsUpdated: (items, total) {
+        debugPrint('onConversationUpdated: ${items.length} items, total: $total');
+        if (items.isNotEmpty) {
+           final first = items.first;
+           debugPrint('First item lastMessage: ${first.lastMessage?.text}');
+           debugPrint('First item updatedAt: ${first.updatedAt}');
+           debugPrint('First item lastMessageSeq: ${first.lastMessageSeq} lastSeq: ${first.lastSeq}');
+        }
         _mergeConversations(items);
       },
       conversationRemoved: (topicId) {
@@ -178,6 +189,7 @@ class DemoController extends ChangeNotifier {
         notifyListeners();
       },
       messageReceived: (topicId, message, status) {
+        debugPrint('messageReceived: ${message.content.text} (topicId: $topicId, seq: ${message.seq})');
         unawaited(loadConversations(refresh: true));
       },
       syncConversationsProgress: (updatedAt, lastRemovedAt, count, total) {
@@ -220,6 +232,7 @@ class DemoController extends ChangeNotifier {
   @override
   void dispose() {
     _eventSub?.cancel();
+    _eventController.close();
     super.dispose();
   }
 }

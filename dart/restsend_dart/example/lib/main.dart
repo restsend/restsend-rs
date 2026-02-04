@@ -5,8 +5,11 @@ import 'src/conversation_list_screen.dart';
 import 'src/demo_controller.dart';
 import 'src/login_screen.dart';
 
-void main() {
+import 'package:restsend_dart/restsend_dart.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await RestsendClient.initLogger('info');
   runApp(const RestsendDemoApp());
 }
 

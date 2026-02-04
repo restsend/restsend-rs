@@ -23,6 +23,11 @@ class RestsendClient {
     return RestsendClient._(handle);
   }
 
+  static Future<void> initLogger(String level) async {
+    await RestsendRuntime.ensureInitialized();
+    await bridge.initLogger(level: level);
+  }
+
   bridge.ClientHandle get handle => _handle;
 
   Future<void> connect() => bridge.connectClient(client: _handle);

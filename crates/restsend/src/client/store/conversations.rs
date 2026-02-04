@@ -178,10 +178,14 @@ impl ClientStore {
                 }
             }
         }
-        if req.seq >= conversation.last_seq {
+
+        if req.seq > conversation.last_seq || (req.seq == conversation.last_seq && is_countable) {
             conversation.last_seq = req.seq;
 
-            if is_countable && !req.chat_id.is_empty() {
+            if !req.chat_id.is_empty() {
+                // if req.seq >= conversation.last_seq {
+                //     conversation.last_seq = req.seq;
+                //     if is_countable && !req.chat_id.is_empty() {
                 conversation.last_sender_id = req.attendee.clone();
                 conversation.last_message_at = req.created_at.clone();
                 conversation.last_message = req.content.clone();
