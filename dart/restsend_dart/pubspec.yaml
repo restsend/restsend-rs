@@ -25,6 +25,9 @@ dev_dependencies:
 flutter:
   plugin:
     platforms:
+      android:
+        package: com.example.restsend_dart
+        pluginClass: RestsendDartPlugin
       ios:
         pluginClass: RestsendDartPlugin
       macos:
