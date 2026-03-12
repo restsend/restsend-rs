@@ -25,16 +25,30 @@ const TEMP_FILENAME_LEN: usize = 12;
 #[cfg(not(target_family = "wasm"))]
 const WORKER_THREADS: usize = 4;
 
-#[cfg(target_arch = "aarch64")]
-#[cfg(target_vendor = "apple")]
+#[cfg(all(target_arch = "aarch64", target_vendor = "apple"))]
 pub const DEVICE: &str = "ios";
 
-#[cfg(any(target_arch = "aarch64", target_arch = "arm"))]
-#[cfg(target_vendor = "unknown")]
+#[cfg(all(
+    any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86"),
+    target_vendor = "unknown",
+    not(target_family = "wasm")
+))]
 pub const DEVICE: &str = "android";
 
 #[cfg(any(target_arch = "x86_64", target_family = "wasm"))]
 pub const DEVICE: &str = "web";
+
+#[cfg(not(any(
+    all(target_arch = "aarch64", target_vendor = "apple"),
+    all(
+        any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86"),
+        target_vendor = "unknown",
+        not(target_family = "wasm")
+    ),
+    target_arch = "x86_64",
+    target_family = "wasm"
+)))]
+pub const DEVICE: &str = "unknown";
 
 pub type Error = error::ClientError;
 pub type Result<T> = std::result::Result<T, crate::Error>;
