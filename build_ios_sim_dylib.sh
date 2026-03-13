@@ -19,6 +19,10 @@ IOS_SIM_UNIVERSAL="target/ios-sim-universal/release/$LIB_NAME"
 # Create output directory
 mkdir -p "target/ios-sim-universal/release"
 
+# Fix install name before combining (required so iOS can locate the dylib at runtime)
+install_name_tool -id "@rpath/librestsend_dart.dylib" "$IOS_SIM_ARM64"
+install_name_tool -id "@rpath/librestsend_dart.dylib" "$IOS_SIM_X86"
+
 # Combine arm64 and x86_64 into a universal library
 lipo -create "$IOS_SIM_ARM64" "$IOS_SIM_X86" -output "$IOS_SIM_UNIVERSAL"
 
