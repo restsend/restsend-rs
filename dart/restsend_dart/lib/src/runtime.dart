@@ -18,8 +18,8 @@ class RestsendRuntime {
     ExternalLibrary? externalLibrary;
     if (!kIsWeb) {
       if (Platform.isIOS) {
-        // iOS uses dynamic library loaded from the framework
-        externalLibrary = ExternalLibrary.open('librestsend_dart.dylib');
+        // iOS uses framework loaded from the app bundle
+        externalLibrary = ExternalLibrary.open('restsend_dart_ffi.framework/restsend_dart_ffi');
       } else if (Platform.isMacOS) {
         try {
           externalLibrary =
