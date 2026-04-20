@@ -197,6 +197,25 @@ function debugString(val) {
     // TODO we could test for more things here, like `Set`s and `Map`s.
     return className;
 }
+
+function passArrayJsValueToWasm0(array, malloc) {
+    const ptr = malloc(array.length * 4, 4) >>> 0;
+    for (let i = 0; i < array.length; i++) {
+        const add = addToExternrefTable0(array[i]);
+        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
+    }
+    WASM_VECTOR_LEN = array.length;
+    return ptr;
+}
+/**
+ * @param {string | null} [level]
+ */
+export function setLogging(level) {
+    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    var len0 = WASM_VECTOR_LEN;
+    wasm.setLogging(ptr0, len0);
+}
+
 /**
  * Signin with userId and password or token
  * @param {string} endpoint
@@ -267,34 +286,16 @@ export function logout(endpoint, token) {
     return ret;
 }
 
-function passArrayJsValueToWasm0(array, malloc) {
-    const ptr = malloc(array.length * 4, 4) >>> 0;
-    for (let i = 0; i < array.length; i++) {
-        const add = addToExternrefTable0(array[i]);
-        getDataViewMemory0().setUint32(ptr + 4 * i, add, true);
-    }
-    WASM_VECTOR_LEN = array.length;
-    return ptr;
-}
-/**
- * @param {string | null} [level]
- */
-export function setLogging(level) {
-    var ptr0 = isLikeNone(level) ? 0 : passStringToWasm0(level, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-    var len0 = WASM_VECTOR_LEN;
-    wasm.setLogging(ptr0, len0);
+function __wbg_adapter_54(arg0, arg1, arg2) {
+    wasm.closure13_externref_shim(arg0, arg1, arg2);
 }
 
-function __wbg_adapter_54(arg0, arg1) {
-    wasm._dyn_core__ops__function__FnMut_____Output___R_as_wasm_bindgen__closure__WasmClosure___describe__invoke__ha870cad04961a599(arg0, arg1);
+function __wbg_adapter_59(arg0, arg1) {
+    wasm._dyn_core_5c900c8d92f70baa___ops__function__FnMut_____Output______as_wasm_bindgen_52217b38cebb45a8___closure__WasmClosure___describe__invoke______(arg0, arg1);
 }
 
-function __wbg_adapter_57(arg0, arg1, arg2) {
-    wasm.closure45_externref_shim(arg0, arg1, arg2);
-}
-
-function __wbg_adapter_241(arg0, arg1, arg2, arg3) {
-    wasm.closure92_externref_shim(arg0, arg1, arg2, arg3);
+function __wbg_adapter_214(arg0, arg1, arg2, arg3) {
+    wasm.closure90_externref_shim(arg0, arg1, arg2, arg3);
 }
 
 const __wbindgen_enum_BinaryType = ["blob", "arraybuffer"];
@@ -325,192 +326,6 @@ export class Client {
         wasm.__wbg_client_free(ptr, 0);
     }
     /**
-     * Set the callback when connection connected
-     * @param {any} cb
-     */
-    set onconnected(cb) {
-        wasm.client_set_onconnected(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when connection connecting
-     * @param {any} cb
-     */
-    set onconnecting(cb) {
-        wasm.client_set_onconnecting(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when connection token expired
-     * @param {any} cb
-     */
-    set ontokenexpired(cb) {
-        wasm.client_set_ontokenexpired(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when connection broken
-     * # Arguments
-     * * `reason` String - The reason of the connection broken
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onnetbroken = (reason) => {
-     * console.log(reason);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set onbroken(cb) {
-        wasm.client_set_onbroken(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when kickoff by other client
-     * # Arguments
-     * * `reason` String - The reason of the kickoff
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onkickoff = (reason) => {
-     * console.log(reason);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set onkickoff(cb) {
-        wasm.client_set_onkickoff(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when receive system request
-     * # Arguments
-     *  * `req` - The request object, the return value is the response object
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onsystemrequest = (req) => {
-     *    if (req.type === 'get') {
-     *       return {type:'resp', code: 200}
-     *   }
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set onsystemrequest(cb) {
-        wasm.client_set_onsystemrequest(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when receive unknown request
-     * # Arguments
-     *  * `req` - The request object, the return value is the response object
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onunknownrequest = (req) => {
-     *   if (req.type === 'get') {
-     *      return {type:'resp', code: 200}
-     *  }
-     * }
-     * @param {any} cb
-     */
-    set onunknownrequest(cb) {
-        wasm.client_set_onunknownrequest(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when receive typing event
-     * # Arguments
-     * * `topicId` String - The topic id
-     * * `message` ChatRequest - The message
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.ontyping = (topicId, message) => {
-     *  console.log(topicId, message);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set ontopictyping(cb) {
-        wasm.client_set_ontopictyping(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when receive new message
-     * # Arguments
-     * * `topicId` String - The topic id
-     * * `message` ChatRequest - The message
-     * # Return
-     * * `hasRead` Boolean - If return true, will send `has read` to server
-     * * `unreadCountable` Boolean - If return true, will increase unread count
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.ontopicmessage = (topicId, message) => {
-     * console.log(topicId, message);
-     * let hasRead = true;
-     * let unreadCountable = message.content?.unreadable !== true
-     * return {hasRead, unreadCountable};
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set ontopicmessage(cb) {
-        wasm.client_set_ontopicmessage(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when receive read event
-     * # Arguments
-     * * `topicId` String - The topic id
-     * * `message` ChatRequest - The message
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.ontopicread = (topicId, message) => {
-     * console.log(topicId, message);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set ontopicread(cb) {
-        wasm.client_set_ontopicread(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when conversations updated
-     * # Arguments
-     * * `conversations` - The conversation list
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onconversationsupdated = (conversations) => {
-     * console.log(conversations);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set onconversationsupdated(cb) {
-        wasm.client_set_onconversationsupdated(this.__wbg_ptr, cb);
-    }
-    /**
-     * Set the callback when conversations removed
-     * # Arguments
-     * * `conversationId` - The conversation id
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * client.onconversationsremoved = (conversationId) => {
-     * console.log(conversationId);
-     * }
-     * ```
-     * @param {any} cb
-     */
-    set onconversationsremoved(cb) {
-        wasm.client_set_onconversationsremoved(this.__wbg_ptr, cb);
-    }
-    /**
      * Create a new chat with userId
      * return: Conversation
      * @param {string} userId
@@ -520,6 +335,35 @@ export class Client {
         const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.client_createChat(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * @param {any} logs
+     * @returns {Promise<void>}
+     */
+    saveChatLogs(logs) {
+        const ret = wasm.client_saveChatLogs(this.__wbg_ptr, logs);
+        return ret;
+    }
+    /**
+     * Sync chat logs from server
+     * #Arguments
+     * * `topicId` - topic id
+     * * `lastSeq` - Number, last seq
+     * * `option` - option
+     *     * `limit` - limit
+     *     * `ensureConversationVersion` - ensure conversation version, default false
+     *     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
+     *     * `onerror` - onerror callback -> function (error: String)
+     * @param {string} topicId
+     * @param {number | null | undefined} lastSeq
+     * @param {any} option
+     * @returns {Promise<void>}
+     */
+    syncChatLogs(topicId, lastSeq, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_syncChatLogs(this.__wbg_ptr, ptr0, len0, !isLikeNone(lastSeq), isLikeNone(lastSeq) ? 0 : lastSeq, option);
         return ret;
     }
     /**
@@ -548,32 +392,32 @@ export class Client {
         return ret;
     }
     /**
-     * Sync chat logs from server
+     * Get conversation by topicId
      * #Arguments
      * * `topicId` - topic id
-     * * `lastSeq` - Number, last seq
-     * * `option` - option
-     *     * `limit` - limit
-     *     * `ensureConversationVersion` - ensure conversation version, default false
-     *     * `onsuccess` - onsuccess callback -> function (result: GetChatLogsResult)
-     *     * `onerror` - onerror callback -> function (error: String)
+     * * `blocking` - blocking optional
+     * return: Conversation or null
      * @param {string} topicId
-     * @param {number | null | undefined} lastSeq
-     * @param {any} option
-     * @returns {Promise<void>}
+     * @param {boolean | null} [blocking]
+     * @returns {Promise<any>}
      */
-    syncChatLogs(topicId, lastSeq, option) {
+    getConversation(topicId, blocking) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_syncChatLogs(this.__wbg_ptr, ptr0, len0, !isLikeNone(lastSeq), isLikeNone(lastSeq) ? 0 : lastSeq, option);
+        const ret = wasm.client_getConversation(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
         return ret;
     }
     /**
-     * @param {any} logs
+     * Clear conversation on local storage
+     * #Arguments
+     * * `topicId` - topic id
+     * @param {string} topicId
      * @returns {Promise<void>}
      */
-    saveChatLogs(logs) {
-        const ret = wasm.client_saveChatLogs(this.__wbg_ptr, logs);
+    clearConversation(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_clearConversation(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
@@ -601,27 +445,31 @@ export class Client {
         return ret;
     }
     /**
-     * @param {any} option
-     * @returns {Promise<void>}
-     */
-    syncFirstPageConversations(option) {
-        const ret = wasm.client_syncFirstPageConversations(this.__wbg_ptr, option);
-        return ret;
-    }
-    /**
-     * Get conversation by topicId
+     * Filter conversation with options
      * #Arguments
-     * * `topicId` - topic id
-     * * `blocking` - blocking optional
-     * return: Conversation or null
-     * @param {string} topicId
-     * @param {boolean | null} [blocking]
+     * * `predicate` - filter predicate
+     *     -> return true to keep the conversation
+     * * `lastUpdatedAt` - last updated_at
+     * * `limit` - limit
+     * #Return Array of Conversation
+     * #Example
+     * ```js
+     * const conversations = client.filterConversation((c) => {
+     *    return c.remark === 'hello'
+     * })
+     * ```
+     * #Example
+     * ```js
+     * const conversations = await client.filterConversation((c) => {
+     *   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
+     * })
+     * @param {any} predicate
+     * @param {any} lastUpdatedAt
+     * @param {any} limit
      * @returns {Promise<any>}
      */
-    getConversation(topicId, blocking) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getConversation(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
+    filterConversation(predicate, lastUpdatedAt, limit) {
+        const ret = wasm.client_filterConversation(this.__wbg_ptr, predicate, lastUpdatedAt, limit);
         return ret;
     }
     /**
@@ -635,6 +483,70 @@ export class Client {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.client_removeConversation(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Set conversation mute by topicId
+     * #Arguments
+     * * `topicId` - topic id
+     * * `mute` - mute
+     * @param {string} topicId
+     * @param {boolean} mute
+     * @returns {Promise<any>}
+     */
+    setConversationMute(topicId, mute) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setConversationMute(this.__wbg_ptr, ptr0, len0, mute);
+        return ret;
+    }
+    /**
+     * Set conversation read by topicId
+     * #Arguments
+     * * `topicId` - topic id
+     * * `heavy` - heavy optional
+     * @param {string} topicId
+     * @param {boolean | null} [heavy]
+     * @returns {Promise<void>}
+     */
+    setConversationRead(topicId, heavy) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setConversationRead(this.__wbg_ptr, ptr0, len0, isLikeNone(heavy) ? 0xFFFFFF : heavy ? 1 : 0);
+        return ret;
+    }
+    /**
+     * Set conversation tags
+     * #Arguments
+     * * `topicId` - topic id
+     * * `tags` - tags is array of Tag:
+     *     - id - string
+     *     - type - string
+     *     - label - string
+     * @param {string} topicId
+     * @param {any} tags
+     * @returns {Promise<any>}
+     */
+    setConversationTags(topicId, tags) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setConversationTags(this.__wbg_ptr, ptr0, len0, tags);
+        return ret;
+    }
+    /**
+     * Set conversation extra
+     * #Arguments
+     * * `topicId` - topic id
+     * # `extra` - extra
+     * # Return: Conversation
+     * @param {string} topicId
+     * @param {any} extra
+     * @returns {Promise<any>}
+     */
+    setConversationExtra(topicId, extra) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setConversationExtra(this.__wbg_ptr, ptr0, len0, extra);
         return ret;
     }
     /**
@@ -670,33 +582,16 @@ export class Client {
         return ret;
     }
     /**
-     * Set conversation mute by topicId
+     * Mark conversation as unread
      * #Arguments
      * * `topicId` - topic id
-     * * `mute` - mute
      * @param {string} topicId
-     * @param {boolean} mute
-     * @returns {Promise<any>}
-     */
-    setConversationMute(topicId, mute) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setConversationMute(this.__wbg_ptr, ptr0, len0, mute);
-        return ret;
-    }
-    /**
-     * Set conversation read by topicId
-     * #Arguments
-     * * `topicId` - topic id
-     * * `heavy` - heavy optional
-     * @param {string} topicId
-     * @param {boolean | null} [heavy]
      * @returns {Promise<void>}
      */
-    setConversationRead(topicId, heavy) {
+    markConversationUnread(topicId) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setConversationRead(this.__wbg_ptr, ptr0, len0, isLikeNone(heavy) ? 0xFFFFFF : heavy ? 1 : 0);
+        const ret = wasm.client_markConversationUnread(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
@@ -711,218 +606,456 @@ export class Client {
         return ret;
     }
     /**
-     * Set conversation tags
-     * #Arguments
-     * * `topicId` - topic id
-     * * `tags` - tags is array of Tag:
-     *     - id - string
-     *     - type - string
-     *     - label - string
-     * @param {string} topicId
-     * @param {any} tags
-     * @returns {Promise<any>}
-     */
-    setConversationTags(topicId, tags) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setConversationTags(this.__wbg_ptr, ptr0, len0, tags);
-        return ret;
-    }
-    /**
-     * Mark conversation as unread
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    markConversationUnread(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_markConversationUnread(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Clear conversation on local storage
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    clearConversation(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_clearConversation(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Set conversation extra
-     * #Arguments
-     * * `topicId` - topic id
-     * # `extra` - extra
-     * # Return: Conversation
-     * @param {string} topicId
-     * @param {any} extra
-     * @returns {Promise<any>}
-     */
-    setConversationExtra(topicId, extra) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setConversationExtra(this.__wbg_ptr, ptr0, len0, extra);
-        return ret;
-    }
-    /**
-     * Filter conversation with options
-     * #Arguments
-     * * `predicate` - filter predicate
-     *     -> return true to keep the conversation
-     * * `lastUpdatedAt` - last updated_at
-     * * `limit` - limit
-     * #Return Array of Conversation
-     * #Example
-     * ```js
-     * const conversations = client.filterConversation((c) => {
-     *    return c.remark === 'hello'
-     * })
-     * ```
-     * #Example
-     * ```js
-     * const conversations = await client.filterConversation((c) => {
-     *   return c.remark === 'hello' && c.tags && c.tags.some(t => t.label === 'hello')
-     * })
-     * @param {any} predicate
-     * @param {any} lastUpdatedAt
-     * @param {any} limit
-     * @returns {Promise<any>}
-     */
-    filterConversation(predicate, lastUpdatedAt, limit) {
-        const ret = wasm.client_filterConversation(this.__wbg_ptr, predicate, lastUpdatedAt, limit);
-        return ret;
-    }
-    /**
-     *
-     * Send message with content
-     * # Arguments
-     * * `topicId` - The topic id
-     * * `content` - The content Object
-     *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
-     *     * `text` String - The text message
-     *     * `attachment` Object - The attachment object
-     *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-     *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
-     *     * `size` Number - The size of the content, only for file, optional
-     *     * `placeholder` String - The placeholder of the content, optional
-     *     * `width` Number - The width of the content, only for image/video, optional
-     *     * `height` Number - The height of the content, only for image/video, optional
-     *     * `reply` String - The reply message id, optional
-     *     * `mentions` Array - Mention to users, optional
-     *     * `mentionsAll` Boolean - Mention to all users, optional
-     * * `option` - The send option
-     * # Return
-     * The message id
-     * # Example
-     * ```javascript
-     * const client = new Client(info);
-     * await client.connect();
-     * await client.doSend(topicId, {
-     *     type: 'wx.text',
-     *     text: 'hello',
-     * }, {
-     *     mentions: undefined, // The mention user id list, optional
-     *     mentionAll:  false, // Mention all users, optional
-     *     reply:  undefined, // The reply message id, optional
-     *     onsent:  () => {}, // The callback when message sent
-     *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
-     *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
-     *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
-     *     onfail:  (reason:String)  => {} // The callback when message failed
-     * });
-     * ```
-     * @param {string} topicId
-     * @param {any} content
      * @param {any} option
-     * @returns {Promise<string>}
-     */
-    doSend(topicId, content, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, content, option);
-        return ret;
-    }
-    /**
-     * Send typing status
-     * # Arguments
-     * * `topicId` - The topic id
-     * @param {string} topicId
      * @returns {Promise<void>}
      */
-    doTyping(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
+    syncFirstPageConversations(option) {
+        const ret = wasm.client_syncFirstPageConversations(this.__wbg_ptr, option);
         return ret;
     }
     /**
-     * Recall message
-     * # Arguments
-     * * `topicId` - The topic id
-     * * `messageId` - The message id
-     * @param {string} topicId
-     * @param {string} messageId
-     * @param {any} option
-     * @returns {Promise<string>}
+     * Set user star
+     * #Arguments
+     * * `userId` - user id
+     * * `star` - star
+     * @param {string} userId
+     * @param {boolean} star
+     * @returns {Promise<void>}
      */
-    doRecall(topicId, messageId, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    setUserStar(userId, star) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
+        return ret;
+    }
+    /**
+     * Set user block
+     * #Arguments
+     * * `userId` - user id
+     * * `block` - block
+     * @param {string} userId
+     * @param {boolean} block
+     * @returns {Promise<void>}
+     */
+    setUserBlock(userId, block) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
+        return ret;
+    }
+    /**
+     * Set user remark name
+     * #Arguments
+     * * `userId` - user id
+     * * `remark` - remark name
+     * @param {string} userId
+     * @param {string} remark
+     * @returns {Promise<void>}
+     */
+    setUserRemark(userId, remark) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, option);
+        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
     /**
-     * Send voice message
-     * # Arguments
-     * * `topicId` - The topic id
-     * * `attachment` - The attachment object
-     * * `option` - The send option
-     *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-     *     * `mentions` Array - The mention user id list, optional
-     *     * `mentionAll` boolean, // Mention all users, optional
-     *     * `reply` String - The reply message id, optional
-     * # Return
-     * The message id
-     * @param {string} topicId
-     * @param {any} attachment
-     * @param {any} option
-     * @returns {Promise<string>}
+     * Set allow guest chat
+     * #Arguments
+     * * `allow` - allow
+     * @param {boolean} allow
+     * @returns {Promise<void>}
      */
-    doSendVoice(topicId, attachment, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, attachment, option);
+    setAllowGuestChat(allow) {
+        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
         return ret;
     }
     /**
-     * Send video message
-     * # Arguments
-     * * `topicId` - The topic id
-     * * `attachment` - The attachment object
-     * * `option` - The send option
-     *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
-     *    * `mentions` Array - The mention user id list, optional
-     *    * `mentionAll` boolean, // Mention all users, optional
-     *    * `reply` String - The reply message id, optional
-     * # Return
-     * The message id
-     * @param {string} topicId
-     * @param {any} attachment
-     * @param {any} option
-     * @returns {Promise<string>}
+     * Get user info
+     * #Arguments
+     * * `userId` - user id
+     * * `blocking` - blocking fetch from server
+     * #Return
+     * User info
+     * @param {string} userId
+     * @param {boolean | null} [blocking]
+     * @returns {Promise<any>}
      */
-    doSendVideo(topicId, attachment, option) {
+    getUser(userId, blocking) {
+        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
+        return ret;
+    }
+    /**
+     * Get multiple users info
+     * #Arguments
+     * * `userIds` - Array of user id
+     * #Return
+     * Array of user info
+     * @param {string[]} userIds
+     * @returns {Promise<any>}
+     */
+    getUsers(userIds) {
+        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Create a new topic
+     * #Arguments
+     *   name: String,
+     *  icon: String,
+     * #Return
+     * * `Topic` || `undefined`
+     * @param {string[]} members
+     * @param {string | null} [name]
+     * @param {string | null} [icon]
+     * @param {string | null} [kind]
+     * @returns {Promise<any>}
+     */
+    createTopic(members, name, icon, kind) {
+        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        var ptr3 = isLikeNone(kind) ? 0 : passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len3 = WASM_VECTOR_LEN;
+        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        return ret;
+    }
+    /**
+     * Silence topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+     * @param {string} topicId
+     * @param {string | null} [duration]
+     * @returns {Promise<void>}
+     */
+    silentTopic(topicId, duration) {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, attachment, option);
+        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Update topic info
+     * #Arguments
+     * * `topicId` - topic id
+     * * `option` - option
+     *     * `name` - String
+     *     * `icon` - String (url) or base64
+     *     * `kind` - String
+     * @param {string} topicId
+     * @param {any} option
+     * @returns {Promise<void>}
+     */
+    updateTopic(topicId, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, option);
+        return ret;
+    }
+    /**
+     * Dismiss topic
+     * #Arguments
+     * * `topicId` - topic id
+     * @param {string} topicId
+     * @returns {Promise<void>}
+     */
+    dismissTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Add topic admin
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    addTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Get topic owner
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `User` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicOwner(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Transfer topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id to transfer, the user must be a topic member
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    transferTopic(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Get topic admins
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Vec<User>` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicAdmins(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Get topic knocks
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Vec<TopicKnock>`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopicKnocks(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Accept topic join
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `memo` - accept memo
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [memo]
+     * @returns {Promise<void>}
+     */
+    acceptTopicJoin(topicId, userId, memo) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Get topic members
+     * #Arguments
+     * * `topicId` - topic id
+     * * `updatedAt` - updated_at
+     * * `limit` - limit
+     * #Return
+     * * `ListUserResult` || `undefined`
+     * @param {string} topicId
+     * @param {string} updatedAt
+     * @param {number} limit
+     * @returns {Promise<any>}
+     */
+    getTopicMembers(topicId, updatedAt, limit) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
+        return ret;
+    }
+    /**
+     * Decline topic join
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `message` - decline message
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [message]
+     * @returns {Promise<void>}
+     */
+    declineTopicJoin(topicId, userId, message) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Remove topic admin
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    removeTopicAdmin(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Remove topic member
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<void>}
+     */
+    removeTopicMember(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Silent topic member
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
+     * @param {string} topicId
+     * @param {string} userId
+     * @param {string | null} [duration]
+     * @returns {Promise<void>}
+     */
+    silentTopicMember(topicId, userId, duration) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Update topic notice
+     * #Arguments
+     * * `topicId` - topic id
+     * * `text` - notice text
+     * @param {string} topicId
+     * @param {string} text
+     * @returns {Promise<void>}
+     */
+    updateTopicNotice(topicId, text) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Get topic info
+     * #Arguments
+     * * `topicId` - topic id
+     * #Return
+     * * `Topic` || `undefined`
+     * @param {string} topicId
+     * @returns {Promise<any>}
+     */
+    getTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * Add user into topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `userId` - user id
+     * #Return
+     * * `TopicMember` || `undefined`
+     * @param {string} topicId
+     * @param {string} userId
+     * @returns {Promise<any>}
+     */
+    addMember(topicId, userId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * Join a topic
+     * #Arguments
+     * * `topicId` - topic id
+     * * `message` - message
+     * * `source` - source
+     * @param {string} topicId
+     * @param {string | null} [message]
+     * @param {string | null} [source]
+     * @returns {Promise<void>}
+     */
+    joinTopic(topicId, message, source) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len1 = WASM_VECTOR_LEN;
+        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
+        return ret;
+    }
+    /**
+     * Quit topic
+     * #Arguments
+     * * `topicId` - topic id
+     * @param {string} topicId
+     * @returns {Promise<void>}
+     */
+    quitTopic(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
         return ret;
     }
     /**
@@ -946,38 +1079,6 @@ export class Client {
         const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ret = wasm.client_doSendFile(this.__wbg_ptr, ptr0, len0, attachment, option);
-        return ret;
-    }
-    /**
-     * Send location message
-     * # Arguments
-     * * `topicId` - The topic id
-     * * `latitude` - The latitude
-     * * `longitude` - The longitude
-     * * `address` - The address
-     * * `option` - The send option
-     *   * `mentions` Array - The mention user id list, optional
-     *   * `mentionAll` boolean, // Mention all users, optional
-     *   * `reply` String - The reply message id, optional
-     * # Return
-     * The message id
-     * @param {string} topicId
-     * @param {string} latitude
-     * @param {string} longitude
-     * @param {string} address
-     * @param {any} option
-     * @returns {Promise<string>}
-     */
-    doSendLocation(topicId, latitude, longitude, address, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len2 = WASM_VECTOR_LEN;
-        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len3 = WASM_VECTOR_LEN;
-        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, option);
         return ret;
     }
     /**
@@ -1090,6 +1191,52 @@ export class Client {
         return ret;
     }
     /**
+     * Send video message
+     * # Arguments
+     * * `topicId` - The topic id
+     * * `attachment` - The attachment object
+     * * `option` - The send option
+     *    * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+     *    * `mentions` Array - The mention user id list, optional
+     *    * `mentionAll` boolean, // Mention all users, optional
+     *    * `reply` String - The reply message id, optional
+     * # Return
+     * The message id
+     * @param {string} topicId
+     * @param {any} attachment
+     * @param {any} option
+     * @returns {Promise<string>}
+     */
+    doSendVideo(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVideo(this.__wbg_ptr, ptr0, len0, attachment, option);
+        return ret;
+    }
+    /**
+     * Send voice message
+     * # Arguments
+     * * `topicId` - The topic id
+     * * `attachment` - The attachment object
+     * * `option` - The send option
+     *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+     *     * `mentions` Array - The mention user id list, optional
+     *     * `mentionAll` boolean, // Mention all users, optional
+     *     * `reply` String - The reply message id, optional
+     * # Return
+     * The message id
+     * @param {string} topicId
+     * @param {any} attachment
+     * @param {any} option
+     * @returns {Promise<string>}
+     */
+    doSendVoice(topicId, attachment, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendVoice(this.__wbg_ptr, ptr0, len0, attachment, option);
+        return ret;
+    }
+    /**
      * Update sent chat message's extra
      * # Arguments
      * * `topicId` - The topic id
@@ -1113,6 +1260,38 @@ export class Client {
         return ret;
     }
     /**
+     * Send location message
+     * # Arguments
+     * * `topicId` - The topic id
+     * * `latitude` - The latitude
+     * * `longitude` - The longitude
+     * * `address` - The address
+     * * `option` - The send option
+     *   * `mentions` Array - The mention user id list, optional
+     *   * `mentionAll` boolean, // Mention all users, optional
+     *   * `reply` String - The reply message id, optional
+     * # Return
+     * The message id
+     * @param {string} topicId
+     * @param {string} latitude
+     * @param {string} longitude
+     * @param {string} address
+     * @param {any} option
+     * @returns {Promise<string>}
+     */
+    doSendLocation(topicId, latitude, longitude, address, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(latitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(longitude, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passStringToWasm0(address, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSendLocation(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, option);
+        return ret;
+    }
+    /**
      * Send ping message
      * # Arguments
      * * `content` - The content string
@@ -1130,465 +1309,338 @@ export class Client {
         return ret;
     }
     /**
-     * Create a new topic
-     * #Arguments
-     *   name: String,
-     *  icon: String,
-     * #Return
-     * * `Topic` || `undefined`
-     * @param {string[]} members
-     * @param {string | null} [name]
-     * @param {string | null} [icon]
-     * @param {string | null} [kind]
-     * @returns {Promise<any>}
-     */
-    createTopic(members, name, icon, kind) {
-        const ptr0 = passArrayJsValueToWasm0(members, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(name) ? 0 : passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(icon) ? 0 : passStringToWasm0(icon, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        var ptr3 = isLikeNone(kind) ? 0 : passStringToWasm0(kind, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len3 = WASM_VECTOR_LEN;
-        const ret = wasm.client_createTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
-        return ret;
-    }
-    /**
-     * Join a topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `message` - message
-     * * `source` - source
-     * @param {string} topicId
-     * @param {string | null} [message]
-     * @param {string | null} [source]
-     * @returns {Promise<void>}
-     */
-    joinTopic(topicId, message, source) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(source) ? 0 : passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_joinTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Add user into topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * #Return
-     * * `TopicMember` || `undefined`
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<any>}
-     */
-    addMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Get topic info
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Topic` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic admins
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Vec<User>` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicAdmins(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicAdmins(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic owner
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `User` || `undefined`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicOwner(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicOwner(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Get topic members
-     * #Arguments
-     * * `topicId` - topic id
-     * * `updatedAt` - updated_at
-     * * `limit` - limit
-     * #Return
-     * * `ListUserResult` || `undefined`
-     * @param {string} topicId
-     * @param {string} updatedAt
-     * @param {number} limit
-     * @returns {Promise<any>}
-     */
-    getTopicMembers(topicId, updatedAt, limit) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(updatedAt, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicMembers(this.__wbg_ptr, ptr0, len0, ptr1, len1, limit);
-        return ret;
-    }
-    /**
-     * Get topic knocks
-     * #Arguments
-     * * `topicId` - topic id
-     * #Return
-     * * `Vec<TopicKnock>`
-     * @param {string} topicId
-     * @returns {Promise<any>}
-     */
-    getTopicKnocks(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getTopicKnocks(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Update topic info
-     * #Arguments
-     * * `topicId` - topic id
-     * * `option` - option
-     *     * `name` - String
-     *     * `icon` - String (url) or base64
-     *     * `kind` - String
-     * @param {string} topicId
-     * @param {any} option
-     * @returns {Promise<void>}
-     */
-    updateTopic(topicId, option) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopic(this.__wbg_ptr, ptr0, len0, option);
-        return ret;
-    }
-    /**
-     * Update topic notice
-     * #Arguments
-     * * `topicId` - topic id
-     * * `text` - notice text
-     * @param {string} topicId
-     * @param {string} text
-     * @returns {Promise<void>}
-     */
-    updateTopicNotice(topicId, text) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(text, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_updateTopicNotice(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Silence topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-     * @param {string} topicId
-     * @param {string | null} [duration]
-     * @returns {Promise<void>}
-     */
-    silentTopic(topicId, duration) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        var ptr1 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Silent topic member
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `duration` - duration, format: 1d, 1h, 1m, cancel with empty string
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [duration]
-     * @returns {Promise<void>}
-     */
-    silentTopicMember(topicId, userId, duration) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(duration) ? 0 : passStringToWasm0(duration, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_silentTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Add topic admin
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    addTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_addTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Remove topic admin
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    removeTopicAdmin(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicAdmin(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Transfer topic
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id to transfer, the user must be a topic member
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    transferTopic(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_transferTopic(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Quit topic
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    quitTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_quitTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Dismiss topic
-     * #Arguments
-     * * `topicId` - topic id
-     * @param {string} topicId
-     * @returns {Promise<void>}
-     */
-    dismissTopic(topicId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_dismissTopic(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Accept topic join
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `memo` - accept memo
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [memo]
-     * @returns {Promise<void>}
-     */
-    acceptTopicJoin(topicId, userId, memo) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(memo) ? 0 : passStringToWasm0(memo, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_acceptTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Decline topic join
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * * `message` - decline message
-     * @param {string} topicId
-     * @param {string} userId
-     * @param {string | null} [message]
-     * @returns {Promise<void>}
-     */
-    declineTopicJoin(topicId, userId, message) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        var ptr2 = isLikeNone(message) ? 0 : passStringToWasm0(message, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len2 = WASM_VECTOR_LEN;
-        const ret = wasm.client_declineTopicJoin(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2);
-        return ret;
-    }
-    /**
-     * Remove topic member
-     * #Arguments
-     * * `topicId` - topic id
-     * * `userId` - user id
-     * @param {string} topicId
-     * @param {string} userId
-     * @returns {Promise<void>}
-     */
-    removeTopicMember(topicId, userId) {
-        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_removeTopicMember(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Get user info
-     * #Arguments
-     * * `userId` - user id
-     * * `blocking` - blocking fetch from server
-     * #Return
-     * User info
-     * @param {string} userId
-     * @param {boolean | null} [blocking]
-     * @returns {Promise<any>}
-     */
-    getUser(userId, blocking) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUser(this.__wbg_ptr, ptr0, len0, isLikeNone(blocking) ? 0xFFFFFF : blocking ? 1 : 0);
-        return ret;
-    }
-    /**
-     * Get multiple users info
-     * #Arguments
-     * * `userIds` - Array of user id
-     * #Return
-     * Array of user info
-     * @param {string[]} userIds
-     * @returns {Promise<any>}
-     */
-    getUsers(userIds) {
-        const ptr0 = passArrayJsValueToWasm0(userIds, wasm.__wbindgen_malloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_getUsers(this.__wbg_ptr, ptr0, len0);
-        return ret;
-    }
-    /**
-     * Set user remark name
-     * #Arguments
-     * * `userId` - user id
-     * * `remark` - remark name
-     * @param {string} userId
-     * @param {string} remark
-     * @returns {Promise<void>}
-     */
-    setUserRemark(userId, remark) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(remark, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserRemark(this.__wbg_ptr, ptr0, len0, ptr1, len1);
-        return ret;
-    }
-    /**
-     * Set user star
-     * #Arguments
-     * * `userId` - user id
-     * * `star` - star
-     * @param {string} userId
-     * @param {boolean} star
-     * @returns {Promise<void>}
-     */
-    setUserStar(userId, star) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserStar(this.__wbg_ptr, ptr0, len0, star);
-        return ret;
-    }
-    /**
-     * Set user block
-     * #Arguments
-     * * `userId` - user id
-     * * `block` - block
-     * @param {string} userId
-     * @param {boolean} block
-     * @returns {Promise<void>}
-     */
-    setUserBlock(userId, block) {
-        const ptr0 = passStringToWasm0(userId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        const len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_setUserBlock(this.__wbg_ptr, ptr0, len0, block);
-        return ret;
-    }
-    /**
-     * Set allow guest chat
-     * #Arguments
-     * * `allow` - allow
-     * @param {boolean} allow
-     * @returns {Promise<void>}
-     */
-    setAllowGuestChat(allow) {
-        const ret = wasm.client_setAllowGuestChat(this.__wbg_ptr, allow);
-        return ret;
-    }
-    /**
-     * Create a new client
+     *
+     * Send message with content
      * # Arguments
-     * * `info` - AuthInfo
-     * * `db_name` - database name (optional), create an indexeddb when set it
-     * @param {any} info
-     * @param {string | null} [db_name]
+     * * `topicId` - The topic id
+     * * `content` - The content Object
+     *     * `type` String - The content type, must be [text, image, video, audio, file, YOUR_CUSTOM_TYPE]
+     *     * `text` String - The text message
+     *     * `attachment` Object - The attachment object
+     *     * `duration` String - The duration of the content, only for video and audio, optional, format is hh:mm:ss
+     *     * `thumbnail` Object - The thumbnail object, only for video and image, optional
+     *     * `size` Number - The size of the content, only for file, optional
+     *     * `placeholder` String - The placeholder of the content, optional
+     *     * `width` Number - The width of the content, only for image/video, optional
+     *     * `height` Number - The height of the content, only for image/video, optional
+     *     * `reply` String - The reply message id, optional
+     *     * `mentions` Array - Mention to users, optional
+     *     * `mentionsAll` Boolean - Mention to all users, optional
+     * * `option` - The send option
+     * # Return
+     * The message id
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * await client.doSend(topicId, {
+     *     type: 'wx.text',
+     *     text: 'hello',
+     * }, {
+     *     mentions: undefined, // The mention user id list, optional
+     *     mentionAll:  false, // Mention all users, optional
+     *     reply:  undefined, // The reply message id, optional
+     *     onsent:  () => {}, // The callback when message sent
+     *     onprogress:  (progress:Number, total:Number)  =>{}, // The callback when message sending progress
+     *     onattachmentupload:  (result:Upload) => { }, // The callback when attachment uploaded, return the Content object to replace the original content
+     *     onack:  (req:ChatRequest)  => {}, // The callback when message acked
+     *     onfail:  (reason:String)  => {} // The callback when message failed
+     * });
+     * ```
+     * @param {string} topicId
+     * @param {any} content
+     * @param {any} option
+     * @returns {Promise<string>}
      */
-    constructor(info, db_name) {
-        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-        var len0 = WASM_VECTOR_LEN;
-        const ret = wasm.client_new(info, ptr0, len0);
-        this.__wbg_ptr = ret >>> 0;
-        ClientFinalization.register(this, this.__wbg_ptr, this);
-        return this;
+    doSend(topicId, content, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doSend(this.__wbg_ptr, ptr0, len0, content, option);
+        return ret;
+    }
+    /**
+     * Recall message
+     * # Arguments
+     * * `topicId` - The topic id
+     * * `messageId` - The message id
+     * @param {string} topicId
+     * @param {string} messageId
+     * @param {any} option
+     * @returns {Promise<string>}
+     */
+    doRecall(topicId, messageId, option) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(messageId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doRecall(this.__wbg_ptr, ptr0, len0, ptr1, len1, option);
+        return ret;
+    }
+    /**
+     * Send typing status
+     * # Arguments
+     * * `topicId` - The topic id
+     * @param {string} topicId
+     * @returns {Promise<void>}
+     */
+    doTyping(topicId) {
+        const ptr0 = passStringToWasm0(topicId, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_doTyping(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * @returns {Promise<number>}
+     */
+    get unreadCount() {
+        const ret = wasm.client_unreadCount(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    connect() {
+        const ret = wasm.client_connect(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Promise<void>}
+     */
+    shutdown() {
+        const ret = wasm.client_shutdown(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Set the callback when connection broken
+     * # Arguments
+     * * `reason` String - The reason of the connection broken
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onnetbroken = (reason) => {
+     * console.log(reason);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onbroken(cb) {
+        wasm.client_set_onbroken(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when kickoff by other client
+     * # Arguments
+     * * `reason` String - The reason of the kickoff
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onkickoff = (reason) => {
+     * console.log(reason);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onkickoff(cb) {
+        wasm.client_set_onkickoff(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when connection connected
+     * @param {any} cb
+     */
+    set onconnected(cb) {
+        wasm.client_set_onconnected(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when receive read event
+     * # Arguments
+     * * `topicId` String - The topic id
+     * * `message` ChatRequest - The message
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.ontopicread = (topicId, message) => {
+     * console.log(topicId, message);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set ontopicread(cb) {
+        wasm.client_set_ontopicread(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when connection connecting
+     * @param {any} cb
+     */
+    set onconnecting(cb) {
+        wasm.client_set_onconnecting(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when ping failed
+     * # Arguments
+     *  * `reason` - The reason why ping failed
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onpingfailed = (reason) => {
+     * console.log("ping failed:", reason);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onpingfailed(cb) {
+        wasm.client_set_onpingfailed(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when receive typing event
+     * # Arguments
+     * * `topicId` String - The topic id
+     * * `message` ChatRequest - The message
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.ontyping = (topicId, message) => {
+     *  console.log(topicId, message);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set ontopictyping(cb) {
+        wasm.client_set_ontopictyping(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when connection token expired
+     * @param {any} cb
+     */
+    set ontokenexpired(cb) {
+        wasm.client_set_ontokenexpired(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when receive new message
+     * # Arguments
+     * * `topicId` String - The topic id
+     * * `message` ChatRequest - The message
+     * # Return
+     * * `hasRead` Boolean - If return true, will send `has read` to server
+     * * `unreadCountable` Boolean - If return true, will increase unread count
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.ontopicmessage = (topicId, message) => {
+     * console.log(topicId, message);
+     * let hasRead = true;
+     * let unreadCountable = message.content?.unreadable !== true
+     * return {hasRead, unreadCountable};
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set ontopicmessage(cb) {
+        wasm.client_set_ontopicmessage(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when receive system request
+     * # Arguments
+     *  * `req` - The request object, the return value is the response object
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onsystemrequest = (req) => {
+     *    if (req.type === 'get') {
+     *       return {type:'resp', code: 200}
+     *   }
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onsystemrequest(cb) {
+        wasm.client_set_onsystemrequest(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when receive unknown request
+     * # Arguments
+     *  * `req` - The request object, the return value is the response object
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onunknownrequest = (req) => {
+     *   if (req.type === 'get') {
+     *      return {type:'resp', code: 200}
+     *  }
+     * }
+     * @param {any} cb
+     */
+    set onunknownrequest(cb) {
+        wasm.client_set_onunknownrequest(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when conversations removed
+     * # Arguments
+     * * `conversationId` - The conversation id
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onconversationsremoved = (conversationId) => {
+     * console.log(conversationId);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onconversationsremoved(cb) {
+        wasm.client_set_onconversationsremoved(this.__wbg_ptr, cb);
+    }
+    /**
+     * Set the callback when conversations updated
+     * # Arguments
+     * * `conversations` - The conversation list
+     * # Example
+     * ```javascript
+     * const client = new Client(info);
+     * await client.connect();
+     * client.onconversationsupdated = (conversations) => {
+     * console.log(conversations);
+     * }
+     * ```
+     * @param {any} cb
+     */
+    set onconversationsupdated(cb) {
+        wasm.client_set_onconversationsupdated(this.__wbg_ptr, cb);
+    }
+    /**
+     * connect immediately if the connection is broken
+     */
+    app_active() {
+        wasm.client_app_active(this.__wbg_ptr);
+    }
+    /**
+     * get the last alive at
+     * @returns {bigint}
+     */
+    get lastAliveAt() {
+        const ret = wasm.client_lastAliveAt(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * set the max retry count
+     * default is 2
+     * @param {number} count
+     */
+    set maxRetry(count) {
+        wasm.client_set_maxRetry(this.__wbg_ptr, count);
+    }
+    /**
+     * set the keepalive interval with seconds
+     * @param {number} secs
+     */
+    set keepalive(secs) {
+        wasm.client_set_keepalive(this.__wbg_ptr, secs);
     }
     /**
      * get the current connection status
@@ -1608,56 +1660,13 @@ export class Client {
         }
     }
     /**
-     * get the last alive at
-     * @returns {bigint}
+     * set the max logs limit per request
+     * default is 100
+     * note: this limit is for each request to fetch logs from server
+     * @param {number} limit
      */
-    get lastAliveAt() {
-        const ret = wasm.client_lastAliveAt(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {Promise<number>}
-     */
-    get unreadCount() {
-        const ret = wasm.client_unreadCount(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * connect immediately if the connection is broken
-     */
-    app_active() {
-        wasm.client_app_active(this.__wbg_ptr);
-    }
-    /**
-     * set the keepalive interval with seconds
-     * @param {number} secs
-     */
-    set keepalive(secs) {
-        wasm.client_set_keepalive(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the ping interval with seconds (for health check with error logs)
-     * default is 30 seconds
-     * @param {number} secs
-     */
-    set ping_interval(secs) {
-        wasm.client_set_keepalive(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max retry count
-     * default is 2
-     * @param {number} count
-     */
-    set maxRetry(count) {
-        wasm.client_set_maxRetry(this.__wbg_ptr, count);
-    }
-    /**
-     * set the max send idle seconds
-     * default is 20 seconds
-     * @param {number} secs
-     */
-    set maxSendIdleSecs(secs) {
-        wasm.client_set_maxSendIdleSecs(this.__wbg_ptr, secs);
+    set maxLogsLimit(limit) {
+        wasm.client_set_maxLogsLimit(this.__wbg_ptr, limit);
     }
     /**
      * set the max recall seconds
@@ -1670,22 +1679,36 @@ export class Client {
         wasm.client_set_maxRecallSecs(this.__wbg_ptr, secs);
     }
     /**
-     * set the max conversation limit
-     * default is 1000
-     * note: this limit is for local storage only
-     * @param {number} limit
+     * set the ping interval with seconds (for health check with error logs)
+     * default is 30 seconds
+     * @param {number} secs
      */
-    set maxConversationLimit(limit) {
-        wasm.client_set_maxConversationLimit(this.__wbg_ptr, limit);
+    set ping_interval(secs) {
+        wasm.client_set_keepalive(this.__wbg_ptr, secs);
     }
     /**
-     * set the max logs limit per request
-     * default is 100
-     * note: this limit is for each request to fetch logs from server
+     * set the max send idle seconds
+     * default is 20 seconds
+     * @param {number} secs
+     */
+    set maxSendIdleSecs(secs) {
+        wasm.client_set_maxSendIdleSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the ping timeout seconds
+     * default is 5 seconds
+     * @param {number} secs
+     */
+    set pingTimeoutSecs(secs) {
+        wasm.client_set_pingTimeoutSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max sync logs limit
+     * default is 500
      * @param {number} limit
      */
-    set maxLogsLimit(limit) {
-        wasm.client_set_maxLogsLimit(this.__wbg_ptr, limit);
+    set maxSyncLogsLimit(limit) {
+        wasm.client_set_maxSyncLogsLimit(this.__wbg_ptr, limit);
     }
     /**
      * set the max sync logs max count
@@ -1697,20 +1720,35 @@ export class Client {
         wasm.client_set_maxSyncLogsMaxCount(this.__wbg_ptr, count);
     }
     /**
+     * set the user cache expire seconds
+     * default is 60 seconds
+     * @param {number} secs
+     */
+    set userCacheExpireSecs(secs) {
+        wasm.client_set_userCacheExpireSecs(this.__wbg_ptr, secs);
+    }
+    /**
+     * set the max conversation limit
+     * default is 1000
+     * note: this limit is for local storage only
+     * @param {number} limit
+     */
+    set maxConversationLimit(limit) {
+        wasm.client_set_maxConversationLimit(this.__wbg_ptr, limit);
+    }
+    /**
+     * @param {boolean} value
+     */
+    set build_local_unreadable(value) {
+        wasm.client_set_build_local_unreadable(this.__wbg_ptr, value);
+    }
+    /**
      * set the max connect interval seconds
      * default is 5 seconds
      * @param {number} secs
      */
     set maxConnectIntervalSecs(secs) {
         wasm.client_set_maxConnectIntervalSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * set the max sync logs limit
-     * default is 500
-     * @param {number} limit
-     */
-    set maxSyncLogsLimit(limit) {
-        wasm.client_set_maxSyncLogsLimit(this.__wbg_ptr, limit);
     }
     /**
      * set the conversation cache expire seconds
@@ -1721,14 +1759,6 @@ export class Client {
         wasm.client_set_conversationCacheExpireSecs(this.__wbg_ptr, secs);
     }
     /**
-     * set the user cache expire seconds
-     * default is 60 seconds
-     * @param {number} secs
-     */
-    set userCacheExpireSecs(secs) {
-        wasm.client_set_userCacheExpireSecs(this.__wbg_ptr, secs);
-    }
-    /**
      * set the removed conversation cache expire seconds
      * default is 10 seconds
      * @param {number} secs
@@ -1737,32 +1767,20 @@ export class Client {
         wasm.client_set_removedConversationCacheExpireSecs(this.__wbg_ptr, secs);
     }
     /**
-     * set the ping timeout seconds
-     * default is 5 seconds
-     * @param {number} secs
+     * Create a new client
+     * # Arguments
+     * * `info` - AuthInfo
+     * * `db_name` - database name (optional), create an indexeddb when set it
+     * @param {any} info
+     * @param {string | null} [db_name]
      */
-    set pingTimeoutSecs(secs) {
-        wasm.client_set_pingTimeoutSecs(this.__wbg_ptr, secs);
-    }
-    /**
-     * @param {boolean} value
-     */
-    set build_local_unreadable(value) {
-        wasm.client_set_build_local_unreadable(this.__wbg_ptr, value);
-    }
-    /**
-     * @returns {Promise<void>}
-     */
-    shutdown() {
-        const ret = wasm.client_shutdown(this.__wbg_ptr);
-        return ret;
-    }
-    /**
-     * @returns {Promise<void>}
-     */
-    connect() {
-        const ret = wasm.client_connect(this.__wbg_ptr);
-        return ret;
+    constructor(info, db_name) {
+        var ptr0 = isLikeNone(db_name) ? 0 : passStringToWasm0(db_name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len0 = WASM_VECTOR_LEN;
+        const ret = wasm.client_new(info, ptr0, len0);
+        this.__wbg_ptr = ret >>> 0;
+        ClientFinalization.register(this, this.__wbg_ptr, this);
+        return this;
     }
 }
 
@@ -1784,6 +1802,27 @@ export class IntoUnderlyingByteSource {
         wasm.__wbg_intounderlyingbytesource_free(ptr, 0);
     }
     /**
+     * @returns {number}
+     */
+    get autoAllocateChunkSize() {
+        const ret = wasm.intounderlyingbytesource_autoAllocateChunkSize(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @param {ReadableByteStreamController} controller
+     * @returns {Promise<any>}
+     */
+    pull(controller) {
+        const ret = wasm.intounderlyingbytesource_pull(this.__wbg_ptr, controller);
+        return ret;
+    }
+    /**
+     * @param {ReadableByteStreamController} controller
+     */
+    start(controller) {
+        wasm.intounderlyingbytesource_start(this.__wbg_ptr, controller);
+    }
+    /**
      * @returns {string}
      */
     get type() {
@@ -1797,27 +1836,6 @@ export class IntoUnderlyingByteSource {
         } finally {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
-    }
-    /**
-     * @returns {number}
-     */
-    get autoAllocateChunkSize() {
-        const ret = wasm.intounderlyingbytesource_autoAllocateChunkSize(this.__wbg_ptr);
-        return ret >>> 0;
-    }
-    /**
-     * @param {ReadableByteStreamController} controller
-     */
-    start(controller) {
-        wasm.intounderlyingbytesource_start(this.__wbg_ptr, controller);
-    }
-    /**
-     * @param {ReadableByteStreamController} controller
-     * @returns {Promise<any>}
-     */
-    pull(controller) {
-        const ret = wasm.intounderlyingbytesource_pull(this.__wbg_ptr, controller);
-        return ret;
     }
     cancel() {
         const ptr = this.__destroy_into_raw();
@@ -1843,11 +1861,12 @@ export class IntoUnderlyingSink {
         wasm.__wbg_intounderlyingsink_free(ptr, 0);
     }
     /**
-     * @param {any} chunk
+     * @param {any} reason
      * @returns {Promise<any>}
      */
-    write(chunk) {
-        const ret = wasm.intounderlyingsink_write(this.__wbg_ptr, chunk);
+    abort(reason) {
+        const ptr = this.__destroy_into_raw();
+        const ret = wasm.intounderlyingsink_abort(ptr, reason);
         return ret;
     }
     /**
@@ -1859,12 +1878,11 @@ export class IntoUnderlyingSink {
         return ret;
     }
     /**
-     * @param {any} reason
+     * @param {any} chunk
      * @returns {Promise<any>}
      */
-    abort(reason) {
-        const ptr = this.__destroy_into_raw();
-        const ret = wasm.intounderlyingsink_abort(ptr, reason);
+    write(chunk) {
+        const ret = wasm.intounderlyingsink_write(this.__wbg_ptr, chunk);
         return ret;
     }
 }
@@ -2349,7 +2367,7 @@ function __wbg_get_imports() {
                 const a = state0.a;
                 state0.a = 0;
                 try {
-                    return __wbg_adapter_241(a, state0.b, arg0, arg1);
+                    return __wbg_adapter_214(a, state0.b, arg0, arg1);
                 } finally {
                     state0.a = a;
                 }
@@ -2707,28 +2725,28 @@ function __wbg_get_imports() {
         const ret = false;
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper3499 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 114, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper1366 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 99, __wbg_adapter_59);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper464 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 46, __wbg_adapter_54);
+    imports.wbg.__wbindgen_closure_wrapper1442 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 14, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper589 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 46, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper3209 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 99, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper806 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 46, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper3489 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 115, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper981 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 46, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper848 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 14, __wbg_adapter_54);
         return ret;
     };
-    imports.wbg.__wbindgen_closure_wrapper983 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 46, __wbg_adapter_57);
+    imports.wbg.__wbindgen_closure_wrapper850 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 14, __wbg_adapter_54);
         return ret;
     };
     imports.wbg.__wbindgen_debug_string = function(arg0, arg1) {

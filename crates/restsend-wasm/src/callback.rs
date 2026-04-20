@@ -181,6 +181,7 @@ pub(super) struct CallbackWasmWrap {
     pub(super) cb_on_token_expired: CallbackFunction,
     pub(super) cb_on_net_broken: CallbackFunction,
     pub(super) cb_on_kickoff_by_other_client: CallbackFunction,
+    pub(super) cb_on_ping_failed: CallbackFunction,
     pub(super) cb_on_system_request: CallbackFunction,
     pub(super) cb_on_unknown_request: CallbackFunction,
     pub(super) cb_on_topic_typing: CallbackFunction,
@@ -218,6 +219,14 @@ impl restsend_sdk::callback::RsCallback for CallbackWasmWrap {
 
     fn on_kickoff_by_other_client(&self, reason: String) {
         if let Some(cb) = self.cb_on_kickoff_by_other_client.borrow().as_ref() {
+            cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
+                .err()
+                .map(|e| web_sys::console::error_1(&e));
+        }
+    }
+
+    fn on_ping_failed(&self, reason: String) {
+        if let Some(cb) = self.cb_on_ping_failed.borrow().as_ref() {
             cb.call1(&JsValue::NULL, &JsValue::from_str(&reason))
                 .err()
                 .map(|e| web_sys::console::error_1(&e));
@@ -401,6 +410,25 @@ impl Client {
     pub fn set_onkickoff(&self, cb: JsValue) {
         if cb.is_function() {
             self.cb_on_kickoff_by_other_client
+                .borrow_mut()
+                .replace(js_sys::Function::from(cb));
+        }
+    }
+    /// Set the callback when ping failed
+    /// # Arguments
+    ///  * `reason` - The reason why ping failed
+    /// # Example
+    /// ```javascript
+    /// const client = new Client(info);
+    /// await client.connect();
+    /// client.onpingfailed = (reason) => {
+    /// console.log("ping failed:", reason);
+    /// }
+    /// ```
+    #[wasm_bindgen(setter)]
+    pub fn set_onpingfailed(&self, cb: JsValue) {
+        if cb.is_function() {
+            self.cb_on_ping_failed
                 .borrow_mut()
                 .replace(js_sys::Function::from(cb));
         }

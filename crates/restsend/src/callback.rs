@@ -34,6 +34,7 @@ pub trait RsCallback: Send + Sync {
     fn on_token_expired(&self, reason: String) {}
     fn on_net_broken(&self, reason: String) {}
     fn on_kickoff_by_other_client(&self, reason: String) {}
+    fn on_ping_failed(&self, reason: String) {}
 
     fn on_system_request(&self, req: ChatRequest) -> Option<ChatRequest> {
         None

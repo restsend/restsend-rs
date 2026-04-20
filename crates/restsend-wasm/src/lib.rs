@@ -27,6 +27,7 @@ pub struct Client {
     cb_on_token_expired: CallbackFunction,
     cb_on_net_broken: CallbackFunction,
     cb_on_kickoff_by_other_client: CallbackFunction,
+    cb_on_ping_failed: CallbackFunction,
     cb_on_system_request: CallbackFunction,
     cb_on_unknown_request: CallbackFunction,
     cb_on_topic_typing: CallbackFunction,
@@ -261,6 +262,7 @@ impl Client {
         let cb_on_token_expired = Rc::new(RefCell::new(None));
         let cb_on_net_broken = Rc::new(RefCell::new(None));
         let cb_on_kickoff_by_other_client = Rc::new(RefCell::new(None));
+        let cb_on_ping_failed = Rc::new(RefCell::new(None));
         let cb_on_system_request = Rc::new(RefCell::new(None));
         let cb_on_unknown_request = Rc::new(RefCell::new(None));
         let cb_on_topic_typing = Rc::new(RefCell::new(None));
@@ -275,6 +277,7 @@ impl Client {
             cb_on_token_expired: cb_on_token_expired.clone(),
             cb_on_net_broken: cb_on_net_broken.clone(),
             cb_on_kickoff_by_other_client: cb_on_kickoff_by_other_client.clone(),
+            cb_on_ping_failed: cb_on_ping_failed.clone(),
             cb_on_system_request: cb_on_system_request.clone(),
             cb_on_unknown_request: cb_on_unknown_request.clone(),
             cb_on_topic_typing: cb_on_topic_typing.clone(),
@@ -291,6 +294,7 @@ impl Client {
             cb_on_token_expired,
             cb_on_net_broken,
             cb_on_kickoff_by_other_client,
+            cb_on_ping_failed,
             cb_on_system_request,
             cb_on_unknown_request,
             cb_on_topic_typing,

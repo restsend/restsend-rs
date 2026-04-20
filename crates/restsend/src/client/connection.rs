@@ -389,6 +389,11 @@ async fn serve_connection(
                     if let Err(e) = conn.send((&ping_req).into()).await {
                         let error_msg = format!("ping send failed: {:?}", e);
                         warn!("{}", error_msg);
+                        callback_ref
+                            .read()
+                            .unwrap()
+                            .as_ref()
+                            .map(|cb| cb.on_ping_failed(error_msg.clone()));
                         state_ref.add_error(error_msg);
                         break;
                     }
