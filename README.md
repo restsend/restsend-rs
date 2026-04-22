@@ -1,10 +1,9 @@
 # RestSend Client SDK
 
-RestSend is a secure instant-messaging platform (server in Go, client SDK in Rust) that targets Android, iOS, Flutter, WASM, and desktop. The Rust core exposes a high-reliability protocol, sync callbacks, and full OpenAPI/Webhook support so that existing user systems can extend or embed the service with minimal effort.
+RestSend is a secure instant-messaging platform (server in Go, client SDK in Rust) that targets Android, iOS, WASM, and desktop. The Rust core exposes a high-reliability protocol, sync callbacks, and full OpenAPI/Webhook support so that existing user systems can extend or embed the service with minimal effort.
 
 - Benchmarked with 80%+ unit-test coverage and millions of concurrent connections per node.
 - SDK crates live in `crates/` and power mobile bindings (`android-sdk`, `swift/`) plus WebAssembly (`crates/restsend-wasm`).
-- A Flutter/Dart package is shipped under `dart/restsend_dart` for cross-platform UI apps.
 
 Try the [online demo](https://chat.ruzhila.cn?from=github) or reach out at `kui@fourz.cn`.
 
@@ -15,7 +14,6 @@ Try the [online demo](https://chat.ruzhila.cn?from=github) or reach out at `kui@
 - Platform extras:
   - **iOS/macOS**: `rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-darwin` and Xcode 15+.
   - **Android**: Android NDK r25c+, set `NDK_HOME`, install `cargo-ndk`, and add `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android` targets.
-  - **Flutter/Dart**: Flutter 3.24+, Dart 3.5+, `flutter_rust_bridge_codegen 2.11.1`.
   - **WASM**: Node.js 20+, `wasm-pack`, `wasm-bindgen-cli`, `wasm-opt` from Binaryen.
 
 ## Quick Start
@@ -55,41 +53,6 @@ cd android-sdk && ./gradlew assembleRelease
 
 Add JNA (or your preferred loader) plus network/storage permissions in your Android app manifest when embedding the produced AAR.
 
-### Flutter / Dart bindings
-
-The package under `dart/restsend_dart` uses `flutter_rust_bridge`.
-
-#### Quick Start (macOS Desktop - No Xcode Required)
-
-```shell
-# Build and run on macOS desktop
-./build_macos.sh
-cd dart/restsend_dart/example
-flutter run -d macos
-```
-
-#### iOS Simulator (Requires Xcode)
-
-```shell
-# First time: Install Xcode from Mac App Store, then:
-sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
-
-# Build and run on iOS simulator
-./build_ios_sim.sh
-cd dart/restsend_dart/example
-flutter run
-```
-
-#### Full Build (All Platforms)
-
-```shell
-dart run build.dart   # runs all required steps from the repo root
-```
-
-The helper script installs/updates `flutter_rust_bridge_codegen`, installs Dart deps, runs `build_runner`, regenerates bindings, and finally builds the `restsend-dart` crate.
-
-See `dart/restsend_dart/README.md` for detailed documentation.
-
 ### WebAssembly package
 
 ```shell
@@ -106,6 +69,5 @@ Ship the generated artifacts from `crates/restsend-wasm/pkg/` (plus `assets/`) i
 
 - `cargo test` exercises the core logic.
 - `cargo run -p demo` launches the native desktop sample (requires GUI environment).
-- `dart/restsend_dart/example` showcases the Flutter bindings end to end.
 
 Need help or commercial support? Email `kui@fourz.cn`.
