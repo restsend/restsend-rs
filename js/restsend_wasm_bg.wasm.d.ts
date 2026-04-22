@@ -122,5 +122,5 @@ export const __wbindgen_export_5: WebAssembly.Table;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
 export const closure13_externref_shim: (a: number, b: number, c: any) => void;
 export const _dyn_core_5c900c8d92f70baa___ops__function__FnMut_____Output______as_wasm_bindgen_52217b38cebb45a8___closure__WasmClosure___describe__invoke______: (a: number, b: number) => void;
-export const closure90_externref_shim: (a: number, b: number, c: any, d: any) => void;
+export const closure97_externref_shim: (a: number, b: number, c: any, d: any) => void;
 export const __wbindgen_start: () => void;

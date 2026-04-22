@@ -16,7 +16,10 @@ export async function waitUntil(fn, timeout) {
 
 export async function authClient(username, password, withWebSocket = false, dbname = undefined) {
     let info = await signin(endpoint, username, password)
-    let client = new Client(info, dbname || username)
+    let client = new Client(
+        info,
+        dbname || `${username}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    )
 
     if (withWebSocket) {
         await client.connect()

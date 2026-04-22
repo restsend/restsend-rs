@@ -2,8 +2,24 @@
   "name": "resetsend-sdk",
   "version": "1.2.0",
   "description": "Restsend Javascript/Wasm SDK",
+  "main": "./pkg/restsend_wasm.js",
+  "types": "./pkg/restsend_wasm.d.ts",
+  "exports": {
+    ".": {
+      "import": "./pkg/restsend_wasm.js",
+      "types": "./pkg/restsend_wasm.d.ts"
+    },
+    "./worker": {
+      "import": "./worker/client.mjs",
+      "types": "./worker/client.d.ts"
+    },
+    "./worker/entry": "./worker/entry.mjs",
+    "./package.json": "./package.json"
+  },
   "files": [
-    "pkg"
+    "pkg",
+    "worker",
+    "README.md"
   ],
   "devDependencies": {
     "@playwright/test": "^1.49.1",

@@ -9,7 +9,7 @@ where
     return *value == T::default();
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[export_wasm_or_ffi(#[derive(uniffi::Record)])]
 #[serde(rename_all = "camelCase")]
 pub struct GetChatLogsResult {

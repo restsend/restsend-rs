@@ -2,7 +2,7 @@ use super::Client;
 use crate::callback::{SyncChatLogsCallback, SyncConversationsCallback};
 use crate::client::store::is_cache_expired;
 use crate::models::conversation::{Extra, Tags};
-use crate::models::{ChatLog, ChatLogStatus, Conversation, GetChatLogsResult};
+use crate::models::{ChatLog, ChatLogStatus, ContentType, Conversation, GetChatLogsResult};
 use crate::request::ChatRequest;
 use crate::services::conversation::{
     batch_get_chat_logs_desc, create_chat, set_all_conversations_read, set_conversation_read,
@@ -18,6 +18,8 @@ use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
+
+const QUICK_SYNC_FETCH_THROTTLE_MS: i64 = 250;
 
 #[export_wasm_or_ffi]
 impl Client {
@@ -67,6 +69,7 @@ impl Client {
         ensure_conversation_last_version: Option<bool>,
     ) {
         let st = now_millis();
+        let ensure_conversation_last_version = ensure_conversation_last_version.unwrap_or(false);
 
         let max_logs_limit = self
             .store
@@ -80,7 +83,28 @@ impl Client {
             limit
         }
         .min(max_logs_limit);
-        let mut need_fetch_conversation = ensure_conversation_last_version.unwrap_or(false);
+        let singleflight_key = format!(
+            "{}|{:?}|{}|{}",
+            topic_id, last_seq, limit, ensure_conversation_last_version
+        );
+        match self
+            .store
+            .begin_quick_sync_singleflight(singleflight_key.clone(), callback)
+        {
+            crate::client::store::QuickSyncSingleflightState::Leader => {}
+            crate::client::store::QuickSyncSingleflightState::Joined
+            | crate::client::store::QuickSyncSingleflightState::Rejected => {
+                return;
+            }
+        }
+
+        let mut need_fetch_conversation = ensure_conversation_last_version;
+        let log_t = self
+            .store
+            .message_storage
+            .readonly_table::<ChatLog>()
+            .await
+            .ok();
         let conversation = match self
             .store
             .message_storage
@@ -106,8 +130,8 @@ impl Client {
                 }
 
                 if !need_fetch_conversation {
-                    if let Ok(t) = self.store.message_storage.readonly_table::<ChatLog>().await {
-                        match t.last(&topic_id).await {
+                    if let Some(log_t) = log_t.as_ref() {
+                        match log_t.last(&topic_id).await {
                             Some(log) => {
                                 if log.seq != conversation.last_seq {
                                     need_fetch_conversation = true;
@@ -120,11 +144,25 @@ impl Client {
 
                 if !need_fetch_conversation {
                     let store_st = now_millis();
-                    match self
-                        .store
-                        .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
-                        .await
-                    {
+                    let local_logs = match log_t.as_ref() {
+                        Some(log_t) => {
+                            self.store
+                                .get_chat_logs_with_table(
+                                    log_t,
+                                    &topic_id,
+                                    conversation.start_seq,
+                                    last_seq,
+                                    limit,
+                                )
+                                .await
+                        }
+                        None => {
+                            self.store
+                                .get_chat_logs(&topic_id, conversation.start_seq, last_seq, limit)
+                                .await
+                        }
+                    };
+                    match local_logs {
                         Ok((local_logs, mut need_fetch_logs)) => {
                             info!("sync_chat_logs_quick has_more:{} local_logs.len: {} start_seq: {} last_seq: {:?} limit: {} local_logs.start_sort_value:{} local_logs.end_sort_value:{} need_fetch:{} store_cost:{:?} total_cost:{:?}",
                             local_logs.has_more,
@@ -139,20 +177,65 @@ impl Client {
                             elapsed(st)
                         );
 
-                            if last_seq.is_none()
-                                && conversation.last_seq > local_logs.start_sort_value
-                            {
+                            let local_latest_mismatch = last_seq.is_none()
+                                && conversation.last_seq > local_logs.start_sort_value;
+                            if local_latest_mismatch {
                                 need_fetch_logs = true;
                             }
 
-                            let has_more = local_logs.has_more;
+                            // For incremental syncs, prefer local in-memory/storage snapshot when it has data.
+                            // This keeps recall/update-extra semantics consistent with websocket-applied state.
+                            if last_seq.is_some() && !local_logs.items.is_empty() {
+                                need_fetch_logs = false;
+                            }
+
+                            let mut has_more = local_logs.has_more;
                             if local_logs.items.len() == 0 {
                                 need_fetch_logs = true;
                             }
+                            if need_fetch_logs
+                                && last_seq.is_none()
+                                && !local_logs.items.is_empty()
+                                && !local_logs.has_more
+                                && !local_latest_mismatch
+                                && self.store.should_throttle_quick_sync_fetch(
+                                    &topic_id,
+                                    now_millis(),
+                                    QUICK_SYNC_FETCH_THROTTLE_MS,
+                                )
+                            {
+                                need_fetch_logs = false;
+                            }
                             if !need_fetch_logs {
-                                callback.on_success(GetChatLogsResult::from_local_logs(
-                                    local_logs, has_more,
-                                ));
+                                if last_seq.is_none() {
+                                    has_more = false;
+                                }
+                                let mut result =
+                                    GetChatLogsResult::from_local_logs(local_logs, has_more);
+                                if last_seq.is_some() {
+                                    result.items.retain(|item| {
+                                        !matches!(
+                                            ContentType::from(
+                                                item.content.content_type.to_string()
+                                            ),
+                                            ContentType::Recalled
+                                        )
+                                    });
+                                    for item in result.items.iter_mut() {
+                                        if !matches!(
+                                            ContentType::from(
+                                                item.content.content_type.to_string()
+                                            ),
+                                            ContentType::Recall
+                                        ) {
+                                            item.recall = false;
+                                        }
+                                    }
+                                }
+                                self.store.finish_quick_sync_singleflight_success(
+                                    &singleflight_key,
+                                    result,
+                                );
                                 return;
                             }
                         }
@@ -163,8 +246,50 @@ impl Client {
             None => {}
         }
 
-        self.fetch_chat_logs_desc(&topic_id, last_seq, limit, callback)
-            .await;
+        match get_chat_logs_desc(&self.endpoint, &self.token, &topic_id, last_seq, limit).await {
+            Ok(mut lr) => {
+                let now = now_millis();
+                for c in lr.items.iter_mut() {
+                    c.cached_at = now;
+                    c.status = if c.sender_id == self.user_id {
+                        ChatLogStatus::Sent
+                    } else {
+                        ChatLogStatus::Received
+                    };
+                }
+                let items = lr.items.clone();
+                let mut result: GetChatLogsResult = lr.into();
+                if last_seq.is_none() {
+                    result.has_more = false;
+                }
+                if last_seq.is_some() {
+                    result.items.retain(|item| {
+                        !matches!(
+                            ContentType::from(item.content.content_type.to_string()),
+                            ContentType::Recalled
+                        )
+                    });
+                    for item in result.items.iter_mut() {
+                        if !matches!(
+                            ContentType::from(item.content.content_type.to_string()),
+                            ContentType::Recall
+                        ) {
+                            item.recall = false;
+                        }
+                    }
+                }
+                self.store
+                    .finish_quick_sync_singleflight_success(&singleflight_key, result);
+                if let Ok(log_t) = self.store.message_storage.table::<ChatLog>().await {
+                    self.store.save_chat_logs(&log_t, &items).await.ok();
+                }
+            }
+            Err(e) => {
+                warn!("sync_chat_logs failed: {:?}", e);
+                self.store
+                    .finish_quick_sync_singleflight_fail(&singleflight_key, e);
+            }
+        }
 
         if need_fetch_conversation {
             self.store

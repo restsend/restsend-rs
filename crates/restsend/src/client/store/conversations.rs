@@ -1,9 +1,9 @@
-use super::{is_cache_expired, ClientStore};
+use super::{is_cache_expired, ClientStore, RecentChatLogsCacheEntry};
 use crate::{
     callback::ChatRequestStatus,
     models::{
         conversation::{ConversationUpdateFields, Extra, Tags},
-        ChatLog, ChatLogStatus, Content, ContentType, Conversation,
+        ChatLog, ChatLogStatus, ContentType, Conversation,
     },
     request::ChatRequest,
     services::{conversation::*, topic::get_topic},
@@ -18,12 +18,20 @@ use std::sync::{
 };
 use std::{collections::HashSet, sync::Arc};
 
+const RECENT_CHAT_LOGS_CACHE_EXPIRE_SECS: i64 = 5;
+const RECENT_CHAT_LOGS_CACHE_MAX_TOPICS: usize = 64;
+
 pub(crate) async fn merge_conversation(
     message_storage: Arc<Storage>,
     conversation: Conversation,
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>().await?;
     let mut conversation = conversation;
+    let server_last_message_unreadable = conversation
+        .last_message
+        .as_ref()
+        .map(|message| message.unreadable)
+        .unwrap_or(false);
 
     let mut sync_last_readable = false;
     if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
@@ -41,6 +49,7 @@ pub(crate) async fn merge_conversation(
         {
             let local_seq = log.seq;
             let should_use_local = match server_last_message_seq {
+                Some(server_seq) if server_last_message_unreadable => local_seq <= server_seq,
                 Some(server_seq) => local_seq >= server_seq,
                 None => true,
             };
@@ -67,7 +76,14 @@ async fn get_conversation_last_readable_message(
     topic_id: &str,
 ) -> Option<ChatLog> {
     let t = message_storage.readonly_table::<ChatLog>().await.ok()?;
-    let last_log = t.last(topic_id).await?;
+    get_conversation_last_readable_message_with_table(&t, topic_id).await
+}
+
+async fn get_conversation_last_readable_message_with_table(
+    table: &Box<dyn Table<ChatLog>>,
+    topic_id: &str,
+) -> Option<ChatLog> {
+    let last_log = table.last(topic_id).await?;
     if !last_log.content.unreadable {
         return Some(last_log);
     }
@@ -78,7 +94,7 @@ async fn get_conversation_last_readable_message(
         limit: 10,
     };
 
-    let result = t.query(topic_id, &option).await?;
+    let result = table.query(topic_id, &option).await?;
     for log in result.items.into_iter() {
         if !log.content.unreadable {
             return Some(log);
@@ -87,7 +103,122 @@ async fn get_conversation_last_readable_message(
     None
 }
 
+fn needs_last_readable_refresh(conversation: &Conversation) -> bool {
+    conversation.last_message.is_none()
+        || conversation
+            .last_message
+            .as_ref()
+            .map(|message| message.unreadable)
+            .unwrap_or(false)
+}
+
+async fn merge_pending_incoming_logs(
+    table: &Box<dyn Table<ChatLog>>,
+    topic_id: &str,
+    items: &mut Vec<ChatLog>,
+    incoming_logs: Option<Vec<String>>,
+) {
+    let Some(incoming_logs) = incoming_logs else {
+        return;
+    };
+
+    for log_id in incoming_logs {
+        if items.iter().any(|item| item.id == log_id) {
+            continue;
+        }
+
+        if let Some(item) = table.get(topic_id, &log_id).await {
+            if matches!(
+                ContentType::from(item.content.content_type.to_string()),
+                ContentType::None
+            ) {
+                continue;
+            }
+            log::info!(
+                "get_chat_logs: find lost log log_id: {} seq: {}",
+                log_id,
+                item.seq
+            );
+            items.push(item);
+        }
+    }
+
+    items.sort_by(|a, b| {
+        b.seq
+            .cmp(&a.seq)
+            .then_with(|| b.created_at.cmp(&a.created_at))
+    });
+}
+
+fn to_query_result(items: Vec<ChatLog>, has_more: bool) -> QueryResult<ChatLog> {
+    QueryResult {
+        start_sort_value: items.first().map(|v| v.seq).unwrap_or(0),
+        end_sort_value: items.last().map(|v| v.seq).unwrap_or(0),
+        items,
+        has_more,
+    }
+}
+
 impl ClientStore {
+    fn invalidate_recent_chat_logs(&self, topic_id: &str) {
+        if let Ok(mut cache) = self.recent_chat_logs.try_write() {
+            cache.remove(topic_id);
+        }
+    }
+
+    fn cache_recent_chat_logs(
+        &self,
+        topic_id: &str,
+        limit: u32,
+        result: &QueryResult<ChatLog>,
+        need_fetch: bool,
+    ) {
+        if let Ok(mut cache) = self.recent_chat_logs.try_write() {
+            if cache.len() >= RECENT_CHAT_LOGS_CACHE_MAX_TOPICS {
+                if let Some(oldest_key) = cache
+                    .iter()
+                    .min_by_key(|(_, entry)| entry.cached_at)
+                    .map(|(key, _)| key.clone())
+                {
+                    cache.remove(&oldest_key);
+                }
+            }
+            cache.insert(
+                topic_id.to_string(),
+                RecentChatLogsCacheEntry {
+                    items: result.items.clone(),
+                    has_more: result.has_more,
+                    limit,
+                    need_fetch,
+                    cached_at: now_millis(),
+                },
+            );
+        }
+    }
+
+    fn get_recent_chat_logs(
+        &self,
+        topic_id: &str,
+        limit: u32,
+    ) -> Option<(QueryResult<ChatLog>, bool)> {
+        let cache = self.recent_chat_logs.read().ok()?;
+        let entry = cache.get(topic_id)?;
+        if is_cache_expired(entry.cached_at, RECENT_CHAT_LOGS_CACHE_EXPIRE_SECS) {
+            return None;
+        }
+
+        let can_satisfy =
+            limit <= entry.limit || (!entry.has_more && entry.items.len() < limit as usize);
+        if !can_satisfy {
+            return None;
+        }
+
+        let take_len = entry.items.len().min(limit as usize);
+        let items = entry.items[..take_len].to_vec();
+        let has_more = entry.has_more || entry.items.len() > take_len;
+        Some((to_query_result(items, has_more), entry.need_fetch))
+    }
+
     pub(super) async fn merge_conversation_from_chat(
         &self,
         req: &ChatRequest,
@@ -150,20 +281,24 @@ impl ClientStore {
                     }
                 }
                 ContentType::UpdateExtra => {
-                    //TODO: ugly code, need refactor, need a last_message_chat_id field in Conversation
-                    if let Some(lastlog_seq) = conversation.last_message_seq {
-                        if let Ok(log_t) = self.message_storage.readonly_table::<ChatLog>().await {
-                            if let Some(log_in_store) =
-                                log_t.get(&req.topic_id, &content.text).await
-                            {
-                                if lastlog_seq == log_in_store.seq {
-                                    if let Some(last_message_content) =
-                                        conversation.last_message.as_mut()
-                                    {
-                                        last_message_content.extra = content.extra.clone();
-                                    }
-                                }
-                            }
+                    // Best-effort: update conversation summary extra directly when the last
+                    // message is text-like. This avoids missing extra propagation when local
+                    // store lookup is lagging or seq metadata is stale.
+                    if let Some(last_message_content) = conversation.last_message.as_mut() {
+                        if matches!(
+                            ContentType::from(last_message_content.content_type.to_string()),
+                            ContentType::Text
+                                | ContentType::Image
+                                | ContentType::Video
+                                | ContentType::Voice
+                                | ContentType::File
+                                | ContentType::Location
+                                | ContentType::Sticker
+                                | ContentType::Contact
+                                | ContentType::Link
+                                | ContentType::Invite
+                        ) {
+                            last_message_content.extra = content.extra.clone();
                         }
                     }
                 }
@@ -183,14 +318,15 @@ impl ClientStore {
             conversation.last_seq = req.seq;
 
             if !req.chat_id.is_empty() {
-                // if req.seq >= conversation.last_seq {
-                //     conversation.last_seq = req.seq;
-                //     if is_countable && !req.chat_id.is_empty() {
-                conversation.last_sender_id = req.attendee.clone();
-                conversation.last_message_at = req.created_at.clone();
-                conversation.last_message = req.content.clone();
-                conversation.last_message_seq = Some(req.seq);
                 conversation.updated_at = req.created_at.clone();
+                if let Some(content) = req.content.as_ref() {
+                    if !content.unreadable {
+                        conversation.last_sender_id = req.attendee.clone();
+                        conversation.last_message_at = req.created_at.clone();
+                        conversation.last_message = Some(content.clone());
+                        conversation.last_message_seq = Some(req.seq);
+                    }
+                }
             }
         }
 
@@ -217,6 +353,7 @@ impl ClientStore {
             Ok(t) => t,
             Err(_) => return vec![],
         };
+        let log_t = self.message_storage.readonly_table::<ChatLog>().await.ok();
         let now = now_millis();
         for conversation in conversations {
             let mut conversation = conversation;
@@ -247,16 +384,22 @@ impl ClientStore {
                 conversation.merge_local_read_state(&old_conversation);
             }
 
-            if let Some(log) = get_conversation_last_readable_message(
-                self.message_storage.clone(),
-                &conversation.topic_id,
-            )
-            .await
-            {
-                conversation.last_message = Some(log.content.clone());
-                conversation.last_message_at = log.created_at.clone();
-                conversation.last_sender_id = log.sender_id;
-                conversation.last_message_seq = Some(log.seq);
+            if needs_last_readable_refresh(&conversation) {
+                if let Some(log) = match log_t.as_ref() {
+                    Some(log_t) => {
+                        get_conversation_last_readable_message_with_table(
+                            log_t,
+                            &conversation.topic_id,
+                        )
+                        .await
+                    }
+                    None => None,
+                } {
+                    conversation.last_message = Some(log.content.clone());
+                    conversation.last_message_at = log.created_at.clone();
+                    conversation.last_sender_id = log.sender_id;
+                    conversation.last_message_seq = Some(log.seq);
+                }
             }
 
             self.ensure_topic_owner_id(&mut conversation).await;
@@ -481,6 +624,7 @@ impl ClientStore {
 
     pub async fn clear_conversation(&self, topic_id: &str) -> Result<()> {
         self.pop_incoming_logs(topic_id);
+        self.invalidate_recent_chat_logs(topic_id);
         {
             if let Ok(t) = self.message_storage.table::<ChatLog>().await {
                 t.clear(topic_id).await.ok();
@@ -643,6 +787,7 @@ impl ClientStore {
         log.status = ChatLogStatus::Sending;
         log.sender_id = self.user_id.clone();
         t.set(&log.topic_id, &log.id, Some(&log)).await.ok();
+        self.invalidate_recent_chat_logs(&log.topic_id);
 
         Ok(())
     }
@@ -660,6 +805,7 @@ impl ClientStore {
             log.status = status;
             seq.map(|v| log.seq = v);
             t.set(topic_id, chat_id, Some(&log)).await?;
+            self.invalidate_recent_chat_logs(topic_id);
         }
         Ok(())
     }
@@ -736,14 +882,6 @@ impl ClientStore {
                             if req.attendee != recall_log.sender_id {
                                 return Err(Error::Other("[recall] invalid owner".to_string()));
                             }
-
-                            let mut recall_log = recall_log.clone();
-                            recall_log.recall = true;
-                            recall_log.content = Content::new(ContentType::None);
-                            log_t
-                                .set(&topic_id, &recall_chat_id, Some(&recall_log))
-                                .await
-                                .ok();
                         }
                         None => return Ok(()),
                     }
@@ -781,7 +919,9 @@ impl ClientStore {
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
-        log_t.set(&log.topic_id, &log.id, Some(&log)).await
+        let result = log_t.set(&log.topic_id, &log.id, Some(&log)).await;
+        self.invalidate_recent_chat_logs(&log.topic_id);
+        result
     }
 
     pub(crate) async fn save_chat_logs(
@@ -795,20 +935,8 @@ impl ClientStore {
             let item = match ContentType::from(chat_log.content.content_type.to_string()) {
                 ContentType::None => Some(chat_log), // remove local log
                 ContentType::Recall => {
-                    match table.get(&chat_log.topic_id, &chat_log.content.text).await {
-                        Some(recall_log) => {
-                            if !recall_log.recall {
-                                let mut log = recall_log.clone();
-                                log.recall = true;
-                                log.content = Content::new(ContentType::Recalled);
-                                table
-                                    .set(&chat_log.topic_id, &chat_log.content.text, Some(&log))
-                                    .await
-                                    .ok();
-                            }
-                        }
-                        None => {}
-                    };
+                    // Keep recall as an explicit event record and avoid mutating the original log
+                    // in this merge path. This preserves incremental sync ordering expectations.
                     Some(chat_log)
                 }
                 ContentType::UpdateExtra => {
@@ -838,7 +966,11 @@ impl ClientStore {
                 });
             }
         }
-        table.batch_update(&items).await
+        let result = table.batch_update(&items).await;
+        for item in items.iter() {
+            self.invalidate_recent_chat_logs(&item.partition);
+        }
+        result
     }
 
     pub async fn get_chat_logs(
@@ -861,6 +993,49 @@ impl ClientStore {
         last_seq: Option<i64>,
         limit: u32,
     ) -> Result<(QueryResult<ChatLog>, bool)> {
+        let is_incremental_sync = last_seq.is_some();
+
+        if last_seq.is_none() {
+            if let Some((mut result, mut need_fetch)) = self.get_recent_chat_logs(topic_id, limit) {
+                merge_pending_incoming_logs(
+                    table,
+                    topic_id,
+                    &mut result.items,
+                    self.pop_incoming_logs(topic_id),
+                )
+                .await;
+
+                if is_incremental_sync {
+                    result.items.retain(|item| {
+                        !(item.recall
+                            && !matches!(
+                                ContentType::from(item.content.content_type.to_string()),
+                                ContentType::Recall
+                            ))
+                    });
+                    for item in result.items.iter_mut() {
+                        if !matches!(
+                            ContentType::from(item.content.content_type.to_string()),
+                            ContentType::Recall
+                        ) {
+                            item.recall = false;
+                        }
+                    }
+                }
+
+                if result.items.len() > limit as usize {
+                    result.items.truncate(limit as usize);
+                    result.has_more = true;
+                    need_fetch = false;
+                }
+
+                result.start_sort_value = result.items.first().map(|v| v.seq).unwrap_or(0);
+                result.end_sort_value = result.items.last().map(|v| v.seq).unwrap_or(0);
+                self.cache_recent_chat_logs(topic_id, limit, &result, need_fetch);
+                return Ok((result, need_fetch));
+            }
+        }
+
         let st = now_millis();
 
         let mut r = QueryResult {
@@ -903,6 +1078,7 @@ impl ClientStore {
                 .filter(
                     |item| match ContentType::from(item.content.content_type.to_string()) {
                         ContentType::None => false,
+                        _ if is_incremental_sync && item.recall => false,
                         _ => true,
                     },
                 )
@@ -916,6 +1092,32 @@ impl ClientStore {
             limit -= r.items.len() as u32;
             last_seq = next_last_seq.map(|v| v - limit as i64);
         }
+        merge_pending_incoming_logs(
+            table,
+            topic_id,
+            &mut r.items,
+            self.pop_incoming_logs(topic_id),
+        )
+        .await;
+
+        if is_incremental_sync {
+            r.items.retain(|item| {
+                !(item.recall
+                    && !matches!(
+                        ContentType::from(item.content.content_type.to_string()),
+                        ContentType::Recall
+                    ))
+            });
+            for item in r.items.iter_mut() {
+                if !matches!(
+                    ContentType::from(item.content.content_type.to_string()),
+                    ContentType::Recall
+                ) {
+                    item.recall = false;
+                }
+            }
+        }
+
         r.start_sort_value = r.items.first().map(|v| v.seq).unwrap_or(0);
         r.end_sort_value = r.items.last().map(|v| v.seq).unwrap_or(0);
         let need_fetch = {
@@ -950,25 +1152,8 @@ impl ClientStore {
             elapsed(st),
         );
 
-        match self.pop_incoming_logs(topic_id) {
-            Some(incoming_logs) => {
-                for log_id in incoming_logs {
-                    match r.items.iter_mut().find(|v| v.id == log_id) {
-                        Some(_) => {}
-                        None => {
-                            if let Some(item) = table.get(topic_id, &log_id).await {
-                                log::info!(
-                                    "get_chat_logs: find lost log log_id: {} seq: {}",
-                                    log_id,
-                                    item.seq
-                                );
-                                r.items.push(item);
-                            }
-                        }
-                    }
-                }
-            }
-            None => {}
+        if last_seq.is_none() {
+            self.cache_recent_chat_logs(topic_id, initial_limit, &r, need_fetch);
         }
 
         Ok((r, need_fetch))
@@ -985,6 +1170,7 @@ impl ClientStore {
                 t.remove(topic_id, chat_id).await.ok();
             }
         }
+        self.invalidate_recent_chat_logs(topic_id);
     }
 
     async fn persist_conversation(&self, conversation: &Conversation) {
@@ -1063,7 +1249,11 @@ impl ClientStore {
         updated_at: &str,
         limit: u32,
     ) -> Result<QueryResult<Conversation>> {
-        let t = self.message_storage.table::<Conversation>().await?;
+        let t = self
+            .message_storage
+            .readonly_table::<Conversation>()
+            .await?;
+        let log_t = self.message_storage.readonly_table::<ChatLog>().await.ok();
 
         let start_sort_value = chrono::DateTime::parse_from_rfc3339(updated_at)
             .map(|v| v.timestamp_millis())
@@ -1087,16 +1277,22 @@ impl ClientStore {
 
         let mut updated_topic_owner = Vec::new();
         for conversation in &mut result.items {
-            if let Some(log) = get_conversation_last_readable_message(
-                self.message_storage.clone(),
-                &conversation.topic_id,
-            )
-            .await
-            {
-                conversation.last_message = Some(log.content.clone());
-                conversation.last_message_at = log.created_at.clone();
-                conversation.last_sender_id = log.sender_id;
-                conversation.last_message_seq = Some(log.seq);
+            if needs_last_readable_refresh(conversation) {
+                if let Some(log) = match log_t.as_ref() {
+                    Some(log_t) => {
+                        get_conversation_last_readable_message_with_table(
+                            log_t,
+                            &conversation.topic_id,
+                        )
+                        .await
+                    }
+                    None => None,
+                } {
+                    conversation.last_message = Some(log.content.clone());
+                    conversation.last_message_at = log.created_at.clone();
+                    conversation.last_sender_id = log.sender_id;
+                    conversation.last_message_seq = Some(log.seq);
+                }
             }
 
             if self.ensure_topic_owner_id(conversation).await {
@@ -1105,6 +1301,7 @@ impl ClientStore {
         }
 
         if !updated_topic_owner.is_empty() {
+            let t = self.message_storage.table::<Conversation>().await?;
             for conversation in updated_topic_owner.iter() {
                 t.set("", &conversation.topic_id, Some(conversation))
                     .await
@@ -1164,5 +1361,195 @@ impl ClientStore {
         )
         .await;
         count.load(Ordering::Relaxed) as u32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{merge_conversation, merge_pending_incoming_logs};
+    use crate::{
+        client::store::ClientStore,
+        models::{ChatLog, Content, Conversation},
+    };
+
+    #[tokio::test]
+    async fn merge_conversation_keeps_local_readable_summary_for_unreadable_server_message() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let readable_log = ChatLog {
+            id: "log_100".to_string(),
+            topic_id: "topic-1".to_string(),
+            seq: 100,
+            sender_id: "user-2".to_string(),
+            created_at: "2026-01-30T10:00:00Z".to_string(),
+            content: Content {
+                content_type: "text".to_string(),
+                text: "readable summary".to_string(),
+                unreadable: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        let log_table = store.message_storage.table::<ChatLog>().await.unwrap();
+        log_table
+            .set(
+                &readable_log.topic_id,
+                &readable_log.id,
+                Some(&readable_log),
+            )
+            .await
+            .unwrap();
+
+        let old_conversation = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: Some(100),
+            last_message: Some(readable_log.content.clone()),
+            last_message_at: readable_log.created_at.clone(),
+            last_sender_id: readable_log.sender_id.clone(),
+            ..Default::default()
+        };
+
+        let conversation_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conversation_table
+            .set("", &old_conversation.topic_id, Some(&old_conversation))
+            .await
+            .unwrap();
+
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 101,
+                last_message_seq: Some(101),
+                last_message: Some(Content {
+                    content_type: "text".to_string(),
+                    text: "hidden".to_string(),
+                    unreadable: true,
+                    ..Default::default()
+                }),
+                last_message_at: "2026-01-30T10:01:00Z".to_string(),
+                last_sender_id: "user-3".to_string(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(merged.last_seq, 101);
+        assert_eq!(merged.last_message_seq, Some(100));
+        assert_eq!(merged.last_message.unwrap().text, "readable summary");
+        assert_eq!(merged.last_sender_id, "user-2");
+    }
+
+    #[tokio::test]
+    async fn merge_pending_incoming_logs_sorts_latest_first() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+        let table = store.message_storage.table::<ChatLog>().await.unwrap();
+
+        let logs = vec![
+            ChatLog {
+                id: "chat-4".to_string(),
+                topic_id: "topic-1".to_string(),
+                seq: 4,
+                created_at: "2026-01-30T10:00:04Z".to_string(),
+                content: Content {
+                    content_type: "text".to_string(),
+                    text: "chat-4".to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ChatLog {
+                id: "chat-5".to_string(),
+                topic_id: "topic-1".to_string(),
+                seq: 5,
+                created_at: "2026-01-30T10:00:05Z".to_string(),
+                content: Content {
+                    content_type: "text".to_string(),
+                    text: "chat-5".to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            ChatLog {
+                id: "chat-6".to_string(),
+                topic_id: "topic-1".to_string(),
+                seq: 6,
+                created_at: "2026-01-30T10:00:06Z".to_string(),
+                content: Content {
+                    content_type: "text".to_string(),
+                    text: "chat-6".to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ];
+
+        for log in &logs {
+            table.set(&log.topic_id, &log.id, Some(log)).await.unwrap();
+        }
+
+        let mut queried = vec![logs[1].clone(), logs[0].clone()];
+        merge_pending_incoming_logs(
+            &table,
+            "topic-1",
+            &mut queried,
+            Some(vec!["chat-6".to_string()]),
+        )
+        .await;
+
+        assert_eq!(queried.len(), 3);
+        assert_eq!(queried[0].id, "chat-6");
+        assert_eq!(queried[1].id, "chat-5");
+        assert_eq!(queried[2].id, "chat-4");
+    }
+
+    #[tokio::test]
+    async fn get_chat_logs_with_table_hits_recent_cache_for_first_page() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+        let write_table = store.message_storage.table::<ChatLog>().await.unwrap();
+
+        for seq in 1..=3 {
+            let log = ChatLog {
+                id: format!("chat-{}", seq),
+                topic_id: "topic-cache".to_string(),
+                seq,
+                created_at: format!("2026-01-30T10:00:0{}Z", seq),
+                content: Content {
+                    content_type: "text".to_string(),
+                    text: format!("hello-{}", seq),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            write_table
+                .set(&log.topic_id, &log.id, Some(&log))
+                .await
+                .unwrap();
+        }
+
+        let read_table = store
+            .message_storage
+            .readonly_table::<ChatLog>()
+            .await
+            .unwrap();
+        let (first, _) = store
+            .get_chat_logs_with_table(&read_table, "topic-cache", 0, None, 3)
+            .await
+            .unwrap();
+        assert_eq!(first.items.len(), 3);
+        assert_eq!(first.items[0].id, "chat-3");
+
+        write_table.clear("topic-cache").await.unwrap();
+
+        let (second, _) = store
+            .get_chat_logs_with_table(&read_table, "topic-cache", 0, None, 3)
+            .await
+            .unwrap();
+        assert_eq!(second.items.len(), 3);
+        assert_eq!(second.items[0].id, "chat-3");
+        assert_eq!(second.items[2].id, "chat-1");
     }
 }

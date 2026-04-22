@@ -1,6 +1,7 @@
 use self::attachments::UploadTask;
-use crate::callback::{CountableCallback, RsCallback};
+use crate::callback::{CountableCallback, RsCallback, SyncChatLogsCallback};
 use crate::models::Attachment;
+use crate::models::{ChatLog, GetChatLogsResult};
 use crate::storage::Storage;
 use crate::utils::{elapsed, now_millis};
 use crate::{
@@ -24,6 +25,9 @@ mod attachments;
 mod conversations;
 mod requests;
 mod users;
+
+const QUICK_SYNC_WAITERS_TTL_MS: i64 = 30_000;
+const QUICK_SYNC_WAITERS_MAX_IN_FLIGHT: usize = 512;
 
 pub fn is_cache_expired(cached_at: i64, expire_secs: i64) -> bool {
     (now_millis() - cached_at) / 1000 > expire_secs
@@ -156,6 +160,25 @@ pub type ClientOptionRef = Arc<ClientOption>;
 pub type ClientStoreRef = Arc<ClientStore>;
 pub(super) type CallbackRef = Arc<RwLock<Option<Box<dyn RsCallback>>>>;
 pub(super) type CountableCallbackRef = Arc<RwLock<Option<Box<dyn CountableCallback>>>>;
+pub(super) enum QuickSyncSingleflightState {
+    Leader,
+    Joined,
+    Rejected,
+}
+
+struct QuickSyncWaiterEntry {
+    callbacks: Vec<Box<dyn SyncChatLogsCallback>>,
+    created_at: i64,
+}
+
+pub(super) struct RecentChatLogsCacheEntry {
+    pub items: Vec<ChatLog>,
+    pub has_more: bool,
+    pub limit: u32,
+    pub need_fetch: bool,
+    pub cached_at: i64,
+}
+
 pub struct ClientStore {
     user_id: String,
     endpoint: String,
@@ -170,6 +193,9 @@ pub struct ClientStore {
     pub(crate) callback: CallbackRef,
     pub(crate) countable_callback: CountableCallbackRef,
     incoming_logs: RwLock<HashMap<String, Vec<String>>>,
+    recent_chat_logs: RwLock<HashMap<String, RecentChatLogsCacheEntry>>,
+    quick_sync_waiters: Mutex<HashMap<String, QuickSyncWaiterEntry>>,
+    quick_sync_last_fetch_at: RwLock<HashMap<String, i64>>,
     pending_conversations: Mutex<HashSet<String>>,
     topic_owner_cache: RwLock<HashMap<String, (String, i64)>>,
     pub option: ClientOptionRef,
@@ -197,13 +223,188 @@ impl ClientStore {
             callback: Arc::new(RwLock::new(None)),
             countable_callback: Arc::new(RwLock::new(None)),
             incoming_logs: RwLock::new(HashMap::new()),
+            recent_chat_logs: RwLock::new(HashMap::new()),
+            quick_sync_waiters: Mutex::new(HashMap::new()),
+            quick_sync_last_fetch_at: RwLock::new(HashMap::new()),
             pending_conversations: Mutex::new(HashSet::new()),
             topic_owner_cache: RwLock::new(HashMap::new()),
             option: Arc::new(ClientOption::default()),
         }
     }
 
+    pub(super) fn begin_quick_sync_singleflight(
+        &self,
+        key: String,
+        callback: Box<dyn SyncChatLogsCallback>,
+    ) -> QuickSyncSingleflightState {
+        self.begin_quick_sync_singleflight_at(key, callback, now_millis())
+    }
+
+    fn begin_quick_sync_singleflight_at(
+        &self,
+        key: String,
+        callback: Box<dyn SyncChatLogsCallback>,
+        now: i64,
+    ) -> QuickSyncSingleflightState {
+        let mut expired_callbacks = Vec::new();
+        let mut rejected_callback = None;
+
+        let state = {
+            let mut waiters = self.quick_sync_waiters.lock().unwrap();
+
+            let expired_keys: Vec<String> = waiters
+                .iter()
+                .filter_map(|(k, entry)| {
+                    if now - entry.created_at > QUICK_SYNC_WAITERS_TTL_MS {
+                        Some(k.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for expired_key in expired_keys {
+                if let Some(entry) = waiters.remove(&expired_key) {
+                    expired_callbacks.extend(entry.callbacks);
+                }
+            }
+
+            match waiters.get_mut(&key) {
+                Some(entry) => {
+                    entry.callbacks.push(callback);
+                    QuickSyncSingleflightState::Joined
+                }
+                None => {
+                    if waiters.len() >= QUICK_SYNC_WAITERS_MAX_IN_FLIGHT {
+                        rejected_callback = Some(callback);
+                        QuickSyncSingleflightState::Rejected
+                    } else {
+                        waiters.insert(
+                            key,
+                            QuickSyncWaiterEntry {
+                                callbacks: vec![callback],
+                                created_at: now,
+                            },
+                        );
+                        QuickSyncSingleflightState::Leader
+                    }
+                }
+            }
+        };
+
+        for callback in expired_callbacks {
+            callback.on_fail(crate::Error::Other(
+                "quick sync singleflight waiter expired".to_string(),
+            ));
+        }
+
+        if let Some(callback) = rejected_callback {
+            callback.on_fail(crate::Error::Other(
+                "quick sync singleflight inflight overflow".to_string(),
+            ));
+        }
+
+        state
+    }
+
+    fn cleanup_expired_quick_sync_waiters(&self, now: i64) {
+        let expired_callbacks = {
+            let mut waiters = match self.quick_sync_waiters.try_lock() {
+                Ok(waiters) => waiters,
+                Err(_) => return,
+            };
+
+            let expired_keys: Vec<String> = waiters
+                .iter()
+                .filter_map(|(k, entry)| {
+                    if now - entry.created_at > QUICK_SYNC_WAITERS_TTL_MS {
+                        Some(k.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let mut expired_callbacks = Vec::new();
+            for expired_key in expired_keys {
+                if let Some(entry) = waiters.remove(&expired_key) {
+                    expired_callbacks.extend(entry.callbacks);
+                }
+            }
+            expired_callbacks
+        };
+
+        for callback in expired_callbacks {
+            callback.on_fail(crate::Error::Other(
+                "quick sync singleflight waiter expired".to_string(),
+            ));
+        }
+    }
+
+    pub(super) fn finish_quick_sync_singleflight_success(
+        &self,
+        key: &str,
+        result: GetChatLogsResult,
+    ) {
+        let callbacks = self
+            .quick_sync_waiters
+            .lock()
+            .unwrap()
+            .remove(key)
+            .map(|entry| entry.callbacks)
+            .unwrap_or_default();
+        for callback in callbacks {
+            callback.on_success(result.clone());
+        }
+    }
+
+    pub(super) fn finish_quick_sync_singleflight_fail(&self, key: &str, e: crate::Error) {
+        let callbacks = self
+            .quick_sync_waiters
+            .lock()
+            .unwrap()
+            .remove(key)
+            .map(|entry| entry.callbacks)
+            .unwrap_or_default();
+        for callback in callbacks {
+            callback.on_fail(e.clone());
+        }
+    }
+
+    pub(super) fn should_throttle_quick_sync_fetch(
+        &self,
+        topic_id: &str,
+        now: i64,
+        throttle_ms: i64,
+    ) -> bool {
+        let mut fetch_at = match self.quick_sync_last_fetch_at.try_write() {
+            Ok(fetch_at) => fetch_at,
+            Err(_) => return false,
+        };
+
+        if fetch_at.len() >= 256 {
+            if let Some(oldest_key) = fetch_at
+                .iter()
+                .min_by_key(|(_, ts)| *ts)
+                .map(|(topic, _)| topic.clone())
+            {
+                fetch_at.remove(&oldest_key);
+            }
+        }
+
+        if let Some(last_fetch_at) = fetch_at.get(topic_id).copied() {
+            if now - last_fetch_at <= throttle_ms {
+                return true;
+            }
+        }
+
+        fetch_at.insert(topic_id.to_string(), now);
+        false
+    }
+
     pub(crate) fn process_timeout_requests(&self) {
+        self.cleanup_expired_quick_sync_waiters(now_millis());
+
         if self.outgoings.read().unwrap().len() == 0 {
             return;
         }
@@ -251,4 +452,97 @@ impl ClientStore {
         }
     }
     pub fn shutdown(&self) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ClientStore, QuickSyncSingleflightState};
+    use crate::{callback::SyncChatLogsCallback, models::GetChatLogsResult};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default, Clone)]
+    struct Counter {
+        fail_count: Arc<Mutex<u32>>,
+    }
+
+    impl Counter {
+        fn inc_fail(&self) {
+            let mut fail_count = self.fail_count.lock().unwrap();
+            *fail_count += 1;
+        }
+
+        fn fail_count(&self) -> u32 {
+            *self.fail_count.lock().unwrap()
+        }
+    }
+
+    struct TestSyncCallback {
+        counter: Counter,
+    }
+
+    impl SyncChatLogsCallback for TestSyncCallback {
+        fn on_success(&self, _r: GetChatLogsResult) {}
+
+        fn on_fail(&self, _e: crate::Error) {
+            self.counter.inc_fail();
+        }
+    }
+
+    #[test]
+    fn quick_sync_singleflight_rejects_when_overflow() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        let base = 1_000_000;
+
+        for i in 0..512 {
+            let state = store.begin_quick_sync_singleflight_at(
+                format!("key-{i}"),
+                Box::new(TestSyncCallback {
+                    counter: Counter::default(),
+                }),
+                base,
+            );
+            assert!(matches!(state, QuickSyncSingleflightState::Leader));
+        }
+
+        let rejected_counter = Counter::default();
+        let state = store.begin_quick_sync_singleflight_at(
+            "key-overflow".to_string(),
+            Box::new(TestSyncCallback {
+                counter: rejected_counter.clone(),
+            }),
+            base,
+        );
+
+        assert!(matches!(state, QuickSyncSingleflightState::Rejected));
+        assert_eq!(rejected_counter.fail_count(), 1);
+    }
+
+    #[test]
+    fn quick_sync_singleflight_cleans_expired_waiters() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        let first_counter = Counter::default();
+        let base = 2_000_000;
+
+        let first = store.begin_quick_sync_singleflight_at(
+            "topic|None|50|false".to_string(),
+            Box::new(TestSyncCallback {
+                counter: first_counter.clone(),
+            }),
+            base,
+        );
+        assert!(matches!(first, QuickSyncSingleflightState::Leader));
+
+        let second_counter = Counter::default();
+        let second = store.begin_quick_sync_singleflight_at(
+            "topic|None|50|false".to_string(),
+            Box::new(TestSyncCallback {
+                counter: second_counter.clone(),
+            }),
+            base + 30_001,
+        );
+
+        assert!(matches!(second, QuickSyncSingleflightState::Leader));
+        assert_eq!(first_counter.fail_count(), 1);
+        assert_eq!(second_counter.fail_count(), 0);
+    }
 }

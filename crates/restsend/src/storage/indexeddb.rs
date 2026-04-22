@@ -4,7 +4,15 @@ use async_trait::async_trait;
 use js_sys::Promise;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Borrow, cell::RefCell, io::Cursor, rc::Rc, time::Duration, vec};
+use std::{
+    borrow::Borrow,
+    cell::RefCell,
+    collections::HashMap,
+    io::Cursor,
+    rc::Rc,
+    time::Duration,
+    vec,
+};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{
@@ -16,6 +24,7 @@ const LAST_DB_VERSION: u32 = 1;
 pub struct IndexeddbStorage {
     last_version: Option<u32>,
     db_prefix: String,
+    db_cache: RefCell<HashMap<String, IdbDatabase>>,
     memory_storage: super::memory::InMemoryStorage,
 }
 
@@ -24,7 +33,15 @@ struct StoreValue {
     sortkey: f64,
     partition: String,
     key: String,
-    value: String,
+    value: serde_json::Value,
+}
+
+fn deserialize_store_model<T: StoreModel>(value: serde_json::Value) -> Result<T, ClientError> {
+    serde_json::from_value::<T>(value).map_err(|e| ClientError::Storage(e.to_string()))
+}
+
+fn serialize_store_model<T: StoreModel>(value: &T) -> Result<serde_json::Value, ClientError> {
+    serde_json::to_value(value).map_err(|e| ClientError::Storage(e.to_string()))
 }
 
 struct OpenDbRequestGuard {
@@ -101,8 +118,17 @@ impl IndexeddbStorage {
         IndexeddbStorage {
             last_version: None,
             db_prefix: db_name.to_string(),
+            db_cache: RefCell::new(HashMap::new()),
             memory_storage,
         }
+    }
+
+    fn get_cached_db(&self, table_name: &str) -> Option<IdbDatabase> {
+        self.db_cache.borrow().get(table_name).cloned()
+    }
+
+    fn cache_db(&self, table_name: String, db: &IdbDatabase) {
+        self.db_cache.borrow_mut().insert(table_name, db.clone());
     }
     pub async fn table<T>(&self) -> crate::Result<Box<dyn super::Table<T>>>
     where
@@ -112,15 +138,19 @@ impl IndexeddbStorage {
             return self.memory_storage.table::<T>().await;
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
+        let version = self.last_version.unwrap_or(LAST_DB_VERSION);
 
-        match IndexeddbTable::open_async(
-            tbl_name.to_string(),
-            self.last_version.unwrap_or(LAST_DB_VERSION),
-            false,
-        )
-        .await
-        {
-            Ok(t) => Ok(t),
+        if let Some(db) = self.get_cached_db(&tbl_name) {
+            if let Ok(t) = IndexeddbTable::from_db(tbl_name.clone(), db, false) {
+                return Ok(t);
+            }
+        }
+
+        match IndexeddbTable::<T>::open_database_async(tbl_name.to_string(), version).await {
+            Ok(db) => {
+                self.cache_db(tbl_name.clone(), &db);
+                IndexeddbTable::<T>::from_db(tbl_name, db, false)
+            }
             Err(_) => self.memory_storage.table::<T>().await,
         }
     }
@@ -132,16 +162,28 @@ impl IndexeddbStorage {
             return self.memory_storage.table::<T>().await;
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
+        let version = self.last_version.unwrap_or(LAST_DB_VERSION);
 
-        match IndexeddbTable::open_async(
-            tbl_name.to_string(),
-            self.last_version.unwrap_or(LAST_DB_VERSION),
-            true,
-        )
-        .await
-        {
-            Ok(t) => Ok(t),
+        if let Some(db) = self.get_cached_db(&tbl_name) {
+            if let Ok(t) = IndexeddbTable::from_db(tbl_name.clone(), db, true) {
+                return Ok(t);
+            }
+        }
+
+        match IndexeddbTable::<T>::open_database_async(tbl_name.to_string(), version).await {
+            Ok(db) => {
+                self.cache_db(tbl_name.clone(), &db);
+                IndexeddbTable::<T>::from_db(tbl_name, db, true)
+            }
             Err(_) => self.memory_storage.table::<T>().await,
+        }
+    }
+}
+
+impl Drop for IndexeddbStorage {
+    fn drop(&mut self) {
+        for (_, db) in self.db_cache.get_mut().drain() {
+            db.close();
         }
     }
 }
@@ -159,11 +201,7 @@ where
 
 #[allow(dead_code)]
 impl<T: StoreModel + 'static> IndexeddbTable<T> {
-    pub async fn open_async(
-        table_name: String,
-        version: u32,
-        readonly: bool,
-    ) -> crate::Result<Box<dyn super::Table<T>>> {
+    pub async fn open_database_async(table_name: String, version: u32) -> crate::Result<IdbDatabase> {
         let idb = web_sys::window()
             .ok_or(ClientError::Storage("window is none".to_string()))?
             .indexed_db()?
@@ -261,9 +299,16 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .recv()
             .await
             .unwrap_or(Err(ClientError::Storage("No response".to_string())))?;
-        let db_result = result
+        result
             .dyn_into::<IdbDatabase>()
-            .map_err(|e| ClientError::from(e))?;
+            .map_err(|e| ClientError::from(e))
+    }
+
+    fn from_db(
+        table_name: String,
+        db_result: IdbDatabase,
+        readonly: bool,
+    ) -> crate::Result<Box<dyn super::Table<T>>> {
         let mode = if readonly {
             IdbTransactionMode::Readonly
         } else {
@@ -284,9 +329,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 }
 
 impl<T: StoreModel> Drop for IndexeddbTable<T> {
-    fn drop(&mut self) {
-        self.db.close();
-    }
+    fn drop(&mut self) {}
 }
 
 unsafe impl<T: StoreModel> Send for IndexeddbTable<T> {}
@@ -355,10 +398,10 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             let r = match cursor.value() {
                 Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                     Ok(v) => {
-                        if let Ok(Some(item)) =
-                            T::from_str(&v.value).map(|item| predicate_ref(item))
-                        {
-                            items_ref.borrow_mut().as_mut().unwrap().push(item);
+                        if let Ok(item) = deserialize_store_model(v.value) {
+                            if let Some(item) = predicate_ref(item) {
+                                items_ref.borrow_mut().as_mut().unwrap().push(item);
+                            }
                         }
                         cursor.continue_().ok();
                         Ok(())
@@ -431,7 +474,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             let r = match cursor.value() {
                 Ok(v) => match serde_wasm_bindgen::from_value::<StoreValue>(v) {
                     Ok(v) => {
-                        if let Ok(item) = T::from_str(&v.value) {
+                        if let Ok(item) = deserialize_store_model(v.value) {
                             if let Some(items) = items_ref.borrow_mut().as_mut() {
                                 items.push(item);
                                 if items.len() < (limit + 1) as usize {
@@ -525,7 +568,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
         serde_wasm_bindgen::from_value::<StoreValue>(result)
             .map_err(|e| ClientError::Storage(e.to_string()))
             .ok()
-            .and_then(|v| T::from_str(&v.value).ok())
+            .and_then(|v| deserialize_store_model(v.value).ok())
     }
 
     async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
@@ -542,7 +585,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                         sortkey: v.sort_key() as f64,
                         partition: item.partition.to_string(),
                         key: item.key.to_string(),
-                        value: v.to_string(),
+                        value: serialize_store_model(v)?,
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
@@ -563,7 +606,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             sortkey: value.sort_key() as f64,
             partition: partition.to_string(),
             key: key.to_string(),
-            value: value.to_string(),
+            value: serialize_store_model(value)?,
         };
 
         let item =
@@ -688,7 +731,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     .map_err(|e| ClientError::Storage(e.to_string()))
                     .ok()
             })
-            .and_then(|v| T::from_str(&v.value).ok());
+            .and_then(|v| deserialize_store_model(v.value).ok());
         result
     }
 

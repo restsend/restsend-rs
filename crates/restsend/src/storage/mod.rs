@@ -1,6 +1,7 @@
 use crate::Result;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use std::str::FromStr;
 
 #[allow(unused)]
@@ -12,10 +13,10 @@ mod memory;
 #[cfg(not(target_family = "wasm"))]
 mod sqlite;
 
-pub trait StoreModel: ToString + FromStr + Sync + Send + Serialize {
+pub trait StoreModel: ToString + FromStr + Sync + Send + Serialize + DeserializeOwned {
     fn sort_key(&self) -> i64;
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct ValueItem<T: StoreModel> {
     pub partition: String,
     pub sort_key: i64,
