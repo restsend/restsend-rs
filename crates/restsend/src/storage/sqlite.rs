@@ -117,7 +117,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 e
             })
             .ok()?;
-        let rows = stmt.query(&[&partition]);
+        let rows = stmt.query([&partition]);
         let mut rows = match rows {
             Err(e) => {
                 log::warn!("{} filter query failed: {}", self.name, e);
@@ -132,12 +132,10 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    match T::from_str(&value) {
-                        Ok(v) => match predicate(v) {
-                            Some(v) => items.push(v),
-                            None => {}
-                        },
-                        _ => {}
+                    if let Ok(v) = T::from_str(&value) {
+                        if let Some(v) = predicate(v) {
+                            items.push(v)
+                        }
                     };
                 }
                 None => break,
@@ -174,7 +172,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             })
             .ok()?;
         let mut rows = stmt
-            .query(&[&partition, format!("{}", option.limit + 1).as_str()])
+            .query([partition, format!("{}", option.limit + 1).as_str()])
             .map_err(|e| {
                 log::warn!("{} query failed: {}", self.name, e);
                 e
@@ -187,9 +185,8 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    match T::from_str(&value) {
-                        Ok(v) => items.push(v),
-                        _ => {}
+                    if let Ok(v) = T::from_str(&value) {
+                        items.push(v)
                     };
                 }
                 None => break,
@@ -201,7 +198,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             items.pop();
         }
 
-        let (start_sort_value, end_sort_value) = if items.len() > 0 {
+        let (start_sort_value, end_sort_value) = if !items.is_empty() {
             (
                 items.first().unwrap().sort_key(),
                 items.last().unwrap().sort_key(),
@@ -234,7 +231,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 e
             })
             .ok()?;
-        let rows = stmt.query(&[&partition, &key]);
+        let rows = stmt.query([&partition, &key]);
         let mut rows = match rows {
             Err(e) => {
                 log::warn!("{} get query failed: {}", self.name, e);
@@ -247,10 +244,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Ok(rows) => match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    match T::from_str(&value) {
-                        Ok(v) => Some(v),
-                        _ => None,
-                    }
+                    T::from_str(&value).ok()
                 }
                 None => None,
             },
@@ -258,7 +252,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
         }
     }
 
-    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[super::ValueItem<T>]) -> crate::Result<()> {
         let db = self.session.clone();
         let mut conn = db.lock().unwrap();
         let conn = conn.as_mut().unwrap();
@@ -280,7 +274,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                     let value = v.value.as_ref().unwrap().to_string();
                     stmt.execute(params![&partition, &key, &value, &v.sort_key])
                 }
-                None => conn.execute(&delete_stmt, &[&partition, &key]),
+                None => conn.execute(&delete_stmt, [&partition, &key]),
             }
             .map_err(|e| {
                 log::warn!("{} batch_update {} failed: {}", self.name, key, e);
@@ -328,7 +322,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             log::warn!("{} remove prepare failed: {}", self.name, e);
             ClientError::Storage(format!("{} remove prepare failed: {}", self.name, e))
         })?;
-        stmt.execute(&[&partition, &key]).map(|_| ()).map_err(|e| {
+        stmt.execute([&partition, &key]).map(|_| ()).map_err(|e| {
             log::warn!("{} remove {} failed: {}", self.name, key, e);
             ClientError::Storage(format!("{} remove {} failed: {}", self.name, key, e))
         })
@@ -350,7 +344,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
                 e
             })
             .ok()?;
-        let rows = stmt.query(&[&partition]);
+        let rows = stmt.query([&partition]);
         let mut rows = match rows {
             Err(e) => {
                 log::warn!("{} last query failed: {}", self.name, e);
@@ -363,10 +357,7 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Ok(rows) => match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    match T::from_str(&value) {
-                        Ok(v) => Some(v),
-                        _ => None,
-                    }
+                    T::from_str(&value).ok()
                 }
                 None => None,
             },

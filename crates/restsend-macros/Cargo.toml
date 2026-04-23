@@ -5,6 +5,8 @@ edition = "2021"
 
 [lib]
 proc-macro = true
+test = false
+doctest = false
 
 [dependencies]
 syn = { version = "2.0.90", features = ["full", "fold"] }

@@ -134,10 +134,10 @@ impl Client {
             .map(|u| {
                 u.path_segments()
                     .unwrap()
-                    .last()
+                    .next_back()
                     .unwrap_or_default()
                     .split('.')
-                    .last()
+                    .next_back()
                     .unwrap_or_default()
                     .to_string()
             })?;
@@ -146,14 +146,11 @@ impl Client {
         let file_name = format!("{:x}.{}", digest, file_ext);
         let save_file_name = Self::temp_path(&self.root_path, Some(file_name.to_string()));
 
-        match std::fs::metadata(Path::new(&save_file_name)) {
-            Ok(m) => {
-                if m.is_file() && m.len() > 0 {
-                    callback.on_success(download_url, save_file_name.clone());
-                    return Ok(save_file_name);
-                }
+        if let Ok(m) = std::fs::metadata(Path::new(&save_file_name)) {
+            if m.is_file() && m.len() > 0 {
+                callback.on_success(download_url, save_file_name.clone());
+                return Ok(save_file_name);
             }
-            Err(_) => {}
         }
 
         #[allow(unused_variables)]

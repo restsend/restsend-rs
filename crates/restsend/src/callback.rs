@@ -45,7 +45,7 @@ pub trait RsCallback: Send + Sync {
     fn on_topic_typing(&self, topic_id: String, message: Option<String>) {}
 
     fn on_new_message(&self, topic_id: String, message: ChatRequest) -> ChatRequestStatus {
-        return ChatRequestStatus::default();
+        ChatRequestStatus::default()
     }
     fn on_topic_read(&self, topic_id: String, message: ChatRequest) {}
     fn on_conversations_updated(&self, conversations: Vec<Conversation>, total: Option<i64>) {}

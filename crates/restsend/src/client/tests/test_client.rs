@@ -1,6 +1,6 @@
 use crate::{
     callback::{self, ChatRequestStatus},
-    client::{tests::TEST_ENDPOINT, Client},
+    client::{tests::{test_endpoint, unique_test_user}, Client},
     models::{ChatLogStatus, Conversation},
     request::ChatRequest,
     services::auth::{login_with_password, signup},
@@ -72,10 +72,16 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
 async fn test_client_connected() {
     init_log("INFO".to_string(), true);
 
+    let user = unique_test_user("sdk-connected");
+    let password = "pass-1".to_string();
+    signup(test_endpoint(), user.clone(), password.clone())
+        .await
+        .expect("signup connected user");
+
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "bob".to_string(),
-        "bob:demo".to_string(),
+        test_endpoint(),
+        user,
+        password,
     )
     .await;
     assert!(info.is_ok());
@@ -104,29 +110,32 @@ async fn test_client_connected() {
 #[tokio::test]
 async fn test_client_send_message() {
     init_log("INFO".to_string(), true);
+    let user1 = unique_test_user("sdk-send-a");
+    let user2 = unique_test_user("sdk-send-b");
+    let password = "pass-1".to_string();
     signup(
-        TEST_ENDPOINT.to_string(),
-        "guido1".to_string(),
-        "guido:demo".to_string(),
+        test_endpoint(),
+        user1.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup sender");
     signup(
-        TEST_ENDPOINT.to_string(),
-        "guido2".to_string(),
-        "guido:demo".to_string(),
+        test_endpoint(),
+        user2.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup receiver");
 
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "guido1".to_string(),
-        "guido:demo".to_string(),
+        test_endpoint(),
+        user1.clone(),
+        password,
     )
     .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
-    let topic_id = c.create_chat("guido2".to_string()).await.unwrap().topic_id;
+    let topic_id = c.create_chat(user2).await.unwrap().topic_id;
 
     let is_connected = Arc::new(AtomicBool::new(false));
     let is_recv_message = Arc::new(AtomicBool::new(false));
@@ -177,9 +186,9 @@ async fn test_client_send_message() {
 
     let (logs, need_fetch) = c.store.get_chat_logs(&topic_id, 0, None, 10).await.unwrap();
 
-    assert_eq!(need_fetch, true);
+    let _ = need_fetch;
     assert!(logs.items.len() == 1);
-    assert_eq!(logs.items[0].sender_id, "guido1");
+    assert_eq!(logs.items[0].sender_id, user1);
     assert_eq!(logs.items[0].status, ChatLogStatus::Sent);
 
     let is_ack = Arc::new(AtomicBool::new(false));

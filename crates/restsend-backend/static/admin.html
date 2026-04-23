@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Restsend Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    body {
+      background: linear-gradient(180deg, #ecfeff 0%, #f8fafc 45%, #ecfeff 100%);
+      color: #164e63;
+    }
+
+    [class*="bg-slate-900"] {
+      background-color: rgba(255, 255, 255, 0.92) !important;
+    }
+
+    [class*="bg-slate-950"] {
+      background-color: rgba(240, 249, 255, 0.85) !important;
+    }
+
+    [class*="border-slate-800"],
+    [class*="border-slate-700"] {
+      border-color: #bae6fd !important;
+    }
+
+    [class*="text-slate-100"] {
+      color: #0f172a !important;
+    }
+
+    [class*="text-slate-300"],
+    [class*="text-slate-400"] {
+      color: #0f766e !important;
+    }
+
+    .tab-button {
+      border: 1px solid #bae6fd;
+      background: rgba(255, 255, 255, 0.7);
+      color: #155e75;
+      transition: all 0.15s ease;
+    }
+
+    .tab-button-active {
+      border-color: #06b6d4;
+      background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+      color: #ecfeff;
+      box-shadow: 0 10px 30px rgba(8, 145, 178, 0.18);
+    }
+
+    .action-button[disabled] {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+  </style>
+</head>
+<body class="bg-cyan-50 text-slate-900 min-h-screen" x-data="adminApp()" x-init="init()">
+  <div class="max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold text-cyan-950">Restsend Admin</h1>
+        <p class="text-sm text-slate-400">Superuser console for config, users, topics and runtime metrics</p>
+      </div>
+      <div class="flex gap-2 items-center" x-show="bootstrap.superuserCount > 0">
+        <input x-model="loginUserId" type="text" placeholder="Admin user" class="w-44 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+        <input x-model="loginPassword" type="password" placeholder="Password" class="w-56 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+        <button @click="login()" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm">Login</button>
+        <button x-show="authenticated" @click="logout()" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm text-cyan-900 shadow-sm">Logout</button>
+      </div>
+    </div>
+
+    <template x-if="error">
+      <div class="rounded border border-red-700 bg-red-950/60 px-4 py-3 text-sm text-red-200" x-text="error"></div>
+    </template>
+
+    <section x-show="bootstrap.superuserCount === 0" class="rounded-2xl border border-cyan-200 bg-cyan-50/90 p-5 space-y-3 shadow-sm">
+      <h2 class="text-lg font-semibold text-cyan-950">Initialize Superuser</h2>
+      <p class="text-sm text-cyan-700">No superuser exists yet. Create the first administrator now and store the password safely.</p>
+      <div class="grid gap-3 md:grid-cols-3">
+        <input x-model="initForm.userId" type="text" placeholder="Admin user id" class="rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+        <input x-model="initForm.displayName" type="text" placeholder="Display name" class="rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+        <input x-model="initForm.password" type="password" placeholder="Admin password" class="rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+      </div>
+      <div class="flex gap-2 items-center">
+        <button @click="bootstrapInit()" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm">Create Admin</button>
+        <span class="text-xs text-cyan-700">Create once only. After that, `/admin` requires login.</span>
+      </div>
+    </section>
+
+    <div x-show="authenticated" class="flex flex-wrap gap-2 rounded-2xl border border-cyan-200 bg-white/80 p-2 shadow-sm">
+      <button @click="currentTab = 'settings'" :class="tabClass('settings')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Settings</button>
+      <button @click="currentTab = 'metrics'" :class="tabClass('metrics')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Metrics</button>
+      <button @click="currentTab = 'users'" :class="tabClass('users')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Users</button>
+      <button @click="currentTab = 'topics'" :class="tabClass('topics')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Topics</button>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-4" x-show="authenticated && currentTab === 'metrics'">
+      <template x-for="card in statCards" :key="card.label">
+        <div class="rounded-2xl border border-cyan-200 bg-white p-4 shadow-sm">
+          <div class="text-xs uppercase tracking-wide text-slate-400" x-text="card.label"></div>
+          <div class="mt-2 text-2xl font-semibold text-cyan-950" x-text="card.value"></div>
+        </div>
+      </template>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-3" x-show="authenticated && currentTab === 'settings'">
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 lg:col-span-1 shadow-sm">
+        <h2 class="text-lg font-semibold">Bootstrap</h2>
+        <div class="mt-4 text-sm text-slate-300 space-y-2">
+          <div>Initialized: <span class="font-medium" x-text="bootstrap.initialized ? 'yes' : 'no'"></span></div>
+          <div>Superusers: <span class="font-medium" x-text="bootstrap.superuserCount ?? 0"></span></div>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 lg:col-span-2 shadow-sm">
+        <h2 class="text-lg font-semibold">Effective Config</h2>
+        <div class="mt-4 grid gap-3 md:grid-cols-2 text-sm">
+          <template x-for="item in configEntries" :key="item.key">
+            <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+              <div class="text-slate-400" x-text="item.key"></div>
+              <div class="mt-1 break-all" x-text="item.value"></div>
+            </div>
+          </template>
+        </div>
+      </section>
+    </div>
+
+    <div class="grid gap-6 xl:grid-cols-2" x-show="authenticated && currentTab === 'metrics'">
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
+        <h2 class="text-lg font-semibold">Cluster</h2>
+        <div class="grid gap-3 md:grid-cols-2 text-sm">
+          <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+            <div class="text-slate-400">Enabled</div>
+            <div class="mt-1" x-text="perf.cluster?.enabled ? 'yes' : 'no'"></div>
+          </div>
+          <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+            <div class="text-slate-400">Current Node</div>
+            <div class="mt-1 break-all" x-text="perf.cluster?.currentNodeId || '-' "></div>
+          </div>
+          <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2 md:col-span-2">
+            <div class="text-slate-400">Current Endpoint</div>
+            <div class="mt-1 break-all" x-text="perf.cluster?.currentEndpoint || '-' "></div>
+          </div>
+        </div>
+        <div class="overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400">
+              <tr>
+                <th class="text-left py-2">Node</th>
+                <th class="text-left py-2">Endpoint</th>
+                <th class="text-left py-2">Sessions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="node in (perf.cluster?.nodes || [])" :key="`${node.nodeId}:${node.endpoint}`">
+                <tr class="border-t border-slate-800">
+                  <td class="py-3" x-text="node.nodeId"></td>
+                  <td class="py-3 break-all" x-text="node.endpoint || '-' "></td>
+                  <td class="py-3" x-text="node.sessions"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
+        <h2 class="text-lg font-semibold">Worker Pools</h2>
+        <div class="grid gap-3 md:grid-cols-3 text-sm">
+          <template x-for="pool in poolCards" :key="pool.name">
+            <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-3 space-y-2">
+              <div class="font-medium" x-text="pool.name"></div>
+              <div class="text-slate-400">queued: <span class="text-slate-200" x-text="pool.queued"></span></div>
+              <div class="text-slate-400">active: <span class="text-slate-200" x-text="pool.active"></span></div>
+              <div class="text-slate-400">submitted: <span class="text-slate-200" x-text="pool.submitted"></span></div>
+              <div class="text-slate-400">completed: <span class="text-slate-200" x-text="pool.completed"></span></div>
+              <div class="text-slate-400">rejected: <span class="text-slate-200" x-text="pool.rejected"></span></div>
+            </div>
+          </template>
+        </div>
+      </section>
+    </div>
+
+    <div x-show="authenticated && currentTab === 'users'">
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">Users</h2>
+          <div class="flex gap-2">
+            <input x-model="userQuery.keyword" @keyup.enter="loadUsers()" placeholder="Search user" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+            <button @click="loadUsers()" class="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-sm text-cyan-900 shadow-sm">Search</button>
+          </div>
+        </div>
+        <div class="overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400">
+              <tr>
+                <th class="text-left py-2">User</th>
+                <th class="text-left py-2">Display</th>
+                <th class="text-left py-2">State</th>
+                <th class="text-left py-2">Ops</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="user in users.items" :key="user.userId">
+                <tr class="border-t border-slate-800">
+                  <td class="py-3" x-text="user.userId"></td>
+                  <td class="py-3" x-text="user.name"></td>
+                  <td class="py-3">
+                    <span class="mr-2" x-text="user.enabled ? 'enabled' : 'disabled'"></span>
+                    <span x-text="user.isStaff ? 'superuser' : 'user'"></span>
+                  </td>
+                  <td class="py-3 space-x-2">
+                    <button
+                      @click="toggleUser(user)"
+                      :disabled="isProtectedUser(user)"
+                      :title="isProtectedUser(user) ? 'superuser cannot be disabled' : ''"
+                      class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900"
+                      x-text="user.enabled ? 'Disable' : 'Enable'"
+                    ></button>
+                    <button @click="toggleStaff(user)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Staff</button>
+                    <button @click="editUser(user)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Edit</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div x-show="authenticated && currentTab === 'topics'">
+      <section class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">Topics</h2>
+          <div class="flex gap-2">
+            <input x-model="topicQuery.keyword" @keyup.enter="loadTopics()" placeholder="Search topic" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+            <button @click="loadTopics()" class="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-sm text-cyan-900 shadow-sm">Search</button>
+          </div>
+        </div>
+        <div class="overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400">
+              <tr>
+                <th class="text-left py-2">Topic</th>
+                <th class="text-left py-2">Owner</th>
+                <th class="text-left py-2">State</th>
+                <th class="text-left py-2">Ops</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="topic in topics.items" :key="topic.id">
+                <tr class="border-t border-slate-800">
+                  <td class="py-3" x-text="topic.id"></td>
+                  <td class="py-3" x-text="topic.ownerId"></td>
+                  <td class="py-3">
+                    <span class="mr-2" x-text="topic.enabled ? 'enabled' : 'disabled'"></span>
+                    <span x-text="topic.silent ? 'silent' : 'normal'"></span>
+                  </td>
+                  <td class="py-3 space-x-2">
+                    <button @click="toggleTopic(topic)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Enable/Disable</button>
+                    <button @click="editTopic(topic)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Edit</button>
+                    <button @click="showTopicMembers(topic)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Members</button>
+                    <button @click="manageTopic(topic)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Advanced</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section x-show="authenticated && currentTab === 'topics' && selectedTopic" class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Topic Detail</h2>
+        <button @click="selectedTopic = null; topicMembers = []" class="rounded-xl border border-cyan-200 px-3 py-1 text-sm text-cyan-900">Close</button>
+      </div>
+      <div class="grid gap-3 md:grid-cols-4 text-sm">
+        <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+          <div class="text-slate-400">Topic ID</div>
+          <div class="mt-1 break-all" x-text="selectedTopic.id"></div>
+        </div>
+        <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+          <div class="text-slate-400">Owner</div>
+          <div class="mt-1" x-text="selectedTopic.ownerId"></div>
+        </div>
+        <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+          <div class="text-slate-400">Admins</div>
+          <div class="mt-1" x-text="(selectedTopic.admins || []).join(', ') || 'none'"></div>
+        </div>
+        <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
+          <div class="text-slate-400">State</div>
+          <div class="mt-1" x-text="selectedTopic.silent ? 'silent' : 'normal'"></div>
+        </div>
+      </div>
+      <div class="overflow-auto">
+        <table class="w-full text-sm">
+          <thead class="text-slate-400">
+            <tr>
+              <th class="text-left py-2">User</th>
+              <th class="text-left py-2">Joined</th>
+              <th class="text-left py-2">Ops</th>
+            </tr>
+          </thead>
+          <tbody>
+              <template x-for="member in topicMembers" :key="member.userId">
+                <tr class="border-t border-slate-800">
+                  <td class="py-3" x-text="member.userId"></td>
+                  <td class="py-3" x-text="member.createdAt || member.joinedAt || ''"></td>
+                  <td class="py-3 space-x-2">
+                    <button @click="kickMember(member.userId)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Kick</button>
+                    <button @click="silentMember(member.userId)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Silent</button>
+                    <button @click="toggleAdmin(member.userId)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Admin +/-</button>
+                    <button @click="transferOwner(member.userId)" class="action-button rounded-xl border border-cyan-200 px-2 py-1 text-cyan-900">Transfer</button>
+                  </td>
+                </tr>
+              </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section x-show="authenticated && currentTab === 'settings'" class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-3 shadow-sm">
+      <h2 class="text-lg font-semibold">Operations</h2>
+      <p class="text-sm text-slate-400">User and topic management is executed through OpenAPI. `/admin` keeps system bootstrap, config and runtime visibility.</p>
+    </section>
+  </div>
+
+  <script>
+    function adminApp() {
+      return {
+        token: '',
+        authenticated: false,
+        currentTab: 'settings',
+        error: '',
+        perf: {},
+        config: {},
+        bootstrap: { initialized: false, superuserCount: 0 },
+        users: { items: [] },
+        topics: { items: [] },
+        selectedTopic: null,
+        topicMembers: [],
+        loginUserId: '',
+        loginPassword: '',
+        initForm: { userId: '', displayName: '', password: '' },
+        userQuery: { offset: 0, limit: 20, keyword: '' },
+        topicQuery: { offset: 0, limit: 20, keyword: '' },
+        get statCards() {
+          return [
+            { label: 'Active Connections', value: this.perf.activeConnections ?? 0 },
+            { label: 'Inbound WS', value: this.perf.metrics?.inboundWsMessages ?? 0 },
+            { label: 'Outbound WS', value: this.perf.metrics?.outboundWsMessages ?? 0 },
+            { label: 'Total Messages', value: this.perf.totalMessages ?? 0 },
+          ];
+        },
+        get configEntries() {
+          return Object.entries(this.config || {}).map(([key, value]) => ({ key, value: Array.isArray(value) ? value.join(', ') : String(value) }));
+        },
+        get poolCards() {
+          const pools = this.perf.pools || {};
+          return [
+            { name: 'message', ...(pools.message || {}) },
+            { name: 'push', ...(pools.push || {}) },
+            { name: 'webhook', ...(pools.webhook || {}) },
+          ].map(pool => ({
+            queued: pool.queued ?? 0,
+            active: pool.active ?? 0,
+            submitted: pool.submitted ?? 0,
+            completed: pool.completed ?? 0,
+            rejected: pool.rejected ?? 0,
+            ...pool,
+          }));
+        },
+        tabClass(tab) {
+          return this.currentTab === tab ? 'tab-button-active' : '';
+        },
+        isProtectedUser(user) {
+          return !!user && !!user.isStaff && !!user.enabled;
+        },
+        headers() {
+          return { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' };
+        },
+        async request(path, options = {}) {
+          const resp = await fetch(path, { ...options, headers: { ...this.headers(), ...(options.headers || {}) } });
+          if (!resp.ok) {
+            let message = `request failed: ${resp.status}`;
+            try {
+              const body = await resp.json();
+              message = body.error || message;
+            } catch (_) {}
+            if (resp.status === 401) {
+              this.clearSession();
+              message = 'session expired or unauthorized';
+            }
+            throw new Error(message);
+          }
+          const contentType = resp.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) return await resp.json();
+          return await resp.text();
+        },
+        restoreSession() {
+          try {
+            this.token = localStorage.getItem('restsend.admin.token') || '';
+            this.loginUserId = localStorage.getItem('restsend.admin.userId') || '';
+            this.authenticated = !!this.token;
+          } catch (_) {}
+        },
+        saveSession() {
+          try {
+            localStorage.setItem('restsend.admin.token', this.token || '');
+            localStorage.setItem('restsend.admin.userId', this.loginUserId || '');
+          } catch (_) {}
+        },
+        clearSession() {
+          this.token = '';
+          this.authenticated = false;
+          this.selectedTopic = null;
+          this.topicMembers = [];
+          try {
+            localStorage.removeItem('restsend.admin.token');
+            localStorage.removeItem('restsend.admin.userId');
+          } catch (_) {}
+        },
+        async init() {
+          this.restoreSession();
+          await this.loadBootstrap();
+          if (this.token) {
+            await this.loadAll();
+          }
+        },
+        async loadAll() {
+          this.error = '';
+          try {
+            await Promise.all([this.loadPerf(), this.loadConfig(), this.loadBootstrap(), this.loadUsers(), this.loadTopics()]);
+            this.authenticated = true;
+          } catch (err) {
+            this.authenticated = false;
+            this.error = err.message;
+          }
+        },
+        async loadPerf() { this.perf = await this.request('/admin/api/perf'); },
+        async loadConfig() { this.config = await this.request('/admin/api/config'); },
+        async loadBootstrap() { this.bootstrap = await this.request('/admin/api/bootstrap'); },
+        async loadUsers() {
+          this.users = await this.request('/open/user/list', { method: 'POST', body: JSON.stringify(this.userQuery) });
+        },
+        async loadTopics() {
+          this.topics = await this.request('/open/topic/list', { method: 'POST', body: JSON.stringify(this.topicQuery) });
+        },
+        async login() {
+          this.error = '';
+          try {
+            const resp = await fetch('/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: this.loginUserId, password: this.loginPassword, remember: true })
+            });
+            const body = await resp.json();
+            if (!resp.ok) throw new Error(body.error || `login failed: ${resp.status}`);
+            this.token = body.token;
+            this.saveSession();
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+          }
+        },
+        async bootstrapInit() {
+          this.error = '';
+          try {
+            const resp = await fetch('/admin/api/bootstrap', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.initForm)
+            });
+            const body = await resp.json();
+            if (!resp.ok) throw new Error(body.error || `bootstrap failed: ${resp.status}`);
+            this.token = body.token;
+            this.loginUserId = body.userId;
+            this.loginPassword = '';
+            this.saveSession();
+            alert('First superuser created. Please store the password safely.');
+            await this.loadAll();
+          } catch (err) {
+            this.error = err.message;
+            await this.loadBootstrap();
+          }
+        },
+        logout() {
+          this.clearSession();
+          this.error = '';
+        },
+        async toggleUser(user) {
+          if (this.isProtectedUser(user)) {
+            this.error = 'cannot disable superuser account';
+            return;
+          }
+          await this.request(`/open/user/enabled/${encodeURIComponent(user.userId)}`, { method: 'POST', body: JSON.stringify({ enabled: !user.enabled }) });
+          await this.loadAll();
+        },
+        async toggleStaff(user) {
+          await this.request(`/open/user/staff/${encodeURIComponent(user.userId)}`, { method: 'POST', body: JSON.stringify({ isStaff: !user.isStaff }) });
+          await this.loadAll();
+        },
+        async editUser(user) {
+          const displayName = prompt('Display name', user.name || '');
+          if (displayName === null) return;
+          const avatar = prompt('Avatar', user.avatar || '');
+          if (avatar === null) return;
+          await this.request(`/open/user/update/${encodeURIComponent(user.userId)}`, { method: 'POST', body: JSON.stringify({ displayName, avatar }) });
+          await this.loadUsers();
+        },
+        async toggleTopic(topic) {
+          await this.request(`/open/topic/enabled/${encodeURIComponent(topic.id)}`, { method: 'POST', body: JSON.stringify({ enabled: !topic.enabled }) });
+          await this.loadAll();
+        },
+        async editTopic(topic) {
+          const name = prompt('Topic name', topic.name || '');
+          if (name === null) return;
+          const adminsRaw = prompt('Admins comma separated', (topic.admins || []).join(','));
+          if (adminsRaw === null) return;
+          const silent = confirm('Set topic silent? OK=yes Cancel=no');
+          await this.request(`/open/topic/update/${encodeURIComponent(topic.id)}`, {
+            method: 'POST',
+            body: JSON.stringify({ name, admins: adminsRaw.split(',').map(v => v.trim()).filter(Boolean), private: topic.private, knockNeedVerify: topic.knockNeedVerify, icon: topic.icon || '' })
+          });
+          await this.request(`/open/topic/silent/topic/${encodeURIComponent(topic.id)}`, {
+            method: 'POST',
+            body: JSON.stringify({ duration: silent ? 'forever' : '' })
+          });
+          await this.loadTopics();
+        },
+        async showTopicMembers(topic) {
+          this.selectedTopic = topic;
+          const result = await this.request(`/open/topic/members/${encodeURIComponent(topic.id)}`, { method: 'POST', body: '{}' });
+          this.topicMembers = result.items || [];
+        },
+        async manageTopic(topic) {
+          await this.showTopicMembers(topic);
+          const silent = confirm('Toggle topic silent state? OK=yes Cancel=no');
+          if (silent) {
+            await this.request(`/open/topic/silent/topic/${encodeURIComponent(topic.id)}`, {
+              method: 'POST',
+              body: JSON.stringify({ duration: topic.silent ? '' : 'forever' })
+            });
+            await this.loadTopics();
+          }
+        },
+        async kickMember(userId) {
+          if (!this.selectedTopic) return;
+          await this.request(`/open/topic/kickout/${encodeURIComponent(this.selectedTopic.id)}/${encodeURIComponent(userId)}`, { method: 'POST', body: '{}' });
+          await this.showTopicMembers(this.selectedTopic);
+          await this.loadTopics();
+        },
+        async silentMember(userId) {
+          if (!this.selectedTopic) return;
+          const duration = prompt('Silent duration, eg: 10m, 1h, 1d, forever', '1h');
+          if (duration === null) return;
+          await this.request(`/open/topic/silent/member/${encodeURIComponent(this.selectedTopic.id)}`, {
+            method: 'POST',
+            body: JSON.stringify({ userIds: [userId], duration })
+          });
+        },
+        async toggleAdmin(userId) {
+          if (!this.selectedTopic) return;
+          const admins = this.selectedTopic.admins || [];
+          const isAdmin = admins.includes(userId);
+          const path = isAdmin ? 'remove' : 'add';
+          await this.request(`/open/topic/admin/${path}/${encodeURIComponent(this.selectedTopic.id)}/${encodeURIComponent(userId)}`, {
+            method: 'POST',
+            body: '{}'
+          });
+          const topic = await this.request(`/open/topic/info/${encodeURIComponent(this.selectedTopic.id)}`, { method: 'POST', body: '{}' });
+          this.selectedTopic = topic;
+          await this.loadTopics();
+        },
+        async transferOwner(userId) {
+          if (!this.selectedTopic) return;
+          if (!confirm(`Transfer owner to ${userId}?`)) return;
+          await this.request(`/open/topic/transfer/${encodeURIComponent(this.selectedTopic.id)}/${encodeURIComponent(userId)}`, {
+            method: 'POST',
+            body: '{}'
+          });
+          this.selectedTopic = await this.request(`/open/topic/info/${encodeURIComponent(this.selectedTopic.id)}`, { method: 'POST', body: '{}' });
+          await this.loadTopics();
+        }
+      };
+    }
+  </script>
+</body>
+</html>

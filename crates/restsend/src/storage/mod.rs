@@ -2,6 +2,7 @@ use crate::Result;
 use async_trait::async_trait;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fmt::Display;
 use std::str::FromStr;
 
 #[allow(unused)]
@@ -13,7 +14,7 @@ mod memory;
 #[cfg(not(target_family = "wasm"))]
 mod sqlite;
 
-pub trait StoreModel: ToString + FromStr + Sync + Send + Serialize + DeserializeOwned {
+pub trait StoreModel: Display + FromStr + Sync + Send + Serialize + DeserializeOwned {
     fn sort_key(&self) -> i64;
 }
 #[derive(Serialize)]
@@ -60,7 +61,7 @@ pub trait Table<T: StoreModel>: Send + Sync {
     ) -> Option<Vec<T>>;
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>>;
     async fn get(&self, partition: &str, key: &str) -> Option<T>;
-    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> Result<()>;
+    async fn batch_update(&self, items: &[ValueItem<T>]) -> Result<()>;
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()>;
     async fn remove(&self, partition: &str, key: &str) -> Result<()>;
     async fn last(&self, partition: &str) -> Option<T>;
@@ -80,7 +81,7 @@ pub trait Table<T: StoreModel>: Send + Sync {
     async fn query(&self, partition: &str, option: &QueryOption) -> Option<QueryResult<T>>;
     async fn get(&self, partition: &str, key: &str) -> Option<T>;
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> Result<()>;
-    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> Result<()>;
+    async fn batch_update(&self, items: &[ValueItem<T>]) -> Result<()>;
     async fn remove(&self, partition: &str, key: &str) -> Result<()>;
     async fn last(&self, partition: &str) -> Option<T>;
     async fn clear(&self, partition: &str) -> Result<()>;

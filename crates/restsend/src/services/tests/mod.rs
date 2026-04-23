@@ -10,7 +10,10 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 
-pub(crate) const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
+pub(crate) fn test_endpoint() -> String {
+    let _ = dotenvy::dotenv();
+    std::env::var("RESTSEND_TEST_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string())
+}
 
 #[allow(unused)]
 pub(crate) fn open_port() -> String {

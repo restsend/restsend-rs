@@ -5,6 +5,7 @@ edition = "2021"
 
 [lib]
 crate-type = ["rlib", "staticlib", "cdylib"]
+doctest = false
 
 [features]
 web = []
@@ -20,8 +21,6 @@ wasm-bindgen = "0.2.99"
 wasm-bindgen-futures = "0.4.49"
 tokio-util = "0.7.13"
 lazy_static = "1.5.0"
-include_dir = "0.7.4"
-lru = "0.14.0"
 serde_json = "1.0.133"
 serde = { version = "1.0.215", features = ["derive"] }
 log = "0.4.22"
@@ -29,7 +28,6 @@ url = "2.5.4"
 futures-channel = "0.3.31"
 futures-util = { version = "0.3.31", features = ["sink", "std"] }
 http = "1.2.0"
-base64 = "0.22.1"
 thiserror = "2.0.6"
 env_logger = "0.11.5"
 chrono = "0.4.39"
@@ -92,7 +90,6 @@ rusqlite = { version = "0.32.1", features = ["bundled"] }
 tokio = { version = "1.42.0", features = ["full"] }
 
 [target.'cfg(all(not(target_arch = "wasm32"), not(any(target_os = "ios", target_os = "macos"))))'.dependencies]
-openssl = { version = "0.10.68", features = ["vendored"] }
 tokio-websockets = { version = "0.10.1", features = [
     "native-tls",
     "client",
@@ -107,7 +104,6 @@ reqwest = { version = "0.12.9", default-features = false, features = [
 ] }
 
 [target.'cfg(any(target_os = "ios", target_os = "macos"))'.dependencies]
-openssl = { version = "0.10.68", features = ["vendored"] }
 tokio-websockets = { version = "0.10.1", features = [
     "native-tls",
     "client",
@@ -122,11 +118,14 @@ reqwest = { version = "0.12.9", default-features = false, features = [
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+restsend-backend = { path = "../restsend-backend" }
+axum = { version = "0.7" }
 hyper = { version = "1.5.1", features = ["full"] }
 http-body-util = "0.1.2"
 hyper-util = { version = "0.1.10", features = ["full"] }
 tempfile = "3.14.0"
 multer = "3.1.0"
+dotenvy = "0.15"
 
 [[bin]]
 name = "bindgen"

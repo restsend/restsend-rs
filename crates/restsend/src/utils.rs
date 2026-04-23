@@ -43,7 +43,7 @@ pub fn now_secs() -> i64 {
 }
 
 pub fn elapsed(d: i64) -> Duration {
-    Duration::from_millis((now_millis() - d).abs() as u64)
+    Duration::from_millis((now_millis() - d).unsigned_abs())
 }
 
 #[cfg(not(target_family = "wasm"))]

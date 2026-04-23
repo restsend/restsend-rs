@@ -552,7 +552,7 @@ impl ClientStore {
                     value: Some(c),
                 }
             })
-            .collect();
+            .collect::<Vec<_>>();
         t.batch_update(&update_items).await.ok()
     }
 

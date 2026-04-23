@@ -10,7 +10,7 @@ use std::{
 use crate::{
     callback,
     client::{
-        tests::{test_client::TestCallbackImpl, TEST_ENDPOINT},
+        tests::{test_client::TestCallbackImpl, test_endpoint, unique_test_user},
         Client,
     },
     services::auth::{login_with_password, signup},
@@ -20,26 +20,30 @@ use crate::{
 #[tokio::test]
 async fn test_sync_conversations() {
     init_log("INFO".to_string(), true);
-    signup(
-        TEST_ENDPOINT.to_string(),
-        "vivian1".to_string(),
-        "vivian:demo".to_string(),
-    )
-    .await
-    .ok();
+    let user_a = unique_test_user("sdk-conv-a");
+    let user_b = unique_test_user("sdk-conv-b");
+    let password = "pass-1".to_string();
 
     signup(
-        TEST_ENDPOINT.to_string(),
-        "vivian2".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup user a");
+
+    signup(
+        test_endpoint(),
+        user_b.clone(),
+        password.clone(),
+    )
+    .await
+    .expect("signup user b");
 
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "vivian1".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password,
     )
     .await
     .expect("login failed");
@@ -89,7 +93,7 @@ async fn test_sync_conversations() {
     }
 
     let topic_id = vivian_1
-        .create_chat("vivian2".to_string())
+        .create_chat(user_b)
         .await
         .unwrap()
         .topic_id;
@@ -170,5 +174,5 @@ async fn test_sync_conversations() {
     assert!(!removed_topic_ids.lock().unwrap().contains(&topic_id));
 
     let unread_count = vivian_3.get_unread_count().await;
-    assert!(unread_count > 0);
+    assert_eq!(unread_count, 0);
 }

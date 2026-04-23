@@ -1,12 +1,12 @@
 use crate::{
     callback,
     client::{
-        tests::{test_client::TestMessageCakllbackImpl, TEST_ENDPOINT},
+        tests::{test_client::TestMessageCakllbackImpl, test_endpoint, unique_test_user},
         Client,
     },
     models::Attachment,
     request::ChatRequest,
-    services::auth::login_with_password,
+    services::auth::{login_with_password, signup},
     utils::check_until,
     utils::init_log,
 };
@@ -35,10 +35,20 @@ impl callback::RsCallback for TestUploadCallbackImpl {
 #[tokio::test]
 async fn test_client_upload() {
     init_log("INFO".to_string(), true);
+    let user_a = unique_test_user("sdk-upload-a");
+    let user_b = unique_test_user("sdk-upload-b");
+    let password = "pass-1".to_string();
+    signup(test_endpoint(), user_a.clone(), password.clone())
+        .await
+        .expect("signup upload sender");
+    signup(test_endpoint(), user_b.clone(), password.clone())
+        .await
+        .expect("signup upload receiver");
+
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "bob".to_string(),
-        "bob:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password,
     )
     .await;
     assert!(info.is_ok());
@@ -79,9 +89,15 @@ async fn test_client_upload() {
         last_error: Arc::new(Mutex::new("".to_string())),
     });
 
+    let topic_id = c
+        .create_chat(user_b)
+        .await
+        .expect("create chat before upload")
+        .topic_id;
+
     let r = c
         .do_send_image(
-            "bob:alice".to_string(),
+            topic_id,
             attachment,
             None,
             None,

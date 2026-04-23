@@ -106,7 +106,7 @@ where
                         e,
                         String::from_utf8_lossy(&full)
                     );
-                    Err(HTTP(e.to_string()).into())
+                    Err(HTTP(e.to_string()))
                 }
             }
         }
@@ -122,10 +122,10 @@ where
             warn!("response with {} error: {} {}", url, msg, body);
 
             match status {
-                reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string()).into()),
-                reqwest::StatusCode::UNAUTHORIZED => Err(InvalidPassword(msg.to_string()).into()),
-                reqwest::StatusCode::BAD_REQUEST => Err(HTTP(msg.to_string()).into()),
-                _ => Err(HTTP(msg.to_string()).into()),
+                reqwest::StatusCode::FORBIDDEN => Err(Forbidden(msg.to_string())),
+                reqwest::StatusCode::UNAUTHORIZED => Err(InvalidPassword(msg.to_string())),
+                reqwest::StatusCode::BAD_REQUEST => Err(HTTP(msg.to_string())),
+                _ => Err(HTTP(msg.to_string())),
             }
         }
     }

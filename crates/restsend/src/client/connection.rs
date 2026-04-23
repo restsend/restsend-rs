@@ -12,6 +12,7 @@ use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 use std::{
     collections::VecDeque,
+    fmt::{Display, Formatter},
     sync::{
         atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering},
         Arc, Mutex,
@@ -36,16 +37,16 @@ pub enum ConnectionStatus {
     Shutdowned,
 }
 
-impl ToString for ConnectionStatus {
-    fn to_string(&self) -> String {
-        match self {
-            ConnectionStatus::Broken => "broken".to_string(),
-            ConnectionStatus::ConnectNow => "connectNow".to_string(),
-            ConnectionStatus::Connected => "connected".to_string(),
-            ConnectionStatus::Connecting => "connecting".to_string(),
-            ConnectionStatus::Shutdown => "shutdown".to_string(),
-            ConnectionStatus::Shutdowned => "shutdowned".to_string(),
-        }
+impl Display for ConnectionStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ConnectionStatus::Broken => "broken",
+            ConnectionStatus::ConnectNow => "connectNow",
+            ConnectionStatus::Connected => "connected",
+            ConnectionStatus::Connecting => "connecting",
+            ConnectionStatus::Shutdown => "shutdown",
+            ConnectionStatus::Shutdowned => "shutdowned",
+        })
     }
 }
 

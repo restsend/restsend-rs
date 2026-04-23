@@ -2,6 +2,7 @@ use super::{conversation::Extra, omit_empty};
 use crate::{request::ChatRequest, storage::StoreModel, utils::now_millis};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 // define content type enum for content
@@ -171,7 +172,7 @@ impl Attachment {
         let file_name = match url::Url::parse(url) {
             Ok(u) => u
                 .path_segments()
-                .and_then(|segments| segments.last())
+                .and_then(|mut segments| segments.next_back())
                 .unwrap_or_default()
                 .to_string(),
             Err(_) => "".to_string(),
@@ -364,29 +365,29 @@ impl FromStr for ChatLog {
     }
 }
 
-impl ToString for ChatLog {
-    fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap_or_default()
+impl Display for ChatLog {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serde_json::to_string(self).unwrap_or_default())
     }
 }
 
-impl ToString for ChatLogStatus {
-    fn to_string(&self) -> String {
-        match self {
-            ChatLogStatus::Uploading => "uploading".to_string(),
-            ChatLogStatus::Sending => "sending".to_string(),
-            ChatLogStatus::Sent => "sent".to_string(),
-            ChatLogStatus::Downloading => "downloading".to_string(),
-            ChatLogStatus::Received => "received".to_string(),
-            ChatLogStatus::Read => "read".to_string(),
-            ChatLogStatus::SendFailed => "sendFailed".to_string(),
-        }
+impl Display for ChatLogStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ChatLogStatus::Uploading => "uploading",
+            ChatLogStatus::Sending => "sending",
+            ChatLogStatus::Sent => "sent",
+            ChatLogStatus::Downloading => "downloading",
+            ChatLogStatus::Received => "received",
+            ChatLogStatus::Read => "read",
+            ChatLogStatus::SendFailed => "sendFailed",
+        })
     }
 }
 
 impl StoreModel for ChatLog {
     fn sort_key(&self) -> i64 {
-        self.seq as i64
+        self.seq
     }
 }
 

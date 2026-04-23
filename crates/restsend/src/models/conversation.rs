@@ -2,7 +2,7 @@ use super::{omit_empty, Content, Topic};
 use crate::{request::ChatRequest, storage::StoreModel};
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, fmt::{Display, Formatter}, str::FromStr};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -246,9 +246,9 @@ impl FromStr for Conversation {
     }
 }
 
-impl ToString for Conversation {
-    fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap_or_default()
+impl Display for Conversation {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serde_json::to_string(self).unwrap_or_default())
     }
 }
 

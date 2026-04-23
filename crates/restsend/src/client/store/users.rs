@@ -19,7 +19,7 @@ impl ClientStore {
             }
         }
 
-        set_user_remark(&self.endpoint, &self.token, &user_id, &remark).await
+        set_user_remark(&self.endpoint, &self.token, user_id, remark).await
     }
 
     pub async fn set_user_star(&self, user_id: &str, star: bool) -> Result<()> {
@@ -31,7 +31,7 @@ impl ClientStore {
             }
         }
 
-        set_user_star(&self.endpoint, &self.token, &user_id, star).await
+        set_user_star(&self.endpoint, &self.token, user_id, star).await
     }
 
     pub async fn set_user_block(&self, user_id: &str, block: bool) -> Result<()> {
@@ -42,7 +42,7 @@ impl ClientStore {
                 t.set("", user_id, Some(&u)).await.ok();
             }
         }
-        set_user_block(&self.endpoint, &self.token, &user_id, block).await
+        set_user_block(&self.endpoint, &self.token, user_id, block).await
     }
 
     pub async fn get_user(&self, user_id: &str, blocking: bool) -> Option<User> {
@@ -141,7 +141,7 @@ impl ClientStore {
                 self.option.user_cache_expire_secs.load(Ordering::Relaxed) as i64,
             )
         {
-            let user = get_user(&self.endpoint, &self.token, &user_id).await?;
+            let user = get_user(&self.endpoint, &self.token, user_id).await?;
             return self.update_user(user).await;
         }
         Ok(u)

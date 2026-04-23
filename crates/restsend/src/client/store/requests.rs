@@ -326,9 +326,9 @@ impl ClientStore {
         match self.outgoings.try_write() {
             Ok(mut outgoings) => {
                 if let Some(pending) = outgoings.remove(chat_id) {
-                    pending
-                        .callback
-                        .map(|cb| cb.on_fail("cancel send".to_string()));
+                    if let Some(cb) = pending.callback {
+                        cb.on_fail("cancel send".to_string());
+                    }
                 }
             }
             Err(_) => {}

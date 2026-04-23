@@ -66,7 +66,7 @@ pub async fn logout(endpoint: String, token: String) -> Result<()> {
                     msg.to_string()
                 })
                 .unwrap_or_else(|_| body);
-            Err(Forbidden(msg).into())
+            Err(Forbidden(msg))
         }
     }
 }
@@ -91,7 +91,7 @@ async fn signin_or_signup(
 
     info!(
         "auth url:{} email:{} status:{} usage: {:?}",
-        resp.url().to_string(),
+        resp.url(),
         email,
         status,
         elapsed(st)
@@ -130,20 +130,29 @@ pub async fn guest_login(
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login() {
-    let user_id = "alice";
+    let user_id = format!("svc-login-{}", crate::utils::random_text(8));
+    let password = "pass-1".to_string();
+    signup(
+        super::tests::test_endpoint(),
+        user_id.clone(),
+        password.clone(),
+    )
+    .await
+    .expect("signup login user");
+
     let info = login_with_password(
-        super::tests::TEST_ENDPOINT.to_string(),
-        user_id.to_string(),
-        "bad:demo2".to_string(),
+        super::tests::test_endpoint(),
+        user_id.clone(),
+        "bad-pass".to_string(),
     )
     .await;
     println!("{:?}", info);
     assert!(info.unwrap_err().to_string().contains("invalid password"));
 
     let info = login_with_password(
-        super::tests::TEST_ENDPOINT.to_string(),
-        user_id.to_string(),
-        format!("{}:demo", user_id),
+        super::tests::test_endpoint(),
+        user_id.clone(),
+        password,
     )
     .await;
     assert!(info.is_ok());
@@ -152,12 +161,12 @@ async fn test_login() {
     assert_eq!(info.user_id, user_id);
     assert!(!info.avatar.is_empty());
     assert!(!info.token.is_empty());
-    assert_eq!(info.endpoint, super::tests::TEST_ENDPOINT);
+    assert_eq!(info.endpoint, super::tests::test_endpoint());
 
     let token = info.token;
     let info = login_with_token(
-        super::tests::TEST_ENDPOINT.to_string(),
-        user_id.to_string(),
+        super::tests::test_endpoint(),
+        user_id.clone(),
         token.clone(),
     )
     .await;
@@ -174,10 +183,10 @@ async fn test_login() {
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_guest_login() {
-    let user_id = "alice";
+    let user_id = format!("svc-guest-{}", crate::utils::random_text(8));
     let info = guest_login(
-        super::tests::TEST_ENDPOINT.to_string(),
-        user_id.to_string(),
+        super::tests::test_endpoint(),
+        user_id,
         None,
     )
     .await;
@@ -188,15 +197,25 @@ async fn test_guest_login() {
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login_logout() {
+    let user_id = format!("svc-logout-{}", crate::utils::random_text(8));
+    let password = "pass-1".to_string();
+    signup(
+        super::tests::test_endpoint(),
+        user_id.clone(),
+        password.clone(),
+    )
+    .await
+    .expect("signup logout user");
+
     let info = login_with_password(
-        super::tests::TEST_ENDPOINT.to_string(),
-        "alice".to_string(),
-        "alice:demo".to_string(),
+        super::tests::test_endpoint(),
+        user_id,
+        password,
     )
     .await;
     assert!(info.is_ok());
 
-    logout(super::tests::TEST_ENDPOINT.to_string(), info.unwrap().token)
+    logout(super::tests::test_endpoint(), info.unwrap().token)
         .await
         .expect("logout failed");
 }

@@ -5,8 +5,12 @@ edition = "2021"
 description = "Restsend  Instant Messaging Javascript/Wasm SDK"
 authors = ["Restsend Team <kui@fourz.cn>"]
 
+[package.metadata.cargo-shear]
+ignored = ["wasm-bindgen-futures"]
+
 [lib]
 crate-type = ["cdylib"]
+test = false
 
 [features]
 default = ["auth", "conversation", "topic", "message", "restsend-sdk/web"]
@@ -29,15 +33,10 @@ restsend-sdk = { path = "../restsend" }
 wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.50"
 serde-wasm-bindgen = "0.6.5"
-futures-util = "0.3.31"
-futures = "0.3.31"
 js-sys = "0.3.77"
 web-sys = "0.3.77"
 chrono = "0.4.40"
 log = "0.4.26"
-
-[dev-dependencies]
-wasm-bindgen-test = "0.3.49"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = true

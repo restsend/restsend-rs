@@ -258,7 +258,6 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                 Ok(_) => {}
                 Err(e) => {
                     reject_tx.send(Err(ClientError::from(e))).ok();
-                    return;
                 }
             }
         }) as Box<dyn FnMut(web_sys::Event)>);
@@ -301,7 +300,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .unwrap_or(Err(ClientError::Storage("No response".to_string())))?;
         result
             .dyn_into::<IdbDatabase>()
-            .map_err(|e| ClientError::from(e))
+            .map_err(ClientError::from)
     }
 
     fn from_db(
@@ -408,7 +407,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     }
                     Err(e) => Err(JsValue::from_str(&e.to_string())),
                 },
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
             };
             match r {
                 Ok(_) => {}
@@ -490,7 +489,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     }
                     Err(e) => Err(JsValue::from_str(&e.to_string())),
                 },
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
             };
             match r {
                 Ok(_) => {
@@ -571,7 +570,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .and_then(|v| deserialize_store_model(v.value).ok())
     }
 
-    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[super::ValueItem<T>]) -> crate::Result<()> {
         for item in items {
             match item.value.as_ref() {
                 None => {
@@ -660,7 +659,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     }
                     Err(e) => Err(e),
                 },
-                Err(e) => Err(e.into()),
+                Err(e) => Err(e),
             };
             match r {
                 Ok(_) => {}
@@ -796,7 +795,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
         Ok(())
     }
-    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[super::ValueItem<T>]) -> crate::Result<()> {
         Ok(())
     }
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {

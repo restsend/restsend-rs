@@ -18,7 +18,7 @@ impl TableInner {
 
     fn insert(&mut self, key: String, sort_key: i64, value: String) {
         self.data.insert(key.clone(), value.clone());
-        let indices = self.index.entry(sort_key).or_insert_with(Vec::new);
+        let indices = self.index.entry(sort_key).or_default();
         if indices.iter().find(|v| v == &&key).is_none() {
             indices.push(key);
         }
@@ -127,7 +127,7 @@ impl<T: StoreModel> MemoryTable<T> {
             .range((Bound::Unbounded, start_sort_value))
             .rev();
 
-        while let Some((_, indices)) = iter.next() {
+        for (_, indices) in iter {
             for index in indices {
                 let v = match table.get(index) {
                     Some(v) => match T::from_str(v) {
@@ -136,9 +136,8 @@ impl<T: StoreModel> MemoryTable<T> {
                     },
                     None => continue,
                 };
-                match predicate(v) {
-                    Some(v) => items.push(v),
-                    None => {}
+                if let Some(v) = predicate(v) {
+                    items.push(v)
                 }
                 if let Some(limit) = limit {
                     if items.len() >= limit as usize {
@@ -170,7 +169,7 @@ impl<T: StoreModel> MemoryTable<T> {
             .range((Bound::Unbounded, start_sort_value))
             .rev();
 
-        while let Some((_, indices)) = iter.next() {
+        for (_, indices) in iter {
             for index in indices {
                 let v = match table.get(index) {
                     Some(v) => match T::from_str(v) {
@@ -207,7 +206,7 @@ impl<T: StoreModel> MemoryTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        table?.get(&key).and_then(|v| T::from_str(v).ok())
+        table?.get(key).and_then(|v| T::from_str(v).ok())
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -219,12 +218,9 @@ impl<T: StoreModel> MemoryTable<T> {
                     data.insert(partition.to_string(), TableInner::default());
                     table = data.get_mut(partition);
                 }
-                match table {
-                    Some(table) => {
-                        let sort_key = v.sort_key();
-                        table.insert(key.to_string(), sort_key, v.to_string());
-                    }
-                    None => {}
+                if let Some(table) = table {
+                    let sort_key = v.sort_key();
+                    table.insert(key.to_string(), sort_key, v.to_string());
                 }
                 Ok(())
             }
@@ -232,7 +228,7 @@ impl<T: StoreModel> MemoryTable<T> {
         }
     }
 
-    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[ValueItem<T>]) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         for item in items {
             let mut table = data.get_mut(&item.partition);
@@ -240,16 +236,15 @@ impl<T: StoreModel> MemoryTable<T> {
                 data.insert(item.partition.to_string(), TableInner::default());
                 table = data.get_mut(&item.partition);
             }
-            match table {
-                Some(table) => match item.value.as_ref() {
+            if let Some(table) = table {
+                match item.value.as_ref() {
                     Some(v) => {
                         table.insert(item.key.to_string(), item.sort_key, v.to_string());
                     }
                     None => {
                         table.remove(&item.key, item.sort_key);
                     }
-                },
-                None => {}
+                }
             }
         }
         Ok(())
@@ -258,17 +253,10 @@ impl<T: StoreModel> MemoryTable<T> {
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        match table {
-            Some(table) => {
-                table
-                    .get(&key)
-                    .and_then(|v| T::from_str(v).ok())
-                    .and_then(|v| {
-                        table.remove(&key, v.sort_key());
-                        Some(())
-                    });
-            }
-            None => {}
+        if let Some(table) = table {
+            table.get(key).and_then(|v| T::from_str(v).ok()).map(|v| {
+                table.remove(key, v.sort_key());
+            });
         };
         Ok(())
     }
@@ -282,11 +270,8 @@ impl<T: StoreModel> MemoryTable<T> {
     async fn clear(&self, partition: &str) -> crate::Result<()> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        match table {
-            Some(table) => {
-                table.clear();
-            }
-            None => {}
+        if let Some(table) = table {
+            table.clear();
         }
         Ok(())
     }
@@ -310,7 +295,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
     }
-    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[ValueItem<T>]) -> crate::Result<()> {
         Self::batch_update(self, items).await
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -345,7 +330,7 @@ impl<T: StoreModel> super::Table<T> for MemoryTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
     }
-    async fn batch_update(&self, items: &Vec<ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[ValueItem<T>]) -> crate::Result<()> {
         Self::batch_update(self, items).await
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {

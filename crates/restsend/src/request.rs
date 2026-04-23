@@ -100,7 +100,7 @@ pub struct ChatRequest {
 
 impl ChatRequest {
     pub fn new_response(req: &ChatRequest, code: u32) -> Option<Self> {
-        if req.chat_id == "" {
+        if req.chat_id.is_empty() {
             return None;
         }
         Some(ChatRequest {
@@ -191,11 +191,11 @@ impl ChatRequest {
     }
 
     pub fn new_invite(topic_id: &str, message: &str) -> Self {
-        Self::new_chat(topic_id, ContentType::Invite).text(&message)
+        Self::new_chat(topic_id, ContentType::Invite).text(message)
     }
 
     pub fn new_recall(topic_id: &str, chat_id: &str) -> Self {
-        Self::new_chat(topic_id, ContentType::Recall).text(&chat_id)
+        Self::new_chat(topic_id, ContentType::Recall).text(chat_id)
     }
 
     pub fn new_ping_response(chat_id: String, content: Option<Content>) -> Self {
@@ -225,7 +225,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 thumbnail: String::from(thumbnail),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -235,7 +235,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 size,
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -245,7 +245,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 placeholder: String::from(placeholder),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -255,7 +255,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 duration: String::from(duration),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -265,7 +265,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 text: String::from(text),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -275,7 +275,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 reply: reply_id.unwrap_or_default(),
-                ..self.content.clone().unwrap_or(Default::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -285,7 +285,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 mentions: user_ids.unwrap_or_default(),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -294,8 +294,8 @@ impl ChatRequest {
     pub fn mention_all(&self, mention_all: bool) -> Self {
         ChatRequest {
             content: Some(Content {
-                mention_all: mention_all,
-                ..self.content.clone().unwrap_or(Content::default())
+                mention_all,
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -304,7 +304,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 extra,
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }
@@ -315,7 +315,7 @@ impl ChatRequest {
             return ChatRequest {
                 content: Some(Content {
                     text: attachment.url.clone(),
-                    ..self.content.clone().unwrap_or(Content::default())
+                    ..self.content.clone().unwrap_or_default()
                 }),
                 ..self.clone()
             };
@@ -323,7 +323,7 @@ impl ChatRequest {
         ChatRequest {
             content: Some(Content {
                 attachment: Some(attachment),
-                ..self.content.clone().unwrap_or(Content::default())
+                ..self.content.clone().unwrap_or_default()
             }),
             ..self.clone()
         }

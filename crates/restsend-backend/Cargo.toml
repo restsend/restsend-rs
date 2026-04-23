@@ -1,0 +1,33 @@
+[package]
+name = "restsend-backend"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+doctest = false
+
+[dependencies]
+async-trait = "0.1"
+axum = { version = "0.7", features = ["ws", "macros", "multipart"] }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+dotenvy = "0.15"
+fast_image_resize = "5"
+futures-util = "0.3"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+sea-orm = { version = "1.1", features = ["sqlx-sqlite", "sqlx-mysql", "runtime-tokio-rustls", "macros"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+tokio = { version = "1.42", features = ["full"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+uuid = { version = "1.11", features = ["v4"] }
+
+[dev-dependencies]
+http-body-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }

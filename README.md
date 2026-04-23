@@ -26,6 +26,58 @@ cargo test                     # verify the Rust core
 
 Choose a target build from the sections below.
 
+## Backend Build & Deploy (Simple)
+
+1. Build:
+
+```shell
+cargo build -p restsend-backend --release
+```
+
+2. Create a `.env` file at repository root (or export env vars directly):
+
+```env
+RS_ADDR=0.0.0.0:8080
+RS_DATABASE_URL=sqlite://restsend-server.db?mode=rwc
+RS_OPENAPI_PREFIX=/open
+RS_API_PREFIX=/api
+RS_OPENAPI_TOKEN=change-me
+RS_LOG_FILE=logs/restsend-backend.log
+RS_RUN_MIGRATIONS=true
+RS_MIGRATE_ONLY=false
+RS_WEBHOOK_TARGETS=
+RS_WEBHOOK_TIMEOUT_SECS=10
+RS_WEBHOOK_RETRIES=3
+RS_EVENT_BUS_SIZE=1024
+RS_MESSAGE_WORKERS=4
+RS_MESSAGE_QUEUE_SIZE=1024
+RS_PRESENCE_BACKEND=memory
+RS_NODE_ID=node-a
+RS_PRESENCE_TTL_SECS=90
+RS_PRESENCE_HEARTBEAT_SECS=30
+```
+
+`restsend-backend` supports loading `.env` via `dotenvy`.
+
+Presence options:
+
+- `RS_PRESENCE_BACKEND=memory`: single-node in-memory presence.
+- `RS_PRESENCE_BACKEND=db`: database-backed presence (cluster-friendly; multiple backend nodes share online state).
+
+3. Run migrations only (optional):
+
+```shell
+RS_MIGRATE_ONLY=true cargo run -p restsend-backend --release
+```
+
+4. Start backend:
+
+```shell
+cargo run -p restsend-backend --release
+```
+
+Default health check: `GET /api/health`
+
 ### iOS / macOS Swift SDK
 
 1. Add the pod inside your Xcode project:
@@ -70,4 +122,24 @@ Ship the generated artifacts from `crates/restsend-wasm/pkg/` (plus `assets/`) i
 - `cargo test` exercises the core logic.
 - `cargo run -p demo` launches the native desktop sample (requires GUI environment).
 
-Need help or commercial support? Email `kui@fourz.cn`.
+
+# Commercial License Terms
+
+RestSend is available under a dual-license model:
+
+- MIT License (see `LICENSE`)
+- Commercial License (this file)
+
+## When Commercial License Is Required
+
+If your production deployment serves **more than 1000 users**, you must obtain a commercial license from the copyright holder.
+
+## Contact
+
+For commercial licensing, contact: `kui@fourz.cn`
+
+## Scope
+
+Without a commercial agreement, usage above the 1000-user threshold is not authorized.
+
+All other rights and obligations are governed by your signed commercial agreement.

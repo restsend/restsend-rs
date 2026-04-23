@@ -2,6 +2,7 @@ use super::{conversation::Extra, omit_empty};
 use crate::storage::StoreModel;
 use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -195,14 +196,14 @@ impl FromStr for User {
     }
 }
 
-impl ToString for User {
-    fn to_string(&self) -> String {
-        serde_json::to_string(self).unwrap_or_default()
+impl Display for User {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&serde_json::to_string(self).unwrap_or_default())
     }
 }
 
 impl StoreModel for User {
     fn sort_key(&self) -> i64 {
-        self.cached_at as i64
+        self.cached_at
     }
 }

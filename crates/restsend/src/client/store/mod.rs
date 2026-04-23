@@ -49,10 +49,10 @@ impl PendingRequest {
         callback: Option<Box<dyn MessageCallback>>,
         option: ClientOptionRef,
     ) -> Self {
-        let can_retry = match ChatRequestType::from(&req.req_type) {
-            ChatRequestType::Typing | ChatRequestType::Read => false,
-            _ => true,
-        };
+        let can_retry = !matches!(
+            ChatRequestType::from(&req.req_type),
+            ChatRequestType::Typing | ChatRequestType::Read
+        );
 
         PendingRequest {
             option,
@@ -405,7 +405,7 @@ impl ClientStore {
     pub(crate) fn process_timeout_requests(&self) {
         self.cleanup_expired_quick_sync_waiters(now_millis());
 
-        if self.outgoings.read().unwrap().len() == 0 {
+        if self.outgoings.read().unwrap().is_empty() {
             return;
         }
 
@@ -429,26 +429,23 @@ impl ClientStore {
 
         for chat_id in expired {
             if let Some(pending) = outgoings.remove(&chat_id) {
-                pending
-                    .callback
-                    .map(|cb| cb.on_fail("send expired".to_string()));
+                if let Some(cb) = pending.callback {
+                    cb.on_fail("send expired".to_string());
+                }
             }
         }
     }
 
     pub(crate) fn process_removed_conversations(&self) {
-        match self.removed_conversations.try_write() {
-            Ok(mut removed_conversations) => {
-                removed_conversations.retain(|_, (removed_at, _)| {
-                    !is_cache_expired(
-                        *removed_at,
-                        self.option
-                            .removed_conversation_cache_expire_secs
-                            .load(Ordering::Relaxed) as i64,
-                    )
-                });
-            }
-            Err(_) => {}
+        if let Ok(mut removed_conversations) = self.removed_conversations.try_write() {
+            removed_conversations.retain(|_, (removed_at, _)| {
+                !is_cache_expired(
+                    *removed_at,
+                    self.option
+                        .removed_conversation_cache_expire_secs
+                        .load(Ordering::Relaxed) as i64,
+                )
+            });
         }
     }
     pub fn shutdown(&self) {}

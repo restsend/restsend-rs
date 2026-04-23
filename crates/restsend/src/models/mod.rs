@@ -2,11 +2,8 @@ use restsend_macros::export_wasm_or_ffi;
 use serde::{Deserialize, Serialize};
 
 #[inline]
-pub fn omit_empty<T: ?Sized + Default + std::cmp::PartialEq>(value: &T) -> bool
-where
-    T: serde::ser::Serialize,
-{
-    return *value == T::default();
+pub fn omit_empty<T: Default + std::cmp::PartialEq + serde::ser::Serialize>(value: &T) -> bool {
+    *value == T::default()
 }
 
 #[derive(Debug, Serialize, Clone)]

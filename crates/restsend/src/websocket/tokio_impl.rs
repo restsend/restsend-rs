@@ -34,7 +34,7 @@ impl WebSocketImpl {
         let r = self.inner.sender_tx.lock().unwrap().send(message);
         if let Err(e) = r {
             warn!("websocket send failed: {}", e);
-            return Err(HTTP(format!("websocket send failed: {}", e)).into());
+            return Err(HTTP(format!("websocket send failed: {}", e)));
         }
         Ok(())
     }
@@ -54,7 +54,7 @@ impl WebSocketImpl {
             .add_header(USER_AGENT, crate::USER_AGENT.parse().unwrap())
             .add_header(ACCEPT, "application/json".parse().unwrap())
             .uri(&url)
-            .map_err(|e| ClientError::HTTP(format!("invalid url:{}", e.to_string())))?;
+            .map_err(|e| ClientError::HTTP(format!("invalid url:{}", e)))?;
 
         let st = now_millis();
         callback.on_connecting();
@@ -64,7 +64,7 @@ impl WebSocketImpl {
                 r
             },
             _ = sleep(opt.handshake_timeout) => {
-                return Err(HTTP(format!("websocket connect timeout")).into());
+                return Err(HTTP("websocket connect timeout".to_string()));
             },
         };
 
@@ -74,7 +74,7 @@ impl WebSocketImpl {
                 warn!("websocket connect failed: url: {} {}", url, e);
                 let reason = format!("websocket connect failed: {}", e);
                 callback.on_net_broken(reason.clone());
-                return Err(HTTP(reason).into());
+                return Err(HTTP(reason));
             }
         };
 
@@ -87,13 +87,13 @@ impl WebSocketImpl {
                 let reason = format!("websocket unauthorized failed: {}", resp.status());
                 warn!("websocket unauthorized failed: {}", resp.status());
                 callback.on_unauthorized();
-                return Err(TokenExpired(reason).into());
+                return Err(TokenExpired(reason));
             }
             _ => {
                 warn!("websocket connect failed: {}", resp.status());
                 let reason = format!("websocket connect failed: {}", resp.status());
                 callback.on_net_broken(reason.clone());
-                return Err(HTTP(reason).into());
+                return Err(HTTP(reason));
             }
         }
 
@@ -106,7 +106,7 @@ impl WebSocketImpl {
                         return Err(HTTP(format!("websocket recv failed: {}", e)));
                     }
                     None => {
-                        return Err(HTTP(format!("websocket recv None")));
+                        return Err(HTTP("websocket recv None".to_string()));
                     }
                 };
 

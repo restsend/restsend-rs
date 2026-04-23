@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-const TEST_ENDPOINT: &str = "https://chat.ruzhila.cn";
+fn test_endpoint() -> String {
+    let _ = dotenvy::dotenv();
+    std::env::var("RESTSEND_TEST_ENDPOINT").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string())
+}
 
 struct WebSocketCallbackImpl {}
 
@@ -28,7 +31,8 @@ impl super::WebSocketCallback for WebSocketCallbackImpl {
 #[tokio::test]
 async fn test_websocket_bad_handshake() {
     let ws = super::WebSocket::new();
-    let opt = super::WebsocketOption::new(TEST_ENDPOINT, "", false);
+    let endpoint = test_endpoint();
+    let opt = super::WebsocketOption::new(&endpoint, "", false);
     let cb = Box::new(WebSocketCallbackImpl::default());
     let r = ws.serve(&opt, cb).await;
     assert!(r
@@ -40,7 +44,8 @@ async fn test_websocket_bad_handshake() {
 #[tokio::test]
 async fn test_websocket_handshake() {
     let ws = super::WebSocket::new();
-    let url = super::WebsocketOption::url_from_endpoint(TEST_ENDPOINT);
+    let endpoint = test_endpoint();
+    let url = super::WebsocketOption::url_from_endpoint(&endpoint);
     let opt = super::WebsocketOption::new(&url, "", false);
     let cb = Box::new(WebSocketCallbackImpl::default());
     let r = ws.serve(&opt, cb).await;

@@ -22,6 +22,7 @@ pub async fn create_chat(endpoint: &str, token: &str, user_id: &str) -> Result<C
     api_call(endpoint, &format!("/chat/create/{}", user_id), token, None).await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_conversations(
     endpoint: &str,
     token: &str,

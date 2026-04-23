@@ -61,7 +61,7 @@ pub async fn upload_file(
         let resp = match req.multipart(form).send().await {
             Ok(resp) => resp,
             Err(e) => {
-                let reason = format!("upload failed: {}", e.to_string());
+                let reason = format!("upload failed: {}", e);
                 return Err(HTTP(reason));
             }
         };
@@ -75,8 +75,8 @@ pub async fn upload_file(
     select! {
         _ = cancel => {
             info!("upload runner cancel");
-            callback.lock().unwrap().on_fail(UserCancel("canceled".to_string()).into());
-            Err(UserCancel("canceled".to_string()).into())
+            callback.lock().unwrap().on_fail(UserCancel("canceled".to_string()));
+            Err(UserCancel("canceled".to_string()))
         },
         r = upload_runner => {
             info!("upload runner finished");
@@ -88,9 +88,9 @@ pub async fn upload_file(
                     Ok(Some(r))
                 },
                 Err(e) => {
-                    let reason = format!("upload failed: {}", e.to_string());
-                    cb.on_fail(HTTP(reason.clone()).into());
-                    Err(HTTP(reason).into())
+                    let reason = format!("upload failed: {}", e);
+                    cb.on_fail(HTTP(reason.clone()));
+                    Err(HTTP(reason))
                 }
             }
         }
@@ -118,7 +118,7 @@ pub async fn download_file(
         let file = tokio::fs::File::create(save_file_name.clone()).await;
 
         if file.is_err() {
-            let reason = format!("create file failed: {}", file.err().unwrap().to_string());
+            let reason = format!("create file failed: {}", file.err().unwrap());
             return Err(StdError(reason));
         }
 
@@ -147,22 +147,15 @@ pub async fn download_file(
 
     select! {
         _ = cancel => {
-            callback.on_fail(UserCancel("canceled".to_string()).into());
-            Err(UserCancel("canceled".to_string()).into())
+            callback.on_fail(UserCancel("canceled".to_string()));
+            Err(UserCancel("canceled".to_string()))
         },
         _ = async {
-            loop {
-                match progress_rx.recv().await {
-                    Some((sent, total)) => {
-                        callback.on_progress(sent, total);
-                    },
-                    None => {
-                        break;
-                    }
-                }
+            while let Some((sent, total)) = progress_rx.recv().await {
+                callback.on_progress(sent, total);
             }
         } => {
-            Err(UserCancel("canceled".to_string()).into())
+            Err(UserCancel("canceled".to_string()))
         },
         r = download_runner => {
             match r {
@@ -172,9 +165,9 @@ pub async fn download_file(
                     Ok(file_name)
                 },
                 Err(e) => {
-                    let reason = format!("download failed: {}", e.to_string());
-                    callback.on_fail(HTTP(reason.clone()).into());
-                    Err(HTTP(reason).into())
+                    let reason = format!("download failed: {}", e);
+                    callback.on_fail(HTTP(reason.clone()));
+                    Err(HTTP(reason))
                 }
             }
         }

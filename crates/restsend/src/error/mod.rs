@@ -30,7 +30,7 @@ impl<T> From<tokio::sync::mpsc::error::SendError<T>> for ClientError {
 
 impl From<std::io::Error> for ClientError {
     fn from(e: std::io::Error) -> ClientError {
-        ClientError::StdError(format!("io error {}", e.to_string()))
+        ClientError::StdError(format!("io error {}", e))
     }
 }
 

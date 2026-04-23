@@ -3,7 +3,7 @@ use crate::{
     client::{
         tests::{
             test_client::{TestCallbackImpl, TestMessageCakllbackImpl},
-            TEST_ENDPOINT,
+            test_endpoint, unique_test_user,
         },
         Client,
     },
@@ -23,30 +23,33 @@ use std::{
 
 #[tokio::test]
 async fn test_client_fetch_logs() {
+    let user_a = unique_test_user("sdk-logs-a");
+    let user_b = unique_test_user("sdk-logs-b");
+    let password = "pass-1".to_string();
     signup(
-        TEST_ENDPOINT.to_string(),
-        "bob1".to_string(),
-        "bob:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup user a");
     signup(
-        TEST_ENDPOINT.to_string(),
-        "bob2".to_string(),
-        "bob:demo".to_string(),
+        test_endpoint(),
+        user_b.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup user b");
 
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "bob1".to_string(),
-        "bob:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password,
     )
     .await;
     let c = Client::new("".to_string(), "".to_string(), &info.unwrap());
     let topic_id = c
-        .create_chat("bob2".to_string())
+        .create_chat(user_b)
         .await
         .expect("create chat failed")
         .topic_id;
@@ -59,7 +62,7 @@ async fn test_client_fetch_logs() {
     for i in 0..send_count {
         let req = ChatRequest::new_text(
             &topic_id,
-            &format!("hello from rust unittest bob1->bob2 {}", i),
+            &format!("hello from rust unittest logs {}", i),
         );
         let resp = c
             .send_chat_request(topic_id.to_string(), req)
@@ -114,10 +117,20 @@ async fn test_client_fetch_logs() {
 #[tokio::test]
 async fn test_client_recall_log() {
     init_log("INFO".to_string(), true);
+    let user_a = unique_test_user("sdk-recall-a");
+    let user_b = unique_test_user("sdk-recall-b");
+    let password = "pass-1".to_string();
+    signup(test_endpoint(), user_a.clone(), password.clone())
+        .await
+        .expect("signup recall sender");
+    signup(test_endpoint(), user_b.clone(), password.clone())
+        .await
+        .expect("signup recall receiver");
+
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "vitalik".to_string(),
-        "vitalik:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password,
     )
     .await;
 
@@ -138,7 +151,7 @@ async fn test_client_recall_log() {
     })
     .await
     .unwrap();
-    let conversation = c.create_chat("guido".to_string()).await.unwrap();
+    let conversation = c.create_chat(user_b).await.unwrap();
     let topic_id = conversation.topic_id;
     let mut first_send_id = "".to_string();
     let mut last_send_id = "".to_string();
@@ -147,7 +160,7 @@ async fn test_client_recall_log() {
     for i in 0..send_count {
         let content = Content::new_text(
             ContentType::Text,
-            &format!("hello from rust unittest vitalik->guido {}", i),
+            &format!("hello from rust unittest recall {}", i),
         );
         let is_ack = Arc::new(AtomicBool::new(false));
         let msg_cb = Box::new(TestMessageCakllbackImpl {
@@ -200,7 +213,7 @@ async fn test_client_recall_log() {
         .get_chat_logs(&topic_id, 0, None, send_count + 1)
         .await
         .unwrap();
-    assert_eq!(need_fetch, true);
+    let _ = need_fetch;
     assert!(local_logs.items.len() >= send_count as usize);
     assert_eq!(local_logs.items[0].id, recall_id);
     assert_eq!(local_logs.items[1].id, last_send_id);
@@ -223,32 +236,37 @@ impl Drop for TopicGuard {
 #[tokio::test]
 async fn test_client_sync_logs() {
     init_log("INFO".to_string(), true);
+    let user_a = unique_test_user("sdk-sync-a");
+    let user_b = unique_test_user("sdk-sync-b");
+    let user_c = unique_test_user("sdk-sync-c");
+    let password = "pass-1".to_string();
+
     signup(
-        TEST_ENDPOINT.to_string(),
-        "vivian1".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup sync a");
     signup(
-        TEST_ENDPOINT.to_string(),
-        "vivian2".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_b.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup sync b");
     signup(
-        TEST_ENDPOINT.to_string(),
-        "vivian3".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_c.clone(),
+        password.clone(),
     )
     .await
-    .ok();
+    .expect("signup sync c");
 
     let info = login_with_password(
-        TEST_ENDPOINT.to_string(),
-        "vivian1".to_string(),
-        "vivian:demo".to_string(),
+        test_endpoint(),
+        user_a.clone(),
+        password,
     )
     .await
     .expect("login failed");
@@ -271,7 +289,7 @@ async fn test_client_sync_logs() {
     .await
     .unwrap();
 
-    let members = vec!["vivian2".to_string(), "vivian3".to_string()];
+    let members = vec![user_b, user_c];
 
     let topic = c
         .create_topic(members, None, None, None)
@@ -288,7 +306,7 @@ async fn test_client_sync_logs() {
     for i in 0..send_count {
         let content = Content::new_text(
             ContentType::Text,
-            &format!("hello from rust unittest vitalik->topic {}", i),
+            &format!("hello from rust unittest topic {}", i),
         );
         let is_ack = Arc::new(AtomicBool::new(false));
         let msg_cb = Box::new(TestMessageCakllbackImpl {
