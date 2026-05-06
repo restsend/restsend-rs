@@ -106,8 +106,30 @@ pub struct AdminBootstrapInitResponse {
     pub token: String,
 }
 
-pub async fn spa() -> Result<Html<String>, ApiError> {
-    let html = tokio::fs::read_to_string("static/admin.html")
+fn static_path(file: &str) -> String {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("static")
+        .join(file)
+        .to_string_lossy()
+        .to_string()
+}
+
+pub async fn spa(State(state): State<AppState>) -> Result<Html<String>, ApiError> {
+    let path = static_path("admin.html");
+    let html = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+    let html = if state.config.demo {
+        html.replace("</head>", r#"<script>window.__DEMO_MODE__=true</script></head>"#)
+    } else {
+        html
+    };
+    Ok(Html(html))
+}
+
+pub async fn chat_spa() -> Result<Html<String>, ApiError> {
+    let path = static_path("chat.html");
+    let html = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
     Ok(Html(html))
@@ -324,6 +346,23 @@ fn ensure_admin(auth: &AuthCtx) -> Result<(), ApiError> {
         "admin access rejected: not superuser"
     );
     Err(ApiError::Unauthorized)
+}
+
+pub async fn demo_users(State(state): State<AppState>) -> ApiResult<Json<Vec<serde_json::Value>>> {
+    let demo_ids = ["alice", "bob", "guido", "jinti"];
+    let mut users = Vec::new();
+    for user_id in &demo_ids {
+        if let Ok(u) = state.user_service.get_any_by_user_id(user_id).await {
+            let password = format!("{}:demo", user_id);
+            users.push(serde_json::json!({
+                "userId": u.user_id,
+                "displayName": u.name,
+                "avatar": u.avatar,
+                "password": password,
+            }));
+        }
+    }
+    Ok(Json(users))
 }
 
 fn map_domain_error(err: crate::services::DomainError) -> ApiError {

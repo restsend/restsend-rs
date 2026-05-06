@@ -1,0 +1,907 @@
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RestSend Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            whatsapp: {
+              header: '#075e54', green: '#25d366', 'green-dark': '#128c7e',
+              bg: '#efeae2', 'sent': '#d9fdd3', 'received': '#ffffff',
+              sidebar: '#ffffff', search: '#f0f2f5',
+              'header-text': '#ffffff', 'dark': '#111b21',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    #app { height: 100%; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .msg-bubble-sent { border-radius: 8px 0 8px 8px; }
+    .msg-bubble-recv { border-radius: 0 8px 8px 8px; }
+    .conv-active { background-color: #f0f2f5; }
+    .conv-active:hover { background-color: #f0f2f5; }
+    .typing-dot { animation: typingDot 1.4s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingDot { 0%,60%,100% { opacity: 0.3; } 30% { opacity: 1; } }
+    .slide-up { animation: slideUp 0.2s ease-out; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    [x-cloak] { display: none !important; }
+    @media (max-width: 768px) {
+      .sidebar-mobile { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 50; }
+      .chat-mobile { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 40; }
+    }
+  </style>
+</head>
+<body>
+<div id="app" x-data="chatApp()" x-cloak>
+  <!-- Login -->
+  <template x-if="!signedIn">
+    <div class="h-full flex items-center justify-center bg-gray-100">
+      <div class="w-full max-w-md mx-4 bg-white rounded-2xl shadow-lg overflow-hidden">
+        <div class="bg-whatsapp-header px-6 py-8 text-center">
+          <div class="w-16 h-16 mx-auto mb-3 bg-white/20 rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </div>
+          <h1 class="text-xl font-semibold text-white">RestSend Chat</h1>
+          <p class="text-white/70 text-sm mt-1">Sign in to your account</p>
+        </div>
+        <div class="px-6 pt-4">
+          <div id="demoUsersContainer" style="display:none">
+            <div class="text-xs text-gray-400 text-center mb-2">Try a demo account</div>
+            <div id="demoUsers" class="flex gap-2 justify-center flex-wrap"></div>
+          </div>
+        </div>
+        <div class="p-6 pt-3 space-y-4">
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Endpoint</label>
+            <input x-model="endpoint" type="text" placeholder="https://chat.example.com"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-green focus:border-transparent outline-none text-sm">
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+            <input x-model="userId" type="text" placeholder="Your user ID"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-green focus:border-transparent outline-none text-sm">
+          </div>
+          <div><label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input x-model="password" type="password" placeholder="Your password" x-on:keydown.enter="doLogin()"
+              class="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-green focus:border-transparent outline-none text-sm">
+          </div>
+          <button x-on:click="doLogin()" :disabled="loading"
+            class="w-full py-2.5 bg-whatsapp-header text-white rounded-lg font-medium hover:bg-whatsapp-green-dark transition disabled:opacity-50">
+            <span x-show="loading" class="inline-flex items-center">
+              <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+              </svg>
+              Signing in...
+            </span>
+            <span x-show="!loading">Sign In</span>
+          </button>
+          <p x-show="error" class="text-red-500 text-sm text-center" x-text="error"></p>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Chat -->
+  <template x-if="signedIn">
+    <div class="h-full flex">
+      <!-- Sidebar -->
+      <div class="w-[420px] min-w-[300px] bg-white border-r flex-col"
+           :class="(showMobileSidebar || !currentConv) ? 'flex' : 'hidden md:flex'"
+           x-on:resize.window="onResize()">
+        <div class="bg-whatsapp-header px-4 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-medium" x-text="(myProfile?.name || displayName || userId)[0]?.toUpperCase()"></div>
+            <span class="text-white font-medium" x-text="displayName || userId"></span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span x-show="connectionStatus==='connected'" class="inline-flex items-center">
+              <svg class="w-3 h-3 text-green-400" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+            </span>
+            <span x-show="connectionStatus!=='connected'" class="text-white/60 text-xs" x-text="connectionStatus"></span>
+            <button x-on:click="showNewChat=!showNewChat" class="text-white/80 hover:text-white p-1">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
+            <button x-on:click="doLogout()" class="text-white/80 hover:text-white text-sm">Logout</button>
+          </div>
+        </div>
+        <div x-show="showNewChat" class="p-3 border-b flex gap-2">
+          <input x-model="newChatUserId" x-on:keydown.enter="doCreateChat()" type="text" placeholder="Enter user ID..."
+            class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-whatsapp-green focus:border-transparent outline-none text-sm">
+          <button x-on:click="doCreateChat()" class="px-3 py-2 bg-whatsapp-green text-white rounded-lg text-sm font-medium">Chat</button>
+        </div>
+        <div class="px-3 py-2">
+          <input x-model="searchQuery" type="text" placeholder="Search or start new chat"
+            class="w-full px-3 py-2 bg-gray-100 rounded-lg outline-none text-sm">
+        </div>
+        <div class="flex-1 overflow-y-auto scrollbar-thin">
+          <template x-for="conv in filteredConversations" :key="conv.topicId">
+            <div x-on:click="selectConversation(conv)"
+                 class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 border-b"
+                 :class="currentConv?.topicId===conv.topicId ? 'conv-active' : ''">
+              <div class="relative w-12 h-12 rounded-full flex items-center justify-center text-white font-medium shrink-0"
+                   :style="'background:'+avatarColor(getConvTitle(conv))">
+                <span x-text="avatarInitial(getConvTitle(conv))"></span>
+                <svg x-show="conv.sticky" class="absolute -top-1 -left-0.5 w-4 h-4 text-gray-400" viewBox="0 0 16 16" fill="currentColor"><path d="M0 0h12L0 12z"/></svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-baseline">
+                  <span class="font-medium text-sm truncate" x-text="getConvTitle(conv)"></span>
+                  <span class="text-xs text-gray-400 shrink-0" x-text="formatTime(conv.lastMessageAt)"></span>
+                </div>
+                <div class="flex justify-between items-center mt-0.5">
+                  <span class="text-sm text-gray-500 truncate" x-text="getLastMessageText(conv)"></span>
+                  <span class="flex items-center gap-1 shrink-0 ml-1">
+                    <svg x-show="conv.mute" class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6.5 3L3 5.5H1.5v5H3l3.5 2.5V3z"/><path d="M11 5.5l4 5m0-5l-4 5"/></svg>
+                    <span x-show="conv.unread>0" class="text-xs bg-whatsapp-green text-white rounded-full px-1.5 py-0.5 min-w-[20px] text-center" x-text="conv.unread>99?'99+':conv.unread"></span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </template>
+          <div x-show="filteredConversations.length===0" class="text-center text-gray-400 py-8 text-sm">No conversations</div>
+        </div>
+      </div>
+
+      <!-- Main -->
+      <div class="flex-1 flex flex-col bg-gray-100 min-w-0" :class="currentConv ? 'flex' : 'hidden'">
+        <template x-if="!currentConv">
+          <div class="flex-1 flex items-center justify-center text-gray-400">Select a conversation</div>
+        </template>
+        <template x-if="currentConv">
+          <div class="flex-1 flex flex-col min-h-0">
+            <!-- Header -->
+            <div class="bg-gray-50 px-4 py-3 flex items-center gap-3 border-b shrink-0">
+              <button x-on:click="showMobileSidebar=true" class="md:hidden p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </button>
+              <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-medium shrink-0"
+                   :style="'background:'+avatarColor(getConvTitle(currentConv))">
+                <span x-text="avatarInitial(getConvTitle(currentConv))"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-sm" x-text="getConvTitle(currentConv)"></div>
+                <div class="text-xs text-gray-500">
+                  <span x-show="typingUsers[currentConv.topicId]" class="text-whatsapp-green">typing...</span>
+                </div>
+              </div>
+              <button x-on:click="showChatInfo=!showChatInfo" class="text-gray-500 hover:text-gray-700 p-1">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+              </button>
+            </div>
+            <!-- Chat info drawer -->
+            <template x-if="showChatInfo">
+              <div class="fixed inset-0 z-40 flex" x-on:click="showChatInfo=false">
+                <div class="ml-auto w-72 bg-white shadow-xl h-full overflow-y-auto" x-on:click.stop
+                     x-transition:enter="transform transition ease-out duration-200"
+                     x-transition:enter-start="translate-x-full"
+                     x-transition:enter-end="translate-x-0"
+                     x-transition:leave="transform transition ease-in duration-150"
+                     x-transition:leave-start="translate-x-0"
+                     x-transition:leave-end="translate-x-full">
+                  <div class="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                    <span class="font-medium text-sm">Conversation Info</span>
+                    <button x-on:click="showChatInfo=false" class="text-gray-500 hover:text-gray-700 p-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                  <div class="p-3 space-y-1 text-sm">
+                    <label class="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-100">
+                      <span class="text-gray-700">Mute notifications</span>
+                      <div class="relative" x-on:click.stop="toggleMute()">
+                        <div class="w-9 h-5 rounded-full" :class="currentConv.mute ? 'bg-green-500' : 'bg-gray-300'"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform" :class="currentConv.mute ? 'translate-x-4' : ''"></div>
+                      </div>
+                    </label>
+                    <label class="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-100">
+                      <span class="text-gray-700">Pin conversation</span>
+                      <div class="relative" x-on:click.stop="toggleSticky()">
+                        <div class="w-9 h-5 rounded-full" :class="currentConv.sticky ? 'bg-green-500' : 'bg-gray-300'"></div>
+                        <div class="absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform" :class="currentConv.sticky ? 'translate-x-4' : ''"></div>
+                      </div>
+                    </label>
+                    <button x-on:click="doClearMessages()" class="w-full text-left text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg">Clear messages</button>
+                    <button x-on:click="doDeleteConversation()" class="w-full text-left text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg">Delete conversation</button>
+                  </div>
+                </div>
+              </div>
+            </template>
+            <!-- Messages -->
+            <div x-ref="messagesRef" x-on:scroll="onScrollMessages" class="flex-1 overflow-y-auto px-4 py-3 scrollbar-thin bg-[#efeae2]"
+                 style="background-image: url('data:image/svg+xml,...')">
+              <div x-show="loadingMessages" class="text-center text-gray-400 py-4">Loading...</div>
+              <template x-for="(block, bi) in messageBlocks" :key="bi">
+                <div class="mb-1 slide-up">
+                  <!-- Date separator -->
+                  <div x-show="shouldShowDate(block)" class="text-center my-2">
+                    <span class="text-xs bg-white/80 rounded px-2 py-0.5 shadow-sm text-gray-500" x-text="formatDate(block.createdAt)"></span>
+                  </div>
+                  <!-- Sender name for group -->
+                  <div x-show="!block.isSelf && block.senderId && currentConv?.multiple" class="text-xs text-whatsapp-green ml-2 mb-0.5 font-medium" x-text="getBlockSenderName(block)"></div>
+                  <!-- Messages in block -->
+                  <template x-for="(item, ii) in block.items" :key="item.id || ii">
+                    <div class="flex mb-1" :class="block.isSelf ? 'justify-end' : 'justify-start'">
+                      <div class="max-w-[70%] px-3 py-1.5 shadow-sm text-sm group"
+                           :class="block.isSelf ? 'msg-bubble-sent bg-whatsapp-sent' : 'msg-bubble-recv bg-white'"
+                           :style="item.recall ? 'background:#e8e8e8;color:#999;font-style:italic' : ''">
+                        <!-- Text -->
+                        <div x-show="!item.content?.attachment && !item.recall && item.content?.type!=='image' && item.content?.type!=='file'" class="whitespace-pre-wrap break-words" x-text="item.content?.text || ''"></div>
+                        <!-- Image -->
+                        <template x-if="item.content?.type==='image' && !item.recall">
+                          <div x-on:click="!item.uploading && previewImage(item.content.text)" class="cursor-pointer relative">
+                            <img :src="item.content.text" class="max-w-full rounded-lg" :class="item.uploading ? 'opacity-50' : ''" @error="onAvatarError($event)">
+                            <div x-show="item.uploading" class="absolute inset-0 flex items-center justify-center bg-black/10 rounded-lg">
+                              <svg class="animate-spin h-8 w-8 text-whatsapp-green" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                              </svg>
+                            </div>
+                          </div>
+                        </template>
+                        <!-- File -->
+                        <template x-if="item.content?.type==='file' && !item.recall">
+                          <div x-on:click="downloadFile(item.content)" class="cursor-pointer text-blue-600 underline text-sm">
+                            <span x-text="item.content.placeholder || 'File'"></span>
+                          </div>
+                        </template>
+                        <!-- Recall -->
+                        <div x-show="item.recall" class="text-gray-400 italic text-xs">Message recalled</div>
+                        <!-- Meta + Actions -->
+                        <div class="flex items-center justify-end gap-1 mt-0.5">
+                          <span class="text-[10px] text-gray-400" x-text="formatTime(item.createdAt)"></span>
+                          <span x-show="block.isSelf && item.seq>0 && !item.recall">
+                            <svg class="w-3.5 h-3.5" :class="item.read ? 'text-blue-500' : 'text-gray-400'" viewBox="0 0 16 11" fill="currentColor"><path d="M11.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-2.011-2.095a.463.463 0 0 0-.336-.153.457.457 0 0 0-.346.125.501.501 0 0 0-.146.354.49.49 0 0 0 .146.354l2.511 2.614a.47.47 0 0 0 .335.153.45.45 0 0 0 .336-.153l6.53-8.054a.5.5 0 0 0 .122-.342.48.48 0 0 0-.172-.33z"/><path d="M15.071.653a.457.457 0 0 0-.304-.102.493.493 0 0 0-.381.178l-6.19 7.636-.785-.823a.48.48 0 0 0-.175-.11l1.433 1.49a.47.47 0 0 0 .335.153.45.45 0 0 0 .336-.153l6.53-8.054a.5.5 0 0 0 .122-.342.48.48 0 0 0-.172-.33z"/></svg>
+                          </span>
+                          <span x-show="item.failed" class="text-red-500 text-xs">Failed</span>
+                          <!-- Action button -->
+                          <div class="relative" x-on:click.stop>
+                            <button x-on:click="actionMsgId = actionMsgId === item.id ? null : item.id" class="text-gray-400 hover:text-gray-600 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>
+                            </button>
+                            <div x-show="actionMsgId === item.id" x-on:click.outside="actionMsgId=null"
+                                 :class="block.isSelf ? 'right-0' : 'left-0'"
+                                 class="absolute bottom-full mb-1 bg-white rounded-lg shadow-lg border py-1 z-30 min-w-[120px]">
+                              <button x-show="block.isSelf && !item.recall" x-on:click="doRecallMessage(item)" class="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100">Recall</button>
+                              <button x-on:click="doDeleteMessage(item)" class="w-full text-left px-3 py-1.5 text-sm text-red-600 hover:bg-red-50">Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <!-- Image preview modal -->
+              <template x-if="previewUrl">
+                <div class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" x-on:click="previewUrl=null">
+                  <img :src="previewUrl" class="max-h-full max-w-full object-contain" x-on:click.stop>
+                </div>
+              </template>
+            </div>
+            <!-- Input -->
+            <div class="px-4 py-3 bg-gray-50 border-t flex items-center gap-3">
+              <button x-on:click="sendAttachment()" :disabled="sendingImage" class="text-gray-500 hover:text-gray-700 disabled:opacity-40">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              </button>
+              <input x-ref="fileInput" type="file" class="hidden" x-on:change="onFileSelected">
+              <input x-model="messageText" x-on:keydown.enter="doSendMessage()" x-on:keydown="onInputKeydown" type="text" placeholder="Type a message"
+                class="flex-1 px-4 py-2.5 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-whatsapp-green focus:border-transparent text-sm">
+              <button x-on:click="doSendMessage()" :disabled="!messageText.trim()"
+                class="p-2.5 bg-whatsapp-green text-white rounded-full disabled:opacity-40">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19V5m0 0l-7 7m7-7l7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+  <template x-if="confirmDialog.show">
+    <div class="fixed inset-0 z-50 flex items-center justify-center" x-on:click="confirmDialog.show=false">
+      <div class="absolute inset-0 bg-black/20"></div>
+      <div class="relative bg-white rounded-xl shadow-xl p-6 w-80 mx-4" x-on:click.stop>
+        <div class="text-base font-medium mb-1" x-text="confirmDialog.title"></div>
+        <div class="text-sm text-gray-500 mb-5" x-text="confirmDialog.message"></div>
+        <div class="flex justify-end gap-2">
+          <button x-on:click="confirmDialog.show=false" class="px-4 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancel</button>
+          <button x-on:click="confirmDialog.onConfirm(); confirmDialog.show=false" class="px-4 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-lg">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script type="module">
+import init, { signin, Client } from '/js/restsend_wasm.js';
+
+window.__sdkReady = false;
+window.__SdkClient = Client;
+window.__sdkSignin = async (endpoint, userId, password) => {
+  const info = await signin(endpoint, userId, password);
+  return { token: info.token, email: info.userId, displayName: info.name, profile: { avatar: info.avatar || '' } };
+};
+
+try {
+  await init();
+  console.log('[chat] WASM SDK initialized');
+  window.__sdkReady = true;
+} catch(e) {
+  console.warn('[chat] WASM SDK init failed:', e);
+}
+
+// Load demo users
+try {
+  const r = await fetch('/chat/api/demo-users');
+  if (r.ok) {
+    const users = await r.json();
+    if (users.length > 0) {
+      const container = document.getElementById('demoUsersContainer');
+      const list = document.getElementById('demoUsers');
+      if (container && list) {
+        container.style.display = '';
+        const colors = ['#e17076','#faa774','#a695e7','#7bc862','#e6769e','#6ec9cb','#65aadd','#ee7a64'];
+        list.innerHTML = users.map(u => {
+          let hash = 0;
+          for (let i = 0; i < u.userId.length; i++) hash = u.userId.charCodeAt(i) + ((hash << 5) - hash);
+          const color = colors[Math.abs(hash) % colors.length];
+          return '<div class="flex flex-col items-center gap-1 px-4 py-3 bg-gray-50 hover:bg-gray-200 rounded-xl cursor-pointer text-sm transition min-w-[80px]" data-user="' + u.userId + '" data-pass="' + u.password + '"><div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-medium" style="background:' + color + '">' + u.displayName[0].toUpperCase() + '</div><div class="font-medium text-gray-700">' + u.displayName + '</div><div class="text-[10px] text-gray-400">click to login</div></div>';
+        }).join('');
+        list.querySelectorAll('[data-user]').forEach(el => {
+          el.onclick = () => {
+            const uid = el.getAttribute('data-user');
+            const pwd = el.getAttribute('data-pass');
+            try {
+              const app = Alpine.$data(document.getElementById('app'));
+              if (!app) return;
+              app.endpoint = window.location.origin;
+              app.userId = uid;
+              app.password = pwd;
+              app.doLogin();
+            } catch(e) { console.error(e); }
+          };
+        });
+      }
+    }
+  }
+} catch(e) {}
+</script>
+
+<script>
+function chatApp() {
+  return {
+    // State
+    endpoint: window.location.origin.replace(/\/+$/, ''),
+    userId: '',
+    password: '',
+    token: '',
+    signedIn: false,
+    loading: false,
+    error: '',
+    conversations: [],
+    currentConv: null,
+    messageBlocks: [],
+    messageText: '',
+    searchQuery: '',
+    showNewChat: false,
+    newChatUserId: '',
+    showChatInfo: false,
+    previewUrl: null,
+    sendingImage: false,
+    loadingMessages: false,
+    loadingOlder: false,
+    showMobileSidebar: false,
+    myProfile: null,
+    displayName: '',
+    typingUsers: {},
+    actionMsgId: null,
+    usersCache: {},
+    confirmDialog: { show: false, title: '', message: '', onConfirm: null },
+    connectionStatus: '',
+    sdkClient: null,
+
+    get filteredConversations() {
+      let list = [...this.conversations].sort((a, b) => {
+        if (a.sticky !== b.sticky) return a.sticky ? -1 : 1;
+        const aTime = new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0).getTime();
+        return bTime - aTime;
+      });
+      const q = this.searchQuery.toLowerCase().trim();
+      if (q) list = list.filter(c => (c.remark || c.name || c.attendee || c.topicId || '').toLowerCase().includes(q));
+      return list;
+    },
+
+    init() { this.$nextTick(() => { this.showMobileSidebar = window.innerWidth > 768; }); },
+
+    onResize() { this.showMobileSidebar = window.innerWidth > 768; },
+
+    async doLogin() {
+      this.loading = true;
+      this.error = '';
+      try {
+        let data;
+        if (window.__sdkReady) {
+          data = await window.__sdkSignin(this.endpoint, this.userId, this.password);
+          const info = { endpoint: this.endpoint, userId: data.email, token: data.token, name: data.displayName, avatar: data.profile?.avatar || '' };
+          this.sdkClient = new window.__SdkClient(info, 'restsend-chat');
+          this.setupSdkClient(this.sdkClient);
+          await this.sdkClient.connect();
+        } else {
+          this.error = 'SDK not loaded';
+          return;
+        }
+        this.token = data.token;
+        this.userId = data.email;
+        this.displayName = data.displayName || data.email;
+        this.myProfile = data.profile || null;
+        this.signedIn = true;
+      } catch(e) {
+        this.error = e.message || e.toString() || 'Login failed';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    setupSdkClient(client) {
+      client.onconnected = () => {
+        this.connectionStatus = 'connected';
+        client.syncFirstPageConversations({});
+      };
+      client.onconnecting = () => { this.connectionStatus = 'connecting...'; };
+      client.onbroken = (reason) => { this.connectionStatus = 'disconnected'; };
+      client.ontokenexpired = () => { this.doLogout(); };
+      client.onconversationsupdated = (convs) => {
+        if (convs && convs.length > 0) {
+          const oldMap = new Map(this.conversations.map(c => [c.topicId, c]));
+          for (const c of convs) {
+            if (c.lastMessage?.type === 'recall' && oldMap.has(c.topicId)) {
+              const old = oldMap.get(c.topicId);
+              c.lastMessage = old.lastMessage;
+            }
+            oldMap.set(c.topicId, c);
+          }
+          this.conversations = [...oldMap.values()];
+        }
+        const unseen = new Set();
+        for (const c of (this.conversations || [])) {
+          if (!c.multiple && c.attendee && !this.usersCache[c.attendee]) unseen.add(c.attendee);
+        }
+        if (unseen.size > 0) this.fetchProfiles([...unseen]);
+      };
+      client.ontopicmessage = (topicId, msg) => {
+        if (this.currentConv && this.currentConv.topicId === topicId) {
+          const exists = this.messageBlocks.some(b => b.items.some(i => i.id === msg.chatId));
+          if (!exists && !this.messageBlocks.some(b => b.items.some(i => i.id === (msg.id || msg.chatId)))) {
+            this.addSdkMessage(topicId, msg);
+          }
+        }
+        return { hasRead: this.currentConv?.topicId === topicId, unreadCountable: true };
+      };
+      client.ontopicread = (topicId, msg) => {
+        if (this.currentConv && this.currentConv.topicId === topicId) {
+          for (const block of this.messageBlocks) {
+            if (block.isSelf) {
+              for (const item of block.items) {
+                if (item.senderId === msg.attendee) item.read = true;
+              }
+            }
+          }
+        }
+      };
+      client.ontopictyping = (topicId, msg) => {
+        if (msg.attendee !== this.userId) {
+          this.typingUsers[topicId] = msg.attendee;
+          clearTimeout(this.typingUsers[`${topicId}_timer`]);
+          this.typingUsers[`${topicId}_timer`] = setTimeout(() => { delete this.typingUsers[topicId]; }, 3000);
+        }
+      };
+    },
+
+    addSdkMessage(topicId, msg) {
+      // Handle recall event: mark original message as recalled
+      if (msg.content?.type === 'recall') {
+        const origId = msg.content.text || msg.chatId;
+        for (const block of this.messageBlocks) {
+          for (const item of block.items) {
+            if (item.id === origId) { item.recall = true; return; }
+          }
+        }
+        return;
+      }
+      const newItem = {
+        id: msg.chatId, seq: msg.seq, senderId: msg.attendee,
+        content: msg.content || { type: 'chat', text: msg.message || '' },
+        createdAt: msg.createdAt, recall: false, read: false,
+      };
+      const blocks = this.messageBlocks;
+      const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+      const isSelf = msg.attendee === this.userId;
+      if (lastBlock && lastBlock.isSelf === isSelf &&
+          Math.abs(new Date(newItem.createdAt) - new Date(lastBlock.createdAt)) < 5*60*1000) {
+        lastBlock.items.push(newItem);
+      } else {
+        blocks.push({ isSelf, senderId: msg.attendee, createdAt: newItem.createdAt, items: [newItem] });
+      }
+      this.$nextTick(() => this.scrollToBottom());
+    },
+
+    async selectConversation(conv) {
+      this.showMobileSidebar = window.innerWidth <= 768 ? false : this.showMobileSidebar;
+      this.showChatInfo = false;
+      this.currentConv = conv;
+      this.messageBlocks = [];
+      if (!conv.multiple && conv.attendee && !this.usersCache[conv.attendee]) {
+        this.fetchProfiles([conv.attendee]);
+      }
+      if (this.sdkClient) {
+        try { conv.unread = 0; this.sdkClient.setConversationRead(conv.topicId); } catch(e) {}
+      }
+      this.loadingMessages = true;
+      if (this.sdkClient) {
+        try {
+          await this.sdkClient.syncChatLogs(conv.topicId, null, {
+            limit: 100,
+            onsuccess: (result) => {
+              this.messageBlocks = this.buildMessageBlocks(result?.items || []);
+              this.loadingMessages = false;
+              this.$nextTick(() => this.scrollToBottom());
+            },
+            onerror: () => { this.loadingMessages = false; }
+          });
+        } catch(e) { console.error(e); this.loadingMessages = false; }
+      } else {
+        this.loadingMessages = false;
+      }
+    },
+
+    async loadOlderMessages() {
+      if (this.loadingOlder || !this.currentConv || !this.sdkClient) return;
+      this.loadingOlder = true;
+      const blocks = this.messageBlocks;
+      if (blocks.length === 0) { this.loadingOlder = false; return; }
+      const firstSeq = Math.min(...blocks[0].items.map(m => m.seq || 0));
+      if (firstSeq <= 0) { this.loadingOlder = false; return; }
+      try {
+        await this.sdkClient.syncChatLogs(this.currentConv.topicId, firstSeq - 1, {
+          onsuccess: (result) => {
+            const items = result.items || [];
+            if (items.length > 0) {
+              const oldBlocks = this.buildMessageBlocks(items);
+              const existingIds = new Set();
+              for (const b of blocks) for (const i of b.items) existingIds.add(i.id);
+              const newBlocks = [];
+              for (const b of oldBlocks) {
+                const filtered = b.items.filter(i => !existingIds.has(i.id));
+                if (filtered.length > 0) newBlocks.push({ ...b, items: filtered });
+              }
+              this.messageBlocks = [...newBlocks, ...blocks];
+            }
+            this.loadingOlder = false;
+          },
+          onerror: () => { this.loadingOlder = false; }
+        });
+      } catch(e) { this.loadingOlder = false; }
+    },
+
+    buildMessageBlocks(items) {
+      if (!items || items.length === 0) return [];
+      const sorted = [...items].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+      const blocks = [];
+      let currentBlock = null;
+      for (const item of sorted) {
+        const ct = item.content?.type || '';
+        if (ct === 'conversation.update' || ct === 'conversation.removed' || ct === 'recall' || !ct) continue;
+        const itemTime = new Date(item.createdAt).getTime();
+        const isSelf = item.senderId === this.userId;
+        if (!currentBlock || currentBlock.isSelf !== isSelf ||
+            Math.abs(itemTime - new Date(currentBlock.createdAt).getTime()) > 5*60*1000) {
+          currentBlock = { isSelf, senderId: item.senderId, createdAt: item.createdAt, items: [] };
+          blocks.push(currentBlock);
+        }
+        currentBlock.items.push({
+          id: item.id || item.chatId, seq: item.seq, senderId: item.senderId,
+          content: item.content, createdAt: item.createdAt, recall: item.recall, read: item.read,
+          text: item.content?.text || '', failed: false,
+        });
+      }
+      return blocks;
+    },
+
+    async doSendMessage() {
+      const text = this.messageText.trim();
+      if (!text || !this.currentConv || !this.sdkClient) return;
+      this.messageText = '';
+      try {
+        const chatId = await this.sdkClient.doSendText(this.currentConv.topicId, text, {});
+        const msg = { id: chatId, senderId: this.userId, content: { type: 'chat', text }, createdAt: new Date().toISOString(), seq: 0, recall: false, read: false };
+        const blocks = this.messageBlocks;
+        const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+        if (lastBlock && lastBlock.isSelf && Math.abs(new Date(msg.createdAt) - new Date(lastBlock.createdAt)) < 5*60*1000) {
+          lastBlock.items.push(msg);
+        } else {
+          blocks.push({ isSelf: true, senderId: this.userId, createdAt: msg.createdAt, items: [msg] });
+        }
+        this.$nextTick(() => this.scrollToBottom());
+      } catch(e) {
+        console.error(e);
+      }
+    },
+
+    addPendingMessage(msg) {
+      const blocks = this.messageBlocks;
+      const lastBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+      if (lastBlock && lastBlock.isSelf && Math.abs(new Date(msg.createdAt) - new Date(lastBlock.createdAt)) < 5*60*1000) {
+        lastBlock.items.push(msg);
+      } else {
+        blocks.push({ isSelf: true, senderId: this.userId, createdAt: msg.createdAt, items: [msg] });
+      }
+      this.$nextTick(() => this.scrollToBottom());
+    },
+
+    removePendingMessage(id) {
+      this.messageBlocks = this.messageBlocks.map(b => ({
+        ...b, items: b.items.filter(i => i.id !== id)
+      })).filter(b => b.items.length > 0);
+    },
+
+    async doCreateChat() {
+      const targetId = this.newChatUserId.trim();
+      if (!targetId || targetId === this.userId || !this.sdkClient) return;
+      try {
+        await this.sdkClient.createChat(targetId);
+        this.showNewChat = false;
+        this.newChatUserId = '';
+        // SDK's onconversationsupdated will update the list
+      } catch(e) { console.error(e); }
+    },
+
+    async toggleMute() {
+      if (!this.currentConv || !this.sdkClient) return;
+      const mute = !this.currentConv.mute;
+      try {
+        await this.sdkClient.setConversationMute(this.currentConv.topicId, mute);
+        this.currentConv.mute = mute;
+      } catch(e) { console.error(e); }
+    },
+
+    async toggleSticky() {
+      if (!this.currentConv || !this.sdkClient) return;
+      const sticky = !this.currentConv.sticky;
+      try {
+        await this.sdkClient.setConversationSticky(this.currentConv.topicId, sticky);
+        this.currentConv.sticky = sticky;
+      } catch(e) { console.error(e); }
+    },
+
+    async doClearMessages() {
+      if (!this.currentConv || !this.sdkClient) return;
+      this.confirmDialog = {
+        show: true,
+        title: 'Clear messages',
+        message: 'Clear all messages in this conversation?',
+        onConfirm: async () => {
+          try {
+            await this.sdkClient.cleanMessages(this.currentConv.topicId);
+            this.messageBlocks = [];
+          } catch(e) { console.error(e); }
+        }
+      };
+    },
+
+    async doDeleteConversation() {
+      if (!this.currentConv || !this.sdkClient) return;
+      this.confirmDialog = {
+        show: true,
+        title: 'Delete conversation',
+        message: 'Delete this conversation? This action cannot be undone.',
+        onConfirm: async () => {
+          try {
+            await this.sdkClient.removeConversation(this.currentConv.topicId);
+            this.conversations = this.conversations.filter(c => c.topicId !== this.currentConv.topicId);
+            this.currentConv = null;
+            this.messageBlocks = [];
+          } catch(e) { console.error(e); }
+        }
+      };
+    },
+
+    async doRecallMessage(item) {
+      if (!this.currentConv || !this.sdkClient || !item) return;
+      this.actionMsgId = null;
+      try {
+        await this.sdkClient.doRecall(this.currentConv.topicId, item.id, {});
+        item.recall = true;
+      } catch(e) { console.error(e); }
+    },
+
+    async doDeleteMessage(item) {
+      if (!this.currentConv || !this.sdkClient || !item) return;
+      this.actionMsgId = null;
+      try {
+        await this.sdkClient.removeMessages(this.currentConv.topicId, [item.id]);
+        this.messageBlocks = this.messageBlocks.map(b => ({
+          ...b,
+          items: b.items.filter(i => i.id !== item.id)
+        })).filter(b => b.items.length > 0);
+      } catch(e) { console.error(e); }
+    },
+
+    async doLogout() {
+      if (this.sdkClient) { try { this.sdkClient.shutdown(); } catch(e) {} this.sdkClient = null; }
+      this.signedIn = false;
+      this.token = '';
+      this.conversations = [];
+      this.currentConv = null;
+      this.messageBlocks = [];
+      this.connectionStatus = '';
+    },
+
+    async fetchProfiles(userIds) {
+      if (!this.sdkClient || !userIds.length) return;
+      try {
+        const users = await this.sdkClient.getUsers(userIds);
+        for (const u of users) { if (u && u.userId) this.usersCache[u.userId] = u; }
+      } catch(e) { console.error(e); }
+    },
+
+    // Typing
+    onInputKeydown(e) {
+      if (e.key === 'Enter') return;
+      if (this._typingTimer) clearTimeout(this._typingTimer);
+      this._typingTimer = setTimeout(() => {
+        if (this.currentConv && this.sdkClient) {
+          try { this.sdkClient.doTyping(this.currentConv.topicId); } catch(e) {}
+        }
+      }, 500);
+    },
+
+    // Attachment
+    sendAttachment() { const el = this.$refs.fileInput; if (el) el.click(); },
+
+    async onFileSelected(e) {
+      const file = e.target?.files?.[0];
+      if (!file || !this.currentConv || !this.sdkClient) return;
+      const isImage = file.type.startsWith('image/');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      this.sendingImage = true;
+      let pendingId = null;
+
+      if (isImage) {
+        const localUrl = URL.createObjectURL(file);
+        pendingId = 'pending_' + Date.now();
+        this.addPendingMessage({
+          id: pendingId,
+          senderId: this.userId,
+          content: { type: 'image', text: localUrl, placeholder: file.name, size: file.size },
+          createdAt: new Date().toISOString(),
+          seq: 0, recall: false, read: false, uploading: true,
+        });
+      }
+
+      try {
+        const resp = await fetch((this.endpoint || '/') + '/api/attachment/upload', {
+          method: 'POST', headers: { 'Authorization': 'Bearer ' + this.token }, body: formData
+        });
+        if (!resp.ok) throw new Error('Upload failed');
+        const data = await resp.json();
+        const url = data.publicUrl || data.url || data.path;
+        const ct = { type: isImage ? 'image' : 'file', text: url, placeholder: file.name, size: file.size };
+        await this.sdkClient.doSend(this.currentConv.topicId, ct, {});
+        if (pendingId) this.removePendingMessage(pendingId);
+      } catch(e) {
+        console.error(e);
+        if (pendingId) {
+          for (const block of this.messageBlocks) {
+            for (const item of block.items) {
+              if (item.id === pendingId) { item.failed = true; item.uploading = false; break; }
+            }
+          }
+        }
+      } finally {
+        this.sendingImage = false;
+        e.target.value = '';
+      }
+    },
+
+    downloadFile(content) { if (content?.text) window.open(content.text, '_blank'); },
+    previewImage(url) { if (url) this.previewUrl = url; },
+    onAvatarError(e) { if (e?.target) e.target.style.display = 'none'; },
+
+    onScrollMessages(e) {
+      if (e.target.scrollTop < 50 && !this.loadingOlder) this.loadOlderMessages();
+    },
+
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const el = this.$refs.messagesRef;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+
+    // Helpers
+    avatarColor(id) {
+      const colors = ['#e17076','#faa774','#a695e7','#7bc862','#e6769e','#6ec9cb','#65aadd','#ee7a64'];
+      if (!id) return colors[0];
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+      return colors[Math.abs(hash) % colors.length];
+    },
+    avatarInitial(id) { return id ? id.charAt(0).toUpperCase() : '?'; },
+
+    getConvTitle(conv) {
+      if (!conv) return '';
+      if (conv.remark) return conv.remark;
+      if (conv.name) return conv.name;
+      if (!conv.multiple && conv.attendee) {
+        const cached = this.usersCache[conv.attendee];
+        if (cached?.name) return cached.name;
+      }
+      if (!conv.multiple && conv.attendee) return conv.attendee;
+      if (!conv.multiple && conv.topicId && conv.topicId.includes(':')) {
+        const parts = conv.topicId.split(':');
+        return parts[0] === this.userId ? parts[1] : parts[0];
+      }
+      return conv.topicId || 'Unknown';
+    },
+    getLastMessageText(conv) {
+      if (!conv || !conv.lastMessage) return '';
+      const ct = conv.lastMessage.type || 'chat';
+      if (ct === 'image') return '[Image]';
+      if (ct === 'file') return conv.lastMessage.placeholder || '[File]';
+      if (ct === 'link') return conv.lastMessage.text || '[Link]';
+      return conv.lastMessage.text || '';
+    },
+    getBlockSenderName(block) {
+      if (!block || !block.senderId) return '';
+      const cached = this.usersCache[block.senderId];
+      return cached?.name || cached?.userId || block.senderId;
+    },
+    shouldShowDate(block) { return true; },
+
+    formatTime(time) {
+      if (!time) return '';
+      const d = new Date(time); if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      const p = v => String(v).padStart(2,'0');
+      if (sameDay) return p(d.getHours()) + ':' + p(d.getMinutes());
+      return p(d.getDate()) + '/' + p(d.getMonth()+1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    },
+    formatDate(time) {
+      if (!time) return '';
+      const d = new Date(time); if (isNaN(d.getTime())) return '';
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const msgDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = Math.floor((today - msgDate) / (1000*60*60*24));
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      return d.getDate() + '/' + (d.getMonth()+1) + '/' + d.getFullYear();
+    },
+    bytesToSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const sizes = ['B','KB','MB','GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+    },
+  };
+}
+</script>
+</body>
+</html>

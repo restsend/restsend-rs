@@ -5,6 +5,7 @@ use axum::routing::{get, post};
 use axum::Router;
 use std::collections::HashSet;
 use tower_http::cors::CorsLayer;
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::layer::SubscriberExt;
@@ -32,6 +33,9 @@ pub async fn build_router(
     let db = connect_db(&config.database_url).await?;
     if config.run_migrations {
         run_migrations(&db).await?;
+    }
+    if config.demo {
+        create_demo_accounts(&db).await?;
     }
 
     let ws_hub = std::sync::Arc::new(WsHub::default());
@@ -340,7 +344,9 @@ pub async fn build_router(
 
     let api_router = api_public.merge(api_protected);
 
-    let admin_enabled = std::path::Path::new("static/admin.html").exists();
+    let static_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("static");
+    let admin_enabled = static_dir.join("admin.html").exists();
+    let chat_enabled = static_dir.join("chat.html").exists();
 
     let mut app = Router::new();
     if admin_enabled {
@@ -364,6 +370,19 @@ pub async fn build_router(
                     api::middleware_auth::openapi_auth,
                 )),
             );
+    }
+    if chat_enabled {
+        app = app.route("/chat", get(api::admin::chat_spa));
+        for p in [".", "..", "../.."] {
+            let js_dir = std::path::Path::new(p).join("js");
+            if js_dir.exists() {
+                app = app.nest_service("/js", ServeDir::new(js_dir));
+                break;
+            }
+        }
+    }
+    if config.demo {
+        app = app.route("/chat/api/demo-users", get(api::admin::demo_users));
     }
 
     let app = app
@@ -494,6 +513,94 @@ async fn handle_event_webhooks(state: AppState, event: BackendEvent) {
             tracing::warn!(target = %submit_target, event = event_name, error = %err, "webhook delivery task submit failed");
         }
     }
+}
+
+async fn create_demo_accounts(db: &sea_orm::DatabaseConnection) -> Result<(), sea_orm::DbErr> {
+    use crate::entity::user;
+    use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait, IntoActiveModel};
+
+    let demo_users = [
+        ("alice", "Alice"),
+        ("bob", "Bob"),
+        ("guido", "Guido"),
+        ("jinti", "Jinti"),
+    ];
+
+    for (user_id, display_name) in &demo_users {
+        let now = chrono::Utc::now().to_rfc3339();
+        let password = format!("{}:demo", user_id);
+        let hashed = crate::api::auth::hash_password(&password);
+        let existing = user::Entity::find_by_id(user_id.to_string())
+            .one(db)
+            .await?;
+        if let Some(model) = existing {
+            let mut active = model.into_active_model();
+            active.password = Set(hashed);
+            active.display_name = Set(display_name.to_string());
+            active.updated_at = Set(now);
+            active.update(db).await?;
+            tracing::info!(user_id = %user_id, "demo account password reset");
+        } else {
+            let active = user::ActiveModel {
+                user_id: Set(user_id.to_string()),
+                password: Set(hashed),
+                display_name: Set(display_name.to_string()),
+                avatar: Set(String::new()),
+                source: Set("demo".to_string()),
+                locale: Set(String::new()),
+                city: Set(String::new()),
+                country: Set(String::new()),
+                gender: Set(String::new()),
+                public_key: Set(String::new()),
+                is_staff: Set(false),
+                enabled: Set(true),
+                created_at: Set(now.clone()),
+                updated_at: Set(now),
+            };
+            active.insert(db).await?;
+            tracing::info!(user_id = %user_id, "demo account created");
+        }
+    }
+
+    // create demo admin account with fixed credentials
+    {
+        let now = chrono::Utc::now().to_rfc3339();
+        let user_id = "admin";
+        let password = "restsend";
+        let hashed = crate::api::auth::hash_password(password);
+        let existing = user::Entity::find_by_id(user_id.to_string())
+            .one(db)
+            .await?;
+        if let Some(model) = existing {
+            let mut active = model.into_active_model();
+            active.password = Set(hashed);
+            active.is_staff = Set(true);
+            active.updated_at = Set(now);
+            active.update(db).await?;
+            tracing::info!(user_id = %user_id, "demo admin password reset");
+        } else {
+            let active = user::ActiveModel {
+                user_id: Set(user_id.to_string()),
+                password: Set(hashed),
+                display_name: Set("Admin".to_string()),
+                avatar: Set(String::new()),
+                source: Set("demo".to_string()),
+                locale: Set(String::new()),
+                city: Set(String::new()),
+                country: Set(String::new()),
+                gender: Set(String::new()),
+                public_key: Set(String::new()),
+                is_staff: Set(true),
+                enabled: Set(true),
+                created_at: Set(now.clone()),
+                updated_at: Set(now),
+            };
+            active.insert(db).await?;
+            tracing::info!(user_id = %user_id, "demo admin account created");
+        }
+    }
+
+    Ok(())
 }
 
 pub fn init_tracing(config: &AppConfig) -> Option<WorkerGuard> {

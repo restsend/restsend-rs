@@ -1,6 +1,8 @@
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use axum::extract::connect_info::ConnectInfo;
 use axum::extract::State;
 use axum::http::{header, Request};
 use axum::middleware::Next;
@@ -19,7 +21,11 @@ pub async fn request_access_log(
     let started = Instant::now();
     let method = req.method().to_string();
     let path = req.uri().path().to_string();
-    let client_ip = extract_client_ip(&req);
+    let client_ip = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(addr)| addr.ip().to_string())
+        .unwrap_or_else(|| extract_client_ip(&req));
     let user_slot = Arc::new(Mutex::new(None));
     req.extensions_mut()
         .insert(AccessLogUserId(user_slot.clone()));

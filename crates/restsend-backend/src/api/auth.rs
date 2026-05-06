@@ -1,4 +1,6 @@
 use axum::extract::State;
+use axum::http::{header, HeaderValue};
+use axum::response::IntoResponse;
 use axum::Json;
 use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, Set};
 use std::time::Instant;
@@ -63,7 +65,7 @@ pub struct AuthUserProfile {
 pub async fn register(
     State(state): State<AppState>,
     Json(form): Json<AuthRegisterForm>,
-) -> ApiResult<Json<AuthLoginResponse>> {
+) -> ApiResult<axum::response::Response> {
     let st = Instant::now();
     if form.email.trim().is_empty() {
         return Err(ApiError::bad_request("email is required"));
@@ -82,7 +84,7 @@ pub async fn register(
             },
         )
         .await
-        .map_err(|e| ApiError::internal(e.to_string()))?;
+        .map_err(map_user_error)?;
 
     let existing = user::Entity::find_by_id(form.email.clone())
         .one(&state.db)
@@ -107,13 +109,14 @@ pub async fn register(
         elapsed_ms = st.elapsed().as_millis() as u64,
         "auth register succeeded"
     );
-    Ok(Json(to_auth_login_response(saved.into(), token)))
+    let resp = to_auth_login_response(saved.into(), token.clone());
+    Ok(cookie_response(resp, &token))
 }
 
 pub async fn login(
     State(state): State<AppState>,
     Json(form): Json<AuthLoginForm>,
-) -> ApiResult<Json<AuthLoginResponse>> {
+) -> ApiResult<axum::response::Response> {
     let st = Instant::now();
     if !form.auth_token.is_empty() {
         let user_id = state
@@ -141,7 +144,8 @@ pub async fn login(
             elapsed_ms = st.elapsed().as_millis() as u64,
             "auth login succeeded"
         );
-        return Ok(Json(to_auth_login_response(user, form.auth_token)));
+        let resp = to_auth_login_response(user, form.auth_token.clone());
+        return Ok(cookie_response(resp, &form.auth_token));
     }
 
     if form.email.trim().is_empty() {
@@ -187,13 +191,14 @@ pub async fn login(
         elapsed_ms = st.elapsed().as_millis() as u64,
         "auth login succeeded"
     );
-    Ok(Json(to_auth_login_response(user, token)))
+    let resp = to_auth_login_response(user, token.clone());
+    Ok(cookie_response(resp, &token))
 }
 
 pub async fn logout(
     State(state): State<AppState>,
     auth: crate::api::auth_ctx::AuthCtx,
-) -> ApiResult<Json<bool>> {
+) -> ApiResult<axum::response::Response> {
     let st = Instant::now();
     let _ = state
         .auth_service
@@ -205,7 +210,11 @@ pub async fn logout(
         elapsed_ms = st.elapsed().as_millis() as u64,
         "auth logout succeeded"
     );
-    Ok(Json(true))
+    let clear_cookie = "token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0";
+    let mut resp = axum::response::Json(true).into_response();
+    resp.headers_mut()
+        .insert(header::SET_COOKIE, HeaderValue::from_str(clear_cookie).unwrap());
+    Ok(resp)
 }
 
 pub async fn guest_login(
@@ -257,6 +266,20 @@ pub async fn guest_login(
         "auth guest login succeeded"
     );
     Ok(Json(to_auth_login_response(user, token)))
+}
+
+fn cookie_response(data: AuthLoginResponse, token: &str) -> axum::response::Response {
+    let cookie = format!(
+        "token={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}",
+        token,
+        30 * 24 * 3600
+    );
+    let mut resp = axum::response::Json(data).into_response();
+    resp.headers_mut()
+        .insert(header::SET_COOKIE, HeaderValue::from_str(&cookie).unwrap());
+    resp.headers_mut()
+        .insert(header::ACCESS_CONTROL_ALLOW_CREDENTIALS, HeaderValue::from_static("true"));
+    resp
 }
 
 fn to_auth_login_response(user: crate::User, token: String) -> AuthLoginResponse {
@@ -336,4 +359,16 @@ fn subtle_constant_time_eq(left: &[u8], right: &[u8]) -> bool {
         diff |= a ^ b;
     }
     diff == 0
+}
+
+fn map_user_error(err: crate::services::DomainError) -> ApiError {
+    match err {
+        crate::services::DomainError::Conflict => {
+            ApiError::bad_request("user already exists")
+        }
+        crate::services::DomainError::Validation(msg) => {
+            ApiError::bad_request(msg)
+        }
+        _ => ApiError::internal(err.to_string()),
+    }
 }

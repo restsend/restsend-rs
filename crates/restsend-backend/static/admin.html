@@ -83,6 +83,7 @@
         <input x-model="loginUserId" type="text" placeholder="Admin user" class="w-44 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
         <input x-model="loginPassword" type="password" placeholder="Password" class="w-56 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
         <button @click="login()" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm">Login</button>
+        <span x-show="window.__DEMO_MODE__" class="text-xs text-amber-600">Demo: <span class="font-semibold">admin</span> / <span class="font-semibold">restsend</span></span>
       </div>
       <div class="flex gap-3 items-center" x-show="authenticated">
         <div class="text-sm text-cyan-800">Signed in as <span class="font-semibold" x-text="loginUserId || 'admin'"></span></div>

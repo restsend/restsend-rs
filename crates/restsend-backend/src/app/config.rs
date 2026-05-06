@@ -29,6 +29,7 @@ pub struct AppConfig {
     pub ws_client_queue_size: usize,
     pub ws_typing_interval_ms: u64,
     pub ws_drop_on_backpressure: bool,
+    pub demo: bool,
 }
 
 impl AppConfig {
@@ -149,6 +150,7 @@ impl AppConfig {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(1000);
         let ws_drop_on_backpressure = env_bool("RS_WS_DROP_ON_BACKPRESSURE", true);
+        let demo = env_bool("RS_DEMO", false);
 
         Ok(Self {
             addr,
@@ -180,6 +182,7 @@ impl AppConfig {
             ws_client_queue_size,
             ws_typing_interval_ms,
             ws_drop_on_backpressure,
+            demo,
         })
     }
 }

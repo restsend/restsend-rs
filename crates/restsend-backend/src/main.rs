@@ -26,6 +26,11 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|err| format!("failed to bind {}: {}", config.addr, err))?;
     tracing::info!(addr = %config.addr, "restsend backend listening");
 
-    axum::serve(listener, app.with_state(state)).await?;
+    axum::serve(
+        listener,
+        app.with_state(state)
+            .into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await?;
     Ok(())
 }

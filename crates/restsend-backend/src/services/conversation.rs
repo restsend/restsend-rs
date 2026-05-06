@@ -229,6 +229,29 @@ impl ConversationService {
         }
         Ok(())
     }
+
+    pub async fn update_last_seq(
+        &self,
+        owner_id: &str,
+        topic_id: &str,
+        seq: i64,
+    ) -> DomainResult<()> {
+        if let Ok(existing) = conversation::Entity::find_by_id((
+            owner_id.to_string(),
+            topic_id.to_string(),
+        ))
+        .one(&self.db)
+        .await
+        {
+            if let Some(model) = existing {
+                let mut active = model.into_active_model();
+                active.last_seq = Set(seq);
+                active.updated_at = Set(now());
+                let _ = active.update(&self.db).await;
+            }
+        }
+        Ok(())
+    }
 }
 
 fn now() -> String {

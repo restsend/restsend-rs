@@ -48,6 +48,7 @@ mod tests {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
             ws_drop_on_backpressure: true,
+            demo: false,
         }
     }
 

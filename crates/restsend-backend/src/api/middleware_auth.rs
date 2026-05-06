@@ -68,20 +68,27 @@ pub async fn user_auth(
     mut req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let header_val = req
+    let token = req
         .headers()
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
+        .and_then(parse_bearer_token)
+        .map(str::to_string)
+        .or_else(|| {
+            req.headers()
+                .get(header::COOKIE)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|cookies| {
+                    cookies.split(';').find_map(|pair| {
+                        let pair = pair.trim();
+                        pair.strip_prefix("token=").map(str::to_string)
+                    })
+                })
+        })
         .ok_or_else(|| {
-            tracing::warn!("user auth rejected: missing authorization header");
+            tracing::warn!("user auth rejected: missing authorization header or token cookie");
             ApiError::Unauthorized
         })?;
-
-    let token = parse_bearer_token(header_val).ok_or_else(|| {
-        tracing::warn!("user auth rejected: invalid bearer format");
-        ApiError::Unauthorized
-    })?;
-    let token = token.to_string();
     let valid = state
         .auth_service
         .validate(&token)

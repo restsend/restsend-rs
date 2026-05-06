@@ -351,10 +351,17 @@ pub async fn chat_send(
     if form.r#type != "chat" {
         return Err(ApiError::bad_request("type must be chat"));
     }
-    let (_effective_form, _topic_id, resp) =
+    let (effective_form, _topic_id, resp) =
         send_chat_message(&state, auth.user_id(), form).await?;
-    let payload = serde_json::to_string(&resp).unwrap_or_default();
-    crate::api::push::broadcast_to_user(&state, auth.user_id(), &payload).await;
+    let event_payload = build_chat_event(&effective_form, auth.user_id(), &resp);
+    crate::api::push::broadcast_to_user(&state, auth.user_id(), &event_payload).await;
+    if let Ok(members) = state.topic_service.list_members(&resp.topic_id).await {
+        for member in members {
+            if member != auth.user_id() {
+                crate::api::push::broadcast_to_user(&state, &member, &event_payload).await;
+            }
+        }
+    }
     Ok(Json(resp))
 }
 
@@ -365,11 +372,42 @@ pub async fn chat_send_to_topic(
     Json(mut form): Json<OpenApiChatMessageForm>,
 ) -> ApiResult<Json<OpenApiSendMessageResponse>> {
     form.topic_id = topic_id.clone();
-    let (_effective_form, _topic_id, resp) =
+    let (effective_form, _topic_id, resp) =
         send_chat_message(&state, auth.user_id(), form).await?;
-    let payload = serde_json::to_string(&resp).unwrap_or_default();
-    crate::api::push::broadcast_to_user(&state, auth.user_id(), &payload).await;
+    let event_payload = build_chat_event(&effective_form, auth.user_id(), &resp);
+    crate::api::push::broadcast_to_user(&state, auth.user_id(), &event_payload).await;
+    if let Ok(members) = state.topic_service.list_members(&resp.topic_id).await {
+        for member in members {
+            if member != auth.user_id() {
+                crate::api::push::broadcast_to_user(&state, &member, &event_payload).await;
+            }
+        }
+    }
     Ok(Json(resp))
+}
+
+fn build_chat_event(form: &OpenApiChatMessageForm, user_id: &str, resp: &OpenApiSendMessageResponse) -> String {
+    let created_at = form.created_at.clone().unwrap_or_default();
+    serde_json::to_string(&serde_json::json!({
+        "type": "chat",
+        "topicId": resp.topic_id,
+        "seq": resp.seq,
+        "chatId": resp.chat_id,
+        "attendee": user_id,
+        "createdAt": created_at,
+        "content": form.content.clone().or_else(|| {
+            if form.message.is_empty() {
+                None
+            } else {
+                Some(crate::Content {
+                    content_type: if form.r#type.is_empty() { "chat".to_string() } else { form.r#type.clone() },
+                    text: form.message.clone(),
+                    ..crate::Content::default()
+                })
+            }
+        })
+    }))
+    .unwrap_or_default()
 }
 
 pub async fn chat_remove_messages(
@@ -404,6 +442,23 @@ pub async fn chat_clear_messages(
         .clear_messages(auth.user_id(), &topic_id, last_seq)
         .await
         .map_err(map_domain_error)?;
+
+    let fields = json!({
+        "lastMessage": null,
+        "lastMessageAt": "",
+        "unread": 0,
+        "startSeq": last_seq,
+    });
+    state
+        .event_bus
+        .publish(BackendEvent::ConversationUpdate(ConversationUpdateEvent {
+            topic_id: topic_id.clone(),
+            owner_id: auth.user_id().to_string(),
+            fields: fields.clone(),
+        }));
+    let payload = build_conversation_update_payload(auth.user_id(), &topic_id, &fields);
+    crate::api::push::broadcast_to_user(&state, auth.user_id(), &payload).await;
+
     Ok(Json(true))
 }
 
@@ -437,24 +492,35 @@ async fn update_topic_conversations(
         }
     });
 
+    let is_unreadable = content.as_ref().map_or(false, |c| {
+        c.unreadable || c.content_type == "recall" || c.content_type == "conversation.update" || c.content_type == "conversation.removed"
+    });
+
     if let Ok(members) = state.topic_service.list_members(topic_id).await {
         for user_id in members {
-            let unread = if user_id == resp.sender_id { 0 } else { 1 };
-            let _ = state
-                .conversation_service
-                .create_or_update(crate::Conversation {
-                    owner_id: user_id,
-                    topic_id: topic_id.to_string(),
-                    unread,
-                    last_seq: resp.seq,
-                    last_sender_id: resp.sender_id.clone(),
-                    last_message: content.clone(),
-                    last_message_at: Utc::now().to_rfc3339(),
-                    last_message_seq: Some(resp.seq),
-                    updated_at: Utc::now().to_rfc3339(),
-                    ..crate::Conversation::default()
-                })
-                .await;
+            if is_unreadable {
+                let _ = state
+                    .conversation_service
+                    .update_last_seq(&user_id, topic_id, resp.seq)
+                    .await;
+            } else {
+                let unread = if user_id == resp.sender_id { 0 } else { 1 };
+                let _ = state
+                    .conversation_service
+                    .create_or_update(crate::Conversation {
+                        owner_id: user_id,
+                        topic_id: topic_id.to_string(),
+                        unread,
+                        last_seq: resp.seq,
+                        last_sender_id: resp.sender_id.clone(),
+                        last_message: content.clone(),
+                        last_message_at: Utc::now().to_rfc3339(),
+                        last_message_seq: Some(resp.seq),
+                        updated_at: Utc::now().to_rfc3339(),
+                        ..crate::Conversation::default()
+                    })
+                    .await;
+            }
         }
     }
 }
