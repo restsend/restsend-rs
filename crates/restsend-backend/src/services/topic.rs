@@ -369,7 +369,9 @@ impl TopicService {
         keyword: Option<&str>,
     ) -> DomainResult<(Vec<Topic>, u64)> {
         let limit = limit.clamp(1, 200);
-        let mut query = topic::Entity::find().order_by_asc(topic::Column::Id);
+        let mut query = topic::Entity::find()
+            .filter(topic::Column::Multiple.eq(true))
+            .order_by_asc(topic::Column::Id);
         if let Some(keyword) = keyword.map(str::trim).filter(|v| !v.is_empty()) {
             query = query.filter(
                 topic::Column::Id

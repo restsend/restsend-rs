@@ -35,23 +35,40 @@
     }
 
     .tab-button {
-      border: 1px solid #bae6fd;
-      background: rgba(255, 255, 255, 0.7);
+      border: none;
+      background: transparent;
       color: #155e75;
       transition: all 0.15s ease;
+      border-radius: 0;
+      padding-left: 0;
+      padding-right: 0;
+      position: relative;
     }
 
     .tab-button-active {
-      border-color: #06b6d4;
-      background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-      color: #ecfeff;
-      box-shadow: 0 10px 30px rgba(8, 145, 178, 0.18);
+      color: #0f172a;
+      box-shadow: none;
+    }
+
+    .tab-button-active::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -8px;
+      height: 2px;
+      background: #06b6d4;
     }
 
     .action-button[disabled] {
       opacity: 0.45;
       cursor: not-allowed;
       box-shadow: none;
+    }
+
+    .metric-value {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
   </style>
 </head>
@@ -62,11 +79,14 @@
         <h1 class="text-2xl font-semibold text-cyan-950">Restsend Admin</h1>
         <p class="text-sm text-slate-400">Superuser console for config, users, topics and runtime metrics</p>
       </div>
-      <div class="flex gap-2 items-center" x-show="bootstrap.superuserCount > 0">
+      <div class="flex gap-2 items-center" x-show="bootstrap.superuserCount > 0 && !authenticated">
         <input x-model="loginUserId" type="text" placeholder="Admin user" class="w-44 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
         <input x-model="loginPassword" type="password" placeholder="Password" class="w-56 rounded-xl bg-white border border-cyan-200 px-3 py-2 text-sm shadow-sm">
         <button @click="login()" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white shadow-sm">Login</button>
-        <button x-show="authenticated" @click="logout()" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm text-cyan-900 shadow-sm">Logout</button>
+      </div>
+      <div class="flex gap-3 items-center" x-show="authenticated">
+        <div class="text-sm text-cyan-800">Signed in as <span class="font-semibold" x-text="loginUserId || 'admin'"></span></div>
+        <button @click="logout()" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm text-cyan-900 shadow-sm">Logout</button>
       </div>
     </div>
 
@@ -88,11 +108,11 @@
       </div>
     </section>
 
-    <div x-show="authenticated" class="flex flex-wrap gap-2 rounded-2xl border border-cyan-200 bg-white/80 p-2 shadow-sm">
-      <button @click="currentTab = 'settings'" :class="tabClass('settings')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Settings</button>
-      <button @click="currentTab = 'metrics'" :class="tabClass('metrics')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Metrics</button>
-      <button @click="currentTab = 'users'" :class="tabClass('users')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Users</button>
-      <button @click="currentTab = 'topics'" :class="tabClass('topics')" class="tab-button rounded-xl px-4 py-2 text-sm font-medium">Topics</button>
+    <div x-show="authenticated" class="flex flex-wrap gap-6 border-b border-cyan-200 bg-transparent px-1 pb-2">
+      <button @click="currentTab = 'settings'" :class="tabClass('settings')" class="tab-button py-2 text-sm font-medium">Settings</button>
+      <button @click="currentTab = 'metrics'" :class="tabClass('metrics')" class="tab-button py-2 text-sm font-medium">Metrics</button>
+      <button @click="currentTab = 'users'" :class="tabClass('users')" class="tab-button py-2 text-sm font-medium">Users</button>
+      <button @click="currentTab = 'topics'" :class="tabClass('topics')" class="tab-button py-2 text-sm font-medium">Topics</button>
     </div>
 
     <div class="grid gap-4 md:grid-cols-4" x-show="authenticated && currentTab === 'metrics'">
@@ -115,13 +135,23 @@
 
       <section class="rounded-2xl border border-cyan-200 bg-white p-5 lg:col-span-2 shadow-sm">
         <h2 class="text-lg font-semibold">Effective Config</h2>
-        <div class="mt-4 grid gap-3 md:grid-cols-2 text-sm">
-          <template x-for="item in configEntries" :key="item.key">
-            <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-2">
-              <div class="text-slate-400" x-text="item.key"></div>
-              <div class="mt-1 break-all" x-text="item.value"></div>
-            </div>
-          </template>
+        <div class="mt-4 overflow-auto">
+          <table class="w-full text-sm">
+            <thead class="text-slate-400">
+              <tr>
+                <th class="text-left py-2 pr-4">Key</th>
+                <th class="text-left py-2">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="item in configEntries" :key="item.key">
+                <tr class="border-t border-cyan-100 align-top">
+                  <td class="py-3 pr-4 font-medium text-cyan-900" x-text="item.key"></td>
+                  <td class="py-3 break-all" x-text="item.value"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
         </div>
       </section>
     </div>
@@ -171,11 +201,11 @@
           <template x-for="pool in poolCards" :key="pool.name">
             <div class="rounded-xl border border-cyan-100 bg-cyan-50/70 px-3 py-3 space-y-2">
               <div class="font-medium" x-text="pool.name"></div>
-              <div class="text-slate-400">queued: <span class="text-slate-200" x-text="pool.queued"></span></div>
-              <div class="text-slate-400">active: <span class="text-slate-200" x-text="pool.active"></span></div>
-              <div class="text-slate-400">submitted: <span class="text-slate-200" x-text="pool.submitted"></span></div>
-              <div class="text-slate-400">completed: <span class="text-slate-200" x-text="pool.completed"></span></div>
-              <div class="text-slate-400">rejected: <span class="text-slate-200" x-text="pool.rejected"></span></div>
+              <div class="flex items-center justify-between gap-3 text-slate-400"><span>queued</span><span class="metric-value text-slate-200" x-text="pool.queued"></span></div>
+              <div class="flex items-center justify-between gap-3 text-slate-400"><span>active</span><span class="metric-value text-slate-200" x-text="pool.active"></span></div>
+              <div class="flex items-center justify-between gap-3 text-slate-400"><span>submitted</span><span class="metric-value text-slate-200" x-text="pool.submitted"></span></div>
+              <div class="flex items-center justify-between gap-3 text-slate-400"><span>completed</span><span class="metric-value text-slate-200" x-text="pool.completed"></span></div>
+              <div class="flex items-center justify-between gap-3 text-slate-400"><span>rejected</span><span class="metric-value text-slate-200" x-text="pool.rejected"></span></div>
             </div>
           </template>
         </div>
@@ -187,6 +217,7 @@
         <div class="flex items-center justify-between gap-2">
           <h2 class="text-lg font-semibold">Users</h2>
           <div class="flex gap-2">
+            <button @click="openCreateUser()" class="rounded-xl bg-cyan-500 px-3 py-2 text-sm font-medium text-white shadow-sm">New User</button>
             <input x-model="userQuery.keyword" @keyup.enter="loadUsers()" placeholder="Search user" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
             <button @click="loadUsers()" class="rounded-xl border border-cyan-200 bg-white px-3 py-2 text-sm text-cyan-900 shadow-sm">Search</button>
           </div>
@@ -271,6 +302,24 @@
       </section>
     </div>
 
+    <div x-show="authenticated && createUserOpen" class="fixed inset-0 z-40 flex items-center justify-center bg-cyan-950/20 px-4" @click.self="closeCreateUser()">
+      <div class="w-full max-w-md rounded-2xl border border-cyan-200 bg-white p-5 shadow-xl space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-cyan-950">Create User</h2>
+          <button @click="closeCreateUser()" class="rounded-xl border border-cyan-200 px-3 py-1 text-sm text-cyan-900">Close</button>
+        </div>
+        <div class="grid gap-3">
+          <input x-model="createUserForm.userId" type="text" placeholder="User ID" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+          <input x-model="createUserForm.displayName" type="text" placeholder="Display name" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+          <input x-model="createUserForm.password" type="password" placeholder="Password" class="rounded-xl bg-cyan-50 border border-cyan-200 px-3 py-2 text-sm shadow-sm">
+        </div>
+        <div class="flex justify-end gap-2">
+          <button @click="closeCreateUser()" class="rounded-xl border border-cyan-200 bg-white px-4 py-2 text-sm text-cyan-900">Cancel</button>
+          <button @click="createUser()" class="rounded-xl bg-cyan-500 px-4 py-2 text-sm font-medium text-white">Create</button>
+        </div>
+      </div>
+    </div>
+
     <section x-show="authenticated && currentTab === 'topics' && selectedTopic" class="rounded-2xl border border-cyan-200 bg-white p-5 space-y-4 shadow-sm">
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold">Topic Detail</h2>
@@ -337,6 +386,8 @@
         perf: {},
         config: {},
         bootstrap: { initialized: false, superuserCount: 0 },
+        createUserOpen: false,
+        createUserForm: { userId: '', displayName: '', password: '' },
         users: { items: [] },
         topics: { items: [] },
         selectedTopic: null,
@@ -489,6 +540,36 @@
         logout() {
           this.clearSession();
           this.error = '';
+        },
+        openCreateUser() {
+          this.error = '';
+          this.createUserForm = { userId: '', displayName: '', password: '' };
+          this.createUserOpen = true;
+        },
+        closeCreateUser() {
+          this.createUserOpen = false;
+        },
+        async createUser() {
+          this.error = '';
+          const userId = (this.createUserForm.userId || '').trim();
+          const password = this.createUserForm.password || '';
+          if (!userId) {
+            this.error = 'userId is required';
+            return;
+          }
+          if (!password) {
+            this.error = 'password is required';
+            return;
+          }
+          await this.request(`/open/user/register/${encodeURIComponent(userId)}`, {
+            method: 'POST',
+            body: JSON.stringify({
+              displayName: this.createUserForm.displayName || userId,
+              password,
+            })
+          });
+          this.closeCreateUser();
+          await this.loadUsers();
         },
         async toggleUser(user) {
           if (this.isProtectedUser(user)) {

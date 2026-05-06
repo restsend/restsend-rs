@@ -36,3 +36,4 @@ restsend_dart/example/linux/flutter/ephemeral/
 dart/restsend_dart/example/restsend_demo.sqlite3
 .env*
 logs/restsend-backend.log
+crates/restsend-backend/logs/restsend-backend.log

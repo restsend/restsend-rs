@@ -107,11 +107,26 @@ pub async fn user_register(
 ) -> ApiResult<Json<UserPublicProfile>> {
     auth.ensure_staff()?;
     let form = payload.map(|v| v.0).unwrap_or_default();
+    let password = form.password.clone();
     let user = state
         .user_service
         .register(&user_id, form)
         .await
         .map_err(map_domain_error)?;
+
+    if !password.is_empty() {
+        state
+            .user_service
+            .update(
+                &user_id,
+                OpenApiUserForm {
+                    password,
+                    ..OpenApiUserForm::default()
+                },
+            )
+            .await
+            .map_err(map_domain_error)?;
+    }
 
     let auth_token = state
         .auth_service
