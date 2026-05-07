@@ -5,8 +5,8 @@ use crate::{
     client::Client,
     models::GetChatLogsResult,
     request::ChatRequest,
-    services::conversation::get_chat_logs_desc,
     services::auth::{login_with_password, signup},
+    services::conversation::get_chat_logs_desc,
     utils::{check_until, init_log},
 };
 use restsend_backend::app::{build_router, AppConfig};
@@ -80,7 +80,13 @@ struct LocalSyncConversationsCallback {
 }
 
 impl callback::SyncConversationsCallback for LocalSyncConversationsCallback {
-    fn on_success(&self, _updated_at: String, _last_removed_at: Option<String>, count: u32, _total: u32) {
+    fn on_success(
+        &self,
+        _updated_at: String,
+        _last_removed_at: Option<String>,
+        count: u32,
+        _total: u32,
+    ) {
         self.count.store(count, Ordering::Relaxed);
         self.done.store(true, Ordering::Relaxed);
     }
@@ -146,6 +152,7 @@ impl LocalTestServer {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
             ws_drop_on_backpressure: true,
+            demo: false,
         };
 
         let (app, state) = build_router(config).await.expect("build router");
@@ -215,13 +222,18 @@ async fn test_sdk_local_backend_e2e_minimal_flow() {
     client_a.connect().await;
     client_b.connect().await;
 
-    check_until(Duration::from_secs(3), || connected_a.load(Ordering::Relaxed)).await.unwrap();
-    check_until(Duration::from_secs(3), || connected_b.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_a.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_b.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
 
     client_a
         .do_send_text(
@@ -236,8 +248,14 @@ async fn test_sdk_local_backend_e2e_minimal_flow() {
         .await
         .expect("send text");
 
-    check_until(Duration::from_secs(5), || acked_a.load(Ordering::Relaxed)).await.unwrap();
-    check_until(Duration::from_secs(5), || received_b.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(5), || acked_a.load(Ordering::Relaxed))
+        .await
+        .unwrap();
+    check_until(Duration::from_secs(5), || {
+        received_b.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -261,10 +279,7 @@ async fn test_sdk_local_backend_e2e_sync_logs() {
         .expect("login a");
     let client_a = Client::new("".to_string(), "".to_string(), &info_a);
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
     let topic_id = conversation.topic_id.clone();
 
     for i in 0..2 {
@@ -346,13 +361,18 @@ async fn test_sdk_local_backend_e2e_recall_flow() {
     client_a.connect().await;
     client_b.connect().await;
 
-    check_until(Duration::from_secs(3), || connected_a.load(Ordering::Relaxed)).await.unwrap();
-    check_until(Duration::from_secs(3), || connected_b.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_a.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_b.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
     let topic_id = conversation.topic_id.clone();
 
     let send_chat_id = client_a
@@ -368,7 +388,11 @@ async fn test_sdk_local_backend_e2e_recall_flow() {
         .await
         .expect("send text");
 
-    check_until(Duration::from_secs(5), || acked_send.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(5), || {
+        acked_send.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     client_a
         .do_recall(
@@ -381,7 +405,11 @@ async fn test_sdk_local_backend_e2e_recall_flow() {
         .await
         .expect("recall message");
 
-    check_until(Duration::from_secs(5), || acked_recall.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(5), || {
+        acked_recall.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     let logs = client_a
         .store
@@ -453,13 +481,18 @@ async fn test_sdk_local_backend_e2e_typing_and_read_flow() {
 
     client_a.connect().await;
     client_b.connect().await;
-    check_until(Duration::from_secs(3), || connected_a.load(Ordering::Relaxed)).await.unwrap();
-    check_until(Duration::from_secs(3), || connected_b.load(Ordering::Relaxed)).await.unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_a.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_b.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
     let topic_id = conversation.topic_id;
 
     client_b.do_typing(topic_id.clone()).await.expect("typing");
@@ -479,9 +512,11 @@ async fn test_sdk_local_backend_e2e_typing_and_read_flow() {
         )
         .await
         .expect("send");
-    check_until(Duration::from_secs(5), || acked_send.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(5), || {
+        acked_send.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     client_b.do_read(topic_id).await.expect("read");
     check_until(Duration::from_secs(5), || read_a.load(Ordering::Relaxed))
@@ -511,10 +546,7 @@ async fn test_sdk_local_backend_e2e_remove_and_clear_flow() {
         .expect("login a");
     let client_a = Client::new("".to_string(), "".to_string(), &info_a);
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
     let topic_id = conversation.topic_id.clone();
 
     let first = ChatRequest::new_text(&topic_id, "to remove");
@@ -524,7 +556,10 @@ async fn test_sdk_local_backend_e2e_remove_and_clear_flow() {
         .await
         .expect("send first");
     client_a
-        .send_chat_request(topic_id.clone(), ChatRequest::new_text(&topic_id, "to keep"))
+        .send_chat_request(
+            topic_id.clone(),
+            ChatRequest::new_text(&topic_id, "to keep"),
+        )
         .await
         .expect("send second");
 
@@ -575,10 +610,7 @@ async fn test_sdk_local_backend_e2e_update_extra_flow() {
         .expect("login a");
     let client_a = Client::new("".to_string(), "".to_string(), &info_a);
 
-    let conversation = client_a
-        .create_chat(user_b)
-        .await
-        .expect("create chat");
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
     let topic_id = conversation.topic_id.clone();
 
     let base = ChatRequest::new_text(&topic_id, "with extra");
@@ -657,12 +689,16 @@ async fn test_sdk_local_backend_e2e_reconnect_after_client_restart() {
 
     client_a_v1.connect().await;
     client_b.connect().await;
-    check_until(Duration::from_secs(3), || connected_a_v1.load(Ordering::Relaxed))
-        .await
-        .unwrap();
-    check_until(Duration::from_secs(3), || connected_b.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_a_v1.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_b.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     let topic_id = client_a_v1
         .create_chat(user_b)
@@ -686,9 +722,11 @@ async fn test_sdk_local_backend_e2e_reconnect_after_client_restart() {
     check_until(Duration::from_secs(5), || ack_first.load(Ordering::Relaxed))
         .await
         .unwrap();
-    check_until(Duration::from_secs(5), || recv_a_v1.load(Ordering::Relaxed) >= 1)
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(5), || {
+        recv_a_v1.load(Ordering::Relaxed) >= 1
+    })
+    .await
+    .unwrap();
 
     client_a_v1.shutdown().await;
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -701,9 +739,11 @@ async fn test_sdk_local_backend_e2e_reconnect_after_client_restart() {
         received_count: recv_a_v2.clone(),
     })));
     client_a_v2.connect().await;
-    check_until(Duration::from_secs(3), || connected_a_v2.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(3), || {
+        connected_a_v2.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     let ack_second = Arc::new(AtomicBool::new(false));
     client_b
@@ -718,12 +758,16 @@ async fn test_sdk_local_backend_e2e_reconnect_after_client_restart() {
         )
         .await
         .expect("send second");
-    check_until(Duration::from_secs(5), || ack_second.load(Ordering::Relaxed))
-        .await
-        .unwrap();
-    check_until(Duration::from_secs(5), || recv_a_v2.load(Ordering::Relaxed) >= 1)
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(5), || {
+        ack_second.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(5), || {
+        recv_a_v2.load(Ordering::Relaxed) >= 1
+    })
+    .await
+    .unwrap();
 
     let synced = get_chat_logs_desc(&endpoint, &info_a.token, &topic_id, None, 20)
         .await
@@ -808,7 +852,10 @@ async fn test_sdk_local_backend_e2e_batch_sync_chatlogs_stress() {
             .get_conversation(topic_id.clone())
             .await
             .expect("conversation should exist after sync");
-        assert!(conversation.last_seq >= 3, "conversation last_seq should be synced");
+        assert!(
+            conversation.last_seq >= 3,
+            "conversation last_seq should be synced"
+        );
         conversation_map.insert(topic_id.clone(), conversation);
     }
 
@@ -832,7 +879,10 @@ async fn test_sdk_local_backend_e2e_batch_sync_chatlogs_stress() {
             "topic {} should have at least 3 logs after batch sync",
             topic_id
         );
-        assert!(logs.items.iter().any(|item| item.content.text.contains(topic_id)));
+        assert!(logs
+            .items
+            .iter()
+            .any(|item| item.content.text.contains(topic_id)));
     }
 }
 
@@ -887,12 +937,16 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
     })));
     sender_b.connect().await;
     sender_c.connect().await;
-    check_until(Duration::from_secs(3), || sender_b_connected.load(Ordering::Relaxed))
-        .await
-        .unwrap();
-    check_until(Duration::from_secs(3), || sender_c_connected.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(3), || {
+        sender_b_connected.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
+    check_until(Duration::from_secs(3), || {
+        sender_c_connected.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     let receiver = Client::new("".to_string(), "".to_string(), &info_a);
     let receiver_connected = Arc::new(AtomicBool::new(false));
@@ -902,9 +956,11 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
         received_count: receiver_received.clone(),
     })));
     receiver.connect().await;
-    check_until(Duration::from_secs(3), || receiver_connected.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(3), || {
+        receiver_connected.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     for i in 0..2 {
         let ack_b = Arc::new(AtomicBool::new(false));
@@ -942,9 +998,11 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
             .unwrap();
     }
 
-    check_until(Duration::from_secs(5), || receiver_received.load(Ordering::Relaxed) >= 4)
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(5), || {
+        receiver_received.load(Ordering::Relaxed) >= 4
+    })
+    .await
+    .unwrap();
 
     receiver.shutdown().await;
     tokio::time::sleep(Duration::from_millis(200)).await;
@@ -973,9 +1031,11 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
         received_count: Arc::new(AtomicU32::new(0)),
     })));
     receiver.connect().await;
-    check_until(Duration::from_secs(3), || receiver_reconnected.load(Ordering::Relaxed))
-        .await
-        .unwrap();
+    check_until(Duration::from_secs(3), || {
+        receiver_reconnected.load(Ordering::Relaxed)
+    })
+    .await
+    .unwrap();
 
     let sync_done = Arc::new(AtomicBool::new(false));
     let sync_count = Arc::new(AtomicU32::new(0));
