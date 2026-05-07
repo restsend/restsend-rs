@@ -6,14 +6,9 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source
-COPY Cargo.toml ./
-COPY src ./src
-COPY static ./static
-COPY js ./js
-
+ADD . .
 # Build release binary
-RUN cargo build --release
+RUN cargo build --release -p restsend-backend
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -34,10 +29,10 @@ ENV LANG=C.UTF-8
 ENV TZ=UTC
 
 # Copy binary from builder
-COPY --from=builder /app/target/release/restsend /usr/local/bin/restsend
+COPY --from=builder /app/target/release/restsend-backend /usr/local/bin/restsend-backend
 
 # Copy static files
 COPY --from=builder /app/static ./static
 COPY --from=builder /app/js ./js
 
-ENTRYPOINT ["restsend"]
+ENTRYPOINT ["restsend-backend"]
