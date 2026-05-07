@@ -107,6 +107,19 @@ pub struct AdminBootstrapInitResponse {
 }
 
 fn static_path(file: &str) -> String {
+    for dir in [
+        std::env::current_dir().ok(),
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf())),
+    ] {
+        if let Some(dir) = dir {
+            let path = dir.join("static").join(file);
+            if path.exists() {
+                return path.to_string_lossy().to_string();
+            }
+        }
+    }
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("static")
         .join(file)
@@ -120,7 +133,10 @@ pub async fn spa(State(state): State<AppState>) -> Result<Html<String>, ApiError
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
     let html = if state.config.demo {
-        html.replace("</head>", r#"<script>window.__DEMO_MODE__=true</script></head>"#)
+        html.replace(
+            "</head>",
+            r#"<script>window.__DEMO_MODE__=true</script></head>"#,
+        )
     } else {
         html
     };
