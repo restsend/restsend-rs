@@ -21,6 +21,8 @@ use crate::infra::presence::{DbPresenceStore, MemoryPresenceStore, PresenceHub, 
 use crate::infra::task_pool::TaskPool;
 use crate::infra::webhook::WebhookSender;
 use crate::infra::websocket::WsHub;
+use crate::model::{Content, Conversation};
+use crate::openapi::OpenApiChatMessageForm;
 use crate::services::{
     AuthService, ChatService, ConversationService, RelationService, TopicService, UserService,
 };
@@ -95,6 +97,12 @@ pub async fn build_router(
         conversation_service,
         chat_service,
     };
+
+    if config.demo {
+        if let Err(e) = create_demo_fixtures(&state).await {
+            tracing::warn!(error = %e, "demo fixtures creation failed");
+        }
+    }
 
     start_webhook_worker(state.clone());
     state
@@ -599,6 +607,115 @@ async fn create_demo_accounts(db: &sea_orm::DatabaseConnection) -> Result<(), se
             };
             active.insert(db).await?;
             tracing::info!(user_id = %user_id, "demo admin account created");
+        }
+    }
+
+    Ok(())
+}
+
+fn make_content(text: &str) -> Content {
+    Content {
+        content_type: "chat".to_string(),
+        text: text.to_string(),
+        ..Content::default()
+    }
+}
+
+async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let dm_pairs: Vec<(&str, &str, Vec<(&str, &str)>)> = vec![
+        (
+            "alice",
+            "bob",
+            vec![
+                ("alice", "Hey Bob, how's it going?"),
+                ("bob", "Hi Alice! Doing great, thanks!"),
+                ("alice", "Want to grab lunch later?"),
+                ("bob", "Sure, sounds good!"),
+            ],
+        ),
+        (
+            "alice",
+            "guido",
+            vec![
+                ("alice", "Guido, have you seen the latest updates?"),
+                ("guido", "Yes, the new chat features look fantastic!"),
+                ("alice", "I know right? The real-time sync is amazing."),
+            ],
+        ),
+        (
+            "bob",
+            "jinti",
+            vec![
+                ("bob", "Jinti, ready for the demo?"),
+                ("jinti", "Almost ready! Just finishing up the last piece."),
+                ("bob", "Great, let me know when you're done!"),
+            ],
+        ),
+        (
+            "guido",
+            "jinti",
+            vec![
+                ("guido", "Let's collaborate on the new project"),
+                ("jinti", "Sounds great, let's do it!"),
+            ],
+        ),
+    ];
+
+    for (user_a, user_b, messages) in &dm_pairs {
+        let topic_id = if user_a <= user_b {
+            format!("{}:{}", user_a, user_b)
+        } else {
+            format!("{}:{}", user_b, user_a)
+        };
+
+        let mut last_seq = 0i64;
+        let mut last_msg_sender = "";
+        let mut last_msg_text = "";
+
+        for (sender, text) in messages {
+            let form = OpenApiChatMessageForm {
+                r#type: "chat".to_string(),
+                content: Some(make_content(text)),
+                message: text.to_string(),
+                chat_id: String::new(),
+                created_at: Some(now.clone()),
+                ..OpenApiChatMessageForm::default()
+            };
+            match state.chat_service.send_to_user(sender, if *sender == *user_a { *user_b } else { *user_a }, &form).await {
+                Ok(resp) => {
+                    last_seq = resp.seq;
+                    last_msg_sender = sender;
+                    last_msg_text = text;
+                }
+                Err(e) => {
+                    tracing::warn!(error = %e, "fixture message failed: {sender} -> {user_a}:{user_b}");
+                }
+            }
+        }
+
+        // create conversation for both users
+        for &owner in &[*user_a, *user_b] {
+            let attendee = if owner == *user_a { *user_b } else { *user_a };
+            let conv = Conversation {
+                owner_id: owner.to_string(),
+                topic_id: topic_id.clone(),
+                attendee: attendee.to_string(),
+                last_seq,
+                last_message: Some(make_content(last_msg_text)),
+                last_message_at: now.clone(),
+                last_message_seq: Some(last_seq),
+                last_sender_id: last_msg_sender.to_string(),
+                name: attendee.to_string(),
+                kind: "dm".to_string(),
+                members: 2,
+                source: "demo".to_string(),
+                updated_at: now.clone(),
+                ..Conversation::default()
+            };
+            if let Err(e) = state.conversation_service.create_or_update(conv).await {
+                tracing::warn!(error = %e, owner = %owner, topic = %topic_id, "fixture conversation failed");
+            }
         }
     }
 
