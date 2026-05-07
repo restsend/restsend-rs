@@ -32,7 +32,7 @@ ENV TZ=UTC
 COPY --from=builder /app/target/release/restsend-backend /usr/local/bin/restsend-backend
 
 # Copy static files
-COPY --from=builder /app/static ./static
+COPY --from=builder /app/crates/restsend-backend/static ./static
 COPY --from=builder /app/js ./js
 
 ENTRYPOINT ["restsend-backend"]
