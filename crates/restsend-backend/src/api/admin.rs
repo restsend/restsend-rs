@@ -127,6 +127,14 @@ pub async fn spa(State(state): State<AppState>) -> Result<Html<String>, ApiError
     Ok(Html(html))
 }
 
+pub async fn demo_spa() -> Result<Html<String>, ApiError> {
+    let path = static_path("demo.html");
+    let html = tokio::fs::read_to_string(&path)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+    Ok(Html(html))
+}
+
 pub async fn chat_spa() -> Result<Html<String>, ApiError> {
     let path = static_path("chat.html");
     let html = tokio::fs::read_to_string(&path)

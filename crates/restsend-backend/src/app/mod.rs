@@ -382,7 +382,9 @@ pub async fn build_router(
         }
     }
     if config.demo {
-        app = app.route("/chat/api/demo-users", get(api::admin::demo_users));
+        app = app
+            .route("/", get(api::admin::demo_spa))
+            .route("/chat/api/demo-users", get(api::admin::demo_users));
     }
 
     let app = app
