@@ -657,7 +657,7 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
             "jinti",
             vec![
                 ("guido", "Let's collaborate on the new project"),
-                ("jinti", "Sounds great, let's do it!"),
+                ("jinti", "Sounds great, let's do it! 你真棒!"),
             ],
         ),
     ];
@@ -682,7 +682,15 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
                 created_at: Some(now.clone()),
                 ..OpenApiChatMessageForm::default()
             };
-            match state.chat_service.send_to_user(sender, if *sender == *user_a { *user_b } else { *user_a }, &form).await {
+            match state
+                .chat_service
+                .send_to_user(
+                    sender,
+                    if *sender == *user_a { *user_b } else { *user_a },
+                    &form,
+                )
+                .await
+            {
                 Ok(resp) => {
                     last_seq = resp.seq;
                     last_msg_sender = sender;
