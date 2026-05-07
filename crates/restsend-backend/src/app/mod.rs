@@ -13,6 +13,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::EnvFilter;
 
 use crate::api;
+use crate::api::admin::hinit_static_path;
 use crate::infra::db::{connect_db, run_migrations};
 use crate::infra::event::{BackendEvent, EventBus};
 use crate::infra::metrics::RuntimeMetrics;
@@ -344,9 +345,8 @@ pub async fn build_router(
 
     let api_router = api_public.merge(api_protected);
 
-    let static_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("static");
-    let admin_enabled = static_dir.join("admin.html").exists();
-    let chat_enabled = static_dir.join("chat.html").exists();
+    let admin_enabled = hinit_static_path("admin.html").is_some();
+    let chat_enabled = hinit_static_path("chat.html").is_some();
 
     let mut app = Router::new();
     if admin_enabled {

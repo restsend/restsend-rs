@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use axum::extract::connect_info::ConnectInfo;
 use axum::extract::State;
-use axum::http::{header, Request};
+use axum::http::Request;
 use axum::middleware::Next;
 use axum::response::Response;
 
@@ -21,11 +21,14 @@ pub async fn request_access_log(
     let started = Instant::now();
     let method = req.method().to_string();
     let path = req.uri().path().to_string();
-    let client_ip = req
-        .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .map(|ConnectInfo(addr)| addr.ip().to_string())
-        .unwrap_or_else(|| extract_client_ip(&req));
+
+    let client_ip = extract_client_ip(&req).unwrap_or_else(|| {
+        req.extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|ConnectInfo(addr)| addr.ip().to_string())
+            .unwrap_or_else(|| "-".to_string())
+    });
+
     let user_slot = Arc::new(Mutex::new(None));
     req.extensions_mut()
         .insert(AccessLogUserId(user_slot.clone()));
@@ -67,37 +70,13 @@ pub async fn request_access_log(
     resp
 }
 
-pub fn extract_client_ip(req: &Request<axum::body::Body>) -> String {
-    if let Some(val) = req
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|v| v.to_str().ok())
-    {
-        if let Some(ip) = val
-            .split(',')
-            .next()
-            .map(str::trim)
-            .filter(|v| !v.is_empty())
-        {
-            return ip.to_string();
-        }
-    }
-    if let Some(val) = req.headers().get("x-real-ip").and_then(|v| v.to_str().ok()) {
-        if !val.trim().is_empty() {
-            return val.trim().to_string();
-        }
-    }
-    if let Some(val) = req
-        .headers()
-        .get(header::FORWARDED)
-        .and_then(|v| v.to_str().ok())
-    {
-        for part in val.split(';') {
-            let part = part.trim();
-            if let Some(ip) = part.strip_prefix("for=") {
-                return ip.trim_matches('"').to_string();
+pub fn extract_client_ip(req: &Request<axum::body::Body>) -> Option<String> {
+    for key in ["x-forwarded-for", "x-real-ip", "forwarded"] {
+        if let Some(val) = req.headers().get(key).and_then(|v| v.to_str().ok()) {
+            if !val.trim().is_empty() {
+                return Some(val.trim().to_string());
             }
         }
     }
-    "-".to_string()
+    None
 }

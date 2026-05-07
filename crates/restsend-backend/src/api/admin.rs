@@ -106,7 +106,7 @@ pub struct AdminBootstrapInitResponse {
     pub token: String,
 }
 
-fn static_path(file: &str) -> String {
+pub fn hinit_static_path(file: &str) -> Option<String> {
     for dir in [
         std::env::current_dir().ok(),
         std::env::current_exe()
@@ -116,15 +116,21 @@ fn static_path(file: &str) -> String {
         if let Some(dir) = dir {
             let path = dir.join("static").join(file);
             if path.exists() {
-                return path.to_string_lossy().to_string();
+                return Some(path.to_string_lossy().to_string());
             }
         }
     }
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("static")
-        .join(file)
-        .to_string_lossy()
-        .to_string()
+    None
+}
+
+fn static_path(file: &str) -> String {
+    hinit_static_path(file).unwrap_or_else(|| {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("static")
+            .join(file)
+            .to_string_lossy()
+            .to_string()
+    })
 }
 
 pub async fn spa(State(state): State<AppState>) -> Result<Html<String>, ApiError> {
