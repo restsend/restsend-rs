@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Layered runtime for Rust IM backend</title>
+  <desc id="desc">Layered architecture from clients to API boundaries, domain services, runtime infrastructure and database storage.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.band{fill:#eef6ff;stroke:#1f2937;stroke-width:2;rx:12;ry:12}.db{fill:#e8f5e9;stroke:#1f2937;stroke-width:2;rx:12;ry:12}.card{fill:#fff;stroke:#1f2937;stroke-width:1.8;rx:8;ry:8}.title{font:700 28px Arial,sans-serif;fill:#111827}.h{font:700 17px Arial,sans-serif;fill:#111827}.t{font:14px Arial,sans-serif;fill:#111827}.s{font:12px Arial,sans-serif;fill:#374151}.a{stroke:#1f2937;stroke-width:2;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="620"/>
+  <text class="title" x="40" y="48">阶段 2：分层运行时，把边界和职责先定稳</text>
+
+  <rect class="band" x="40" y="85" width="1120" height="80"/>
+  <text class="h" x="68" y="116">客户端与业务侧</text>
+  <rect class="card" x="250" y="105" width="190" height="42"/><text class="t" x="290" y="131">App / 多端 SDK</text>
+  <rect class="card" x="505" y="105" width="190" height="42"/><text class="t" x="543" y="131">Web / WASM</text>
+  <rect class="card" x="760" y="105" width="190" height="42"/><text class="t" x="795" y="131">业务服务端</text>
+
+  <rect class="band" x="40" y="205" width="1120" height="105"/>
+  <text class="h" x="68" y="237">API 边界</text>
+  <rect class="card" x="210" y="230" width="220" height="58"/><text class="t" x="252" y="256">WebSocket</text><text class="s" x="245" y="276">实时上行 / 下行</text>
+  <rect class="card" x="490" y="230" width="220" height="58"/><text class="t" x="568" y="256">UserAPI</text><text class="s" x="535" y="276">用户身份上下文</text>
+  <rect class="card" x="770" y="230" width="220" height="58"/><text class="t" x="839" y="256">OpenAPI</text><text class="s" x="810" y="276">平台控制能力</text>
+
+  <rect class="band" x="40" y="350" width="1120" height="120"/>
+  <text class="h" x="68" y="382">领域服务与运行时</text>
+  <rect class="card" x="155" y="385" width="180" height="58"/><text class="t" x="196" y="411">ChatService</text><text class="s" x="190" y="431">消息与同步</text>
+  <rect class="card" x="375" y="385" width="180" height="58"/><text class="t" x="394" y="411">Conversation</text><text class="s" x="415" y="431">会话状态</text>
+  <rect class="card" x="595" y="385" width="180" height="58"/><text class="t" x="641" y="411">Topic</text><text class="s" x="622" y="431">群与成员</text>
+  <rect class="card" x="815" y="385" width="180" height="58"/><text class="t" x="855" y="411">Infra Hub</text><text class="s" x="844" y="431">Ws / Presence / Event</text>
+
+  <rect class="db" x="40" y="510" width="1120" height="70"/>
+  <text class="h" x="68" y="552">数据库</text>
+  <text class="t" x="245" y="552">chat_logs</text><text class="t" x="445" y="552">conversations</text><text class="t" x="690" y="552">presence_sessions</text><text class="t" x="940" y="552">topics / users</text>
+
+  <path class="a" d="M600 165 L600 205"/><path class="a" d="M600 310 L600 350"/><path class="a" d="M600 470 L600 510"/>
+</svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">IM capability model without Redis or MQ</title>
+  <desc id="desc">A staged capability model showing real-time delivery, offline replay, multi-device consistency and clustering built on database persistence.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f8fafc}.box{fill:#fff;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.core{fill:#e8f5e9;stroke:#1f2937;stroke-width:2;rx:14;ry:14}.soft{fill:#eef6ff;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.warn{fill:#fff7ed;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.title{font:700 28px Arial,sans-serif;fill:#111827}.h{font:700 18px Arial,sans-serif;fill:#111827}.t{font:15px Arial,sans-serif;fill:#111827}.s{font:13px Arial,sans-serif;fill:#374151}.a{stroke:#1f2937;stroke-width:2;fill:none;marker-end:url(#arrow)}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/></marker>
+  </defs>
+  <rect class="bg" width="1200" height="560"/>
+  <text class="title" x="40" y="48">阶段 1：能力模型，先把正确性放在数据库里</text>
+  <rect class="core" x="395" y="205" width="410" height="130"/>
+  <text class="h" x="502" y="245">数据库是真相源</text>
+  <text class="s" x="450" y="276">消息日志 / 会话状态 / 在线会话索引</text>
+  <text class="s" x="472" y="304">实时失败后仍可通过同步补齐</text>
+
+  <rect class="box" x="60" y="105" width="250" height="115"/>
+  <text class="h" x="112" y="142">在线实时</text>
+  <text class="s" x="88" y="174">WebSocket 尽量实时投递</text>
+  <text class="s" x="88" y="198">慢连接可背压治理</text>
+
+  <rect class="box" x="890" y="105" width="250" height="115"/>
+  <text class="h" x="942" y="142">离线可补</text>
+  <text class="s" x="918" y="174">lastSeq 增量同步</text>
+  <text class="s" x="918" y="198">断线后按序恢复</text>
+
+  <rect class="box" x="60" y="345" width="250" height="115"/>
+  <text class="h" x="112" y="382">多端一致</text>
+  <text class="s" x="88" y="414">同账号多设备同源状态</text>
+  <text class="s" x="88" y="438">SDK 收敛本地缓存</text>
+
+  <rect class="box" x="890" y="345" width="250" height="115"/>
+  <text class="h" x="952" y="382">可集群化</text>
+  <text class="s" x="918" y="414">presence_sessions 共享路由</text>
+  <text class="s" x="918" y="438">节点间 HTTP 转发</text>
+
+  <path class="a" d="M310 165 C390 165 360 235 395 250"/>
+  <path class="a" d="M890 165 C810 165 840 235 805 250"/>
+  <path class="a" d="M310 405 C390 405 360 315 395 295"/>
+  <path class="a" d="M890 405 C810 405 840 315 805 295"/>
+
+  <rect class="warn" x="305" y="480" width="590" height="44"/>
+  <text class="t" x="358" y="508">核心取舍：不追求推送必达，而是用“推送 + 拉取兜底”保证最终正确。</text>
+</svg>

@@ -484,6 +484,3 @@ pub struct UserPublicProfile {
     #[serde(default)]
     pub auth_token: String,
 }
-
-#[allow(dead_code)]
-fn _keep_types(_: Topic, _: Conversation) {}

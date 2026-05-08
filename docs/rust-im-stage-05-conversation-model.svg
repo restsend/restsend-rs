@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Conversation state separated from message log</title>
+  <desc id="desc">Message log remains the shared immutable chain, while conversation rows store per-user personalized state.</desc>
+  <defs><style>.bg{fill:#f8fafc}.box{fill:#fff;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.db{fill:#e8f5e9;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.soft{fill:#eef6ff;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.title{font:700 28px Arial,sans-serif;fill:#111827}.h{font:700 17px Arial,sans-serif;fill:#111827}.t{font:14px Arial,sans-serif;fill:#111827}.s{font:12px Arial,sans-serif;fill:#374151}.a{stroke:#1f2937;stroke-width:2;fill:none;marker-end:url(#arrow)}</style><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/></marker></defs>
+  <rect class="bg" width="1200" height="560"/><text class="title" x="40" y="48">阶段 5：消息与会话分离，让列表查询稳定、用户状态独立</text>
+
+  <rect class="db" x="80" y="135" width="290" height="260"/><text class="h" x="175" y="170">chat_logs</text><text class="s" x="115" y="205">共享消息主链</text><text class="s" x="115" y="232">topic_id / seq / sender</text><text class="s" x="115" y="259">content_json / created_at</text><text class="s" x="115" y="286">适合同步和审计</text><text class="s" x="115" y="313">不承载用户个性状态</text>
+  <rect class="soft" x="455" y="95" width="290" height="340"/><text class="h" x="555" y="130">conversations</text><text class="s" x="490" y="165">owner_id + topic_id</text><text class="s" x="490" y="192">unread / last_read_seq</text><text class="s" x="490" y="219">start_seq / last_seq</text><text class="s" x="490" y="246">sticky / mute / remark</text><text class="s" x="490" y="273">last_message 摘要</text><text class="s" x="490" y="314">每个用户一份视角</text><text class="s" x="490" y="341">列表查询走 owner_id 索引</text>
+  <rect class="box" x="830" y="135" width="290" height="260"/><text class="h" x="930" y="170">UserAPI</text><text class="s" x="865" y="205">会话列表无需聚合消息表</text><text class="s" x="865" y="232">清空历史只移动 start_seq</text><text class="s" x="865" y="259">免打扰/备注不污染消息链</text><text class="s" x="865" y="286">未读和已读独立收敛</text>
+
+  <path class="a" d="M370 265 L455 265"/><path class="a" d="M745 265 L830 265"/>
+  <text class="t" x="360" y="485">精巧点：消息表回答“发生了什么”，会话表回答“这个用户现在怎么看”。两个问题分开后，系统更容易读，也更容易扩展。</text>
+</svg>

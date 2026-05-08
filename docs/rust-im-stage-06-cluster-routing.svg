@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="620" viewBox="0 0 1200 620" role="img" aria-labelledby="title desc">
+  <title id="title">Database-backed cluster routing without Redis</title>
+  <desc id="desc">Two backend nodes share online route information through presence_sessions and forward remote pushes over HTTP.</desc>
+  <defs><style>.bg{fill:#f8fafc}.node{fill:#eef6ff;stroke:#1f2937;stroke-width:2;rx:12;ry:12}.box{fill:#fff;stroke:#1f2937;stroke-width:1.8;rx:8;ry:8}.db{fill:#e8f5e9;stroke:#1f2937;stroke-width:2;rx:12;ry:12}.warn{fill:#fff7ed;stroke:#1f2937;stroke-width:2;rx:10;ry:10}.title{font:700 28px Arial,sans-serif;fill:#111827}.h{font:700 17px Arial,sans-serif;fill:#111827}.t{font:14px Arial,sans-serif;fill:#111827}.s{font:12px Arial,sans-serif;fill:#374151}.a{stroke:#1f2937;stroke-width:2;fill:none;marker-end:url(#arrow)}.d{stroke:#6b7280;stroke-width:2;fill:none;stroke-dasharray:7 6;marker-end:url(#arrow2)}</style><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f2937"/></marker><marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7280"/></marker></defs>
+  <rect class="bg" width="1200" height="620"/><text class="title" x="40" y="48">阶段 6：集群路由，用数据库替代 Redis 在线表</text>
+
+  <rect class="node" x="65" y="120" width="330" height="260"/><text class="h" x="190" y="154">Node A</text><rect class="box" x="100" y="180" width="120" height="58"/><text class="s" x="126" y="214">WsHub</text><rect class="box" x="240" y="180" width="120" height="58"/><text class="s" x="261" y="214">OpenAPI</text><rect class="box" x="100" y="275" width="260" height="58"/><text class="s" x="139" y="309">endpoint: https://node-a/push</text>
+  <rect class="node" x="805" y="120" width="330" height="260"/><text class="h" x="930" y="154">Node B</text><rect class="box" x="840" y="180" width="120" height="58"/><text class="s" x="866" y="214">WsHub</text><rect class="box" x="980" y="180" width="120" height="58"/><text class="s" x="1001" y="214">OpenAPI</text><rect class="box" x="840" y="275" width="260" height="58"/><text class="s" x="879" y="309">endpoint: https://node-b/push</text>
+
+  <rect class="db" x="450" y="170" width="300" height="190"/><text class="h" x="528" y="205">presence_sessions</text><text class="s" x="488" y="238">user_id / device</text><text class="s" x="488" y="265">node_id / endpoint</text><text class="s" x="488" y="292">updated_at_unix</text><text class="s" x="488" y="319">TTL 清理过期连接</text>
+
+  <rect class="warn" x="195" y="455" width="810" height="78"/><text class="t" x="245" y="488">投递路径：先查 presence，命中本节点则直接推；命中远端节点则 HTTP 转发到目标 OpenAPI。</text><text class="s" x="245" y="515">这样少一个 Redis 路由依赖，但仍保持多节点部署时的在线可见性。</text>
+  <path class="a" d="M230 380 C230 455 510 435 555 360"/><path class="a" d="M970 380 C970 455 690 435 645 360"/>
+  <path class="d" d="M395 225 L450 225"/><path class="d" d="M750 225 L805 225"/><path class="a" d="M395 260 C515 430 690 430 805 260"/>
+</svg>
