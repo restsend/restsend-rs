@@ -13,9 +13,25 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 dotenvy = "0.15"
 fast_image_resize = "5"
 futures-util = "0.3"
-image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-sea-orm = { version = "1.1", features = ["sqlx-sqlite", "sqlx-mysql", "runtime-tokio-rustls", "macros"] }
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls",
+] }
+sea-orm = { version = "1.1", features = [
+    "sqlx-sqlite",
+    "sqlx-mysql",
+    "runtime-tokio-rustls",
+    "macros",
+] }
+sea-orm-migration = { version = "1.1", features = [
+    "sqlx-sqlite",
+    "sqlx-mysql",
+    "runtime-tokio-rustls",
+] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"

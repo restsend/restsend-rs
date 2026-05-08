@@ -189,7 +189,7 @@ impl Client {
                                 need_fetch_logs = false;
                             }
 
-                            let mut has_more = local_logs.has_more;
+                            let has_more = local_logs.has_more;
                             if local_logs.items.len() == 0 {
                                 need_fetch_logs = true;
                             }
@@ -207,9 +207,6 @@ impl Client {
                                 need_fetch_logs = false;
                             }
                             if !need_fetch_logs {
-                                if last_seq.is_none() {
-                                    has_more = false;
-                                }
                                 let mut result =
                                     GetChatLogsResult::from_local_logs(local_logs, has_more);
                                 if last_seq.is_some() {
@@ -259,9 +256,6 @@ impl Client {
                 }
                 let items = lr.items.clone();
                 let mut result: GetChatLogsResult = lr.into();
-                if last_seq.is_none() {
-                    result.has_more = false;
-                }
                 if last_seq.is_some() {
                     result.items.retain(|item| {
                         !matches!(

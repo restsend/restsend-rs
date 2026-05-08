@@ -1,299 +1,1024 @@
-use sea_orm::Database;
-use sea_orm::{ConnectionTrait, DatabaseConnection, DbBackend, DbErr, Statement};
+use sea_orm::{Database, DatabaseConnection, DbErr};
+use sea_orm_migration::prelude::*;
 
 pub async fn connect_db(database_url: &str) -> Result<DatabaseConnection, DbErr> {
     Database::connect(database_url).await
 }
 
 pub async fn run_migrations(db: &DatabaseConnection) -> Result<(), DbErr> {
-    let backend = db.get_database_backend();
+    Migrator::up(db, None).await
+}
 
-    let create_users = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS users (
-  user_id VARCHAR(191) PRIMARY KEY,
-  password TEXT NOT NULL DEFAULT '',
-  display_name TEXT NOT NULL DEFAULT '',
-  avatar TEXT NOT NULL DEFAULT '',
-  source TEXT NOT NULL DEFAULT '',
-  locale TEXT NOT NULL DEFAULT '',
-  city TEXT NOT NULL DEFAULT '',
-  country TEXT NOT NULL DEFAULT '',
-  gender TEXT NOT NULL DEFAULT '',
-  public_key TEXT NOT NULL DEFAULT '',
-  is_staff BOOLEAN NOT NULL DEFAULT FALSE,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-"
-        .to_string(),
-    );
+pub struct Migrator;
 
-    let create_topics = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS topics (
-  id VARCHAR(191) PRIMARY KEY,
-  name TEXT NOT NULL DEFAULT '',
-  icon TEXT NOT NULL DEFAULT '',
-  kind TEXT NOT NULL DEFAULT '',
-  owner_id TEXT NOT NULL DEFAULT '',
-  attendee_id TEXT NOT NULL DEFAULT '',
-  members INTEGER NOT NULL DEFAULT 0,
-  last_seq BIGINT NOT NULL DEFAULT 0,
-  multiple BOOLEAN NOT NULL DEFAULT FALSE,
-  source TEXT NOT NULL DEFAULT '',
-  private BOOLEAN NOT NULL DEFAULT FALSE,
-  knock_need_verify BOOLEAN NOT NULL DEFAULT FALSE,
-  admins_json TEXT NOT NULL DEFAULT '[]',
-  webhooks_json TEXT NOT NULL DEFAULT '[]',
-  notice_json TEXT NOT NULL DEFAULT '{}',
-  extra_json TEXT NOT NULL DEFAULT '{}',
-  silent_white_list_json TEXT NOT NULL DEFAULT '[]',
-  silent BOOLEAN NOT NULL DEFAULT FALSE,
-  enabled BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-"
-        .to_string(),
-    );
+#[async_trait::async_trait]
+impl MigratorTrait for Migrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![Box::new(InitSchema)]
+    }
+}
 
-    let create_conversations = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS conversations (
-  owner_id VARCHAR(191) NOT NULL,
-  topic_id VARCHAR(191) NOT NULL,
-  updated_at TEXT NOT NULL,
-  sticky BOOLEAN NOT NULL DEFAULT FALSE,
-  mute BOOLEAN NOT NULL DEFAULT FALSE,
-  remark TEXT,
-  unread BIGINT NOT NULL DEFAULT 0,
-  start_seq BIGINT NOT NULL DEFAULT 0,
-  last_seq BIGINT NOT NULL DEFAULT 0,
-  last_read_seq BIGINT NOT NULL DEFAULT 0,
-  last_read_at TEXT,
-  multiple BOOLEAN NOT NULL DEFAULT FALSE,
-  attendee TEXT NOT NULL DEFAULT '',
-  members BIGINT NOT NULL DEFAULT 0,
-  name TEXT NOT NULL DEFAULT '',
-  icon TEXT NOT NULL DEFAULT '',
-  kind TEXT NOT NULL DEFAULT '',
-  source TEXT NOT NULL DEFAULT '',
-  last_sender_id TEXT NOT NULL DEFAULT '',
-  last_message_json TEXT NOT NULL DEFAULT '{}',
-  last_message_at TEXT NOT NULL DEFAULT '',
-  last_message_seq BIGINT NOT NULL DEFAULT 0,
-  PRIMARY KEY(owner_id, topic_id)
-);
-"
-        .to_string(),
-    );
+struct InitSchema;
 
-    let create_topic_members = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS topic_members (
-  topic_id VARCHAR(191) NOT NULL,
-  user_id VARCHAR(191) NOT NULL,
-  name TEXT NOT NULL DEFAULT '',
-  source TEXT NOT NULL DEFAULT '',
-  role TEXT NOT NULL DEFAULT 'member',
-  silence_at TEXT,
-  joined_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  extra_json TEXT NOT NULL DEFAULT '{}',
-  PRIMARY KEY(topic_id, user_id)
-);
-"
-        .to_string(),
-    );
+impl MigrationName for InitSchema {
+    fn name(&self) -> &str {
+        "m20260508_000001_init_schema"
+    }
+}
 
-    let create_chat_logs = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS chat_logs (
-  id VARCHAR(191) PRIMARY KEY,
-  topic_id VARCHAR(191) NOT NULL,
-  seq BIGINT NOT NULL,
-  sender_id VARCHAR(191) NOT NULL,
-  content_json TEXT NOT NULL,
-  deleted_by_json TEXT NOT NULL DEFAULT '[]',
-  read BOOLEAN NOT NULL DEFAULT FALSE,
-  recall BOOLEAN NOT NULL DEFAULT FALSE,
-  source TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL
-);
-"
-        .to_string(),
-    );
+#[async_trait::async_trait]
+impl MigrationTrait for InitSchema {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(Users::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Users::UserId)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Users::Password)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Users::DisplayName)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(Users::Avatar).text().not_null().default(""))
+                    .col(ColumnDef::new(Users::Source).text().not_null().default(""))
+                    .col(ColumnDef::new(Users::Locale).text().not_null().default(""))
+                    .col(ColumnDef::new(Users::City).text().not_null().default(""))
+                    .col(ColumnDef::new(Users::Country).text().not_null().default(""))
+                    .col(ColumnDef::new(Users::Gender).text().not_null().default(""))
+                    .col(
+                        ColumnDef::new(Users::PublicKey)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Users::IsStaff)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Users::Enabled)
+                            .boolean()
+                            .not_null()
+                            .default(true),
+                    )
+                    .col(ColumnDef::new(Users::CreatedAt).text().not_null())
+                    .col(ColumnDef::new(Users::UpdatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
-    let create_relations = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS relations (
-  owner_id VARCHAR(191) NOT NULL,
-  target_id VARCHAR(191) NOT NULL,
-  is_contact BOOLEAN NOT NULL DEFAULT FALSE,
-  is_star BOOLEAN NOT NULL DEFAULT FALSE,
-  is_blocked BOOLEAN NOT NULL DEFAULT FALSE,
-  remark TEXT NOT NULL DEFAULT '',
-  source TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY(owner_id, target_id)
-);
-"
-        .to_string(),
-    );
+        manager
+            .create_table(
+                Table::create()
+                    .table(Topics::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Topics::Id)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Topics::Name).text().not_null().default(""))
+                    .col(ColumnDef::new(Topics::Icon).text().not_null().default(""))
+                    .col(ColumnDef::new(Topics::Kind).text().not_null().default(""))
+                    .col(
+                        ColumnDef::new(Topics::OwnerId)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::AttendeeId)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::Members)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::LastSeq)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::Multiple)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(Topics::Source).text().not_null().default(""))
+                    .col(
+                        ColumnDef::new(Topics::Private)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::KnockNeedVerify)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::AdminsJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::WebhooksJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::NoticeJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::ExtraJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::SilentWhiteListJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::Silent)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Topics::Enabled)
+                            .boolean()
+                            .not_null()
+                            .default(true),
+                    )
+                    .col(ColumnDef::new(Topics::CreatedAt).text().not_null())
+                    .col(ColumnDef::new(Topics::UpdatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
-    let create_topic_knocks = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS topic_knocks (
-  topic_id VARCHAR(191) NOT NULL,
-  user_id VARCHAR(191) NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  message TEXT NOT NULL DEFAULT '',
-  source TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'pending',
-  admin_id TEXT NOT NULL DEFAULT '',
-  PRIMARY KEY(topic_id, user_id)
-);
-"
-        .to_string(),
-    );
+        manager
+            .create_table(
+                Table::create()
+                    .table(Conversations::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Conversations::OwnerId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::TopicId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(Conversations::UpdatedAt).text().not_null())
+                    .col(
+                        ColumnDef::new(Conversations::Sticky)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Mute)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(ColumnDef::new(Conversations::Remark).text())
+                    .col(
+                        ColumnDef::new(Conversations::Unread)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::StartSeq)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastSeq)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastReadSeq)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(ColumnDef::new(Conversations::LastReadAt).text())
+                    .col(
+                        ColumnDef::new(Conversations::Multiple)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Attendee)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Members)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Name)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Icon)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Kind)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastSenderId)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastMessageJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastMessageAt)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Conversations::LastMessageSeq)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .col(Conversations::OwnerId)
+                            .col(Conversations::TopicId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-    let create_auth_tokens = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS auth_tokens (
-  token VARCHAR(191) PRIMARY KEY,
-  user_id VARCHAR(191) NOT NULL,
-  created_at TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL
-);
-"
-        .to_string(),
-    );
+        manager
+            .create_table(
+                Table::create()
+                    .table(TopicMembers::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(TopicMembers::TopicId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TopicMembers::UserId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TopicMembers::Name)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(TopicMembers::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(TopicMembers::Role)
+                            .text()
+                            .not_null()
+                            .default("member"),
+                    )
+                    .col(ColumnDef::new(TopicMembers::SilenceAt).text())
+                    .col(ColumnDef::new(TopicMembers::JoinedAt).text().not_null())
+                    .col(ColumnDef::new(TopicMembers::UpdatedAt).text().not_null())
+                    .col(
+                        ColumnDef::new(TopicMembers::ExtraJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .col(TopicMembers::TopicId)
+                            .col(TopicMembers::UserId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-    let create_presence_sessions = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS presence_sessions (
-  user_id VARCHAR(191) NOT NULL,
-  device VARCHAR(191) NOT NULL,
-  node_id VARCHAR(191) NOT NULL,
-  endpoint VARCHAR(191) NOT NULL DEFAULT '',
-  updated_at_unix BIGINT NOT NULL,
-  PRIMARY KEY(user_id, device)
-);
-"
-        .to_string(),
-    );
+        manager
+            .create_table(
+                Table::create()
+                    .table(ChatLogs::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(ChatLogs::Id)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(ChatLogs::TopicId).string_len(191).not_null())
+                    .col(ColumnDef::new(ChatLogs::Seq).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(ChatLogs::SenderId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ChatLogs::ContentJson).text().not_null())
+                    .col(
+                        ColumnDef::new(ChatLogs::DeletedByJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Read)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Recall)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(ChatLogs::CreatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
-    let create_attachments = Statement::from_string(
-        backend,
-        "
-CREATE TABLE IF NOT EXISTS attachments (
-  path VARCHAR(191) PRIMARY KEY,
-  file_name TEXT NOT NULL DEFAULT '',
-  store_path TEXT NOT NULL DEFAULT '',
-  owner_id VARCHAR(191) NOT NULL DEFAULT '',
-  topic_id VARCHAR(191) NOT NULL DEFAULT '',
-  size BIGINT NOT NULL DEFAULT 0,
-  ext TEXT NOT NULL DEFAULT '',
-  private BOOLEAN NOT NULL DEFAULT FALSE,
-  external BOOLEAN NOT NULL DEFAULT FALSE,
-  tags TEXT NOT NULL DEFAULT '',
-  remark TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL
-);
-"
-        .to_string(),
-    );
+        manager
+            .create_table(
+                Table::create()
+                    .table(Relations::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Relations::OwnerId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::TargetId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::IsContact)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::IsStar)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::IsBlocked)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::Remark)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Relations::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(Relations::UpdatedAt).text().not_null())
+                    .primary_key(
+                        Index::create()
+                            .col(Relations::OwnerId)
+                            .col(Relations::TargetId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-    db.execute(create_users).await?;
-    db.execute(create_topics).await?;
-    db.execute(create_conversations).await?;
-    db.execute(create_topic_members).await?;
-    db.execute(create_chat_logs).await?;
-    db.execute(create_relations).await?;
-    db.execute(create_topic_knocks).await?;
-    db.execute(create_auth_tokens).await?;
-    db.execute(create_presence_sessions).await?;
-    db.execute(create_attachments).await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(TopicKnocks::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(TopicKnocks::TopicId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(TopicKnocks::UserId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(TopicKnocks::CreatedAt).text().not_null())
+                    .col(ColumnDef::new(TopicKnocks::UpdatedAt).text().not_null())
+                    .col(
+                        ColumnDef::new(TopicKnocks::Message)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(TopicKnocks::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(TopicKnocks::Status)
+                            .text()
+                            .not_null()
+                            .default("pending"),
+                    )
+                    .col(
+                        ColumnDef::new(TopicKnocks::AdminId)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .col(TopicKnocks::TopicId)
+                            .col(TopicKnocks::UserId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-    let add_user_password = Statement::from_string(
-        backend,
-        "ALTER TABLE users ADD COLUMN password TEXT NOT NULL DEFAULT ''".to_string(),
-    );
-    let _ = db.execute(add_user_password).await;
+        manager
+            .create_table(
+                Table::create()
+                    .table(AuthTokens::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(AuthTokens::Token)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(AuthTokens::UserId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(AuthTokens::CreatedAt).text().not_null())
+                    .col(ColumnDef::new(AuthTokens::LastSeenAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
-    let add_user_enabled = Statement::from_string(
-        backend,
-        "ALTER TABLE users ADD COLUMN enabled BOOLEAN NOT NULL DEFAULT TRUE".to_string(),
-    );
-    let _ = db.execute(add_user_enabled).await;
+        manager
+            .create_table(
+                Table::create()
+                    .table(PresenceSessions::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(PresenceSessions::UserId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PresenceSessions::Device)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PresenceSessions::NodeId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PresenceSessions::Endpoint)
+                            .string_len(191)
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(PresenceSessions::UpdatedAtUnix)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .col(PresenceSessions::UserId)
+                            .col(PresenceSessions::Device),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
-    let add_topic_enabled = Statement::from_string(
-        backend,
-        "ALTER TABLE topics ADD COLUMN enabled BOOLEAN NOT NULL DEFAULT TRUE".to_string(),
-    );
-    let _ = db.execute(add_topic_enabled).await;
+        manager
+            .create_table(
+                Table::create()
+                    .table(Attachments::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Attachments::Path)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::FileName)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::StorePath)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::OwnerId)
+                            .string_len(191)
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::TopicId)
+                            .string_len(191)
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::Size)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::Ext)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::Private)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::External)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::Tags)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(Attachments::Remark)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(Attachments::CreatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
 
-    let add_presence_endpoint = Statement::from_string(
-        backend,
-        "ALTER TABLE presence_sessions ADD COLUMN endpoint VARCHAR(191) NOT NULL DEFAULT ''"
-            .to_string(),
-    );
-    let _ = db.execute(add_presence_endpoint).await;
+        if !manager.has_column("users", "password").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Users::Table)
+                        .add_column(
+                            ColumnDef::new(Users::Password)
+                                .text()
+                                .not_null()
+                                .default(""),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
 
-    if matches!(backend, DbBackend::Sqlite | DbBackend::MySql) {
-        let idx = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_conversations_owner_updated ON conversations(owner_id, updated_at);"
-                .to_string(),
-        );
-        db.execute(idx).await?;
+        if !manager.has_column("users", "enabled").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Users::Table)
+                        .add_column(
+                            ColumnDef::new(Users::Enabled)
+                                .boolean()
+                                .not_null()
+                                .default(true),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
 
-        let idx_logs = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_chat_logs_topic_seq ON chat_logs(topic_id, seq DESC);"
-                .to_string(),
-        );
-        db.execute(idx_logs).await?;
+        if !manager.has_column("topics", "enabled").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Topics::Table)
+                        .add_column(
+                            ColumnDef::new(Topics::Enabled)
+                                .boolean()
+                                .not_null()
+                                .default(true),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
 
-        let idx_member = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_topic_members_user ON topic_members(user_id);"
-                .to_string(),
-        );
-        db.execute(idx_member).await?;
+        if !manager.has_column("presence_sessions", "endpoint").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(PresenceSessions::Table)
+                        .add_column(
+                            ColumnDef::new(PresenceSessions::Endpoint)
+                                .string_len(191)
+                                .not_null()
+                                .default(""),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
 
-        let idx_tokens = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id);".to_string(),
-        );
-        db.execute(idx_tokens).await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_conversations_owner_updated")
+                    .table(Conversations::Table)
+                    .if_not_exists()
+                    .col(Conversations::OwnerId)
+                    .col(Conversations::UpdatedAt)
+                    .to_owned(),
+            )
+            .await?;
 
-        let idx_presence = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_presence_node_updated ON presence_sessions(node_id, updated_at_unix);"
-                .to_string(),
-        );
-        db.execute(idx_presence).await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_chat_logs_topic_seq")
+                    .table(ChatLogs::Table)
+                    .if_not_exists()
+                    .col(ChatLogs::TopicId)
+                    .col(ChatLogs::Seq)
+                    .to_owned(),
+            )
+            .await?;
 
-        let idx_attachment_owner = Statement::from_string(
-            backend,
-            "CREATE INDEX IF NOT EXISTS idx_attachments_owner ON attachments(owner_id);"
-                .to_string(),
-        );
-        db.execute(idx_attachment_owner).await?;
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_topic_members_user")
+                    .table(TopicMembers::Table)
+                    .if_not_exists()
+                    .col(TopicMembers::UserId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_auth_tokens_user")
+                    .table(AuthTokens::Table)
+                    .if_not_exists()
+                    .col(AuthTokens::UserId)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_presence_node_updated")
+                    .table(PresenceSessions::Table)
+                    .if_not_exists()
+                    .col(PresenceSessions::NodeId)
+                    .col(PresenceSessions::UpdatedAtUnix)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_attachments_owner")
+                    .table(Attachments::Table)
+                    .if_not_exists()
+                    .col(Attachments::OwnerId)
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
     }
 
-    Ok(())
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(Attachments::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(PresenceSessions::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(AuthTokens::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(TopicKnocks::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Relations::Table).if_exists().to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(ChatLogs::Table).if_exists().to_owned())
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(TopicMembers::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(Conversations::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Topics::Table).if_exists().to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Users::Table).if_exists().to_owned())
+            .await?;
+
+        Ok(())
+    }
+}
+
+#[derive(DeriveIden)]
+enum Users {
+    Table,
+    UserId,
+    Password,
+    DisplayName,
+    Avatar,
+    Source,
+    Locale,
+    City,
+    Country,
+    Gender,
+    PublicKey,
+    IsStaff,
+    Enabled,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum Topics {
+    Table,
+    Id,
+    Name,
+    Icon,
+    Kind,
+    OwnerId,
+    AttendeeId,
+    Members,
+    LastSeq,
+    Multiple,
+    Source,
+    Private,
+    KnockNeedVerify,
+    AdminsJson,
+    WebhooksJson,
+    NoticeJson,
+    ExtraJson,
+    SilentWhiteListJson,
+    Silent,
+    Enabled,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum Conversations {
+    Table,
+    OwnerId,
+    TopicId,
+    UpdatedAt,
+    Sticky,
+    Mute,
+    Remark,
+    Unread,
+    StartSeq,
+    LastSeq,
+    LastReadSeq,
+    LastReadAt,
+    Multiple,
+    Attendee,
+    Members,
+    Name,
+    Icon,
+    Kind,
+    Source,
+    LastSenderId,
+    LastMessageJson,
+    LastMessageAt,
+    LastMessageSeq,
+}
+
+#[derive(DeriveIden)]
+enum TopicMembers {
+    Table,
+    TopicId,
+    UserId,
+    Name,
+    Source,
+    Role,
+    SilenceAt,
+    JoinedAt,
+    UpdatedAt,
+    ExtraJson,
+}
+
+#[derive(DeriveIden)]
+enum ChatLogs {
+    Table,
+    Id,
+    TopicId,
+    Seq,
+    SenderId,
+    ContentJson,
+    DeletedByJson,
+    Read,
+    Recall,
+    Source,
+    CreatedAt,
+}
+
+#[derive(DeriveIden)]
+enum Relations {
+    Table,
+    OwnerId,
+    TargetId,
+    IsContact,
+    IsStar,
+    IsBlocked,
+    Remark,
+    Source,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum TopicKnocks {
+    Table,
+    TopicId,
+    UserId,
+    CreatedAt,
+    UpdatedAt,
+    Message,
+    Source,
+    Status,
+    AdminId,
+}
+
+#[derive(DeriveIden)]
+enum AuthTokens {
+    Table,
+    Token,
+    UserId,
+    CreatedAt,
+    LastSeenAt,
+}
+
+#[derive(DeriveIden)]
+enum PresenceSessions {
+    Table,
+    UserId,
+    Device,
+    NodeId,
+    Endpoint,
+    UpdatedAtUnix,
+}
+
+#[derive(DeriveIden)]
+enum Attachments {
+    Table,
+    Path,
+    FileName,
+    StorePath,
+    OwnerId,
+    TopicId,
+    Size,
+    Ext,
+    Private,
+    External,
+    Tags,
+    Remark,
+    CreatedAt,
 }

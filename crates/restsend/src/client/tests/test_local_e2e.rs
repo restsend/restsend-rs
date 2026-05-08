@@ -312,6 +312,65 @@ async fn test_sdk_local_backend_e2e_sync_logs() {
 }
 
 #[tokio::test]
+async fn test_sdk_local_backend_e2e_sync_logs_preserve_has_more_on_first_page() {
+    init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
+    let endpoint = server.endpoint.clone();
+
+    let user_a = unique_name("sdk-sync-more-a");
+    let user_b = unique_name("sdk-sync-more-b");
+
+    signup(endpoint.clone(), user_a.clone(), "pass-a".to_string())
+        .await
+        .expect("signup a");
+    signup(endpoint.clone(), user_b.clone(), "pass-b".to_string())
+        .await
+        .expect("signup b");
+
+    let info_a = login_with_password(endpoint.clone(), user_a.clone(), "pass-a".to_string())
+        .await
+        .expect("login a");
+
+    let writer = Client::new("".to_string(), "".to_string(), &info_a);
+    let conversation = writer.create_chat(user_b).await.expect("create chat");
+    let topic_id = conversation.topic_id.clone();
+
+    for i in 0..3 {
+        let req = ChatRequest::new_text(&topic_id, &format!("sync more msg {}", i));
+        writer
+            .send_chat_request(topic_id.clone(), req)
+            .await
+            .expect("send chat request");
+    }
+
+    // Use an independent client instance to force first-page sync behavior.
+    let reader = Client::new("".to_string(), "".to_string(), &info_a);
+    let result = Arc::new(Mutex::new(None));
+    reader
+        .sync_chat_logs_quick(
+            topic_id.clone(),
+            None,
+            2,
+            Box::new(LocalSyncLogsCallback {
+                result: result.clone(),
+            }),
+            Some(true),
+        )
+        .await;
+
+    check_until(Duration::from_secs(5), || result.lock().unwrap().is_some())
+        .await
+        .unwrap();
+
+    let logs = result.lock().unwrap().take().unwrap();
+    assert_eq!(logs.items.len(), 2);
+    assert!(
+        logs.has_more,
+        "expected has_more=true when server has more logs"
+    );
+}
+
+#[tokio::test]
 async fn test_sdk_local_backend_e2e_recall_flow() {
     init_log("INFO".to_string(), true);
     let server = LocalTestServer::start().await;

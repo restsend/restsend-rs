@@ -5,13 +5,7 @@ use js_sys::Promise;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::HashMap,
-    io::Cursor,
-    rc::Rc,
-    time::Duration,
-    vec,
+    borrow::Borrow, cell::RefCell, collections::HashMap, io::Cursor, rc::Rc, time::Duration, vec,
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -201,7 +195,10 @@ where
 
 #[allow(dead_code)]
 impl<T: StoreModel + 'static> IndexeddbTable<T> {
-    pub async fn open_database_async(table_name: String, version: u32) -> crate::Result<IdbDatabase> {
+    pub async fn open_database_async(
+        table_name: String,
+        version: u32,
+    ) -> crate::Result<IdbDatabase> {
         let idb = web_sys::window()
             .ok_or(ClientError::Storage("window is none".to_string()))?
             .indexed_db()?
@@ -298,9 +295,7 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
             .recv()
             .await
             .unwrap_or(Err(ClientError::Storage("No response".to_string())))?;
-        result
-            .dyn_into::<IdbDatabase>()
-            .map_err(ClientError::from)
+        result.dyn_into::<IdbDatabase>().map_err(ClientError::from)
     }
 
     fn from_db(
@@ -757,7 +752,7 @@ impl<T: StoreModel + 'static> super::Table<T> for IndexeddbTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         Self::get(self, partition, key).await
     }
-    async fn batch_update(&self, items: &Vec<super::ValueItem<T>>) -> crate::Result<()> {
+    async fn batch_update(&self, items: &[super::ValueItem<T>]) -> crate::Result<()> {
         Self::batch_update(self, items).await
     }
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
