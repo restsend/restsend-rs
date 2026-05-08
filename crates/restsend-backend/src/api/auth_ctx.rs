@@ -104,7 +104,7 @@ where
 }
 
 fn super_token_set() -> std::collections::HashSet<String> {
-    std::env::var("RS_SUPER_TOKENS")
+    std::env::var("SUPER_TOKENS")
         .unwrap_or_default()
         .split(',')
         .map(str::trim)

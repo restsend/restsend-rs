@@ -37,7 +37,7 @@ pub async fn build_router(
     if config.run_migrations {
         run_migrations(&db).await?;
     }
-    if config.demo {
+    if AppConfig::is_demo() {
         create_demo_accounts(&db).await?;
     }
 
@@ -98,7 +98,7 @@ pub async fn build_router(
         chat_service,
     };
 
-    if config.demo {
+    if AppConfig::is_demo() {
         if let Err(e) = create_demo_fixtures(&state).await {
             tracing::warn!(error = %e, "demo fixtures creation failed");
         }
@@ -389,7 +389,7 @@ pub async fn build_router(
             }
         }
     }
-    if config.demo {
+    if AppConfig::is_demo() {
         app = app
             .route("/", get(api::admin::demo_spa))
             .route("/chat/api/demo-users", get(api::admin::demo_users));

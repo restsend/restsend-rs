@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 use crate::api::auth_ctx::AuthCtx;
 use crate::api::error::{ApiError, ApiResult};
-use crate::app::AppState;
+use crate::app::{AppConfig, AppState};
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -133,12 +133,12 @@ fn static_path(file: &str) -> String {
     })
 }
 
-pub async fn spa(State(state): State<AppState>) -> Result<Html<String>, ApiError> {
+pub async fn spa(State(_state): State<AppState>) -> Result<Html<String>, ApiError> {
     let path = static_path("admin.html");
     let html = tokio::fs::read_to_string(&path)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
-    let html = if state.config.demo {
+    let html = if AppConfig::is_demo() {
         html.replace(
             "</head>",
             r#"<script>window.__DEMO_MODE__=true</script></head>"#,

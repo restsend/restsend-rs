@@ -27,7 +27,7 @@ impl AuthService {
             }
         }
         let now = Utc::now().to_rfc3339();
-        let token = format!("rs_{}_{}", user_id, uuid::Uuid::new_v4());
+        let token = format!("{}_{}", user_id, uuid::Uuid::new_v4());
         auth_token::ActiveModel {
             token: Set(token.clone()),
             user_id: Set(user_id.to_string()),

@@ -2,6 +2,8 @@
 
 RestSend is a full-featured instant messaging project with backend services, an admin console, a Rust client core, and WASM bindings.
 
+![Admin Console](./rs_admin.png)
+
 ## Crates
 
 - `crates/restsend-backend`: backend service with API, WebSocket, OpenAPI, and Admin
@@ -12,9 +14,7 @@ RestSend is a full-featured instant messaging project with backend services, an 
 ## Quick Start
 
 ```bash
-git clone https://github.com/restsend/restsend-rs.git
-cd restsend-rs
-cargo check
+docker run -p 8080:8080 -e RS_DEMO=true ghcr.io/restsend/restsend:latest
 ```
 
 ## Run Backend
@@ -28,12 +28,12 @@ cargo build -p restsend-backend --release
 Minimal `.env`:
 
 ```env
-RS_ADDR=0.0.0.0:8080
-RS_DATABASE_URL=sqlite://restsend-server.db?mode=rwc
-RS_OPENAPI_PREFIX=/open
-RS_API_PREFIX=/api
-RS_LOG_FILE=logs/restsend-backend.log
-RS_RUN_MIGRATIONS=true
+ADDR=0.0.0.0:8080
+DATABASE_URL=sqlite://restsend-server.db?mode=rwc
+OPENAPI_PREFIX=/open
+API_PREFIX=/api
+LOG_FILE=logs/restsend-backend.log
+RUN_MIGRATIONS=true
 ```
 
 Start:
@@ -53,6 +53,7 @@ Health check:
 ```text
 GET /api/health
 ```
+![Chat](./rs_chat.png)
 
 ## Admin
 

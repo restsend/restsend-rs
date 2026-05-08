@@ -29,10 +29,12 @@ pub struct AppConfig {
     pub ws_client_queue_size: usize,
     pub ws_typing_interval_ms: u64,
     pub ws_drop_on_backpressure: bool,
-    pub demo: bool,
 }
 
 impl AppConfig {
+    pub fn is_demo() -> bool {
+        env_bool("RS_DEMO", false)
+    }
     pub fn from_env() -> Self {
         Self::from_env_and_args(std::env::args()).unwrap_or_else(|err| {
             eprintln!("restsend-backend argument error: {err}");
@@ -40,43 +42,39 @@ impl AppConfig {
         })
     }
 
-    pub fn from_env_and_args(
-        args: impl IntoIterator<Item = String>,
-    ) -> Result<Self, String> {
+    pub fn from_env_and_args(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
         let addr_override = parse_addr_arg(args)?;
         let addr = addr_override.unwrap_or_else(|| {
-            std::env::var("RS_ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string())
+            std::env::var("ADDR").unwrap_or_else(|_| "0.0.0.0:8080".to_string())
         });
-        let endpoint =
-            build_endpoint(std::env::var("RS_ENDPOINT").unwrap_or_else(|_| addr.clone()));
-        let database_url = std::env::var("RS_DATABASE_URL")
+        let endpoint = build_endpoint(std::env::var("ENDPOINT").unwrap_or_else(|_| addr.clone()));
+        let database_url = std::env::var("DATABASE_URL")
             .unwrap_or_else(|_| "sqlite://restsend-server.db?mode=rwc".to_string());
-        let openapi_schema = std::env::var("RS_OPENAPI_SCHEMA")
+        let openapi_schema = std::env::var("OPENAPI_SCHEMA")
             .unwrap_or_else(|_| "http".to_string())
             .trim()
             .to_ascii_lowercase();
-        let openapi_prefix = normalize_path(
-            std::env::var("RS_OPENAPI_PREFIX").unwrap_or_else(|_| "/open".to_string()),
-        );
+        let openapi_prefix =
+            normalize_path(std::env::var("OPENAPI_PREFIX").unwrap_or_else(|_| "/open".to_string()));
         let api_prefix =
-            normalize_path(std::env::var("RS_API_PREFIX").unwrap_or_else(|_| "/api".to_string()));
-        let log_file = std::env::var("RS_LOG_FILE")
-            .unwrap_or_else(|_| "logs/restsend-backend.log".to_string());
-        let openapi_token = std::env::var("RS_OPENAPI_TOKEN")
+            normalize_path(std::env::var("API_PREFIX").unwrap_or_else(|_| "/api".to_string()));
+        let log_file =
+            std::env::var("LOG_FILE").unwrap_or_else(|_| "logs/restsend-backend.log".to_string());
+        let openapi_token = std::env::var("OPENAPI_TOKEN")
             .ok()
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty());
-        let run_migrations = env_bool("RS_RUN_MIGRATIONS", true);
-        let migrate_only = env_bool("RS_MIGRATE_ONLY", false);
-        let webhook_timeout_secs = std::env::var("RS_WEBHOOK_TIMEOUT_SECS")
+        let run_migrations = env_bool("RUN_MIGRATIONS", true);
+        let migrate_only = env_bool("MIGRATE_ONLY", false);
+        let webhook_timeout_secs = std::env::var("WEBHOOK_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(10);
-        let webhook_retries = std::env::var("RS_WEBHOOK_RETRIES")
+        let webhook_retries = std::env::var("WEBHOOK_RETRIES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(3);
-        let webhook_targets = std::env::var("RS_WEBHOOK_TARGETS")
+        let webhook_targets = std::env::var("WEBHOOK_TARGETS")
             .ok()
             .map(|v| {
                 v.split(',')
@@ -85,72 +83,71 @@ impl AppConfig {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
-        let event_bus_size = std::env::var("RS_EVENT_BUS_SIZE")
+        let event_bus_size = std::env::var("EVENT_BUS_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(1024);
-        let message_worker_count = std::env::var("RS_MESSAGE_WORKERS")
+        let message_worker_count = std::env::var("MESSAGE_WORKERS")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(4);
-        let message_queue_size = std::env::var("RS_MESSAGE_QUEUE_SIZE")
+        let message_queue_size = std::env::var("MESSAGE_QUEUE_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(1024);
-        let push_worker_count = std::env::var("RS_PUSH_WORKERS")
+        let push_worker_count = std::env::var("PUSH_WORKERS")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(message_worker_count);
-        let push_queue_size = std::env::var("RS_PUSH_QUEUE_SIZE")
+        let push_queue_size = std::env::var("PUSH_QUEUE_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(message_queue_size);
-        let webhook_worker_count = std::env::var("RS_WEBHOOK_WORKERS")
+        let webhook_worker_count = std::env::var("WEBHOOK_WORKERS")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(message_worker_count);
-        let webhook_queue_size = std::env::var("RS_WEBHOOK_QUEUE_SIZE")
+        let webhook_queue_size = std::env::var("WEBHOOK_QUEUE_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(message_queue_size);
-        let max_upload_bytes = std::env::var("RS_MAX_UPLOAD_BYTES")
+        let max_upload_bytes = std::env::var("MAX_UPLOAD_BYTES")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(10 * 1024 * 1024)
             .max(1024);
-        let presence_backend = std::env::var("RS_PRESENCE_BACKEND")
+        let presence_backend = std::env::var("PRESENCE_BACKEND")
             .unwrap_or_else(|_| "memory".to_string())
             .to_ascii_lowercase();
-        let presence_node_id = std::env::var("RS_NODE_ID")
+        let presence_node_id = std::env::var("NODE_ID")
             .ok()
             .map(|v| v.trim().to_string())
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| format!("node-{}", uuid::Uuid::new_v4().simple()));
-        let presence_ttl_secs = std::env::var("RS_PRESENCE_TTL_SECS")
+        let presence_ttl_secs = std::env::var("PRESENCE_TTL_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(90)
             .max(10);
-        let presence_heartbeat_secs = std::env::var("RS_PRESENCE_HEARTBEAT_SECS")
+        let presence_heartbeat_secs = std::env::var("PRESENCE_HEARTBEAT_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(30)
             .max(1)
             .min(presence_ttl_secs);
-        let ws_per_user_limit = std::env::var("RS_WS_PER_USER_LIMIT")
+        let ws_per_user_limit = std::env::var("WS_PER_USER_LIMIT")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(0);
-        let ws_client_queue_size = std::env::var("RS_WS_CLIENT_QUEUE_SIZE")
+        let ws_client_queue_size = std::env::var("WS_CLIENT_QUEUE_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
             .unwrap_or(0);
-        let ws_typing_interval_ms = std::env::var("RS_WS_TYPING_INTERVAL_MS")
+        let ws_typing_interval_ms = std::env::var("WS_TYPING_INTERVAL_MS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(1000);
-        let ws_drop_on_backpressure = env_bool("RS_WS_DROP_ON_BACKPRESSURE", true);
-        let demo = env_bool("RS_DEMO", false);
+        let ws_drop_on_backpressure = env_bool("WS_DROP_ON_BACKPRESSURE", true);
 
         Ok(Self {
             addr,
@@ -182,7 +179,6 @@ impl AppConfig {
             ws_client_queue_size,
             ws_typing_interval_ms,
             ws_drop_on_backpressure,
-            demo,
         })
     }
 }
@@ -284,8 +280,8 @@ mod tests {
 
     #[test]
     fn parse_addr_arg_requires_value() {
-        let err = parse_addr_arg(["restsend-backend".to_string(), "--addr".to_string()])
-            .unwrap_err();
+        let err =
+            parse_addr_arg(["restsend-backend".to_string(), "--addr".to_string()]).unwrap_err();
 
         assert_eq!(err, "--addr requires a value");
     }

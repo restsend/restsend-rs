@@ -48,7 +48,6 @@ mod tests {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
             ws_drop_on_backpressure: true,
-            demo: false,
         }
     }
 
@@ -5536,10 +5535,8 @@ mod tests {
             let mut req = format!("ws://{}/api/connect?device={device}", self.addr_b)
                 .into_client_request()
                 .unwrap();
-            req.headers_mut().insert(
-                "Authorization",
-                format!("Bearer {token}").parse().unwrap(),
-            );
+            req.headers_mut()
+                .insert("Authorization", format!("Bearer {token}").parse().unwrap());
             let (ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
             ws
         }
@@ -5575,7 +5572,9 @@ mod tests {
             .create_topic("cluster-cu-a", "cluster-cu-b", "cluster-conv-update-topic")
             .await;
 
-        let mut remote_ws = fixture.connect_remote_ws("cluster-cu-a", "remote-owner").await;
+        let mut remote_ws = fixture
+            .connect_remote_ws("cluster-cu-a", "remote-owner")
+            .await;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let resp = fixture
@@ -5632,7 +5631,9 @@ mod tests {
             .create_topic("cluster-mu-a", "cluster-mu-b", "cluster-mark-unread-topic")
             .await;
 
-        let mut remote_ws = fixture.connect_remote_ws("cluster-mu-a", "remote-owner").await;
+        let mut remote_ws = fixture
+            .connect_remote_ws("cluster-mu-a", "remote-owner")
+            .await;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let resp = fixture
@@ -5687,7 +5688,9 @@ mod tests {
             .create_topic("cluster-cr-a", "cluster-cr-b", "cluster-conv-removed-topic")
             .await;
 
-        let mut remote_ws = fixture.connect_remote_ws("cluster-cr-a", "remote-owner").await;
+        let mut remote_ws = fixture
+            .connect_remote_ws("cluster-cr-a", "remote-owner")
+            .await;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let resp = fixture
