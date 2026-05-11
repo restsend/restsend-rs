@@ -3,6 +3,7 @@ mod test_conversation;
 mod test_local_e2e;
 mod test_logs;
 mod test_merge_conversation;
+mod test_reentrancy;
 mod test_upload;
 mod test_users;
 

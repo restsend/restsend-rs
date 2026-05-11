@@ -448,6 +448,12 @@ impl Client {
             store_ref.option.max_sync_logs_limit.load(Ordering::Relaxed) as u32;
         let sync_logs_max_count = sync_logs_max_count.unwrap_or(max_sync_logs_limit);
 
+        if store_ref.syncing_conversations.swap(true, Ordering::Acquire) {
+            warn!("sync_conversations is already in progress, skipping");
+            callback.on_success(String::new(), None, 0, 0);
+            return;
+        }
+
         let mut last_updated_at = updated_at.clone().unwrap_or_default();
         let mut conversations = HashMap::new();
         let sync_max_count = sync_max_count.unwrap_or(0);
@@ -599,6 +605,7 @@ impl Client {
                     .ok();
             }
         }
+        store_ref.syncing_conversations.store(false, Ordering::Release);
         callback.on_success(last_updated_at, last_removed_at, count, total);
     }
 

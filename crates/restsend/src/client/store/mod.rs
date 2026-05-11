@@ -198,6 +198,7 @@ pub struct ClientStore {
     quick_sync_last_fetch_at: RwLock<HashMap<String, i64>>,
     pending_conversations: Mutex<HashSet<String>>,
     topic_owner_cache: RwLock<HashMap<String, (String, i64)>>,
+    pub(crate) syncing_conversations: AtomicBool,
     pub option: ClientOptionRef,
 }
 
@@ -228,6 +229,7 @@ impl ClientStore {
             quick_sync_last_fetch_at: RwLock::new(HashMap::new()),
             pending_conversations: Mutex::new(HashSet::new()),
             topic_owner_cache: RwLock::new(HashMap::new()),
+            syncing_conversations: AtomicBool::new(false),
             option: Arc::new(ClientOption::default()),
         }
     }
