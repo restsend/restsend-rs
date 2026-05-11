@@ -153,11 +153,15 @@ impl Conversation {
             self.last_read_seq = local.last_read_seq;
             self.last_read_at = local.last_read_at.clone();
             self.unread = local.unread;
-        } else if local.last_read_seq == self.last_read_seq
-            && self.last_read_at.is_none()
-            && local.last_read_at.is_some()
-        {
-            self.last_read_at = local.last_read_at.clone();
+        } else if local.last_read_seq == self.last_read_seq {
+            if local.last_seq > self.last_seq {
+                self.unread = local.unread;
+            } else {
+                self.unread = std::cmp::max(self.unread, local.unread);
+            }
+            if self.last_read_at.is_none() && local.last_read_at.is_some() {
+                self.last_read_at = local.last_read_at.clone();
+            }
         }
 
         if self.last_read_at.is_none() && local.last_read_at.is_some() {
@@ -216,6 +220,50 @@ mod tests {
             remote.last_read_at,
             Some("2024-01-02T00:00:00Z".to_string())
         );
+    }
+
+    #[test]
+    fn merge_local_preserves_unread_when_local_has_newer_messages() {
+        let mut remote = Conversation {
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 0,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            last_seq: 102,
+            last_read_seq: 50,
+            unread: 2,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.last_read_seq, 50);
+        assert_eq!(remote.unread, 2);
+    }
+
+    #[test]
+    fn merge_local_takes_max_unread_when_same_read_state() {
+        let mut remote = Conversation {
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 0,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 1,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.last_read_seq, 50);
+        assert_eq!(remote.unread, 1);
     }
 
     #[test]
