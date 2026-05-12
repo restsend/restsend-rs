@@ -599,5 +599,6 @@ fn map_ws_error_code(err: &ApiError) -> Option<u16> {
         ApiError::BadRequest(_) => Some(400),
         ApiError::InvalidToken => Some(401),
         ApiError::Internal(_) => Some(500),
+        ApiError::NotImplemented(_) => Some(501),
     }
 }

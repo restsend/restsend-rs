@@ -1,7 +1,7 @@
 mod config;
 pub mod state;
 
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 use std::collections::HashSet;
 use tower_http::cors::CorsLayer;
@@ -14,6 +14,30 @@ use tracing_subscriber::EnvFilter;
 
 use crate::api;
 use crate::api::admin::hinit_static_path;
+
+fn find_static_dir(subdir: &str) -> Option<std::path::PathBuf> {
+    for dir in [
+        std::env::current_dir().ok(),
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.to_path_buf())),
+    ] {
+        if let Some(dir) = dir {
+            let path = dir.join("static").join(subdir);
+            if path.exists() {
+                return Some(path);
+            }
+        }
+    }
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("static")
+        .join(subdir);
+    if path.exists() {
+        Some(path)
+    } else {
+        None
+    }
+}
 use crate::infra::db::{connect_db, run_migrations};
 use crate::infra::event::{BackendEvent, EventBus};
 use crate::infra::metrics::RuntimeMetrics;
@@ -355,6 +379,8 @@ pub async fn build_router(
 
     let admin_enabled = hinit_static_path("admin.html").is_some();
     let chat_enabled = hinit_static_path("chat.html").is_some();
+    let desk_chat_enabled = hinit_static_path("desk-chat/index.html").is_some();
+    let livechat_enabled = hinit_static_path("livechat-page/index.html").is_some();
 
     let mut app = Router::new();
     if admin_enabled {
@@ -389,6 +415,40 @@ pub async fn build_router(
             }
         }
     }
+    if desk_chat_enabled {
+        if let Some(dir) = find_static_dir("desk-chat") {
+            app = app.nest_service("/desk", ServeDir::new(dir));
+        }
+    }
+
+    if livechat_enabled {
+        if let Some(dir) = find_static_dir("livechat-page") {
+            app = app.nest_service("/livechat", ServeDir::new(dir));
+        }
+    }
+
+    // helpdesk API routes (protected)
+    let helpdesk_protected = Router::new()
+        .route("/inboxes", get(api::helpdesk::list_inboxes).post(api::helpdesk::create_inbox))
+        .route("/inboxes/:id", get(api::helpdesk::get_inbox).put(api::helpdesk::update_inbox).delete(api::helpdesk::delete_inbox))
+        .route("/inboxes/:inbox_id/members", get(api::helpdesk::list_inbox_members).post(api::helpdesk::add_inbox_member))
+        .route("/inboxes/:inbox_id/members/:user_id", delete(api::helpdesk::remove_inbox_member))
+        .route("/conversations", get(api::helpdesk::list_conversations))
+        .route("/conversations/:topic_id", get(api::helpdesk::get_conversation))
+        .route("/conversations/:topic_id/status", put(api::helpdesk::update_conversation_status))
+        .route("/conversations/:topic_id/assign", put(api::helpdesk::assign_conversation))
+        .route("/canned-responses", get(api::helpdesk::list_canned_responses))
+        .route("/labels", get(api::helpdesk::list_labels))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            api::middleware_auth::openapi_auth,
+        ));
+    app = app.nest("/helpdesk", helpdesk_protected);
+
+    // livechat new session (public - unauthenticated guest visitor)
+    // also mounted at /helpdesk/livechat/new but without auth
+    app = app.route("/helpdesk/livechat/new", post(api::helpdesk::start_livechat));
+
     if AppConfig::is_demo() {
         app = app
             .route("/", get(api::admin::demo_spa))

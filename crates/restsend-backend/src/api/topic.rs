@@ -79,10 +79,10 @@ pub async fn topic_create_with_user(
     let topic = state
         .topic_service
         .create_topic(
-            Some(topic_id),
+            Some(topic_id.clone()),
             crate::OpenApiCreateTopicForm {
                 sender_id: self_user.to_string(),
-                members: vec![self_user.to_string(), userid],
+                members: vec![self_user.to_string(), userid.clone()],
                 name: "Direct Message".to_string(),
                 multiple: Some(false),
                 ..crate::OpenApiCreateTopicForm::default()
@@ -90,6 +90,7 @@ pub async fn topic_create_with_user(
         )
         .await
         .map_err(map_domain_error)?;
+    let _ = state.topic_service.set_attendee(&topic_id, &userid).await;
     state
         .event_bus
         .publish(BackendEvent::TopicCreate(TopicSimpleEvent {

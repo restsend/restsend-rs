@@ -250,6 +250,24 @@ impl TopicService {
     }
 
     pub async fn list_members(&self, topic_id: &str) -> DomainResult<Vec<String>> {
+        if let Some(topic) = topic::Entity::find_by_id(topic_id.to_string())
+            .one(&self.db)
+            .await?
+        {
+            if !topic.multiple {
+                let mut members = Vec::new();
+                if !topic.owner_id.is_empty() {
+                    members.push(topic.owner_id.clone());
+                }
+                if !topic.attendee_id.is_empty()
+                    && topic.attendee_id != topic.owner_id
+                {
+                    members.push(topic.attendee_id);
+                }
+                return Ok(members);
+            }
+        }
+
         let rows = topic_member::Entity::find()
             .filter(topic_member::Column::TopicId.eq(topic_id.to_string()))
             .all(&self.db)
@@ -263,16 +281,12 @@ impl TopicService {
         _updated_at: Option<&str>,
         limit: Option<u64>,
     ) -> DomainResult<ListUserResult> {
-        let topic_rows = topic_member::Entity::find()
-            .filter(topic_member::Column::TopicId.eq(topic_id.to_string()))
-            .all(&self.db)
-            .await?;
-
+        let user_ids = self.list_members(topic_id).await?;
         let max = limit.unwrap_or(100).clamp(1, 500) as usize;
         let mut items = Vec::new();
-        for row in topic_rows.into_iter().take(max) {
+        for user_id in user_ids.into_iter().take(max) {
             if let Ok(user) = crate::services::UserService::new(self.db.clone())
-                .get_by_user_id(&row.user_id)
+                .get_by_user_id(&user_id)
                 .await
             {
                 items.push(user);
@@ -348,6 +362,18 @@ impl TopicService {
             return Err(DomainError::NotFound);
         }
         Ok(())
+    }
+
+    pub async fn set_attendee(&self, topic_id: &str, attendee_id: &str) -> DomainResult<Topic> {
+        let existing = topic::Entity::find_by_id(topic_id.to_string())
+            .one(&self.db)
+            .await?
+            .ok_or(DomainError::NotFound)?;
+        let mut active = existing.into_active_model();
+        active.attendee_id = Set(attendee_id.to_string());
+        active.updated_at = Set(now());
+        let updated = active.update(&self.db).await?;
+        Ok(updated.into())
     }
 
     pub async fn set_enabled(&self, topic_id: &str, enabled: bool) -> DomainResult<Topic> {
@@ -778,4 +804,226 @@ fn parse_duration_to_time(duration: &str) -> Option<String> {
         return Some((now + Duration::days(raw)).to_rfc3339());
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::{topic, topic_member, user};
+    use crate::infra::db::run_migrations;
+    use sea_orm::{ActiveModelTrait, Database};
+    use uuid::Uuid;
+
+    async fn setup_db() -> DatabaseConnection {
+        let db_url = format!(
+            "sqlite:file:test-{}?mode=memory&cache=shared",
+            Uuid::new_v4().simple()
+        );
+        let db = Database::connect(&db_url).await.unwrap();
+        run_migrations(&db).await.unwrap();
+        db
+    }
+
+    async fn create_user(db: &DatabaseConnection, user_id: &str) {
+        let now = now();
+        let user = crate::User {
+            user_id: user_id.to_string(),
+            name: user_id.to_string(),
+            enabled: true,
+            created_at: now.clone(),
+            ..crate::User::default()
+        };
+        user::ActiveModel::from((user, now.as_str()))
+            .insert(db)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_list_members_dm() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        let ts = now();
+        let topic = crate::Topic {
+            id: "alice:bob".to_string(),
+            owner_id: "alice".to_string(),
+            attendee_id: "bob".to_string(),
+            multiple: false,
+            members: 2,
+            enabled: true,
+            created_at: ts.clone(),
+            updated_at: ts.clone(),
+            ..crate::Topic::default()
+        };
+        topic::ActiveModel::from((topic, ts.as_str()))
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let members = service.list_members("alice:bob").await.unwrap();
+        assert_eq!(members.len(), 2);
+        assert!(members.contains(&"alice".to_string()));
+        assert!(members.contains(&"bob".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_members_dm_deduplicate() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        let ts = now();
+        let topic = crate::Topic {
+            id: "self-chat".to_string(),
+            owner_id: "alice".to_string(),
+            attendee_id: "alice".to_string(),
+            multiple: false,
+            members: 1,
+            enabled: true,
+            created_at: ts.clone(),
+            updated_at: ts.clone(),
+            ..crate::Topic::default()
+        };
+        topic::ActiveModel::from((topic, ts.as_str()))
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let members = service.list_members("self-chat").await.unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0], "alice");
+    }
+
+    #[tokio::test]
+    async fn test_list_members_group() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        let ts = now();
+        let topic = crate::Topic {
+            id: "group-1".to_string(),
+            owner_id: "alice".to_string(),
+            multiple: true,
+            members: 2,
+            enabled: true,
+            created_at: ts.clone(),
+            updated_at: ts.clone(),
+            ..crate::Topic::default()
+        };
+        topic::ActiveModel::from((topic, ts.as_str()))
+            .insert(&db)
+            .await
+            .unwrap();
+
+        for user_id in ["alice", "bob"] {
+            let member = TopicMember {
+                topic_id: "group-1".to_string(),
+                user_id: user_id.to_string(),
+                source: "test".to_string(),
+                joined_at: ts.clone(),
+                ..TopicMember::default()
+            };
+            topic_member::ActiveModel::from((member, ts.as_str()))
+                .insert(&db)
+                .await
+                .unwrap();
+        }
+
+        let members = service.list_members("group-1").await.unwrap();
+        assert_eq!(members.len(), 2);
+        assert!(members.contains(&"alice".to_string()));
+        assert!(members.contains(&"bob".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_list_members_non_existent() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        let members = service.list_members("no-such-topic").await.unwrap();
+        assert!(members.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_list_members_detailed_dm() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        create_user(&db, "alice").await;
+        create_user(&db, "bob").await;
+
+        let ts = now();
+        let topic = crate::Topic {
+            id: "alice:bob".to_string(),
+            owner_id: "alice".to_string(),
+            attendee_id: "bob".to_string(),
+            multiple: false,
+            members: 2,
+            enabled: true,
+            created_at: ts.clone(),
+            updated_at: ts.clone(),
+            ..crate::Topic::default()
+        };
+        topic::ActiveModel::from((topic, ts.as_str()))
+            .insert(&db)
+            .await
+            .unwrap();
+
+        let result = service
+            .list_members_detailed("alice:bob", None, None)
+            .await
+            .unwrap();
+        assert_eq!(result.items.len(), 2);
+        let user_ids: Vec<&str> = result.items.iter().map(|u| u.user_id.as_str()).collect();
+        assert!(user_ids.contains(&"alice"));
+        assert!(user_ids.contains(&"bob"));
+    }
+
+    #[tokio::test]
+    async fn test_list_members_detailed_group() {
+        let db = setup_db().await;
+        let service = TopicService::new(db.clone());
+
+        create_user(&db, "alice").await;
+        create_user(&db, "bob").await;
+
+        let ts = now();
+        let topic = crate::Topic {
+            id: "group-1".to_string(),
+            owner_id: "alice".to_string(),
+            multiple: true,
+            members: 2,
+            enabled: true,
+            created_at: ts.clone(),
+            updated_at: ts.clone(),
+            ..crate::Topic::default()
+        };
+        topic::ActiveModel::from((topic, ts.as_str()))
+            .insert(&db)
+            .await
+            .unwrap();
+
+        for user_id in ["alice", "bob"] {
+            let member = TopicMember {
+                topic_id: "group-1".to_string(),
+                user_id: user_id.to_string(),
+                source: "test".to_string(),
+                joined_at: ts.clone(),
+                ..TopicMember::default()
+            };
+            topic_member::ActiveModel::from((member, ts.as_str()))
+                .insert(&db)
+                .await
+                .unwrap();
+        }
+
+        let result = service
+            .list_members_detailed("group-1", None, None)
+            .await
+            .unwrap();
+        assert_eq!(result.items.len(), 2);
+        let user_ids: Vec<&str> = result.items.iter().map(|u| u.user_id.as_str()).collect();
+        assert!(user_ids.contains(&"alice"));
+        assert!(user_ids.contains(&"bob"));
+    }
 }

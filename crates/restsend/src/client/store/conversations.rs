@@ -228,10 +228,7 @@ impl ClientStore {
         let t = self.message_storage.table::<Conversation>().await.ok()?;
         let mut conversation = match t.get("", &req.topic_id).await {
             Some(c) => c,
-            None => self
-                .get_conversation_by(Conversation::new(&req.topic_id), true, false)
-                .await
-                .unwrap_or_else(|| Conversation::new(&req.topic_id)),
+            None => Conversation::new(&req.topic_id),
         };
 
         if let Some(content) = req.content.as_ref() {
@@ -509,7 +506,9 @@ impl ClientStore {
                 if conversation.is_partial {
                     return None;
                 }
-                let last_seq = last_seq.unwrap_or(conversation.last_seq);
+                let last_seq = last_seq
+                    .unwrap_or(conversation.last_seq)
+                    .min(conversation.last_seq);
 
                 if conversation.last_read_seq == last_seq && conversation.unread == 0 {
                     return None;

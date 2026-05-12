@@ -16,6 +16,8 @@ pub enum ApiError {
     BadRequest(String),
     #[error("internal error: {0}")]
     Internal(String),
+    #[error("not implemented: {0}")]
+    NotImplemented(String),
 }
 
 impl ApiError {
@@ -26,6 +28,10 @@ impl ApiError {
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
     }
+
+    pub fn not_implemented(msg: impl Into<String>) -> Self {
+        Self::NotImplemented(msg.into())
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -35,6 +41,7 @@ impl IntoResponse for ApiError {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::NotImplemented(_) => StatusCode::NOT_IMPLEMENTED,
         };
 
         let body = ApiErrorBody {

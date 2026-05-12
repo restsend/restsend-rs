@@ -129,7 +129,7 @@
             class="w-full px-3 py-2 bg-gray-100 rounded-lg outline-none text-sm">
         </div>
         <div class="flex-1 overflow-y-auto scrollbar-thin">
-          <template x-for="conv in filteredConversations" :key="conv.topicId">
+             <template x-for="conv in filteredConversations" :key="conv.topicId + '-' + (conv.unread || 0)">
             <div x-on:click="selectConversation(conv)"
                  class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 border-b"
                  :class="currentConv?.topicId===conv.topicId ? 'conv-active' : ''">
@@ -326,7 +326,7 @@
 </div>
 
 <script type="module">
-import init, { signin, Client } from '/js/restsend_wasm.js';
+import init, { signin, Client, setLogging } from '/js/restsend_wasm.js';
 
 window.__sdkReady = false;
 window.__SdkClient = Client;
@@ -339,6 +339,7 @@ try {
   await init();
   console.log('[chat] WASM SDK initialized');
   window.__sdkReady = true;
+  setLogging('debug');
 } catch(e) {
   console.warn('[chat] WASM SDK init failed:', e);
 }
@@ -437,7 +438,7 @@ function chatApp() {
         if (window.__sdkReady) {
           data = await window.__sdkSignin(this.endpoint, this.userId, this.password);
           const info = { endpoint: this.endpoint, userId: data.email, token: data.token, name: data.displayName, avatar: data.profile?.avatar || '' };
-          this.sdkClient = new window.__SdkClient(info, 'restsend-chat');
+          this.sdkClient = new window.__SdkClient(info, 'restsend-chat-' + data.email);
           this.setupSdkClient(this.sdkClient);
           await this.sdkClient.connect();
         } else {
@@ -466,15 +467,31 @@ function chatApp() {
       client.ontokenexpired = () => { this.doLogout(); };
       client.onconversationsupdated = (convs) => {
         if (convs && convs.length > 0) {
-          const oldMap = new Map(this.conversations.map(c => [c.topicId, c]));
           for (const c of convs) {
-            if (c.lastMessage?.type === 'recall' && oldMap.has(c.topicId)) {
-              const old = oldMap.get(c.topicId);
-              c.lastMessage = old.lastMessage;
+            const existing = this.conversations.find(x => x.topicId === c.topicId);
+            if (c.lastMessage?.type === 'recall' && existing?.lastMessage) {
+              c.lastMessage = existing.lastMessage;
             }
-            oldMap.set(c.topicId, c);
+            if (existing) {
+              if (c.unread !== undefined && c.unread !== null) {
+                existing.unread = Number(c.unread);
+              } else if (c.lastSeq != null && c.lastReadSeq != null) {
+                existing.unread = Math.max(0, Number(c.lastSeq) - Number(c.lastReadSeq));
+              }
+              existing.lastSeq = c.lastSeq;
+              existing.lastMessage = c.lastMessage;
+              existing.lastMessageAt = c.lastMessageAt;
+              existing.lastSenderId = c.lastSenderId;
+              if (c.updatedAt) existing.updatedAt = c.updatedAt;
+              if (c.sticky !== undefined) existing.sticky = c.sticky;
+              if (c.mute !== undefined) existing.mute = c.mute;
+              if (c.remark !== undefined) existing.remark = c.remark;
+              if (c.extra) existing.extra = c.extra;
+              if (c.tags) existing.tags = c.tags;
+            } else {
+              this.conversations.push(c);
+            }
           }
-          this.conversations = [...oldMap.values()];
         }
         const unseen = new Set();
         for (const c of (this.conversations || [])) {
@@ -520,6 +537,10 @@ function chatApp() {
             if (item.id === origId) { item.recall = true; return; }
           }
         }
+        return;
+      }
+      // Skip system messages that should not be rendered as bubbles
+      if (msg.content?.type === 'conversation.update' || msg.content?.type === 'conversation.removed') {
         return;
       }
       const newItem = {

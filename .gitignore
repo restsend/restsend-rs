@@ -17,6 +17,7 @@ bindings_python
 bindings_python/libuniffi_client.dylib
 bindings_swift/module*
 bindings_swift/rssdk.swift
+node_modules/
 *.xcframework
 .build
 *.zip
@@ -26,6 +27,7 @@ bindings_swift/rssdk.swift
 .vscode
 jniLibs/
 .gradle/
+*.sqlite3
 
 frb_generated.rs
 .dart_tool/

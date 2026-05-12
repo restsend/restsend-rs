@@ -466,9 +466,13 @@ impl Client {
                             break;
                         }
                         let item_len = r.items.len() as u32;
+                        let prev_count = conversations.len();
                         r.items.iter().for_each(|c| {
                             conversations.insert(c.topic_id.clone(), c.clone());
                         });
+                        if conversations.len() == prev_count {
+                            break;
+                        }
                         log::info!(
                         "sync conversations from local, item_len: {item_len} first_updated_at: {last_updated_at} has_more:{} limit: {limit} total:{}",
                         r.has_more,
@@ -484,6 +488,9 @@ impl Client {
                             cb.on_conversations_updated(r.items, None);
                         }
                         if !r.has_more || item_len < limit {
+                            break;
+                        }
+                        if sync_max_count > 0 && conversations.len() as u32 >= sync_max_count {
                             break;
                         }
                     }

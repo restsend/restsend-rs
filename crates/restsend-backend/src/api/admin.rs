@@ -165,6 +165,22 @@ pub async fn chat_spa() -> Result<Html<String>, ApiError> {
     Ok(Html(html))
 }
 
+pub async fn desk_chat_spa() -> Result<Html<String>, ApiError> {
+    let path = static_path("desk-chat/index.html");
+    match tokio::fs::read_to_string(&path).await {
+        Ok(html) => Ok(Html(html)),
+        Err(_) => Ok(Html("Desk Chat not built yet. Run `pnpm build` in frontend/".to_string())),
+    }
+}
+
+pub async fn livechat_spa() -> Result<Html<String>, ApiError> {
+    let path = static_path("livechat-page/index.html");
+    match tokio::fs::read_to_string(&path).await {
+        Ok(html) => Ok(Html(html)),
+        Err(_) => Ok(Html("Live Chat not built yet. Run `pnpm build` in frontend/".to_string())),
+    }
+}
+
 pub async fn config_view(
     State(state): State<AppState>,
     auth: AuthCtx,

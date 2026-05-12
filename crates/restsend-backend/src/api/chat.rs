@@ -86,6 +86,11 @@ pub async fn chat_create_with_user(
             },
         )
         .await;
+    // set attendee_id so list_members returns both users for DM topics
+    let _ = state
+        .topic_service
+        .set_attendee(&topic_id, &userid)
+        .await;
 
     let conv = state
         .conversation_service
@@ -497,29 +502,63 @@ async fn update_topic_conversations(
     });
 
     if let Ok(members) = state.topic_service.list_members(topic_id).await {
-        for user_id in members {
+        let topic = state.topic_service.get_any_by_id(topic_id).await.ok();
+
+        for user_id in &members {
             if is_unreadable {
                 let _ = state
                     .conversation_service
-                    .update_last_seq(&user_id, topic_id, resp.seq)
+                    .update_last_seq(user_id, topic_id, resp.seq)
                     .await;
             } else {
-                let unread = if user_id == resp.sender_id { 0 } else { 1 };
+                let unread = if user_id == &resp.sender_id {
+                    0
+                } else {
+                    match state.conversation_service.get_conversation(user_id, topic_id).await {
+                        Ok(conv) => conv.unread + 1,
+                        Err(_) => 1,
+                    }
+                };
+
+                let (mut attendee, mut name) = (String::new(), String::new());
+                if let Some(ref t) = topic {
+                    if !t.multiple {
+                        if let Some(other) = members.iter().find(|&m| m != user_id) {
+                            attendee = other.clone();
+                            name = other.clone();
+                        }
+                    }
+                }
+
+                let now = Utc::now().to_rfc3339();
                 let _ = state
                     .conversation_service
                     .create_or_update(crate::Conversation {
-                        owner_id: user_id,
+                        owner_id: user_id.clone(),
                         topic_id: topic_id.to_string(),
                         unread,
+                        attendee,
+                        name,
                         last_seq: resp.seq,
                         last_sender_id: resp.sender_id.clone(),
                         last_message: content.clone(),
-                        last_message_at: Utc::now().to_rfc3339(),
+                        last_message_at: now.clone(),
                         last_message_seq: Some(resp.seq),
-                        updated_at: Utc::now().to_rfc3339(),
+                        updated_at: now.clone(),
                         ..crate::Conversation::default()
                     })
                     .await;
+
+                if user_id != &resp.sender_id {
+                    let fields = json!({
+                        "unread": unread,
+                        "lastMessage": content,
+                        "lastMessageAt": now,
+                        "lastSeq": resp.seq,
+                    });
+                    let payload = build_conversation_update_payload(user_id, topic_id, &fields);
+                    crate::api::push::broadcast_to_user(state, user_id, &payload).await;
+                }
             }
         }
     }

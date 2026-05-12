@@ -6,6 +6,7 @@ pub mod auth_ctx;
 pub mod chat;
 pub mod error;
 pub mod health;
+pub mod helpdesk;
 pub mod middleware_auth;
 pub mod openapi;
 pub mod push;
