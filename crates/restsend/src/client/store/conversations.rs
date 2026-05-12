@@ -228,7 +228,10 @@ impl ClientStore {
         let t = self.message_storage.table::<Conversation>().await.ok()?;
         let mut conversation = match t.get("", &req.topic_id).await {
             Some(c) => c,
-            None => Conversation::new(&req.topic_id),
+            None => self
+                .get_conversation_by(Conversation::new(&req.topic_id), true, false)
+                .await
+                .unwrap_or_else(|| Conversation::new(&req.topic_id)),
         };
 
         if let Some(content) = req.content.as_ref() {

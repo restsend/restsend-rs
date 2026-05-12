@@ -439,6 +439,7 @@ pub async fn build_router(
         .route("/conversations/:topic_id/messages", get(api::helpdesk::get_conversation_messages))
         .route("/conversations/:topic_id/status", put(api::helpdesk::update_conversation_status))
         .route("/conversations/:topic_id/assign", put(api::helpdesk::assign_conversation))
+        .route("/conversations/:topic_id/contact", put(api::helpdesk::update_contact))
         .route("/canned-responses", get(api::helpdesk::list_canned_responses).post(api::helpdesk::create_canned_response))
         .route("/canned-responses/:id", put(api::helpdesk::update_canned_response).delete(api::helpdesk::delete_canned_response))
         .route("/labels", get(api::helpdesk::list_labels).post(api::helpdesk::create_label))

@@ -12,7 +12,7 @@ use uuid::Uuid;
 use crate::api::auth_ctx::AuthCtx;
 use crate::api::error::{ApiError, ApiResult};
 use crate::app::AppState;
-use crate::entity::{helpdesk_inbox, helpdesk_inbox_member};
+use crate::entity::{conversation as conversation_entity, helpdesk_inbox, helpdesk_inbox_member};
 use crate::model::Conversation;
 use crate::openapi::OpenApiCreateTopicForm;
 
@@ -353,7 +353,7 @@ pub async fn remove_inbox_member(
 
 pub async fn list_conversations(
     State(state): State<AppState>,
-    _auth: AuthCtx,
+    auth: AuthCtx,
     Query(query): Query<ListConversationsQuery>,
 ) -> ApiResult<Json<ConversationListView>> {
     use crate::entity::topic;
@@ -429,15 +429,18 @@ pub async fn list_conversations(
         }
         // filter by kind
         if let Some(ref k) = query.kind {
-            let topic_kind = if m.multiple { "multiple" } else { "single" };
+            let topic_kind = if m.multiple { "multiple" } else { "guestChat" };
             if topic_kind != k.as_str() && k != "all" {
                 continue;
             }
         }
 
-        let assigned_name = assigned
-            .as_deref()
-            .and_then(|id| get_user_info_sync(&state, id));
+        let assigned_name = if let Some(ref aid) = assigned {
+            let (name, _) = get_user_info(&state, aid).await;
+            name
+        } else {
+            None
+        };
 
         let contact_name = extra.get("contact_name").cloned();
         let contact_email = extra.get("contact_email").cloned();
@@ -458,11 +461,52 @@ pub async fn list_conversations(
             contact_avatar,
             last_message: None,
             unread: 0,
-            kind: if m.multiple { "multiple".to_string() } else { "single".to_string() },
+            kind: if m.multiple { "multiple".to_string() } else { "guestChat".to_string() },
             tags: tags_str,
             created_at: m.created_at,
             updated_at: m.updated_at,
         });
+    }
+
+    // Also fetch non-helpdesk conversations (DM / group chats) for the agent
+    // Gracefully handle if the conversations table is not available
+    if let Ok(user_convs) = conversation_entity::Entity::find()
+        .filter(conversation_entity::Column::OwnerId.eq(auth.user_id()))
+        .filter(conversation_entity::Column::Kind.ne("helpdesk"))
+        .order_by_desc(conversation_entity::Column::UpdatedAt)
+        .all(&state.db)
+        .await
+    {
+        for c in user_convs {
+            let last_msg: Option<String> = if c.last_message_json == "{}" || c.last_message_json.is_empty() {
+                None
+            } else {
+                let content: crate::Content = crate::entity::decode_json(&c.last_message_json);
+                if content.text.is_empty() { None } else { Some(content.text) }
+            };
+
+            let contact_name = if c.name.is_empty() { None } else { Some(c.name.clone()) };
+            let contact_avatar = if c.icon.is_empty() { None } else { Some(c.icon.clone()) };
+
+            items.push(ConversationView {
+                topic_id: c.topic_id.clone(),
+                inbox_id: None,
+                status: "open".to_string(),
+                assigned_agent_id: None,
+                assigned_agent_name: None,
+                contact_name,
+                contact_email: None,
+                contact_avatar,
+                last_message: last_msg,
+                unread: c.unread as u64,
+                kind: if c.multiple { "multiple".to_string() } else { "dm".to_string() },
+                tags: Vec::new(),
+                created_at: c.updated_at.clone(),
+                updated_at: c.updated_at,
+            });
+        }
+    } else {
+        tracing::warn!("failed to fetch non-helpdesk conversations for user {}", auth.user_id());
     }
 
     Ok(Json(ConversationListView { items, total }))
@@ -490,9 +534,12 @@ pub async fn get_conversation(
         .cloned()
         .unwrap_or_else(|| "open".to_string());
     let assigned = extra.get("assigned_agent_id").cloned();
-    let assigned_name = assigned
-        .as_deref()
-        .and_then(|id| get_user_info_sync(&state, id));
+    let assigned_name = if let Some(ref aid) = assigned {
+        let (name, _) = get_user_info(&state, aid).await;
+        name
+    } else {
+        None
+    };
     let tags_str: Vec<String> = extra
         .get("tags")
         .map(|t| t.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect())
@@ -509,7 +556,7 @@ pub async fn get_conversation(
         contact_avatar: extra.get("contact_avatar").cloned(),
         last_message: None,
         unread: 0,
-        kind: if m.multiple { "multiple".to_string() } else { "single".to_string() },
+        kind: if m.multiple { "multiple".to_string() } else { "guestChat".to_string() },
         tags: tags_str,
         created_at: m.created_at,
         updated_at: m.updated_at,
@@ -558,6 +605,15 @@ pub struct AssignConversationForm {
     pub agent_id: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateContactForm {
+    pub contact_name: Option<String>,
+    pub contact_email: Option<String>,
+    pub contact_avatar: Option<String>,
+    pub notes: Option<String>,
+}
+
 pub async fn assign_conversation(
     State(state): State<AppState>,
     _auth: AuthCtx,
@@ -589,6 +645,56 @@ pub async fn assign_conversation(
         .update(&state.db)
         .await
         .map_err(|e| ApiError::internal(e.to_string()))?;
+    Ok(Json(()))
+}
+
+pub async fn update_contact(
+    State(state): State<AppState>,
+    _auth: AuthCtx,
+    Path(topic_id): Path<String>,
+    Json(form): Json<UpdateContactForm>,
+) -> ApiResult<Json<()>> {
+    use crate::entity::topic;
+    let m = topic::Entity::find_by_id(&topic_id)
+        .one(&state.db)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?
+        .ok_or(ApiError::NotFound)?;
+
+    if m.kind != "helpdesk" {
+        return Err(ApiError::NotFound);
+    }
+
+    let mut extra: HashMap<String, String> = crate::entity::decode_json(&m.extra_json);
+    let mut changed = Vec::new();
+
+    if let Some(v) = &form.contact_name {
+        if extra.get("contact_name").map(|s| s.as_str()) != Some(v.as_str()) {
+            changed.push(format!("contact_name: {}", v));
+        }
+        extra.insert("contact_name".to_string(), v.clone());
+    }
+    if let Some(v) = &form.contact_email {
+        if extra.get("contact_email").map(|s| s.as_str()) != Some(v.as_str()) {
+            changed.push(format!("contact_email: {}", v));
+        }
+        extra.insert("contact_email".to_string(), v.clone());
+    }
+    if let Some(v) = &form.contact_avatar {
+        extra.insert("contact_avatar".to_string(), v.clone());
+    }
+    if let Some(v) = &form.notes {
+        extra.insert("notes".to_string(), v.clone());
+    }
+
+    let mut active = m.into_active_model();
+    active.extra_json = Set(serde_json::to_string(&extra).unwrap_or_default());
+    active.updated_at = Set(Utc::now().to_rfc3339());
+    active
+        .update(&state.db)
+        .await
+        .map_err(|e| ApiError::internal(e.to_string()))?;
+
     Ok(Json(()))
 }
 
