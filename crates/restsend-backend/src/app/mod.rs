@@ -433,12 +433,16 @@ pub async fn build_router(
         .route("/inboxes/:id", get(api::helpdesk::get_inbox).put(api::helpdesk::update_inbox).delete(api::helpdesk::delete_inbox))
         .route("/inboxes/:inbox_id/members", get(api::helpdesk::list_inbox_members).post(api::helpdesk::add_inbox_member))
         .route("/inboxes/:inbox_id/members/:user_id", delete(api::helpdesk::remove_inbox_member))
+        .route("/inboxes/:inbox_id/settings", get(api::helpdesk::get_inbox_settings).put(api::helpdesk::update_inbox_settings))
         .route("/conversations", get(api::helpdesk::list_conversations))
         .route("/conversations/:topic_id", get(api::helpdesk::get_conversation))
+        .route("/conversations/:topic_id/messages", get(api::helpdesk::get_conversation_messages))
         .route("/conversations/:topic_id/status", put(api::helpdesk::update_conversation_status))
         .route("/conversations/:topic_id/assign", put(api::helpdesk::assign_conversation))
-        .route("/canned-responses", get(api::helpdesk::list_canned_responses))
-        .route("/labels", get(api::helpdesk::list_labels))
+        .route("/canned-responses", get(api::helpdesk::list_canned_responses).post(api::helpdesk::create_canned_response))
+        .route("/canned-responses/:id", put(api::helpdesk::update_canned_response).delete(api::helpdesk::delete_canned_response))
+        .route("/labels", get(api::helpdesk::list_labels).post(api::helpdesk::create_label))
+        .route("/labels/:id", delete(api::helpdesk::delete_label))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             api::middleware_auth::openapi_auth,
@@ -722,12 +726,25 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
         ),
     ];
 
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
     for (user_a, user_b, messages) in &dm_pairs {
         let topic_id = if user_a <= user_b {
             format!("{}:{}", user_a, user_b)
         } else {
             format!("{}:{}", user_b, user_a)
         };
+
+        let existing = crate::entity::chat_log::Entity::find()
+            .filter(crate::entity::chat_log::Column::TopicId.eq(&topic_id))
+            .all(&state.db)
+            .await?;
+        let existing_count = existing.len();
+
+        if existing_count > 0 {
+            tracing::info!(topic = %topic_id, count = existing_count, "skip demo fixture: topic already has messages");
+            continue;
+        }
 
         let mut last_seq = 0i64;
         let mut last_msg_sender = "";

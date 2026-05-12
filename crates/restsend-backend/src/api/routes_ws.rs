@@ -515,7 +515,7 @@ async fn handle_ws_envelope(
 
             match send_chat_message(state, user_id, message).await {
                 Ok((effective_form, topic_id, resp)) => {
-                    let created_at = effective_form.created_at.clone().unwrap_or_default();
+                    let created_at = effective_form.created_at.clone().unwrap_or_else(|| Utc::now().to_rfc3339());
                     let event_payload = serde_json::to_string(&serde_json::json!({
                         "type": "chat",
                         "topicId": topic_id,
@@ -553,7 +553,7 @@ async fn handle_ws_envelope(
                         "chatId": resp.chat_id,
                         "code": resp.code,
                         "attendee": effective_form.attendee,
-                        "createdAt": effective_form.created_at.clone().unwrap_or_default(),
+                        "createdAt": effective_form.created_at.clone().unwrap_or_else(|| Utc::now().to_rfc3339()),
                     }))
                     .unwrap_or_default();
                     state

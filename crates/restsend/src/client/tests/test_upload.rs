@@ -1,7 +1,7 @@
 use crate::{
     callback,
     client::{
-        tests::{test_client::TestMessageCakllbackImpl, test_endpoint, unique_test_user},
+        tests::{test_client::TestMessageCakllbackImpl, test_server::LocalTestServer, unique_test_user},
         Client,
     },
     models::Attachment,
@@ -34,19 +34,20 @@ impl callback::RsCallback for TestUploadCallbackImpl {
 }
 #[tokio::test]
 async fn test_client_upload() {
+    let server = LocalTestServer::start().await;
     init_log("INFO".to_string(), true);
     let user_a = unique_test_user("sdk-upload-a");
     let user_b = unique_test_user("sdk-upload-b");
     let password = "pass-1".to_string();
-    signup(test_endpoint(), user_a.clone(), password.clone())
+    signup(server.endpoint.clone(), user_a.clone(), password.clone())
         .await
         .expect("signup upload sender");
-    signup(test_endpoint(), user_b.clone(), password.clone())
+    signup(server.endpoint.clone(), user_b.clone(), password.clone())
         .await
         .expect("signup upload receiver");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password,
     )

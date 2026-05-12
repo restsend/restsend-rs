@@ -14,7 +14,7 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(InitSchema)]
+        vec![Box::new(InitSchema), Box::new(HelpdeskSchema)]
     }
 }
 
@@ -1021,4 +1021,198 @@ enum Attachments {
     Tags,
     Remark,
     CreatedAt,
+}
+
+#[derive(DeriveIden)]
+enum HelpdeskInboxes {
+    Table,
+    Id,
+    Name,
+    DisplayName,
+    Type,
+    WidgetConfigJson,
+    Greeting,
+    GreetingEnabled,
+    RoutingStrategy,
+    OfflineEmail,
+    OfflineWebhookUrl,
+    OfflineWebhookSecret,
+    IsActive,
+    CreatedAt,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum HelpdeskInboxMembers {
+    Table,
+    InboxId,
+    UserId,
+    Role,
+    CreatedAt,
+}
+
+struct HelpdeskSchema;
+
+impl MigrationName for HelpdeskSchema {
+    fn name(&self) -> &str {
+        "m20260512_000001_helpdesk"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for HelpdeskSchema {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .create_table(
+                Table::create()
+                    .table(HelpdeskInboxes::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::Id)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::Name)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::DisplayName)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::Type)
+                            .text()
+                            .not_null()
+                            .default("web"),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::WidgetConfigJson)
+                            .text()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::Greeting)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::GreetingEnabled)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::RoutingStrategy)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::OfflineEmail)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::OfflineWebhookUrl)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::OfflineWebhookSecret)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxes::IsActive)
+                            .boolean()
+                            .not_null()
+                            .default(true),
+                    )
+                    .col(ColumnDef::new(HelpdeskInboxes::CreatedAt).text().not_null())
+                    .col(ColumnDef::new(HelpdeskInboxes::UpdatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(HelpdeskInboxMembers::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(HelpdeskInboxMembers::InboxId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxMembers::UserId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxMembers::Role)
+                            .text()
+                            .not_null()
+                            .default("agent"),
+                    )
+                    .col(
+                        ColumnDef::new(HelpdeskInboxMembers::CreatedAt)
+                            .text()
+                            .not_null(),
+                    )
+                    .primary_key(
+                        Index::create()
+                            .col(HelpdeskInboxMembers::InboxId)
+                            .col(HelpdeskInboxMembers::UserId),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        // create a default inbox
+        let now = chrono::Utc::now().to_rfc3339();
+        let insert = sea_orm::sea_query::Query::insert()
+            .into_table(HelpdeskInboxes::Table)
+            .columns([
+                HelpdeskInboxes::Id,
+                HelpdeskInboxes::Name,
+                HelpdeskInboxes::DisplayName,
+                HelpdeskInboxes::Type,
+                HelpdeskInboxes::CreatedAt,
+                HelpdeskInboxes::UpdatedAt,
+            ])
+            .values_panic([
+                "inbox_default".into(),
+                "default".into(),
+                "默认 Inbox".into(),
+                "web".into(),
+                now.clone().into(),
+                now.into(),
+            ])
+            .to_owned();
+        manager.exec_stmt(insert).await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(HelpdeskInboxMembers::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(HelpdeskInboxes::Table).to_owned())
+            .await?;
+        Ok(())
+    }
 }

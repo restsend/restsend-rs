@@ -228,7 +228,7 @@
                 <div class="mb-1 slide-up">
                   <!-- Date separator -->
                   <div x-show="shouldShowDate(block)" class="text-center my-2">
-                    <span class="text-xs bg-white/80 rounded px-2 py-0.5 shadow-sm text-gray-500" x-text="formatDate(block.createdAt)"></span>
+                    <span class="text-xs text-gray-400 bg-transparent" x-text="formatDate(block.createdAt)"></span>
                   </div>
                   <!-- Sender name for group -->
                   <div x-show="!block.isSelf && block.senderId && currentConv?.multiple" class="text-xs text-whatsapp-green ml-2 mb-0.5 font-medium" x-text="getBlockSenderName(block)"></div>

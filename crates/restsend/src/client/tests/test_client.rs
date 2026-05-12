@@ -1,6 +1,9 @@
 use crate::{
     callback::{self, ChatRequestStatus},
-    client::{tests::{test_endpoint, unique_test_user}, Client},
+    client::{
+        tests::{test_server::LocalTestServer, unique_test_user},
+        Client,
+    },
     models::{ChatLogStatus, Conversation},
     request::ChatRequest,
     services::auth::{login_with_password, signup},
@@ -71,15 +74,16 @@ impl callback::MessageCallback for TestMessageCakllbackImpl {
 #[tokio::test]
 async fn test_client_connected() {
     init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
 
     let user = unique_test_user("sdk-connected");
     let password = "pass-1".to_string();
-    signup(test_endpoint(), user.clone(), password.clone())
+    signup(server.endpoint.clone(), user.clone(), password.clone())
         .await
         .expect("signup connected user");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user,
         password,
     )
@@ -110,18 +114,19 @@ async fn test_client_connected() {
 #[tokio::test]
 async fn test_client_send_message() {
     init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
     let user1 = unique_test_user("sdk-send-a");
     let user2 = unique_test_user("sdk-send-b");
     let password = "pass-1".to_string();
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user1.clone(),
         password.clone(),
     )
     .await
     .expect("signup sender");
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user2.clone(),
         password.clone(),
     )
@@ -129,7 +134,7 @@ async fn test_client_send_message() {
     .expect("signup receiver");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user1.clone(),
         password,
     )

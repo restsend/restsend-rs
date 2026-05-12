@@ -10,7 +10,7 @@ use std::{
 use crate::{
     callback,
     client::{
-        tests::{test_client::TestCallbackImpl, test_endpoint, unique_test_user},
+        tests::{test_client::TestCallbackImpl, test_server::LocalTestServer, unique_test_user},
         Client,
     },
     services::auth::{login_with_password, signup},
@@ -20,12 +20,13 @@ use crate::{
 #[tokio::test]
 async fn test_sync_conversations() {
     init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
     let user_a = unique_test_user("sdk-conv-a");
     let user_b = unique_test_user("sdk-conv-b");
     let password = "pass-1".to_string();
 
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password.clone(),
     )
@@ -33,7 +34,7 @@ async fn test_sync_conversations() {
     .expect("signup user a");
 
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_b.clone(),
         password.clone(),
     )
@@ -41,7 +42,7 @@ async fn test_sync_conversations() {
     .expect("signup user b");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password,
     )

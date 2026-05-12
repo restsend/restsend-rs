@@ -111,6 +111,11 @@ impl TopicService {
             }
         }
 
+        let attendee_id = if !multiple && filtered_members.len() >= 2 {
+            filtered_members[1].clone()
+        } else {
+            String::new()
+        };
         let now = now();
         let topic = Topic {
             id: id.clone(),
@@ -118,6 +123,7 @@ impl TopicService {
             icon: form.icon,
             kind: form.kind,
             owner_id,
+            attendee_id,
             members: filtered_members.len() as u32,
             multiple,
             source: form.source,

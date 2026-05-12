@@ -1332,9 +1332,7 @@ mod tests {
             .await
             .unwrap();
 
-        let alice_msg = alice_ws.next().await.unwrap().unwrap();
-        let alice_text = alice_msg.into_text().unwrap();
-        let alice_json: serde_json::Value = serde_json::from_str(&alice_text).unwrap();
+        let (_alice_text, alice_json) = recv_until_chat_id(&mut alice_ws, "ws-msg-1").await;
         assert_eq!(
             alice_json.get("type").and_then(|v| v.as_str()),
             Some("chat")
@@ -1482,8 +1480,8 @@ mod tests {
             .await
             .unwrap();
 
-        let alice_recall = alice_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let alice_recall_json: serde_json::Value = serde_json::from_str(&alice_recall).unwrap();
+        let (_alice_recall, alice_recall_json) =
+            recv_until_chat_id(&mut alice_ws, "recall-event-1").await;
         assert_eq!(
             alice_recall_json.get("type").and_then(|v| v.as_str()),
             Some("chat")
@@ -1657,15 +1655,8 @@ mod tests {
             .await
             .unwrap();
 
-        let alice_phone_msg =
-            tokio::time::timeout(std::time::Duration::from_secs(3), alice_phone_ws.next())
-                .await
-                .expect("alice phone recv timeout")
-                .expect("alice phone stream ended")
-                .expect("alice phone ws error")
-                .into_text()
-                .unwrap();
-        let alice_phone_json: serde_json::Value = serde_json::from_str(&alice_phone_msg).unwrap();
+        let (_alice_phone_msg, alice_phone_json) =
+            recv_until_chat_id(&mut alice_phone_ws, "multi-1").await;
         assert_eq!(
             alice_phone_json.get("type").and_then(|v| v.as_str()),
             Some("chat")
@@ -1675,15 +1666,8 @@ mod tests {
             Some("multi-1")
         );
 
-        let alice_laptop_msg =
-            tokio::time::timeout(std::time::Duration::from_secs(3), alice_laptop_ws.next())
-                .await
-                .expect("alice laptop recv timeout")
-                .expect("alice laptop stream ended")
-                .expect("alice laptop ws error")
-                .into_text()
-                .unwrap();
-        let alice_laptop_json: serde_json::Value = serde_json::from_str(&alice_laptop_msg).unwrap();
+        let (_alice_laptop_msg, alice_laptop_json) =
+            recv_until_chat_id(&mut alice_laptop_ws, "multi-1").await;
         assert_eq!(
             alice_laptop_json.get("type").and_then(|v| v.as_str()),
             Some("chat")
@@ -1793,16 +1777,8 @@ mod tests {
             .await
             .unwrap();
 
-        let alice_reconnect_msg =
-            tokio::time::timeout(std::time::Duration::from_secs(3), alice_reconnect_ws.next())
-                .await
-                .expect("alice reconnect recv timeout")
-                .expect("alice reconnect stream ended")
-                .expect("alice reconnect ws error")
-                .into_text()
-                .unwrap();
-        let alice_reconnect_json: serde_json::Value =
-            serde_json::from_str(&alice_reconnect_msg).unwrap();
+        let (_alice_reconnect_msg, alice_reconnect_json) =
+            recv_until_chat_id(&mut alice_reconnect_ws, "multi-2").await;
         assert_eq!(
             alice_reconnect_json.get("type").and_then(|v| v.as_str()),
             Some("chat")
@@ -1929,14 +1905,7 @@ mod tests {
             .await
             .unwrap();
 
-        let msg_1 = tokio::time::timeout(std::time::Duration::from_secs(3), alice_ws.next())
-            .await
-            .expect("alice first recv timeout")
-            .expect("alice first stream ended")
-            .expect("alice first ws error")
-            .into_text()
-            .unwrap();
-        let msg_1_json: serde_json::Value = serde_json::from_str(&msg_1).unwrap();
+        let (_msg_1, msg_1_json) = recv_until_chat_id(&mut alice_ws, "storm-1").await;
         assert_eq!(
             msg_1_json.get("chatId").and_then(|v| v.as_str()),
             Some("storm-1")
@@ -2020,15 +1989,7 @@ mod tests {
             .await
             .unwrap();
 
-        let msg_3 =
-            tokio::time::timeout(std::time::Duration::from_secs(3), alice_reconnect_ws.next())
-                .await
-                .expect("alice reconnect recv timeout")
-                .expect("alice reconnect stream ended")
-                .expect("alice reconnect ws error")
-                .into_text()
-                .unwrap();
-        let msg_3_json: serde_json::Value = serde_json::from_str(&msg_3).unwrap();
+        let (_msg_3, msg_3_json) = recv_until_chat_id(&mut alice_reconnect_ws, "storm-3").await;
         assert_eq!(
             msg_3_json.get("chatId").and_then(|v| v.as_str()),
             Some("storm-3")
@@ -2222,8 +2183,7 @@ mod tests {
             ))
             .await
             .unwrap();
-        let alice_chat = alice_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let alice_chat_json: serde_json::Value = serde_json::from_str(&alice_chat).unwrap();
+        let (_alice_chat, alice_chat_json) = recv_until_chat_id(&mut alice_ws, "limit-ok-1").await;
         let topic_id = alice_chat_json
             .get("topicId")
             .and_then(|v| v.as_str())
@@ -5903,6 +5863,22 @@ mod tests {
     fn extract_token(json: &str) -> Option<String> {
         let v: serde_json::Value = serde_json::from_str(json).ok()?;
         v.get("authToken")?.as_str().map(str::to_string)
+    }
+
+    async fn recv_until_chat_id(
+        ws: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        target_chat_id: &str,
+    ) -> (String, serde_json::Value) {
+        loop {
+            let msg = ws.next().await.unwrap().unwrap().into_text().unwrap();
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&msg) {
+                if json.get("chatId").and_then(|v| v.as_str()) == Some(target_chat_id) {
+                    return (msg, json);
+                }
+            }
+        }
     }
 
     async fn register_and_auth<S>(app: &S, user_id: &str) -> String

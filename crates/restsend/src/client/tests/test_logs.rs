@@ -3,7 +3,8 @@ use crate::{
     client::{
         tests::{
             test_client::{TestCallbackImpl, TestMessageCakllbackImpl},
-            test_endpoint, unique_test_user,
+            test_server::LocalTestServer,
+            unique_test_user,
         },
         Client,
     },
@@ -23,18 +24,19 @@ use std::{
 
 #[tokio::test]
 async fn test_client_fetch_logs() {
+    let server = LocalTestServer::start().await;
     let user_a = unique_test_user("sdk-logs-a");
     let user_b = unique_test_user("sdk-logs-b");
     let password = "pass-1".to_string();
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password.clone(),
     )
     .await
     .expect("signup user a");
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_b.clone(),
         password.clone(),
     )
@@ -42,7 +44,7 @@ async fn test_client_fetch_logs() {
     .expect("signup user b");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password,
     )
@@ -116,19 +118,20 @@ async fn test_client_fetch_logs() {
 
 #[tokio::test]
 async fn test_client_recall_log() {
+    let server = LocalTestServer::start().await;
     init_log("INFO".to_string(), true);
     let user_a = unique_test_user("sdk-recall-a");
     let user_b = unique_test_user("sdk-recall-b");
     let password = "pass-1".to_string();
-    signup(test_endpoint(), user_a.clone(), password.clone())
+    signup(server.endpoint.clone(), user_a.clone(), password.clone())
         .await
         .expect("signup recall sender");
-    signup(test_endpoint(), user_b.clone(), password.clone())
+    signup(server.endpoint.clone(), user_b.clone(), password.clone())
         .await
         .expect("signup recall receiver");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password,
     )
@@ -235,6 +238,7 @@ impl Drop for TopicGuard {
 
 #[tokio::test]
 async fn test_client_sync_logs() {
+    let server = LocalTestServer::start().await;
     init_log("INFO".to_string(), true);
     let user_a = unique_test_user("sdk-sync-a");
     let user_b = unique_test_user("sdk-sync-b");
@@ -242,21 +246,21 @@ async fn test_client_sync_logs() {
     let password = "pass-1".to_string();
 
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password.clone(),
     )
     .await
     .expect("signup sync a");
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_b.clone(),
         password.clone(),
     )
     .await
     .expect("signup sync b");
     signup(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_c.clone(),
         password.clone(),
     )
@@ -264,7 +268,7 @@ async fn test_client_sync_logs() {
     .expect("signup sync c");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_a.clone(),
         password,
     )

@@ -19,7 +19,7 @@ mod conversation;
 mod message;
 mod store;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod topic;
 #[export_wasm_or_ffi(#[derive(uniffi::Object)])]
 pub struct Client {

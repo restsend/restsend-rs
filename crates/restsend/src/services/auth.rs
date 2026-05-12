@@ -130,10 +130,11 @@ pub async fn guest_login(
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login() {
+    let server = crate::client::tests::test_server::LocalTestServer::start().await;
     let user_id = format!("svc-login-{}", crate::utils::random_text(8));
     let password = "pass-1".to_string();
     signup(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         password.clone(),
     )
@@ -141,7 +142,7 @@ async fn test_login() {
     .expect("signup login user");
 
     let info = login_with_password(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         "bad-pass".to_string(),
     )
@@ -150,7 +151,7 @@ async fn test_login() {
     assert!(info.unwrap_err().to_string().contains("invalid password"));
 
     let info = login_with_password(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         password,
     )
@@ -161,11 +162,11 @@ async fn test_login() {
     assert_eq!(info.user_id, user_id);
     assert!(!info.avatar.is_empty());
     assert!(!info.token.is_empty());
-    assert_eq!(info.endpoint, super::tests::test_endpoint());
+    assert_eq!(info.endpoint, server.endpoint.clone());
 
     let token = info.token;
     let info = login_with_token(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         token.clone(),
     )
@@ -183,9 +184,10 @@ async fn test_login() {
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_guest_login() {
+    let server = crate::client::tests::test_server::LocalTestServer::start().await;
     let user_id = format!("svc-guest-{}", crate::utils::random_text(8));
     let info = guest_login(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id,
         None,
     )
@@ -197,10 +199,11 @@ async fn test_guest_login() {
 #[cfg(not(target_family = "wasm"))]
 #[tokio::test]
 async fn test_login_logout() {
+    let server = crate::client::tests::test_server::LocalTestServer::start().await;
     let user_id = format!("svc-logout-{}", crate::utils::random_text(8));
     let password = "pass-1".to_string();
     signup(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         password.clone(),
     )
@@ -208,14 +211,14 @@ async fn test_login_logout() {
     .expect("signup logout user");
 
     let info = login_with_password(
-        super::tests::test_endpoint(),
+        server.endpoint.clone(),
         user_id,
         password,
     )
     .await;
     assert!(info.is_ok());
 
-    logout(super::tests::test_endpoint(), info.unwrap().token)
+    logout(server.endpoint.clone(), info.unwrap().token)
         .await
         .expect("logout failed");
 }

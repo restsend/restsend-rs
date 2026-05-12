@@ -1,6 +1,6 @@
 use crate::{
     client::{
-        tests::{test_endpoint, unique_test_user},
+        tests::{test_server::LocalTestServer, unique_test_user},
         Client,
     },
     services::auth::{login_with_password, signup},
@@ -10,14 +10,15 @@ use crate::{
 #[tokio::test]
 async fn test_get_user() {
     init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
 
     let user_id = unique_test_user("sdk-user");
-    signup(test_endpoint(), user_id.clone(), "pass-1".to_string())
+    signup(server.endpoint.clone(), user_id.clone(), "pass-1".to_string())
         .await
         .expect("signup user");
 
     let info = login_with_password(
-        test_endpoint(),
+        server.endpoint.clone(),
         user_id.clone(),
         "pass-1".to_string(),
     )

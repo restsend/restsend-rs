@@ -2,6 +2,8 @@ pub mod attachment;
 pub mod auth_token;
 pub mod chat_log;
 pub mod conversation;
+pub mod helpdesk_inbox;
+pub mod helpdesk_inbox_member;
 pub mod presence_session;
 pub mod relation;
 pub mod topic;
