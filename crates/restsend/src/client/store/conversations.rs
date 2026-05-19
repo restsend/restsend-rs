@@ -320,7 +320,20 @@ impl ClientStore {
             if !req.chat_id.is_empty() {
                 conversation.updated_at = req.created_at.clone();
                 if let Some(content) = req.content.as_ref() {
-                    if !content.unreadable {
+                    let effective_unreadable = if content.unreadable {
+                        if let Ok(log_t) = self.message_storage.readonly_table::<ChatLog>().await {
+                            log_t
+                                .get(&req.topic_id, &req.chat_id)
+                                .await
+                                .map(|log| log.content.unreadable)
+                                .unwrap_or(true)
+                        } else {
+                            true
+                        }
+                    } else {
+                        false
+                    };
+                    if !effective_unreadable {
                         conversation.last_sender_id = req.attendee.clone();
                         conversation.last_message_at = req.created_at.clone();
                         conversation.last_message = Some(content.clone());
@@ -909,18 +922,30 @@ impl ClientStore {
             None => {}
         }
 
-        if let Some(old_log) = log_t.get(&topic_id, &chat_id).await {
+        let original_unreadable = if let Some(old_log) = log_t.get(&topic_id, &chat_id).await {
             match old_log.status {
-                ChatLogStatus::Sending => new_status = ChatLogStatus::Sent,
+                // When a locally-sent message (Sending) is confirmed by the server broadcast,
+                // preserve the original unreadable flag. The server marks echoed messages
+                // unreadable=true to suppress unread counts for recipients, but that should
+                // not override the sender's own intent for their local conversation summary.
+                ChatLogStatus::Sending => {
+                    new_status = ChatLogStatus::Sent;
+                    Some(old_log.content.unreadable)
+                }
                 _ => return Ok(()),
             }
-        }
+        } else {
+            None
+        };
 
         self.put_incoming_log(topic_id, chat_id);
 
         let mut log = ChatLog::from(req);
         log.cached_at = now;
         log.status = new_status;
+        if let Some(unreadable) = original_unreadable {
+            log.content.unreadable = unreadable;
+        }
         let result = log_t.set(&log.topic_id, &log.id, Some(&log)).await;
         self.invalidate_recent_chat_logs(&log.topic_id);
         result
