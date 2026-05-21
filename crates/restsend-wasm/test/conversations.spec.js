@@ -277,6 +277,19 @@ describe('Conversations', async function () {
         expect(c2.unread).toBe(1)
     })
 
+    it('#setConversationRead preserves unread=0 after server sync', async () => {
+        let vitalik1 = await authClient('vitalik', 'vitalik:demo', true, 'vitalik-read-sync')
+        let topicId = guidoTopic.topicId
+
+        await vitalik1.syncConversations({ limit: 10 })
+        await vitalik1.setConversationRead(topicId)
+        await new Promise(r => setTimeout(r, 500))
+        await vitalik1.syncConversations({ limit: 10 })
+
+        let c = await vitalik1.getConversation(topicId)
+        expect(c.unread).toBe(0)
+    })
+
     it('#remove conversation', async () => {
         let conversations = await vitalik.filterConversation(c => { return c.attendee === 'guido' })
         expect(conversations.length).toEqual(1)

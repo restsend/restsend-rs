@@ -336,6 +336,7 @@ impl ClientStore {
 
         if !update_last_message {
             // still need to save the conversation to persist changes (tags, extra, etc.)
+            conversation.is_partial = false;
             conversation.cached_at = now_millis();
             t.set("", &conversation.topic_id, Some(&conversation))
                 .await
@@ -379,6 +380,7 @@ impl ClientStore {
         }
 
         self.ensure_topic_owner_id(&mut conversation).await;
+        conversation.is_partial = false;
         conversation.cached_at = now_millis();
         t.set("", &conversation.topic_id, Some(&conversation))
             .await
@@ -583,9 +585,6 @@ impl ClientStore {
         let t = self.message_storage.table::<Conversation>().await.ok()?;
         match t.get("", topic_id).await {
             Some(mut conversation) => {
-                if conversation.is_partial {
-                    return None;
-                }
                 let last_seq = last_seq
                     .unwrap_or(conversation.last_seq)
                     .min(conversation.last_seq);

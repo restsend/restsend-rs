@@ -382,3 +382,52 @@ async fn test_other_user_read_does_not_advance_our_last_read_seq() {
     assert_eq!(updated.last_seq, 21);
     assert_eq!(updated.last_read_seq, 15, "last_read_seq must still be 15");
 }
+
+/// Test that merge_conversation_from_chat sets is_partial = false on a
+/// newly created conversation (not previously in DB).
+#[tokio::test]
+async fn test_incoming_chat_sets_is_partial_false() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "receiver-user");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    // Conversation does NOT exist in DB. The incoming chat will create it.
+    let req = make_incoming_chat("topic_partial", "chat_1", 1, "sender-user", "Hello");
+    store.process_incoming(req, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_partial").await.expect("conversation should exist");
+    assert!(!updated.is_partial, "incoming chat should set is_partial to false");
+    assert_eq!(updated.last_seq, 1);
+    assert_eq!(updated.unread, 1);
+}
+
+/// Test that set_conversation_read_local works even on a partial conversation.
+#[tokio::test]
+async fn test_set_conversation_read_on_partial() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "receiver-user");
+
+    let mut conv = Conversation::new("topic_partial_read");
+    conv.owner_id = "receiver-user".to_string();
+    conv.is_partial = true;
+    conv.last_seq = 5;
+    conv.last_read_seq = 2;
+    conv.unread = 3;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_partial_read", Some(&conv)).await.unwrap();
+    drop(t);
+
+    let result = store.set_conversation_read_local("topic_partial_read", "2026-05-21T00:00:00Z", None).await;
+    assert!(result.is_some(), "should succeed on partial conversation");
+
+    let updated = result.unwrap();
+    assert_eq!(updated.unread, 0);
+    assert_eq!(updated.last_read_seq, 5);
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let persisted = t.get("", "topic_partial_read").await.unwrap();
+    assert_eq!(persisted.unread, 0);
+    assert_eq!(persisted.last_read_seq, 5);
+}

@@ -164,6 +164,16 @@ impl Conversation {
             }
         }
 
+        if local.unread == 0 && self.unread > 0 {
+            log::warn!(
+                "merge_local_read_state topic={}: overriding unread from {} to 0 (local has read everything, local.read_seq={}, local.seq={}, server.read_seq={}, server.seq={})",
+                self.topic_id, self.unread,
+                local.last_read_seq, local.last_seq,
+                self.last_read_seq, self.last_seq,
+            );
+            self.unread = 0;
+        }
+
         if self.last_read_at.is_none() && local.last_read_at.is_some() {
             self.last_read_at = local.last_read_at.clone();
         }
@@ -286,6 +296,52 @@ mod tests {
 
         assert_eq!(remote.last_read_seq, 100);
         assert_eq!(remote.unread, 0);
+    }
+
+    #[test]
+    fn merge_local_fallback_preserves_local_zero_unread_when_server_has_unread() {
+        let mut remote = Conversation {
+            topic_id: "t1".to_string(),
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 1,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            topic_id: "t1".to_string(),
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 0,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.unread, 0);
+    }
+
+    #[test]
+    fn merge_local_fallback_does_not_override_when_both_have_unread() {
+        let mut remote = Conversation {
+            topic_id: "t1".to_string(),
+            last_seq: 100,
+            last_read_seq: 50,
+            unread: 1,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            topic_id: "t1".to_string(),
+            last_seq: 95,
+            last_read_seq: 50,
+            unread: 1,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.unread, 1);
     }
 
     #[test]
