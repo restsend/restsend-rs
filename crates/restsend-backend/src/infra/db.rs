@@ -722,6 +722,38 @@ impl MigrationTrait for InitSchema {
                 .await?;
         }
 
+        if !manager.has_column("conversations", "tags_json").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Conversations::Table)
+                        .add_column(
+                            ColumnDef::new(Conversations::TagsJson)
+                                .text()
+                                .not_null()
+                                .default("[]"),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
+
+        if !manager.has_column("conversations", "extra_json").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Conversations::Table)
+                        .add_column(
+                            ColumnDef::new(Conversations::ExtraJson)
+                                .text()
+                                .not_null()
+                                .default("null"),
+                        )
+                        .to_owned(),
+                )
+                .await?;
+        }
+
         manager
             .create_index(
                 Index::create()
@@ -930,6 +962,8 @@ enum Conversations {
     LastMessageJson,
     LastMessageAt,
     LastMessageSeq,
+    TagsJson,
+    ExtraJson,
 }
 
 #[derive(DeriveIden)]

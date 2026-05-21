@@ -567,6 +567,7 @@ async fn handle_ws_envelope(
                         .await;
                 }
                 Err(err) => {
+                    tracing::warn!(error = %err, user_id = %user_id, topic_id = %req_topic_id, "ws chat message error");
                     let code = map_ws_error_code(&err).unwrap_or(500);
                     let payload = serde_json::to_string(&serde_json::json!({
                         "type": "resp",

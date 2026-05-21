@@ -8,7 +8,7 @@ describe('Worker quick path', async function () {
         const info = await signin(endpoint, 'vitalik', 'vitalik:demo')
         const workerClient = await createWorkerClient(info, '', { enableWorker: true })
 
-        const result = await workerClient.syncChatLogs('vitalik:guido', undefined, { limit: 5 })
+        const result = await workerClient.syncChatLogs('guido:vitalik', undefined, { limit: 5 })
 
         expect(result).toBeTruthy()
         expect(Array.isArray(result.items)).toBe(true)

@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
-use crate::models::{ChatLog, ChatLogStatus, Conversation};
+use crate::models::{ChatLog, ChatLogStatus, ContentType, Conversation};
 use crate::utils::now_millis;
 use crate::{
     callback::MessageCallback,
@@ -119,10 +119,21 @@ impl ClientStore {
                                     .table::<ChatLog>()
                                     .await
                                 {
-                                    if let Some(log) =
-                                        log_t.get(&topic_id, &chat_id).await
+                                if let Some(log) =
+                                    log_t.get(&topic_id, &chat_id).await
+                                {
+                                    if !log.content.unreadable
+                                        && !matches!(
+                                            ContentType::from(log.content.content_type.to_string()),
+                                            ContentType::None
+                                                | ContentType::Recall
+                                                | ContentType::TopicJoin
+                                                | ContentType::TopicChangeOwner
+                                                | ContentType::ConversationUpdate
+                                                | ContentType::TopicUpdate
+                                                | ContentType::UpdateExtra
+                                        )
                                     {
-                                        if !log.content.unreadable {
                                             conversation.last_sender_id =
                                                 self.user_id.clone();
                                             conversation.last_message_at =

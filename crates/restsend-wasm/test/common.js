@@ -1,6 +1,6 @@
 const { Client, signin } = await import('../pkg/restsend_wasm.js')
 
-export const endpoint = 'https://chat.ruzhila.cn/'
+export const endpoint = 'http://127.0.0.1:9190/'
 export async function waitUntil(fn, timeout) {
     let start = Date.now()
     while (true) {

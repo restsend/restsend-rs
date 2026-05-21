@@ -85,6 +85,12 @@ pub async fn user_auth(
                     })
                 })
         })
+        .or_else(|| {
+            // WebSocket connections may pass token as a query parameter
+            req.uri()
+                .query()
+                .and_then(|q| q.split('&').find_map(|pair| pair.strip_prefix("token=").map(str::to_string)))
+        })
         .ok_or_else(|| {
             tracing::warn!("user auth rejected: missing authorization header or token cookie");
             ApiError::Unauthorized

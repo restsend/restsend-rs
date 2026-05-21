@@ -5,6 +5,7 @@ use sea_orm::{
 };
 
 use crate::entity::conversation;
+use crate::entity::encode_json;
 use crate::services::{DomainError, DomainResult};
 use crate::{Conversation, OpenApiUpdateConversationForm};
 
@@ -101,6 +102,12 @@ impl ConversationService {
         }
         if let Some(remark) = form.remark {
             active.remark = Set(Some(remark));
+        }
+        if let Some(_tags) = form.tags {
+            active.tags_json = Set(encode_json(&_tags));
+        }
+        if let Some(_extra) = form.extra {
+            active.extra_json = Set(encode_json(&_extra));
         }
         active.updated_at = Set(now());
 

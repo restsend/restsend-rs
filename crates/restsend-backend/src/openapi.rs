@@ -245,6 +245,8 @@ pub struct OpenApiUpdateConversationForm {
     pub sticky: Option<bool>,
     pub mute: Option<bool>,
     pub remark: Option<String>,
+    pub tags: Option<crate::Tags>,
+    pub extra: Option<crate::Extra>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -30,6 +30,10 @@ pub struct Model {
     pub last_message_json: String,
     pub last_message_at: String,
     pub last_message_seq: i64,
+    #[sea_orm(default_value = "[]")]
+    pub tags_json: String,
+    #[sea_orm(default_value = "null")]
+    pub extra_json: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -70,11 +74,19 @@ impl From<Model> for crate::Conversation {
             } else {
                 Some(model.last_message_seq)
             },
-            extra: None,
+            extra: if model.extra_json.is_empty() || model.extra_json == "null" {
+                None
+            } else {
+                Some(decode_json(&model.extra_json))
+            },
             topic_extra: None,
             topic_owner_id: None,
             topic_created_at: None,
-            tags: None,
+            tags: if model.tags_json.is_empty() || model.tags_json == "[]" {
+                None
+            } else {
+                Some(decode_json(&model.tags_json))
+            },
         }
     }
 }
@@ -112,11 +124,19 @@ impl From<&Model> for crate::Conversation {
             } else {
                 Some(model.last_message_seq)
             },
-            extra: None,
+            extra: if model.extra_json.is_empty() || model.extra_json == "null" {
+                None
+            } else {
+                Some(decode_json(&model.extra_json))
+            },
             topic_extra: None,
             topic_owner_id: None,
             topic_created_at: None,
-            tags: None,
+            tags: if model.tags_json.is_empty() || model.tags_json == "[]" {
+                None
+            } else {
+                Some(decode_json(&model.tags_json))
+            },
         }
     }
 }
@@ -155,6 +175,8 @@ impl From<(crate::Conversation, &str)> for ActiveModel {
                 .unwrap_or_else(|| "{}".to_string())),
             last_message_at: Set(value.last_message_at),
             last_message_seq: Set(value.last_message_seq.unwrap_or_default()),
+            tags_json: Set(value.tags.as_ref().map(encode_json).unwrap_or_else(|| "[]".to_string())),
+            extra_json: Set(value.extra.as_ref().map(encode_json).unwrap_or_else(|| "null".to_string())),
         }
     }
 }
@@ -192,6 +214,8 @@ impl From<(&crate::Conversation, &str)> for ActiveModel {
                 .unwrap_or_else(|| "{}".to_string())),
             last_message_at: Set(value.last_message_at.clone()),
             last_message_seq: Set(value.last_message_seq.unwrap_or_default()),
+            tags_json: Set(value.tags.as_ref().map(encode_json).unwrap_or_else(|| "[]".to_string())),
+            extra_json: Set(value.extra.as_ref().map(encode_json).unwrap_or_else(|| "null".to_string())),
         }
     }
 }

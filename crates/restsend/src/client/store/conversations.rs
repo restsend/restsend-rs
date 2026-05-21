@@ -39,6 +39,15 @@ pub(crate) async fn merge_conversation(
             sync_last_readable = true;
         }
         conversation.merge_local_read_state(&old_conversation);
+
+        conversation.sticky = old_conversation.sticky;
+        conversation.mute = old_conversation.mute;
+        conversation.remark = old_conversation.remark.clone();
+        conversation.extra = old_conversation.extra.clone();
+        conversation.tags = old_conversation.tags.clone();
+        conversation.topic_owner_id = old_conversation.topic_owner_id.clone();
+        conversation.topic_created_at = old_conversation.topic_created_at.clone();
+        conversation.topic_extra = old_conversation.topic_extra.clone();
     }
 
     if sync_last_readable {
@@ -234,15 +243,22 @@ impl ClientStore {
                 .unwrap_or_else(|| Conversation::new(&req.topic_id)),
         };
 
+        let mut update_last_message = true;
+
         if let Some(content) = req.content.as_ref() {
             match ContentType::from(content.content_type.clone()) {
-                ContentType::None | ContentType::Recall => {}
+                ContentType::None => {
+                    update_last_message = false;
+                }
+                ContentType::Recall => {}
                 ContentType::TopicJoin => {
                     conversation.last_message_at = req.created_at.clone();
                     conversation.is_partial = true; // force fetch conversation
+                    update_last_message = false;
                 }
                 ContentType::TopicChangeOwner => {
                     conversation.topic_owner_id = Some(req.attendee.clone());
+                    update_last_message = false;
                 }
                 ContentType::ConversationUpdate => {
                     match serde_json::from_str::<ConversationUpdateFields>(&content.text) {
@@ -266,6 +282,7 @@ impl ClientStore {
                         }
                         Err(_) => {}
                     }
+                    update_last_message = false;
                 }
                 ContentType::ConversationRemoved => {
                     return None;
@@ -279,11 +296,9 @@ impl ClientStore {
                         }
                         Err(_) => {}
                     }
+                    update_last_message = false;
                 }
                 ContentType::UpdateExtra => {
-                    // Best-effort: update conversation summary extra directly when the last
-                    // message is text-like. This avoids missing extra propagation when local
-                    // store lookup is lagging or seq metadata is stale.
                     if let Some(last_message_content) = conversation.last_message.as_mut() {
                         if matches!(
                             ContentType::from(last_message_content.content_type.to_string()),
@@ -301,6 +316,7 @@ impl ClientStore {
                             last_message_content.extra = content.extra.clone();
                         }
                     }
+                    update_last_message = false;
                 }
                 _ => {
                     if req.seq > conversation.last_read_seq
@@ -312,6 +328,15 @@ impl ClientStore {
                     }
                 }
             }
+        }
+
+        if !update_last_message {
+            // still need to save the conversation to persist changes (tags, extra, etc.)
+            conversation.cached_at = now_millis();
+            t.set("", &conversation.topic_id, Some(&conversation))
+                .await
+                .ok();
+            return Some(conversation);
         }
 
         if req.seq > conversation.last_seq || (req.seq == conversation.last_seq && is_countable) {

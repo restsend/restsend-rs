@@ -599,6 +599,7 @@ async fn create_demo_accounts(db: &sea_orm::DatabaseConnection) -> Result<(), se
         ("bob", "Bob"),
         ("guido", "Guido"),
         ("jinti", "Jinti"),
+        ("vitalik", "Vitalik"),
     ];
 
     for (user_id, display_name) in &demo_users {
@@ -620,7 +621,7 @@ async fn create_demo_accounts(db: &sea_orm::DatabaseConnection) -> Result<(), se
                 user_id: Set(user_id.to_string()),
                 password: Set(hashed),
                 display_name: Set(display_name.to_string()),
-                avatar: Set(String::new()),
+                avatar: Set(format!("/avatar/{}", user_id)),
                 source: Set("demo".to_string()),
                 locale: Set(String::new()),
                 city: Set(String::new()),
@@ -723,6 +724,47 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
             vec![
                 ("guido", "Let's collaborate on the new project"),
                 ("jinti", "Sounds great, let's do it! 你真棒!"),
+            ],
+        ),
+        (
+            "vitalik",
+            "guido",
+            vec![
+                ("vitalik", "Hey Guido, how's the new feature going?"),
+                ("guido", "Almost done! Just testing the last edge case."),
+                ("vitalik", "Great, let me know when it's ready to deploy!"),
+                ("guido", "Will do! Should be ready by EOD."),
+                ("vitalik", "Also please update the docs accordingly."),
+                ("guido", "Sure, will include that in the PR."),
+                ("vitalik", "Perfect, thanks!"),
+                ("guido", "PR is up, ready for review."),
+                ("vitalik", "Reviewed and approved. Ship it!"),
+                ("guido", "Deployed to production. All green!"),
+            ],
+        ),
+        (
+            "vitalik",
+            "alice",
+            vec![
+                ("vitalik", "Hi Alice, are you free for a quick chat?"),
+                ("alice", "Sure, what's up?"),
+                ("vitalik", "Need your input on the design review."),
+            ],
+        ),
+        (
+            "vitalik",
+            "bob",
+            vec![
+                ("bob", "Hey Vitalik, server is down again."),
+                ("vitalik", "Looking into it now."),
+            ],
+        ),
+        (
+            "vitalik",
+            "jinti",
+            vec![
+                ("jinti", "Hi Vitalik, need help with the deploy script."),
+                ("vitalik", "Sure, I'll take a look right away."),
             ],
         ),
     ];
