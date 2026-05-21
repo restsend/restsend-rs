@@ -132,7 +132,10 @@ impl<T: StoreModel> MemoryTable<T> {
                 let v = match table.get(index) {
                     Some(v) => match T::from_str(v) {
                         Ok(v) => v,
-                        _ => continue,
+                        Err(_) => {
+                            log::warn!("memory filter deserialize error, value:{}", v);
+                            continue;
+                        }
                     },
                     None => continue,
                 };
@@ -174,7 +177,10 @@ impl<T: StoreModel> MemoryTable<T> {
                 let v = match table.get(index) {
                     Some(v) => match T::from_str(v) {
                         Ok(v) => v,
-                        _ => continue,
+                        Err(_) => {
+                            log::warn!("memory query deserialize error, value:{}", v);
+                            continue;
+                        }
                     },
                     None => continue,
                 };
@@ -187,9 +193,6 @@ impl<T: StoreModel> MemoryTable<T> {
                 if items.len() >= (option.limit + 1) as usize {
                     break;
                 }
-            }
-            if items.len() >= (option.limit + 1) as usize {
-                break;
             }
         }
         let has_more = items.len() > option.limit as usize;
@@ -206,7 +209,14 @@ impl<T: StoreModel> MemoryTable<T> {
     async fn get(&self, partition: &str, key: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        table?.get(key).and_then(|v| T::from_str(v).ok())
+        let value = table?.get(key)?;
+        match T::from_str(value) {
+            Ok(v) => Some(v),
+            Err(_) => {
+                log::warn!("memory get deserialize error, key:{} value:{}", key, value);
+                None
+            }
+        }
     }
 
     async fn set(&self, partition: &str, key: &str, value: Option<&T>) -> crate::Result<()> {
@@ -254,9 +264,16 @@ impl<T: StoreModel> MemoryTable<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
         if let Some(table) = table {
-            table.get(key).and_then(|v| T::from_str(v).ok()).map(|v| {
-                table.remove(key, v.sort_key());
-            });
+            if let Some(value) = table.get(key) {
+                match T::from_str(value) {
+                    Ok(v) => {
+                        table.remove(key, v.sort_key());
+                    }
+                    Err(e) => {
+                        log::warn!("memory remove deserialize error, key:{} value:{}", key, value);
+                    }
+                }
+            }
         };
         Ok(())
     }
@@ -264,7 +281,14 @@ impl<T: StoreModel> MemoryTable<T> {
     async fn last(&self, partition: &str) -> Option<T> {
         let mut data = self.data.lock().unwrap();
         let mut table = data.get_mut(partition);
-        table?.last().and_then(|v| T::from_str(v).ok())
+        let value = table?.last()?;
+        match T::from_str(value) {
+            Ok(v) => Some(v),
+            Err(_) => {
+                log::warn!("memory last deserialize error, value:{}", value);
+                None
+            }
+        }
     }
 
     async fn clear(&self, partition: &str) -> crate::Result<()> {

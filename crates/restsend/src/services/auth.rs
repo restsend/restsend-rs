@@ -4,7 +4,7 @@ use crate::models::AuthInfo;
 use crate::services::{handle_response, make_get_request, make_post_request, response};
 use crate::utils::{elapsed, now_millis};
 use crate::Result;
-use log::info;
+use log::{info, warn};
 use restsend_macros::export_wasm_or_ffi;
 
 #[export_wasm_or_ffi]
@@ -65,7 +65,10 @@ pub async fn logout(endpoint: String, token: String) -> Result<()> {
                     let msg = v["error"].as_str().unwrap_or_default();
                     msg.to_string()
                 })
-                .unwrap_or_else(|_| body);
+                .unwrap_or_else(|e| {
+                    warn!("logout decode body error: {} body:{}", e, body);
+                    body
+                });
             Err(Forbidden(msg))
         }
     }

@@ -1,7 +1,7 @@
 use std::sync::atomic::Ordering;
 
 use super::{CallbackRef, ClientStore, ClientStoreRef, PendingRequest};
-use crate::models::{ChatLog, ChatLogStatus, ContentType, Conversation};
+use crate::models::ChatLogStatus;
 use crate::utils::now_millis;
 use crate::{
     callback::MessageCallback,
@@ -45,7 +45,6 @@ impl ClientStore {
         let topic_id = req.topic_id.clone();
         let chat_id = req.chat_id.clone();
         let ack_seq = req.seq.clone();
-        let created_at = req.created_at.clone();
 
         match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Response => {
@@ -77,7 +76,10 @@ impl ClientStore {
                                     &content.text,
                                 ) {
                                     Ok(data) => data,
-                                    Err(_) => return vec![],
+                                    Err(e) => {
+                                        warn!("ping content decode error: {} body:{}", e, content.text);
+                                        return vec![];
+                                    }
                                 };
                                 let timestamp = match data["timestamp"].as_i64() {
                                     Some(timestamp) => timestamp,
@@ -95,65 +97,10 @@ impl ClientStore {
                         }
                     }
                 }
-                let is_sent = status == ChatLogStatus::Sent;
                 if content_type != "ping" {
                     self.update_outoing_chat_log_state(&topic_id, &chat_id, status, Some(ack_seq))
                         .await
                         .ok();
-                }
-                if is_sent && ack_seq > 0 {
-                    if let Ok(t) = self
-                        .message_storage
-                        .table::<Conversation>()
-                        .await
-                    {
-                        if let Some(mut conversation) = t.get("", &topic_id).await {
-                            if ack_seq > conversation.last_seq
-                                || (ack_seq == conversation.last_seq)
-                            {
-                                conversation.last_seq = ack_seq;
-                                conversation.updated_at.clone_from(&created_at);
-                                // read original content from local ChatLog
-                                if let Ok(log_t) = self
-                                    .message_storage
-                                    .table::<ChatLog>()
-                                    .await
-                                {
-                                if let Some(log) =
-                                    log_t.get(&topic_id, &chat_id).await
-                                {
-                                    if !log.content.unreadable
-                                        && !matches!(
-                                            ContentType::from(log.content.content_type.to_string()),
-                                            ContentType::None
-                                                | ContentType::Recall
-                                                | ContentType::TopicJoin
-                                                | ContentType::TopicChangeOwner
-                                                | ContentType::ConversationUpdate
-                                                | ContentType::TopicUpdate
-                                                | ContentType::UpdateExtra
-                                        )
-                                    {
-                                            conversation.last_sender_id =
-                                                self.user_id.clone();
-                                            conversation.last_message_at =
-                                                log.created_at.clone();
-                                            conversation.last_message =
-                                                Some(log.content.clone());
-                                            conversation.last_message_seq =
-                                                Some(ack_seq);
-                                        }
-                                    }
-                                }
-                                t.set("", &topic_id, Some(&conversation))
-                                    .await
-                                    .ok();
-                                if let Some(cb) = self.callback.read().unwrap().as_ref() {
-                                    cb.on_conversations_updated(vec![conversation], None);
-                                }
-                            }
-                        }
-                    }
                 }
                 vec![]
             }

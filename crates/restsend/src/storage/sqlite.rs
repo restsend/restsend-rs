@@ -132,11 +132,16 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    if let Ok(v) = T::from_str(&value) {
-                        if let Some(v) = predicate(v) {
-                            items.push(v)
+                    match T::from_str(&value) {
+                        Ok(v) => {
+                            if let Some(v) = predicate(v) {
+                                items.push(v)
+                            }
                         }
-                    };
+                        Err(_) => {
+                            log::warn!("sqlite filter deserialize error, value:{}", value);
+                        }
+                    }
                 }
                 None => break,
             }
@@ -185,9 +190,12 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    if let Ok(v) = T::from_str(&value) {
-                        items.push(v)
-                    };
+                    match T::from_str(&value) {
+                        Ok(v) => items.push(v),
+                        Err(_) => {
+                            log::warn!("sqlite query deserialize error, value:{}", value);
+                        }
+                    }
                 }
                 None => break,
             }
@@ -244,7 +252,13 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Ok(rows) => match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    T::from_str(&value).ok()
+                    match T::from_str(&value) {
+                        Ok(v) => Some(v),
+                        Err(_) => {
+                            log::warn!("{} get deserialize error, key:{} value:{}", self.name, key, value);
+                            None
+                        }
+                    }
                 }
                 None => None,
             },
@@ -357,7 +371,13 @@ impl<T: StoreModel> super::Table<T> for SqliteTable<T> {
             Ok(rows) => match rows {
                 Some(row) => {
                     let value: String = row.get(0).unwrap();
-                    T::from_str(&value).ok()
+                    match T::from_str(&value) {
+                        Ok(v) => Some(v),
+                        Err(_) => {
+                            log::warn!("{} last deserialize error, value:{}", self.name, value);
+                            None
+                        }
+                    }
                 }
                 None => None,
             },

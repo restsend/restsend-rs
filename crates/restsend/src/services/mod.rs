@@ -2,7 +2,7 @@ use crate::error::ClientError::{Forbidden, InvalidPassword, HTTP};
 use crate::Result;
 #[cfg(not(target_family = "wasm"))]
 use crate::USER_AGENT;
-use log::{debug, info, warn};
+use log::{debug, error, warn};
 use reqwest::{
     header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE},
     ClientBuilder, RequestBuilder, Response,
@@ -95,18 +95,26 @@ where
 
     match status {
         reqwest::StatusCode::OK => {
-            let full = resp.bytes().await?;
+            let full = match resp.bytes().await {
+                Ok(b) => b,
+                Err(e) => {
+                    error!("read body from {} error: {}", url, e);
+                    return Err(HTTP(format!("read body error: {}", e)));
+                }
+            };
             let r = serde_json::from_slice(&full);
             match r {
                 Ok(v) => Ok(v),
                 Err(e) => {
-                    info!(
-                        "decode with {} error: {} body:{}",
+                    let body = String::from_utf8_lossy(&full);
+                    let preview: String = body.chars().take(500).collect();
+                    error!(
+                        "decode {} error: {} body:{}",
                         url,
                         e,
-                        String::from_utf8_lossy(&full)
+                        body,
                     );
-                    Err(HTTP(e.to_string()))
+                    Err(HTTP(format!("decode body error: {} body: {}", e, preview)))
                 }
             }
         }

@@ -165,9 +165,10 @@ async fn test_multiple_chats_increment_unread() {
 }
 
 /// Test that receiving a Response (server ack) after sending a message
-/// updates the sender's conversation with new lastSeq and lastMessage.
+/// does NOT update the sender's conversation — that's handled by the
+/// Chat message echo path (merge_conversation_from_chat).
 #[tokio::test]
-async fn test_response_updates_sender_conversation() {
+async fn test_response_does_not_touch_conversation() {
     let store = ClientStore::new("", ":memory:", "http://test", "token", "sender-user");
     let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
         Arc::new(RwLock::new(Some(Box::new(TestCallback {
@@ -207,29 +208,16 @@ async fn test_response_updates_sender_conversation() {
 
     assert!(resps.is_empty(), "Response should not generate responses");
 
-    // Check that the sender's conversation was updated
+    // Conversation should NOT have been updated by the Response handler
     let t = store.message_storage.table::<Conversation>().await.unwrap();
     let updated = t.get("", "topic_send").await.expect("conversation should exist");
     assert_eq!(
-        updated.last_seq, 5,
-        "sender's last_seq should be updated to 5"
+        updated.last_seq, 0,
+        "sender's last_seq should NOT be updated by ACK"
     );
     assert!(
-        updated.last_message.is_some(),
-        "sender's last_message should be set"
-    );
-    assert_eq!(
-        updated.last_message.as_ref().unwrap().text, "Sent msg",
-        "sender's last_message text should match"
-    );
-    assert_eq!(
-        updated.last_message_seq,
-        Some(5),
-        "sender's last_message_seq should be 5"
-    );
-    assert_eq!(
-        updated.last_sender_id, "sender-user",
-        "sender's last_sender_id should be sender-user"
+        updated.last_message.is_none(),
+        "sender's last_message should NOT be set by ACK"
     );
 }
 

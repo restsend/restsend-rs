@@ -280,7 +280,9 @@ impl ClientStore {
                             conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
                             conversation.mute = fields.mute.unwrap_or(conversation.mute);
                         }
-                        Err(_) => {}
+                        Err(e) => {
+                            warn!("conversation update decode error: {} body:{}", e, content.text);
+                        }
                     }
                     update_last_message = false;
                 }
@@ -294,7 +296,9 @@ impl ClientStore {
                             conversation.icon = topic.icon;
                             conversation.topic_extra = topic.extra;
                         }
-                        Err(_) => {}
+                        Err(e) => {
+                            warn!("topic update decode error: {} body:{}", e, content.text);
+                        }
                     }
                     update_last_message = false;
                 }
