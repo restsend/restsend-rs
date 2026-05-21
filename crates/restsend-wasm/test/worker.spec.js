@@ -6,7 +6,7 @@ import { endpoint } from './common.js'
 describe('Worker quick path', async function () {
     it('#sync chat logs in worker', async () => {
         const info = await signin(endpoint, 'vitalik', 'vitalik:demo')
-        const workerClient = await createWorkerClient(info, '')
+        const workerClient = await createWorkerClient(info, '', { enableWorker: true })
 
         const result = await workerClient.syncChatLogs('vitalik:guido', undefined, { limit: 5 })
 

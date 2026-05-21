@@ -157,7 +157,7 @@ impl Conversation {
             if local.last_seq > self.last_seq {
                 self.unread = local.unread;
             } else {
-                self.unread = std::cmp::max(self.unread, local.unread);
+                self.unread = std::cmp::min(self.unread, local.unread);
             }
             if self.last_read_at.is_none() && local.last_read_at.is_some() {
                 self.last_read_at = local.last_read_at.clone();
@@ -245,25 +245,47 @@ mod tests {
     }
 
     #[test]
-    fn merge_local_takes_max_unread_when_same_read_state() {
+    fn merge_local_takes_min_unread_when_same_read_state_and_same_seq() {
         let mut remote = Conversation {
             last_seq: 100,
             last_read_seq: 50,
-            unread: 0,
+            unread: 2,
             ..Conversation::default()
         };
 
         let local = Conversation {
             last_seq: 100,
             last_read_seq: 50,
-            unread: 1,
+            unread: 0,
             ..Conversation::default()
         };
 
         remote.merge_local_read_state(&local);
 
         assert_eq!(remote.last_read_seq, 50);
-        assert_eq!(remote.unread, 1);
+        assert_eq!(remote.unread, 0);
+    }
+
+    #[test]
+    fn merge_local_preserves_local_zero_unread_when_server_has_unread_with_same_read_seq() {
+        let mut remote = Conversation {
+            last_seq: 150,
+            last_read_seq: 100,
+            unread: 3,
+            ..Conversation::default()
+        };
+
+        let local = Conversation {
+            last_seq: 140,
+            last_read_seq: 100,
+            unread: 0,
+            ..Conversation::default()
+        };
+
+        remote.merge_local_read_state(&local);
+
+        assert_eq!(remote.last_read_seq, 100);
+        assert_eq!(remote.unread, 0);
     }
 
     #[test]

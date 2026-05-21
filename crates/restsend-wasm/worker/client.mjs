@@ -73,23 +73,32 @@ function buildProxy(facade, client) {
 }
 
 /**
- * Create a worker-backed client wrapper.
+ * Create a client wrapper with optional Web Worker support for syncChatLogs.
  *
- * The returned object is API-compatible with `new Client(info, dbName)` and forwards
- * all methods/properties to the underlying client except `syncChatLogs`, which is routed
- * to worker by default for better UI responsiveness.
+ * By default the worker is **disabled**. Set `options.enableWorker = true` to offload
+ * `syncChatLogs` calls to a Web Worker, keeping the main thread responsive during
+ * heavy log fetching.
+ *
+ * @param {Object} info - Auth info (same as `new Client(info, dbName)`)
+ * @param {string} [dbName=''] - IndexedDB database name
+ * @param {Object} [options={}]
+ * @param {boolean} [options.enableWorker=false] - Set to true to use a Web Worker for syncChatLogs
+ * @param {number} [options.rpcTimeoutMs=8000] - Worker RPC call timeout (ms)
+ * @param {number} [options.initTimeoutMs=5000] - Worker init timeout (ms)
+ * @param {string} [options.workerUrl] - Custom worker entry URL
+ * @returns {Promise<Object>} A proxy object that delegates to the underlying client
  */
 export async function createWorkerClient(info, dbName = '', options = {}) {
     const rpcTimeoutMs = options.rpcTimeoutMs ?? 8000;
     const initTimeoutMs = options.initTimeoutMs ?? 5000;
-    const forceFallback = options.forceFallback ?? false;
+    const enableWorker = options.enableWorker === true;
 
     const client = new Client(info, dbName);
 
     let workerEnabled = false;
     let rpc = null;
 
-    if (!forceFallback) {
+    if (enableWorker) {
         try {
             const workerUrl = options.workerUrl ?? new URL('./entry.mjs', import.meta.url);
             const worker = new Worker(workerUrl, { type: 'module' });
