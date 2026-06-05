@@ -821,14 +821,26 @@ impl ClientStore {
                 Ok(mut new_conversation) => {
                     new_conversation.is_partial = false;
                     new_conversation.cached_at = now_millis();
-                    if conversation.last_message_seq > new_conversation.last_message_seq {
-                        new_conversation.last_read_at = conversation.last_read_at;
-                        new_conversation.last_read_seq = conversation.last_read_seq;
-                        new_conversation.unread = conversation.unread;
-                        new_conversation.last_message = conversation.last_message.clone();
-                        new_conversation.last_message_at = conversation.last_message_at.clone();
-                        new_conversation.last_sender_id = conversation.last_sender_id.clone();
-                        new_conversation.last_message_seq = conversation.last_message_seq;
+                    let local_conversation =
+                        if let Ok(rt) = self.message_storage.readonly_table::<Conversation>().await {
+                            rt.get("", &conversation.topic_id).await
+                        } else {
+                            None
+                        };
+                    let compare_source = local_conversation.as_ref().unwrap_or(&conversation);
+                    if compare_source.last_message_seq > new_conversation.last_message_seq {
+                        new_conversation.last_read_at = compare_source.last_read_at.clone();
+                        new_conversation.last_read_seq = compare_source.last_read_seq;
+                        new_conversation.unread = compare_source.unread;
+                        new_conversation.last_message = compare_source.last_message.clone();
+                        new_conversation.last_message_at =
+                            compare_source.last_message_at.clone();
+                        new_conversation.last_sender_id =
+                            compare_source.last_sender_id.clone();
+                        new_conversation.last_message_seq = compare_source.last_message_seq;
+                    }
+                    if let Some(local) = local_conversation {
+                        new_conversation.merge_local_read_state(&local);
                     }
                     self.ensure_topic_owner_id(&mut new_conversation).await;
                     if let Ok(t) = self.message_storage.table::<Conversation>().await {

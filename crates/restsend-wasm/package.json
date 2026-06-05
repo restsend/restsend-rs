@@ -1,6 +1,6 @@
 {
   "name": "resetsend-sdk",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Restsend Javascript/Wasm SDK",
   "main": "./pkg/restsend_wasm.js",
   "types": "./pkg/restsend_wasm.d.ts",
