@@ -34,20 +34,22 @@ pub(crate) async fn merge_conversation(
         .unwrap_or(false);
 
     let mut sync_last_readable = false;
-    if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
-        if old_conversation.last_message_seq != conversation.last_message_seq {
+    let mut old_conversation: Option<Conversation> = None;
+    if let Some(oc) = t.get("", &conversation.topic_id).await {
+        if oc.last_message_seq != conversation.last_message_seq {
             sync_last_readable = true;
         }
-        conversation.merge_local_read_state(&old_conversation);
+        old_conversation = Some(oc.clone());
+        conversation.merge_local_read_state(&oc);
 
-        conversation.sticky = old_conversation.sticky;
-        conversation.mute = old_conversation.mute;
-        conversation.remark = old_conversation.remark.clone();
-        conversation.extra = old_conversation.extra.clone();
-        conversation.tags = old_conversation.tags.clone();
-        conversation.topic_owner_id = old_conversation.topic_owner_id.clone();
-        conversation.topic_created_at = old_conversation.topic_created_at.clone();
-        conversation.topic_extra = old_conversation.topic_extra.clone();
+        conversation.sticky = oc.sticky;
+        conversation.mute = oc.mute;
+        conversation.remark = oc.remark.clone();
+        conversation.extra = oc.extra.clone();
+        conversation.tags = oc.tags.clone();
+        conversation.topic_owner_id = oc.topic_owner_id.clone();
+        conversation.topic_created_at = oc.topic_created_at.clone();
+        conversation.topic_extra = oc.topic_extra.clone();
     }
 
     if sync_last_readable {
@@ -69,6 +71,24 @@ pub(crate) async fn merge_conversation(
                 conversation.last_sender_id = log.sender_id;
                 conversation.last_message_seq = Some(log.seq);
             }
+        }
+    } else if let Some(ref oc) = old_conversation {
+        // seqs match, prefer local if server's last_message is None or unreadable
+        let local_last_message_readable = oc
+            .last_message
+            .as_ref()
+            .map(|c| !c.unreadable)
+            .unwrap_or(false);
+        let server_last_message_missing = conversation
+            .last_message
+            .as_ref()
+            .map(|c| c.unreadable)
+            .unwrap_or(true);
+        if local_last_message_readable && server_last_message_missing {
+            conversation.last_message = oc.last_message.clone();
+            conversation.last_message_at = oc.last_message_at.clone();
+            conversation.last_sender_id = oc.last_sender_id.clone();
+            conversation.last_message_seq = oc.last_message_seq;
         }
     }
 
@@ -460,6 +480,19 @@ impl ClientStore {
                         conversation.last_message_seq =
                             old_conversation.last_message_seq;
                     }
+                } else if local_last_message_readable {
+                    // local has last_message but seq is None; prefer local if server's is stale
+                    let server_last_message_missing = server_last_message_unreadable
+                        || conversation.last_message.is_none();
+                    if server_last_message_missing {
+                        conversation.last_message = old_conversation.last_message.clone();
+                        conversation.last_message_at =
+                            old_conversation.last_message_at.clone();
+                        conversation.last_sender_id =
+                            old_conversation.last_sender_id.clone();
+                        conversation.last_message_seq =
+                            old_conversation.last_message_seq;
+                    }
                 }
             }
 
@@ -828,7 +861,19 @@ impl ClientStore {
                             None
                         };
                     let compare_source = local_conversation.as_ref().unwrap_or(&conversation);
-                    if compare_source.last_message_seq > new_conversation.last_message_seq {
+                    let local_newer = compare_source.last_message_seq > new_conversation.last_message_seq;
+                    let seqs_equal = compare_source.last_message_seq == new_conversation.last_message_seq;
+                    let local_readable = compare_source
+                        .last_message
+                        .as_ref()
+                        .map(|c| !c.unreadable)
+                        .unwrap_or(false);
+                    let server_missing = new_conversation
+                        .last_message
+                        .as_ref()
+                        .map(|c| c.unreadable)
+                        .unwrap_or(true);
+                    if local_newer || (seqs_equal && local_readable && server_missing) {
                         new_conversation.last_read_at = compare_source.last_read_at.clone();
                         new_conversation.last_read_seq = compare_source.last_read_seq;
                         new_conversation.unread = compare_source.unread;
@@ -1894,5 +1939,300 @@ mod tests {
             merged[0].last_message.as_ref().unwrap().text,
             "readable summary"
         );
+    }
+
+    // --- Fix 1: merge_conversation protects local last_message when seqs match ---
+
+    #[tokio::test]
+    async fn merge_conversation_keeps_local_when_same_seq_but_server_none() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: Some(100),
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "readable local".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 100,
+                last_message_seq: Some(100),
+                last_message: None,
+                last_message_at: String::new(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(merged.last_message_seq, Some(100));
+        assert_eq!(merged.last_message.as_ref().unwrap().text, "readable local");
+        assert_eq!(merged.last_sender_id, "user-2");
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_keeps_local_when_same_seq_but_server_unreadable() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: Some(100),
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "readable local".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 100,
+                last_message_seq: Some(100),
+                last_message: Some(Content {
+                    content_type: "text".to_string(),
+                    text: "hidden recall".to_string(),
+                    unreadable: true,
+                    ..Default::default()
+                }),
+                last_message_at: "2026-01-30T10:01:00Z".to_string(),
+                last_sender_id: "system".to_string(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(merged.last_message_seq, Some(100));
+        assert_eq!(merged.last_message.as_ref().unwrap().text, "readable local");
+        assert_eq!(merged.last_sender_id, "user-2");
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_uses_server_when_same_seq_and_both_readable() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: Some(100),
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "local message".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 100,
+                last_message_seq: Some(100),
+                last_message: Some(Content {
+                    content_type: "text".to_string(),
+                    text: "server message".to_string(),
+                    unreadable: false,
+                    ..Default::default()
+                }),
+                last_message_at: "2026-01-30T10:00:05Z".to_string(),
+                last_sender_id: "user-3".to_string(),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(merged.last_message_seq, Some(100));
+        assert_eq!(merged.last_message.as_ref().unwrap().text, "server message");
+        assert_eq!(merged.last_sender_id, "user-3");
+    }
+
+    // --- Fix 2: merge_conversations protects local last_message when local last_message_seq is None ---
+
+    #[tokio::test]
+    async fn merge_conversations_prefers_local_when_local_seq_none_and_server_missing() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: None,
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "readable local".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = store
+            .merge_conversations(vec![Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 100,
+                last_message_seq: None,
+                last_message: None,
+                last_message_at: String::new(),
+                ..Default::default()
+            }])
+            .await;
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].last_message_seq, None);
+        assert_eq!(
+            merged[0].last_message.as_ref().unwrap().text,
+            "readable local"
+        );
+        assert_eq!(merged[0].last_sender_id, "user-2");
+    }
+
+    #[tokio::test]
+    async fn merge_conversations_prefers_local_when_local_seq_none_and_server_unreadable() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: None,
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "readable local".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = store
+            .merge_conversations(vec![Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 101,
+                last_message_seq: Some(101),
+                last_message: Some(Content {
+                    content_type: "text".to_string(),
+                    text: "hidden system message".to_string(),
+                    unreadable: true,
+                    ..Default::default()
+                }),
+                last_message_at: "2026-01-30T10:01:00Z".to_string(),
+                last_sender_id: "system".to_string(),
+                ..Default::default()
+            }])
+            .await;
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].last_message_seq, None);
+        assert_eq!(
+            merged[0].last_message.as_ref().unwrap().text,
+            "readable local"
+        );
+        assert_eq!(merged[0].last_sender_id, "user-2");
+    }
+
+    #[tokio::test]
+    async fn merge_conversations_uses_server_when_local_seq_none_but_server_has_readable() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: None,
+            last_message: Some(Content {
+                content_type: "text".to_string(),
+                text: "local message".to_string(),
+                unreadable: false,
+                ..Default::default()
+            }),
+            last_message_at: "2026-01-30T10:00:00Z".to_string(),
+            last_sender_id: "user-2".to_string(),
+            ..Default::default()
+        };
+
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let merged = store
+            .merge_conversations(vec![Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 101,
+                last_message_seq: Some(101),
+                last_message: Some(Content {
+                    content_type: "text".to_string(),
+                    text: "server message".to_string(),
+                    unreadable: false,
+                    ..Default::default()
+                }),
+                last_message_at: "2026-01-30T10:01:00Z".to_string(),
+                last_sender_id: "user-3".to_string(),
+                ..Default::default()
+            }])
+            .await;
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].last_message_seq, Some(101));
+        assert_eq!(
+            merged[0].last_message.as_ref().unwrap().text,
+            "server message"
+        );
+        assert_eq!(merged[0].last_sender_id, "user-3");
     }
 }
