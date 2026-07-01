@@ -11,7 +11,7 @@ use crate::{
     utils::{elapsed, now_millis},
 };
 use crate::{Error, Result};
-use log::warn;
+use log::{info, warn};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Mutex,
@@ -27,15 +27,17 @@ pub(crate) async fn merge_conversation(
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>().await?;
     let mut conversation = conversation;
+    let topic_id = conversation.topic_id.clone();
     let server_last_message_unreadable = conversation
         .last_message
         .as_ref()
         .map(|message| message.unreadable)
         .unwrap_or(false);
+    let server_last_message_at = conversation.last_message_at.clone();
 
     let mut sync_last_readable = false;
     let mut old_conversation: Option<Conversation> = None;
-    if let Some(oc) = t.get("", &conversation.topic_id).await {
+    if let Some(oc) = t.get("", &topic_id).await {
         if oc.last_message_seq != conversation.last_message_seq {
             sync_last_readable = true;
         }
@@ -55,7 +57,7 @@ pub(crate) async fn merge_conversation(
     if sync_last_readable {
         let server_last_message_seq = conversation.last_message_seq;
         if let Some(log) =
-            get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
+            get_conversation_last_readable_message(message_storage.clone(), &topic_id)
                 .await
         {
             let local_seq = log.seq;
@@ -66,14 +68,29 @@ pub(crate) async fn merge_conversation(
             };
 
             if should_use_local {
+                info!(
+                    "merge_conversation[{}] seq differs: use local readable log seq={} over server seq={:?}",
+                    topic_id, local_seq, server_last_message_seq
+                );
                 conversation.last_message = Some(log.content.clone());
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
                 conversation.last_message_seq = Some(log.seq);
+            } else {
+                info!(
+                    "merge_conversation[{}] seq differs: keep server seq={:?} (local seq={})",
+                    topic_id, server_last_message_seq, local_seq
+                );
             }
+        } else {
+            info!(
+                "merge_conversation[{}] seq differs: no readable local log, keep server",
+                topic_id
+            );
         }
     } else if let Some(ref oc) = old_conversation {
-        // seqs match, prefer local if server's last_message is None or unreadable
+        // seqs match, prefer local if server's last_message is None or unreadable,
+        // or if both readable and local has a newer timestamp
         let local_last_message_readable = oc
             .last_message
             .as_ref()
@@ -84,17 +101,36 @@ pub(crate) async fn merge_conversation(
             .as_ref()
             .map(|c| c.unreadable)
             .unwrap_or(true);
-        if local_last_message_readable && server_last_message_missing {
+
+        let use_local = if local_last_message_readable && server_last_message_missing {
+            true
+        } else if local_last_message_readable && !server_last_message_missing {
+            // both readable with same seq, prefer the one with newer last_message_at
+            oc.last_message_at > server_last_message_at
+        } else {
+            false
+        };
+
+        if use_local {
+            info!(
+                "merge_conversation[{}] seq matches both={}: use local last_message (server missing={}, local_at={}, server_at={})",
+                topic_id, !server_last_message_missing, server_last_message_missing, oc.last_message_at, server_last_message_at
+            );
             conversation.last_message = oc.last_message.clone();
             conversation.last_message_at = oc.last_message_at.clone();
             conversation.last_sender_id = oc.last_sender_id.clone();
             conversation.last_message_seq = oc.last_message_seq;
+        } else if !server_last_message_missing && local_last_message_readable {
+            info!(
+                "merge_conversation[{}] seq matches: keep server last_message (server_at={} >= local_at={})",
+                topic_id, server_last_message_at, oc.last_message_at
+            );
         }
     }
 
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
-    t.set("", &conversation.topic_id, Some(&conversation))
+    t.set("", &topic_id, Some(&conversation))
         .await
         .ok();
     Ok(conversation)
@@ -388,6 +424,10 @@ impl ClientStore {
                         conversation.last_message_at = req.created_at.clone();
                         conversation.last_message = Some(content.clone());
                         conversation.last_message_seq = Some(req.seq);
+                        info!(
+                            "merge_conversation_from_chat[{}] updated last_message to seq={} content_type={}",
+                            req.topic_id, req.seq, content.content_type
+                        );
                     }
                 }
             }
@@ -421,8 +461,10 @@ impl ClientStore {
         let now = now_millis();
         for conversation in conversations {
             let mut conversation = conversation;
+            let topic_id = conversation.topic_id.clone();
+            let server_last_message_at = conversation.last_message_at.clone();
 
-            if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+            if let Some(old_conversation) = t.get("", &topic_id).await {
                 if let Some(topic_created_at) = conversation.topic_created_at.as_ref() {
                     let old_conversation_created_at = old_conversation
                         .topic_created_at
@@ -440,7 +482,7 @@ impl ClientStore {
                     // clean all logs
                     if new_conversation_created_at != old_conversation_created_at {
                         if let Ok(log_t) = self.message_storage.table::<ChatLog>().await {
-                            log_t.clear(&conversation.topic_id).await.ok();
+                            log_t.clear(&topic_id).await.ok();
                         }
                     }
                 }
@@ -448,7 +490,7 @@ impl ClientStore {
                 conversation.merge_local_read_state(&old_conversation);
 
                 // Prefer local last_message when it is newer or server's is unreadable,
-                // mirroring the single merge_conversation logic.
+                // mirroring the single merge_conversation logic, with timestamp tiebreaker.
                 let server_last_message_seq = conversation.last_message_seq;
                 let local_last_message_readable = old_conversation
                     .last_message
@@ -463,15 +505,25 @@ impl ClientStore {
 
                 if let Some(local_seq) = old_conversation.last_message_seq {
                     let should_use_local = match server_last_message_seq {
-                        Some(server_seq) if server_last_message_unreadable => {
+                        Some(_server_seq) if server_last_message_unreadable => {
                             local_last_message_readable
                         }
                         Some(server_seq) => {
-                            local_last_message_readable && local_seq >= server_seq
+                            // when seqs are equal and both readable, use timestamp tiebreaker
+                            if local_last_message_readable && local_seq == server_seq {
+                                old_conversation.last_message_at > server_last_message_at
+                            } else {
+                                local_last_message_readable && local_seq >= server_seq
+                            }
                         }
                         None => local_last_message_readable,
                     };
                     if should_use_local {
+                        info!(
+                            "merge_conversations[{}] use local last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
+                            topic_id, old_conversation.last_message_seq, server_last_message_seq,
+                            old_conversation.last_message_at, server_last_message_at
+                        );
                         conversation.last_message = old_conversation.last_message.clone();
                         conversation.last_message_at =
                             old_conversation.last_message_at.clone();
@@ -479,12 +531,22 @@ impl ClientStore {
                             old_conversation.last_sender_id.clone();
                         conversation.last_message_seq =
                             old_conversation.last_message_seq;
+                    } else {
+                        info!(
+                            "merge_conversations[{}] keep server last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
+                            topic_id, old_conversation.last_message_seq, server_last_message_seq,
+                            old_conversation.last_message_at, server_last_message_at
+                        );
                     }
                 } else if local_last_message_readable {
                     // local has last_message but seq is None; prefer local if server's is stale
                     let server_last_message_missing = server_last_message_unreadable
                         || conversation.last_message.is_none();
                     if server_last_message_missing {
+                        info!(
+                            "merge_conversations[{}] local seq is None, use local last_message (server is missing)",
+                            topic_id
+                        );
                         conversation.last_message = old_conversation.last_message.clone();
                         conversation.last_message_at =
                             old_conversation.last_message_at.clone();
@@ -501,12 +563,16 @@ impl ClientStore {
                     Some(log_t) => {
                         get_conversation_last_readable_message_with_table(
                             log_t,
-                            &conversation.topic_id,
+                            &topic_id,
                         )
                         .await
                     }
                     None => None,
                 } {
+                    info!(
+                        "merge_conversations[{}] refreshed last_message from logs to seq={}",
+                        topic_id, log.seq
+                    );
                     conversation.last_message = Some(log.content.clone());
                     conversation.last_message_at = log.created_at.clone();
                     conversation.last_sender_id = log.sender_id;
@@ -514,13 +580,17 @@ impl ClientStore {
                 }
             }
 
+            // self-healing: ensure last_message is not stale compared to local ChatLogs
+            self.ensure_conversation_readable_last_message(&mut conversation)
+                .await;
+
             self.ensure_topic_owner_id(&mut conversation).await;
             conversation.is_partial = false;
             conversation.cached_at = now;
             results.push(ValueItem {
                 partition: "".to_string(),
                 sort_key: conversation.sort_key(),
-                key: conversation.topic_id.clone(),
+                key: topic_id,
                 value: Some(conversation),
             });
         }
@@ -861,6 +931,7 @@ impl ClientStore {
                             None
                         };
                     let compare_source = local_conversation.as_ref().unwrap_or(&conversation);
+                    let topic_id = &conversation.topic_id;
                     let local_newer = compare_source.last_message_seq > new_conversation.last_message_seq;
                     let seqs_equal = compare_source.last_message_seq == new_conversation.last_message_seq;
                     let local_readable = compare_source
@@ -873,7 +944,23 @@ impl ClientStore {
                         .as_ref()
                         .map(|c| c.unreadable)
                         .unwrap_or(true);
-                    if local_newer || (seqs_equal && local_readable && server_missing) {
+                    let mut use_local = false;
+                    if local_newer {
+                        use_local = true;
+                    } else if seqs_equal {
+                        if local_readable && server_missing {
+                            use_local = true;
+                        } else if local_readable && !server_missing {
+                            // both readable with same seq, prefer newer timestamp
+                            use_local = compare_source.last_message_at > new_conversation.last_message_at;
+                        }
+                    }
+                    if use_local {
+                        info!(
+                            "get_conversation_by[{}] use local last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
+                            topic_id, compare_source.last_message_seq, new_conversation.last_message_seq,
+                            compare_source.last_message_at, new_conversation.last_message_at
+                        );
                         new_conversation.last_read_at = compare_source.last_read_at.clone();
                         new_conversation.last_read_seq = compare_source.last_read_seq;
                         new_conversation.unread = compare_source.unread;
@@ -1512,6 +1599,53 @@ impl ClientStore {
         )
         .await;
         count.load(Ordering::Relaxed) as u32
+    }
+
+    /// Self-healing: after merging, check if the conversation's last_message is stale
+    /// compared to the actual last readable ChatLog. If a newer readable log exists,
+    /// update last_message accordingly.
+    async fn ensure_conversation_readable_last_message(&self, conversation: &mut Conversation) {
+        let log_t = match self.message_storage.readonly_table::<ChatLog>().await {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        let last_log = match log_t.last(&conversation.topic_id).await {
+            Some(log) => log,
+            None => return,
+        };
+        // If the last log is unreadable, search backwards
+        let target_log = if !last_log.content.unreadable {
+            last_log
+        } else {
+            let option = QueryOption {
+                keyword: None,
+                start_sort_value: Some(last_log.seq),
+                limit: 10,
+            };
+            match log_t.query(&conversation.topic_id, &option).await {
+                Some(r) => match r.items.into_iter().find(|l| !l.content.unreadable) {
+                    Some(log) => log,
+                    None => return,
+                },
+                None => return,
+            }
+        };
+
+        let local_seq = target_log.seq;
+        let current_seq = conversation.last_message_seq.unwrap_or(0);
+        let local_at = target_log.created_at.clone();
+        let current_at = &conversation.last_message_at;
+
+        if local_seq > current_seq || (local_seq == current_seq && local_at > *current_at) {
+            info!(
+                "ensure_conversation_readable_last_message[{}] healed: local log seq={} > conversation last_message_seq={:?} (local_at={}, current_at={})",
+                conversation.topic_id, local_seq, conversation.last_message_seq, local_at, current_at
+            );
+            conversation.last_message = Some(target_log.content.clone());
+            conversation.last_message_at = local_at;
+            conversation.last_sender_id = target_log.sender_id;
+            conversation.last_message_seq = Some(local_seq);
+        }
     }
 }
 
