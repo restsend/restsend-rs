@@ -704,6 +704,9 @@ impl Client {
                     conversation.last_message_seq = Some(c.seq);
                 }
             }
+            self.store
+                .ensure_conversation_readable_last_message(&mut conversation)
+                .await;
             updated_conversations.push(conversation.clone());
 
             store_conversations.push(ValueItem {

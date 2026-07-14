@@ -431,3 +431,211 @@ async fn test_set_conversation_read_on_partial() {
     assert_eq!(persisted.unread, 0);
     assert_eq!(persisted.last_read_seq, 5);
 }
+
+/// Helper: create a ChatRequest with a specific content type.
+fn make_incoming_chat_with_type(
+    topic_id: &str,
+    chat_id: &str,
+    seq: i64,
+    sender_id: &str,
+    content_type: &str,
+    text: &str,
+) -> ChatRequest {
+    ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: chat_id.to_string(),
+        topic_id: topic_id.to_string(),
+        seq,
+        attendee: sender_id.to_string(),
+        created_at: format!("2026-07-13T14:{:02}:00:00Z", seq),
+        content: Some(Content {
+            content_type: content_type.to_string(),
+            text: text.to_string(),
+            unreadable: false,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+/// Test that a metadata message (update.extra) arriving on a conversation
+/// with a stale last_message heals the last_message from local ChatLogs.
+///
+/// This reproduces the session-8237 bug: the conversation list showed an
+/// old guest message ("嗯，已经好多天了") while the chat view had newer
+/// messages, because update.extra messages set update_last_message=false
+/// and the stale last_message was never healed.
+#[tokio::test]
+async fn test_metadata_message_heals_stale_last_message() {
+    let store =
+        ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    // Step 1: Set up a conversation with a STALE last_message (seq=10)
+    let mut conv = Conversation::new("topic_heal");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 10;
+    conv.last_message_seq = Some(10);
+    conv.last_message = Some(Content {
+        content_type: "wx.text".to_string(),
+        text: "嗯，已经好多天了，什么时候能处理".to_string(),
+        unreadable: false,
+        ..Default::default()
+    });
+    conv.last_message_at = "2026-07-10T10:00:00Z".to_string();
+    conv.last_sender_id = "guest".to_string();
+    conv.is_partial = false;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_heal", Some(&conv)).await.unwrap();
+    drop(t);
+
+    // Step 2: Insert local ChatLogs with NEWER readable messages (seq=11, 12)
+    let log_t = store
+        .message_storage
+        .table::<crate::models::ChatLog>()
+        .await
+        .unwrap();
+    for (seq, text) in [(11i64, "agent reply 1"), (12, "agent reply 2")] {
+        let log = crate::models::ChatLog {
+            id: format!("log_{}", seq),
+            topic_id: "topic_heal".to_string(),
+            seq,
+            sender_id: "agent".to_string(),
+            created_at: format!("2026-07-13T14:{:02}:00:00Z", seq),
+            content: Content {
+                content_type: "wx.text".to_string(),
+                text: text.to_string(),
+                unreadable: false,
+                ..Default::default()
+            },
+            status: crate::models::ChatLogStatus::Received,
+            ..Default::default()
+        };
+        log_t.set("topic_heal", &log.id, Some(&log)).await.unwrap();
+    }
+    drop(log_t);
+
+    // Step 3: Send an update.extra message (metadata, update_last_message=false)
+    // In production, update.extra messages are unreadable: true (see log seq=130)
+    let update_req = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "update_1".to_string(),
+        topic_id: "topic_heal".to_string(),
+        seq: 13,
+        attendee: "system".to_string(),
+        created_at: "2026-07-13T14:13:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "update.extra".to_string(),
+            text: "log_12".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(update_req, callback.clone()).await;
+
+    // Step 4: Verify last_message was HEALED from local ChatLogs
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_heal").await.unwrap();
+    assert_eq!(
+        updated.last_message_seq,
+        Some(12),
+        "last_message_seq should be healed to the latest readable local log"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "agent reply 2",
+        "last_message should be healed from local ChatLogs, not stuck on stale message"
+    );
+}
+
+/// Test that merge_conversation_from_chat heals last_message when the
+/// incoming message is unreadable but local ChatLogs have newer readable messages.
+#[tokio::test]
+async fn test_unreadable_message_heals_stale_last_message() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    // Conversation with stale last_message at seq=5
+    let mut conv = Conversation::new("topic_unreadable_heal");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 5;
+    conv.last_message_seq = Some(5);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "old stale message".to_string(),
+        unreadable: false,
+        ..Default::default()
+    });
+    conv.last_message_at = "2026-07-10T10:00:00Z".to_string();
+    conv.is_partial = false;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_unreadable_heal", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    // Local ChatLog with a newer readable message at seq=6
+    let log_t = store
+        .message_storage
+        .table::<crate::models::ChatLog>()
+        .await
+        .unwrap();
+    let log = crate::models::ChatLog {
+        id: "log_6".to_string(),
+        topic_id: "topic_unreadable_heal".to_string(),
+        seq: 6,
+        sender_id: "agent".to_string(),
+        created_at: "2026-07-13T14:06:00Z".to_string(),
+        content: Content {
+            content_type: "text".to_string(),
+            text: "newer local message".to_string(),
+            unreadable: false,
+            ..Default::default()
+        },
+        status: crate::models::ChatLogStatus::Received,
+        ..Default::default()
+    };
+    log_t.set("topic_unreadable_heal", "log_6", Some(&log))
+        .await
+        .unwrap();
+    drop(log_t);
+
+    // Incoming unreadable message at seq=7 (advances last_seq but not last_message)
+    let req = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_7".to_string(),
+        topic_id: "topic_unreadable_heal".to_string(),
+        seq: 7,
+        attendee: "system".to_string(),
+        created_at: "2026-07-13T14:07:00Z".to_string(),
+        content: Some(Content {
+            content_type: "update.extra".to_string(),
+            text: "".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(req, callback.clone()).await;
+
+    // last_message should be healed to seq=6 (the latest readable local log)
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_unreadable_heal").await.unwrap();
+    assert_eq!(
+        updated.last_message_seq,
+        Some(6),
+        "last_message should be healed from local ChatLogs"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "newer local message",
+        "last_message text should be from the healed local log"
+    );
+}

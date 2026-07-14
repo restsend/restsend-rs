@@ -392,6 +392,9 @@ impl ClientStore {
 
         if !update_last_message {
             // still need to save the conversation to persist changes (tags, extra, etc.)
+            // Heal last_message from local ChatLogs in case it is stale.
+            self.ensure_conversation_readable_last_message(&mut conversation)
+                .await;
             conversation.is_partial = false;
             conversation.cached_at = now_millis();
             t.set("", &conversation.topic_id, Some(&conversation))
@@ -439,6 +442,8 @@ impl ClientStore {
             conversation.unread = 0;
         }
 
+        self.ensure_conversation_readable_last_message(&mut conversation)
+            .await;
         self.ensure_topic_owner_id(&mut conversation).await;
         conversation.is_partial = false;
         conversation.cached_at = now_millis();
@@ -635,6 +640,7 @@ impl ClientStore {
 
         let c = set_conversation_remark(&self.endpoint, &self.token, &topic_id, remark).await?;
         let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        self.ensure_conversation_readable_last_message(&mut c).await;
         if self.ensure_topic_owner_id(&mut c).await {
             self.persist_conversation(&c).await;
         }
@@ -656,6 +662,7 @@ impl ClientStore {
 
         let c = set_conversation_sticky(&self.endpoint, &self.token, &topic_id, sticky).await?;
         let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        self.ensure_conversation_readable_last_message(&mut c).await;
         if self.ensure_topic_owner_id(&mut c).await {
             self.persist_conversation(&c).await;
         }
@@ -673,6 +680,7 @@ impl ClientStore {
 
         let c = set_conversation_mute(&self.endpoint, &self.token, &topic_id, mute).await?;
         let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        self.ensure_conversation_readable_last_message(&mut c).await;
         if self.ensure_topic_owner_id(&mut c).await {
             self.persist_conversation(&c).await;
         }
@@ -755,6 +763,7 @@ impl ClientStore {
         });
         let c = update_conversation(&self.endpoint, &self.token, &topic_id, &values).await?;
         let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        self.ensure_conversation_readable_last_message(&mut c).await;
         if self.ensure_topic_owner_id(&mut c).await {
             self.persist_conversation(&c).await;
         }
@@ -797,6 +806,7 @@ impl ClientStore {
 
         let c = update_conversation(&self.endpoint, &self.token, &topic_id, &values).await?;
         let mut c = merge_conversation(self.message_storage.clone(), c).await?;
+        self.ensure_conversation_readable_last_message(&mut c).await;
         if self.ensure_topic_owner_id(&mut c).await {
             self.persist_conversation(&c).await;
         }
@@ -974,6 +984,8 @@ impl ClientStore {
                     if let Some(local) = local_conversation {
                         new_conversation.merge_local_read_state(&local);
                     }
+                    self.ensure_conversation_readable_last_message(&mut new_conversation)
+                        .await;
                     self.ensure_topic_owner_id(&mut new_conversation).await;
                     if let Ok(t) = self.message_storage.table::<Conversation>().await {
                         t.set("", &new_conversation.topic_id, Some(&new_conversation))
@@ -1604,7 +1616,7 @@ impl ClientStore {
     /// Self-healing: after merging, check if the conversation's last_message is stale
     /// compared to the actual last readable ChatLog. If a newer readable log exists,
     /// update last_message accordingly.
-    async fn ensure_conversation_readable_last_message(&self, conversation: &mut Conversation) {
+    pub(crate) async fn ensure_conversation_readable_last_message(&self, conversation: &mut Conversation) {
         let log_t = match self.message_storage.readonly_table::<ChatLog>().await {
             Ok(t) => t,
             Err(_) => return,

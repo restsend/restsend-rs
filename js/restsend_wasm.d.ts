@@ -962,16 +962,16 @@ export interface InitOutput {
   readonly intounderlyingsource_cancel: (a: number) => void;
   readonly intounderlyingsource_pull: (a: number, b: any) => any;
   readonly client_set_ping_interval: (a: number, b: number) => void;
-  readonly __wbindgen_malloc: (a: number, b: number) => number;
-  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
   readonly __externref_table_alloc: () => number;
-  readonly __wbindgen_export_4: WebAssembly.Table;
+  readonly __wbindgen_export_2: WebAssembly.Table;
+  readonly __wbindgen_malloc: (a: number, b: number) => number;
+  readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly closure13_externref_shim: (a: number, b: number, c: any) => void;
   readonly _dyn_core_4777b9c83c0d5d57___ops__function__FnMut_____Output______as_wasm_bindgen_f2dfa8ea8cbcbcbc___closure__WasmClosure___describe__invoke______: (a: number, b: number) => void;
-  readonly closure96_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure94_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 
