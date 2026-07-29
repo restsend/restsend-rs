@@ -156,7 +156,7 @@ async fn get_conversation_last_readable_message_with_table(
     let option = QueryOption {
         keyword: None,
         start_sort_value: Some(last_log.seq),
-        limit: 10,
+        limit: 50,
     };
 
     let result = table.query(topic_id, &option).await?;
@@ -409,14 +409,29 @@ impl ClientStore {
             if !req.chat_id.is_empty() {
                 conversation.updated_at = req.created_at.clone();
                 if let Some(content) = req.content.as_ref() {
+                    let mut effective_content = content.clone();
                     let effective_unreadable = if content.unreadable {
                         if let Ok(log_t) = self.message_storage.readonly_table::<ChatLog>().await {
-                            log_t
-                                .get(&req.topic_id, &req.chat_id)
-                                .await
-                                .map(|log| log.content.unreadable)
-                                .unwrap_or(true)
+                            match log_t.get(&req.topic_id, &req.chat_id).await {
+                                Some(log) => {
+                                    if !log.content.unreadable {
+                                        effective_content = log.content.clone();
+                                    }
+                                    log.content.unreadable
+                                }
+                                None => {
+                                    warn!(
+                                        "merge_conversation_from_chat[{}] log not found for chat_id={}, defaulting to unreadable",
+                                        req.topic_id, req.chat_id
+                                    );
+                                    true
+                                }
+                            }
                         } else {
+                            warn!(
+                                "merge_conversation_from_chat[{}] failed to open ChatLog table, defaulting to unreadable",
+                                req.topic_id
+                            );
                             true
                         }
                     } else {
@@ -425,11 +440,11 @@ impl ClientStore {
                     if !effective_unreadable {
                         conversation.last_sender_id = req.attendee.clone();
                         conversation.last_message_at = req.created_at.clone();
-                        conversation.last_message = Some(content.clone());
+                        conversation.last_message = Some(effective_content.clone());
                         conversation.last_message_seq = Some(req.seq);
                         info!(
                             "merge_conversation_from_chat[{}] updated last_message to seq={} content_type={}",
-                            req.topic_id, req.seq, content.content_type
+                            req.topic_id, req.seq, effective_content.content_type
                         );
                     }
                 }
@@ -1151,14 +1166,24 @@ impl ClientStore {
                 // preserve the original unreadable flag. The server marks echoed messages
                 // unreadable=true to suppress unread counts for recipients, but that should
                 // not override the sender's own intent for their local conversation summary.
-                ChatLogStatus::Sending => {
+                ChatLogStatus::Sending | ChatLogStatus::Sent => {
                     new_status = ChatLogStatus::Sent;
                     Some(old_log.content.unreadable)
                 }
                 _ => return Ok(()),
             }
         } else {
-            None
+            // No local log exists (e.g. save_outgoing_chat_log failed, HTTP send path,
+            // or multi-device sync). If the echo attendee is our own user_id, the server
+            // marks it unreadable=true only for unread-count suppression — the content is
+            // perfectly readable by the sender. Force unreadable=false in that case.
+            if req.attendee == self.user_id
+                && req.content.as_ref().map(|c| c.unreadable).unwrap_or(false)
+            {
+                Some(false)
+            } else {
+                None
+            }
         };
 
         self.put_incoming_log(topic_id, chat_id);
@@ -1632,12 +1657,18 @@ impl ClientStore {
             let option = QueryOption {
                 keyword: None,
                 start_sort_value: Some(last_log.seq),
-                limit: 10,
+                limit: 50,
             };
             match log_t.query(&conversation.topic_id, &option).await {
                 Some(r) => match r.items.into_iter().find(|l| !l.content.unreadable) {
                     Some(log) => log,
-                    None => return,
+                    None => {
+                        warn!(
+                            "ensure_conversation_readable_last_message[{}] no readable log found within 50 logs before seq={}",
+                            conversation.topic_id, last_log.seq
+                        );
+                        return;
+                    }
                 },
                 None => return,
             }

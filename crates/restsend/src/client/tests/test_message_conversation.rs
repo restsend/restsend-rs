@@ -639,3 +639,316 @@ async fn test_unreadable_message_heals_stale_last_message() {
         "last_message text should be from the healed local log"
     );
 }
+
+/// Test that an own-message echo (unreadable=true from server) arriving
+/// WITHOUT a local Sending log still updates last_message.
+///
+/// This reproduces the WASM bug where save_outgoing_chat_log's IndexedDB
+/// write was fire-and-forget, so the echo's save_incoming_chat_log couldn't
+/// find a local Sending log to preserve unreadable=false. The fix detects
+/// attendee == user_id and forces unreadable=false for own messages.
+#[tokio::test]
+async fn test_own_echo_without_local_log_updates_last_message() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_own_echo");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_own_echo", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    // NO local Sending log stored (simulating save_outgoing_chat_log failure
+    // or HTTP send path or WASM fire-and-forget race).
+    //
+    // Server echoes own message with unreadable=true.
+    let echo = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_echo_1".to_string(),
+        topic_id: "topic_own_echo".to_string(),
+        seq: 1,
+        attendee: "agent".to_string(),
+        created_at: "2026-07-29T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "text".to_string(),
+            text: "My own message".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(echo, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_own_echo").await.unwrap();
+    assert_eq!(updated.last_seq, 1, "last_seq should advance");
+    assert_eq!(
+        updated.last_message_seq,
+        Some(1),
+        "last_message_seq should be set for own echo even without local log"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "My own message",
+        "last_message should contain the echo text"
+    );
+    assert!(
+        !updated.last_message.as_ref().unwrap().unreadable,
+        "last_message should be readable for own messages"
+    );
+}
+
+/// Test that multiple own-message echoes (without local Sending logs) all
+/// update last_message correctly, ending with the last message.
+#[tokio::test]
+async fn test_multiple_own_echoes_update_last_message() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_multi_echo");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    t.set("", "topic_multi_echo", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    for (seq, text) in [(1i64, "First"), (2, "Second"), (3, "Third")] {
+        let echo = ChatRequest {
+            req_type: "chat".to_string(),
+            chat_id: format!("chat_multi_{}", seq),
+            topic_id: "topic_multi_echo".to_string(),
+            seq,
+            attendee: "agent".to_string(),
+            created_at: format!("2026-07-29T10:0{}:00Z", seq),
+            content: Some(Content {
+                content_type: "text".to_string(),
+                text: text.to_string(),
+                unreadable: true,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        store.process_incoming(echo, callback.clone()).await;
+    }
+
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    let updated = t.get("", "topic_multi_echo").await.unwrap();
+    assert_eq!(updated.last_seq, 3, "last_seq should be 3");
+    assert_eq!(
+        updated.last_message_seq,
+        Some(3),
+        "last_message_seq should be 3"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "Third",
+        "last_message should be the latest message"
+    );
+}
+
+/// Test that the heal function can find a readable message beyond the
+/// old 10-log search window when many unreadable messages precede it.
+#[tokio::test]
+async fn test_heal_searches_beyond_10_unreadable_logs() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_heal_50");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    conv.last_message_seq = Some(0);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "old readable".to_string(),
+        unreadable: false,
+        ..Default::default()
+    });
+    conv.last_message_at = "2026-07-29T00:00:00Z".to_string();
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    t.set("", "topic_heal_50", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    // Insert 15 unreadable ChatLogs (seq 1..15) followed by a readable one at seq=16
+    let log_t = store
+        .message_storage
+        .table::<crate::models::ChatLog>()
+        .await
+        .unwrap();
+    for seq in 1..=15u32 {
+        let log = crate::models::ChatLog {
+            id: format!("log_u_{}", seq),
+            topic_id: "topic_heal_50".to_string(),
+            seq: seq as i64,
+            sender_id: "system".to_string(),
+            created_at: format!("2026-07-29T10:{:02}:00Z", seq),
+            content: Content {
+                content_type: "update.extra".to_string(),
+                text: format!("unreadable_{}", seq),
+                unreadable: true,
+                ..Default::default()
+            },
+            status: crate::models::ChatLogStatus::Received,
+            ..Default::default()
+        };
+        log_t.set("topic_heal_50", &log.id, Some(&log))
+            .await
+            .unwrap();
+    }
+    let readable_log = crate::models::ChatLog {
+        id: "log_r_16".to_string(),
+        topic_id: "topic_heal_50".to_string(),
+        seq: 16,
+        sender_id: "agent".to_string(),
+        created_at: "2026-07-29T10:16:00Z".to_string(),
+        content: Content {
+            content_type: "text".to_string(),
+            text: "readable at 16".to_string(),
+            unreadable: false,
+            ..Default::default()
+        },
+        status: crate::models::ChatLogStatus::Received,
+        ..Default::default()
+    };
+    log_t.set("topic_heal_50", "log_r_16", Some(&readable_log))
+        .await
+        .unwrap();
+    drop(log_t);
+
+    // Now an unreadable message arrives at seq=17, triggering heal.
+    // With the old limit=10, heal could only search back to seq=8, all unreadable.
+    // With limit=50, heal can reach seq=16 (readable).
+    let req = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_17".to_string(),
+        topic_id: "topic_heal_50".to_string(),
+        seq: 17,
+        attendee: "system".to_string(),
+        created_at: "2026-07-29T10:17:00Z".to_string(),
+        content: Some(Content {
+            content_type: "update.extra".to_string(),
+            text: "trigger".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(req, callback.clone()).await;
+
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    let updated = t.get("", "topic_heal_50").await.unwrap();
+    assert_eq!(
+        updated.last_message_seq,
+        Some(16),
+        "heal should find readable message at seq=16 beyond old 10-log window"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "readable at 16",
+        "last_message should be healed from the readable log"
+    );
+}
+
+/// Test that a genuinely unreadable incoming message from another user
+/// does NOT override the last_message (keeps the old readable one).
+/// This verifies the fix doesn't break the intended behavior.
+#[tokio::test]
+async fn test_genuinely_unreadable_keeps_old_last_message() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_genuinely_unreadable");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 5;
+    conv.last_message_seq = Some(5);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "old readable message".to_string(),
+        unreadable: false,
+        ..Default::default()
+    });
+    conv.last_message_at = "2026-07-29T09:00:00Z".to_string();
+    conv.last_sender_id = "someone".to_string();
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    t.set("", "topic_genuinely_unreadable", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    // Genuinely unreadable message from ANOTHER user (not self)
+    let req = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_unreadable_6".to_string(),
+        topic_id: "topic_genuinely_unreadable".to_string(),
+        seq: 6,
+        attendee: "other_user".to_string(),
+        created_at: "2026-07-29T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "text".to_string(),
+            text: "hidden content".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(req, callback.clone()).await;
+
+    let t = store
+        .message_storage
+        .table::<Conversation>()
+        .await
+        .unwrap();
+    let updated = t
+        .get("", "topic_genuinely_unreadable")
+        .await
+        .unwrap();
+    assert_eq!(updated.last_seq, 6, "last_seq should advance");
+    assert_eq!(
+        updated.last_message_seq,
+        Some(5),
+        "last_message_seq should stay at 5 for genuinely unreadable message"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "old readable message",
+        "last_message should keep the old readable content"
+    );
+}

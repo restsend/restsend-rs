@@ -101,6 +101,37 @@ impl Drop for RequestGuard {
     }
 }
 
+/// Await an IndexedDB request's completion (onsuccess/onerror).
+/// Returns `Ok(())` on success, or an error describing the DomException on failure.
+async fn await_request(req: IdbRequest) -> crate::Result<()> {
+    let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel();
+    let done_tx_clone = done_tx.clone();
+
+    let on_success = Closure::wrap(Box::new(move |_e: web_sys::Event| {
+        done_tx.send(JsValue::NULL).ok();
+    }) as Box<dyn FnMut(web_sys::Event)>);
+
+    let on_error = Closure::wrap(Box::new(move |e: DomException| {
+        done_tx_clone.send(e.into()).ok();
+    }) as Box<dyn FnMut(DomException)>);
+
+    req.set_onsuccess(Some(on_success.as_ref().unchecked_ref()));
+    req.set_onerror(Some(on_error.as_ref().unchecked_ref()));
+
+    let _guard = RequestGuard::new(req, on_success, on_error);
+
+    match done_rx.recv().await {
+        Some(val) if val.is_null() => Ok(()),
+        Some(val) => Err(ClientError::Storage(format!(
+            "indexeddb request failed: {:?}",
+            val
+        ))),
+        None => Err(ClientError::Storage(
+            "indexeddb request cancelled".to_string(),
+        )),
+    }
+}
+
 impl IndexeddbStorage {
     #[allow(dead_code)]
     pub async fn new_async(db_name: &str) -> Self {
@@ -572,7 +603,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     let query_keys = js_sys::Array::new();
                     query_keys.push(&item.partition.to_string().into());
                     query_keys.push(&item.key.to_string().into());
-                    self.store.delete(&query_keys).ok();
+                    let req = self.store.delete(&query_keys)?;
+                    await_request(req).await?;
                 }
                 Some(v) => {
                     let value = StoreValue {
@@ -583,7 +615,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
                     };
                     let item = serde_wasm_bindgen::to_value(&value)
                         .map_err(|e| ClientError::Storage(e.to_string()))?;
-                    self.store.put(&item).ok();
+                    let req = self.store.put(&item)?;
+                    await_request(req).await?;
                 }
             }
         }
@@ -605,8 +638,8 @@ impl<T: StoreModel + 'static> IndexeddbTable<T> {
 
         let item =
             serde_wasm_bindgen::to_value(&item).map_err(|e| ClientError::Storage(e.to_string()))?;
-        self.store.put(&item)?;
-        Ok(())
+        let req = self.store.put(&item)?;
+        await_request(req).await
     }
 
     async fn remove(&self, partition: &str, key: &str) -> crate::Result<()> {
