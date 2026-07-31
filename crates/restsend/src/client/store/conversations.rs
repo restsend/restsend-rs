@@ -27,39 +27,35 @@ pub(crate) async fn merge_conversation(
 ) -> Result<Conversation> {
     let t = message_storage.table::<Conversation>().await?;
     let mut conversation = conversation;
-    let topic_id = conversation.topic_id.clone();
     let server_last_message_unreadable = conversation
         .last_message
         .as_ref()
         .map(|message| message.unreadable)
         .unwrap_or(false);
-    let server_last_message_at = conversation.last_message_at.clone();
 
     let mut sync_last_readable = false;
-    let mut old_conversation: Option<Conversation> = None;
-    if let Some(oc) = t.get("", &topic_id).await {
-        if oc.last_message_seq != conversation.last_message_seq {
+    if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
+        if old_conversation.last_message_seq != conversation.last_message_seq {
             sync_last_readable = true;
         }
-        old_conversation = Some(oc.clone());
-        conversation.merge_local_read_state(&oc);
+        conversation.merge_local_read_state(&old_conversation);
 
-        conversation.sticky = oc.sticky;
-        conversation.mute = oc.mute;
-        conversation.remark = oc.remark.clone();
+        conversation.sticky = old_conversation.sticky;
+        conversation.mute = old_conversation.mute;
+        conversation.remark = old_conversation.remark.clone();
         // extra is server-owned and now merged server-side per key; keep the
         // server value so stale local extras cannot clobber newer keys
-        // (e.g. "replied" written by another feature/device).
-        conversation.tags = oc.tags.clone();
-        conversation.topic_owner_id = oc.topic_owner_id.clone();
-        conversation.topic_created_at = oc.topic_created_at.clone();
-        conversation.topic_extra = oc.topic_extra.clone();
+        // (e.g. "isReplay", "replied", "draft" written by another feature/device).
+        conversation.tags = old_conversation.tags.clone();
+        conversation.topic_owner_id = old_conversation.topic_owner_id.clone();
+        conversation.topic_created_at = old_conversation.topic_created_at.clone();
+        conversation.topic_extra = old_conversation.topic_extra.clone();
     }
 
     if sync_last_readable {
         let server_last_message_seq = conversation.last_message_seq;
         if let Some(log) =
-            get_conversation_last_readable_message(message_storage.clone(), &topic_id)
+            get_conversation_last_readable_message(message_storage.clone(), &conversation.topic_id)
                 .await
         {
             let local_seq = log.seq;
@@ -70,69 +66,17 @@ pub(crate) async fn merge_conversation(
             };
 
             if should_use_local {
-                info!(
-                    "merge_conversation[{}] seq differs: use local readable log seq={} over server seq={:?}",
-                    topic_id, local_seq, server_last_message_seq
-                );
                 conversation.last_message = Some(log.content.clone());
                 conversation.last_message_at = log.created_at.clone();
                 conversation.last_sender_id = log.sender_id;
                 conversation.last_message_seq = Some(log.seq);
-            } else {
-                info!(
-                    "merge_conversation[{}] seq differs: keep server seq={:?} (local seq={})",
-                    topic_id, server_last_message_seq, local_seq
-                );
             }
-        } else {
-            info!(
-                "merge_conversation[{}] seq differs: no readable local log, keep server",
-                topic_id
-            );
-        }
-    } else if let Some(ref oc) = old_conversation {
-        // seqs match, prefer local if server's last_message is None or unreadable,
-        // or if both readable and local has a newer timestamp
-        let local_last_message_readable = oc
-            .last_message
-            .as_ref()
-            .map(|c| !c.unreadable)
-            .unwrap_or(false);
-        let server_last_message_missing = conversation
-            .last_message
-            .as_ref()
-            .map(|c| c.unreadable)
-            .unwrap_or(true);
-
-        let use_local = if local_last_message_readable && server_last_message_missing {
-            true
-        } else if local_last_message_readable && !server_last_message_missing {
-            // both readable with same seq, prefer the one with newer last_message_at
-            oc.last_message_at > server_last_message_at
-        } else {
-            false
-        };
-
-        if use_local {
-            info!(
-                "merge_conversation[{}] seq matches both={}: use local last_message (server missing={}, local_at={}, server_at={})",
-                topic_id, !server_last_message_missing, server_last_message_missing, oc.last_message_at, server_last_message_at
-            );
-            conversation.last_message = oc.last_message.clone();
-            conversation.last_message_at = oc.last_message_at.clone();
-            conversation.last_sender_id = oc.last_sender_id.clone();
-            conversation.last_message_seq = oc.last_message_seq;
-        } else if !server_last_message_missing && local_last_message_readable {
-            info!(
-                "merge_conversation[{}] seq matches: keep server last_message (server_at={} >= local_at={})",
-                topic_id, server_last_message_at, oc.last_message_at
-            );
         }
     }
 
     conversation.is_partial = false;
     conversation.cached_at = now_millis();
-    t.set("", &topic_id, Some(&conversation))
+    t.set("", &conversation.topic_id, Some(&conversation))
         .await
         .ok();
     Ok(conversation)
@@ -158,7 +102,7 @@ async fn get_conversation_last_readable_message_with_table(
     let option = QueryOption {
         keyword: None,
         start_sort_value: Some(last_log.seq),
-        limit: 50,
+        limit: 10,
     };
 
     let result = table.query(topic_id, &option).await?;
@@ -291,6 +235,7 @@ impl ClientStore {
         req: &ChatRequest,
         req_status: &mut ChatRequestStatus,
         is_countable: bool,
+        saved_log: Option<&ChatLog>,
     ) -> Option<Conversation> {
         let t = self.message_storage.table::<Conversation>().await.ok()?;
         let mut conversation = match t.get("", &req.topic_id).await {
@@ -394,7 +339,9 @@ impl ClientStore {
 
         if !update_last_message {
             // still need to save the conversation to persist changes (tags, extra, etc.)
-            // Heal last_message from local ChatLogs in case it is stale.
+            // Heal last_message from HISTORICAL local ChatLogs in case it is stale
+            // (e.g. update.extra metadata messages). These logs are already persisted,
+            // so this does not require a synchronous IndexedDB write.
             self.ensure_conversation_readable_last_message(&mut conversation)
                 .await;
             conversation.is_partial = false;
@@ -411,43 +358,40 @@ impl ClientStore {
             if !req.chat_id.is_empty() {
                 conversation.updated_at = req.created_at.clone();
                 if let Some(content) = req.content.as_ref() {
-                    let mut effective_content = content.clone();
-                    let effective_unreadable = if content.unreadable {
-                        if let Ok(log_t) = self.message_storage.readonly_table::<ChatLog>().await {
-                            match log_t.get(&req.topic_id, &req.chat_id).await {
-                                Some(log) => {
-                                    if !log.content.unreadable {
-                                        effective_content = log.content.clone();
+                    // Prefer the in-memory saved_log returned by save_incoming_chat_log.
+                    // save_incoming_chat_log persists the log to IndexedDB (fire-and-forget),
+                    // so a subsequent IndexedDB read here could miss it (the lastMessage bug).
+                    // Passing it in-memory avoids the race and keeps the write fire-and-forget,
+                    // which in turn avoids yielding mid-processing and corrupting conversation.extra.
+                    let effective = if content.unreadable {
+                        match saved_log {
+                            Some(log) => (log.content.clone(), log.content.unreadable),
+                            None => {
+                                // Fallback: no saved_log (e.g. chat_id/seq filtered out in
+                                // save_incoming_chat_log). Try reading the just-saved log; if it
+                                // is not yet visible (fire-and-forget race), fall back to the
+                                // server's unreadable flag.
+                                let mut unreadable = true;
+                                if let Ok(log_t) =
+                                    self.message_storage.readonly_table::<ChatLog>().await
+                                {
+                                    if let Some(log) =
+                                        log_t.get(&req.topic_id, &req.chat_id).await
+                                    {
+                                        unreadable = log.content.unreadable;
                                     }
-                                    log.content.unreadable
                                 }
-                                None => {
-                                    warn!(
-                                        "merge_conversation_from_chat[{}] log not found for chat_id={}, defaulting to unreadable",
-                                        req.topic_id, req.chat_id
-                                    );
-                                    true
-                                }
+                                (content.clone(), unreadable)
                             }
-                        } else {
-                            warn!(
-                                "merge_conversation_from_chat[{}] failed to open ChatLog table, defaulting to unreadable",
-                                req.topic_id
-                            );
-                            true
                         }
                     } else {
-                        false
+                        (content.clone(), false)
                     };
-                    if !effective_unreadable {
+                    if !effective.1 {
                         conversation.last_sender_id = req.attendee.clone();
                         conversation.last_message_at = req.created_at.clone();
-                        conversation.last_message = Some(effective_content.clone());
+                        conversation.last_message = Some(effective.0);
                         conversation.last_message_seq = Some(req.seq);
-                        info!(
-                            "merge_conversation_from_chat[{}] updated last_message to seq={} content_type={}",
-                            req.topic_id, req.seq, effective_content.content_type
-                        );
                     }
                 }
             }
@@ -483,10 +427,8 @@ impl ClientStore {
         let now = now_millis();
         for conversation in conversations {
             let mut conversation = conversation;
-            let topic_id = conversation.topic_id.clone();
-            let server_last_message_at = conversation.last_message_at.clone();
 
-            if let Some(old_conversation) = t.get("", &topic_id).await {
+            if let Some(old_conversation) = t.get("", &conversation.topic_id).await {
                 if let Some(topic_created_at) = conversation.topic_created_at.as_ref() {
                     let old_conversation_created_at = old_conversation
                         .topic_created_at
@@ -504,7 +446,7 @@ impl ClientStore {
                     // clean all logs
                     if new_conversation_created_at != old_conversation_created_at {
                         if let Ok(log_t) = self.message_storage.table::<ChatLog>().await {
-                            log_t.clear(&topic_id).await.ok();
+                            log_t.clear(&conversation.topic_id).await.ok();
                         }
                     }
                 }
@@ -512,7 +454,7 @@ impl ClientStore {
                 conversation.merge_local_read_state(&old_conversation);
 
                 // Prefer local last_message when it is newer or server's is unreadable,
-                // mirroring the single merge_conversation logic, with timestamp tiebreaker.
+                // mirroring the single merge_conversation logic.
                 let server_last_message_seq = conversation.last_message_seq;
                 let local_last_message_readable = old_conversation
                     .last_message
@@ -527,48 +469,15 @@ impl ClientStore {
 
                 if let Some(local_seq) = old_conversation.last_message_seq {
                     let should_use_local = match server_last_message_seq {
-                        Some(_server_seq) if server_last_message_unreadable => {
+                        Some(server_seq) if server_last_message_unreadable => {
                             local_last_message_readable
                         }
                         Some(server_seq) => {
-                            // when seqs are equal and both readable, use timestamp tiebreaker
-                            if local_last_message_readable && local_seq == server_seq {
-                                old_conversation.last_message_at > server_last_message_at
-                            } else {
-                                local_last_message_readable && local_seq >= server_seq
-                            }
+                            local_last_message_readable && local_seq >= server_seq
                         }
                         None => local_last_message_readable,
                     };
                     if should_use_local {
-                        info!(
-                            "merge_conversations[{}] use local last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
-                            topic_id, old_conversation.last_message_seq, server_last_message_seq,
-                            old_conversation.last_message_at, server_last_message_at
-                        );
-                        conversation.last_message = old_conversation.last_message.clone();
-                        conversation.last_message_at =
-                            old_conversation.last_message_at.clone();
-                        conversation.last_sender_id =
-                            old_conversation.last_sender_id.clone();
-                        conversation.last_message_seq =
-                            old_conversation.last_message_seq;
-                    } else {
-                        info!(
-                            "merge_conversations[{}] keep server last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
-                            topic_id, old_conversation.last_message_seq, server_last_message_seq,
-                            old_conversation.last_message_at, server_last_message_at
-                        );
-                    }
-                } else if local_last_message_readable {
-                    // local has last_message but seq is None; prefer local if server's is stale
-                    let server_last_message_missing = server_last_message_unreadable
-                        || conversation.last_message.is_none();
-                    if server_last_message_missing {
-                        info!(
-                            "merge_conversations[{}] local seq is None, use local last_message (server is missing)",
-                            topic_id
-                        );
                         conversation.last_message = old_conversation.last_message.clone();
                         conversation.last_message_at =
                             old_conversation.last_message_at.clone();
@@ -585,16 +494,12 @@ impl ClientStore {
                     Some(log_t) => {
                         get_conversation_last_readable_message_with_table(
                             log_t,
-                            &topic_id,
+                            &conversation.topic_id,
                         )
                         .await
                     }
                     None => None,
                 } {
-                    info!(
-                        "merge_conversations[{}] refreshed last_message from logs to seq={}",
-                        topic_id, log.seq
-                    );
                     conversation.last_message = Some(log.content.clone());
                     conversation.last_message_at = log.created_at.clone();
                     conversation.last_sender_id = log.sender_id;
@@ -612,7 +517,7 @@ impl ClientStore {
             results.push(ValueItem {
                 partition: "".to_string(),
                 sort_key: conversation.sort_key(),
-                key: topic_id,
+                key: conversation.topic_id.clone(),
                 value: Some(conversation),
             });
         }
@@ -813,7 +718,7 @@ impl ClientStore {
             let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
                 // Merge per-key so multiple features sharing conversation.extra
-                // do not clobber each other's keys.
+                // (e.g. "isReplay", "draft") do not clobber each other's keys.
                 if let Some(new_extra) = extra.as_ref() {
                     if !new_extra.is_empty() {
                         let mut merged = conversation.extra.clone().unwrap_or_default();
@@ -968,36 +873,7 @@ impl ClientStore {
                             None
                         };
                     let compare_source = local_conversation.as_ref().unwrap_or(&conversation);
-                    let topic_id = &conversation.topic_id;
-                    let local_newer = compare_source.last_message_seq > new_conversation.last_message_seq;
-                    let seqs_equal = compare_source.last_message_seq == new_conversation.last_message_seq;
-                    let local_readable = compare_source
-                        .last_message
-                        .as_ref()
-                        .map(|c| !c.unreadable)
-                        .unwrap_or(false);
-                    let server_missing = new_conversation
-                        .last_message
-                        .as_ref()
-                        .map(|c| c.unreadable)
-                        .unwrap_or(true);
-                    let mut use_local = false;
-                    if local_newer {
-                        use_local = true;
-                    } else if seqs_equal {
-                        if local_readable && server_missing {
-                            use_local = true;
-                        } else if local_readable && !server_missing {
-                            // both readable with same seq, prefer newer timestamp
-                            use_local = compare_source.last_message_at > new_conversation.last_message_at;
-                        }
-                    }
-                    if use_local {
-                        info!(
-                            "get_conversation_by[{}] use local last_message (local_seq={:?}, server_seq={:?}, local_at={}, server_at={})",
-                            topic_id, compare_source.last_message_seq, new_conversation.last_message_seq,
-                            compare_source.last_message_at, new_conversation.last_message_at
-                        );
+                    if compare_source.last_message_seq > new_conversation.last_message_seq {
                         new_conversation.last_read_at = compare_source.last_read_at.clone();
                         new_conversation.last_read_seq = compare_source.last_read_seq;
                         new_conversation.unread = compare_source.unread;
@@ -1099,9 +975,12 @@ impl ClientStore {
         items.push(log_id.to_string());
     }
 
-    pub(super) async fn save_incoming_chat_log(&self, req: &ChatRequest) -> Result<()> {
+    pub(super) async fn save_incoming_chat_log(
+        &self,
+        req: &ChatRequest,
+    ) -> Result<Option<ChatLog>> {
         if req.chat_id.is_empty() || req.seq <= 0 {
-            return Ok(());
+            return Ok(None);
         }
 
         let log_t = self.message_storage.table::<ChatLog>().await?;
@@ -1127,7 +1006,7 @@ impl ClientStore {
                     match log_t.get(&topic_id, recall_chat_id).await {
                         Some(recall_log) => {
                             if recall_log.recall {
-                                return Ok(());
+                                return Ok(None);
                             }
                             let max_recall_secs =
                                 self.option.max_recall_secs.load(Ordering::Relaxed) as i64;
@@ -1148,7 +1027,7 @@ impl ClientStore {
                                 return Err(Error::Other("[recall] invalid owner".to_string()));
                             }
                         }
-                        None => return Ok(()),
+                        None => return Ok(None),
                     }
                 }
                 ContentType::UpdateExtra => {
@@ -1178,11 +1057,11 @@ impl ClientStore {
                 // preserve the original unreadable flag. The server marks echoed messages
                 // unreadable=true to suppress unread counts for recipients, but that should
                 // not override the sender's own intent for their local conversation summary.
-                ChatLogStatus::Sending | ChatLogStatus::Sent => {
+                ChatLogStatus::Sending => {
                     new_status = ChatLogStatus::Sent;
                     Some(old_log.content.unreadable)
                 }
-                _ => return Ok(()),
+                _ => return Ok(None),
             }
         } else {
             // No local log exists (e.g. save_outgoing_chat_log failed, HTTP send path,
@@ -1208,7 +1087,7 @@ impl ClientStore {
         }
         let result = log_t.set(&log.topic_id, &log.id, Some(&log)).await;
         self.invalidate_recent_chat_logs(&log.topic_id);
-        result
+        result.map(|_| Some(log))
     }
 
     pub(crate) async fn save_chat_logs(
@@ -1653,7 +1532,15 @@ impl ClientStore {
     /// Self-healing: after merging, check if the conversation's last_message is stale
     /// compared to the actual last readable ChatLog. If a newer readable log exists,
     /// update last_message accordingly.
-    pub(crate) async fn ensure_conversation_readable_last_message(&self, conversation: &mut Conversation) {
+    ///
+    /// This reads HISTORICAL ChatLogs (e.g. on update.extra / conversation.update
+    /// metadata messages), not a log written moments ago via fire-and-forget put —
+    /// so it does not need synchronous IndexedDB writes. The just-written log case
+    /// (own message echo) is handled in-memory via save_incoming_chat_log's return.
+    pub(crate) async fn ensure_conversation_readable_last_message(
+        &self,
+        conversation: &mut Conversation,
+    ) {
         let log_t = match self.message_storage.readonly_table::<ChatLog>().await {
             Ok(t) => t,
             Err(_) => return,
@@ -1674,13 +1561,7 @@ impl ClientStore {
             match log_t.query(&conversation.topic_id, &option).await {
                 Some(r) => match r.items.into_iter().find(|l| !l.content.unreadable) {
                     Some(log) => log,
-                    None => {
-                        warn!(
-                            "ensure_conversation_readable_last_message[{}] no readable log found within 50 logs before seq={}",
-                            conversation.topic_id, last_log.seq
-                        );
-                        return;
-                    }
+                    None => return,
                 },
                 None => return,
             }
@@ -2127,349 +2008,6 @@ mod tests {
         assert_eq!(
             merged[0].last_message.as_ref().unwrap().text,
             "readable summary"
-        );
-    }
-
-    // --- Fix 1: merge_conversation protects local last_message when seqs match ---
-
-    #[tokio::test]
-    async fn merge_conversation_keeps_local_when_same_seq_but_server_none() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: Some(100),
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "readable local".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = merge_conversation(
-            store.message_storage.clone(),
-            Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 100,
-                last_message_seq: Some(100),
-                last_message: None,
-                last_message_at: String::new(),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(merged.last_message_seq, Some(100));
-        assert_eq!(merged.last_message.as_ref().unwrap().text, "readable local");
-        assert_eq!(merged.last_sender_id, "user-2");
-    }
-
-    #[tokio::test]
-    async fn merge_conversation_keeps_local_when_same_seq_but_server_unreadable() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: Some(100),
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "readable local".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = merge_conversation(
-            store.message_storage.clone(),
-            Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 100,
-                last_message_seq: Some(100),
-                last_message: Some(Content {
-                    content_type: "text".to_string(),
-                    text: "hidden recall".to_string(),
-                    unreadable: true,
-                    ..Default::default()
-                }),
-                last_message_at: "2026-01-30T10:01:00Z".to_string(),
-                last_sender_id: "system".to_string(),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(merged.last_message_seq, Some(100));
-        assert_eq!(merged.last_message.as_ref().unwrap().text, "readable local");
-        assert_eq!(merged.last_sender_id, "user-2");
-    }
-
-    #[tokio::test]
-    async fn merge_conversation_uses_server_when_same_seq_and_both_readable() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: Some(100),
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "local message".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = merge_conversation(
-            store.message_storage.clone(),
-            Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 100,
-                last_message_seq: Some(100),
-                last_message: Some(Content {
-                    content_type: "text".to_string(),
-                    text: "server message".to_string(),
-                    unreadable: false,
-                    ..Default::default()
-                }),
-                last_message_at: "2026-01-30T10:00:05Z".to_string(),
-                last_sender_id: "user-3".to_string(),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-        assert_eq!(merged.last_message_seq, Some(100));
-        assert_eq!(merged.last_message.as_ref().unwrap().text, "server message");
-        assert_eq!(merged.last_sender_id, "user-3");
-    }
-
-    // --- Fix 2: merge_conversations protects local last_message when local last_message_seq is None ---
-
-    #[tokio::test]
-    async fn merge_conversations_prefers_local_when_local_seq_none_and_server_missing() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: None,
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "readable local".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = store
-            .merge_conversations(vec![Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 100,
-                last_message_seq: None,
-                last_message: None,
-                last_message_at: String::new(),
-                ..Default::default()
-            }])
-            .await;
-
-        assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].last_message_seq, None);
-        assert_eq!(
-            merged[0].last_message.as_ref().unwrap().text,
-            "readable local"
-        );
-        assert_eq!(merged[0].last_sender_id, "user-2");
-    }
-
-    #[tokio::test]
-    async fn merge_conversations_prefers_local_when_local_seq_none_and_server_unreadable() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: None,
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "readable local".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = store
-            .merge_conversations(vec![Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 101,
-                last_message_seq: Some(101),
-                last_message: Some(Content {
-                    content_type: "text".to_string(),
-                    text: "hidden system message".to_string(),
-                    unreadable: true,
-                    ..Default::default()
-                }),
-                last_message_at: "2026-01-30T10:01:00Z".to_string(),
-                last_sender_id: "system".to_string(),
-                ..Default::default()
-            }])
-            .await;
-
-        assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].last_message_seq, None);
-        assert_eq!(
-            merged[0].last_message.as_ref().unwrap().text,
-            "readable local"
-        );
-        assert_eq!(merged[0].last_sender_id, "user-2");
-    }
-
-    #[tokio::test]
-    async fn merge_conversations_uses_server_when_local_seq_none_but_server_has_readable() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: None,
-            last_message: Some(Content {
-                content_type: "text".to_string(),
-                text: "local message".to_string(),
-                unreadable: false,
-                ..Default::default()
-            }),
-            last_message_at: "2026-01-30T10:00:00Z".to_string(),
-            last_sender_id: "user-2".to_string(),
-            ..Default::default()
-        };
-
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        let merged = store
-            .merge_conversations(vec![Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 101,
-                last_message_seq: Some(101),
-                last_message: Some(Content {
-                    content_type: "text".to_string(),
-                    text: "server message".to_string(),
-                    unreadable: false,
-                    ..Default::default()
-                }),
-                last_message_at: "2026-01-30T10:01:00Z".to_string(),
-                last_sender_id: "user-3".to_string(),
-                ..Default::default()
-            }])
-            .await;
-
-        assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].last_message_seq, Some(101));
-        assert_eq!(
-            merged[0].last_message.as_ref().unwrap().text,
-            "server message"
-        );
-        assert_eq!(merged[0].last_sender_id, "user-3");
-    }
-
-    #[tokio::test]
-    async fn merge_conversation_keeps_server_extra_over_stale_local() {
-        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
-
-        // Stale local conversation with no extra at all.
-        let local = Conversation {
-            topic_id: "topic-1".to_string(),
-            last_seq: 100,
-            last_message_seq: Some(100),
-            ..Default::default()
-        };
-        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
-        conv_table
-            .set("", &local.topic_id, Some(&local))
-            .await
-            .unwrap();
-
-        // Server carries the merged extra (as produced by server-side per-key merge).
-        let mut server_extra = std::collections::HashMap::new();
-        server_extra.insert("replied".to_string(), "true".to_string());
-        server_extra.insert("draft".to_string(), "hi".to_string());
-
-        let merged = merge_conversation(
-            store.message_storage.clone(),
-            Conversation {
-                topic_id: "topic-1".to_string(),
-                last_seq: 100,
-                last_message_seq: Some(100),
-                extra: Some(server_extra),
-                ..Default::default()
-            },
-        )
-        .await
-        .unwrap();
-
-        let extra = merged.extra.as_ref().expect("merged extra should exist");
-        assert_eq!(
-            extra.get("replied").map(String::as_str),
-            Some("true"),
-            "server replied key must survive the merge"
-        );
-        assert_eq!(
-            extra.get("draft").map(String::as_str),
-            Some("hi"),
-            "server draft key must survive the merge"
         );
     }
 }

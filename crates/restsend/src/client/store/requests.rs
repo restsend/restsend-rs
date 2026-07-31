@@ -133,13 +133,16 @@ impl ClientStore {
                     }
                 }
 
-                if let Err(e) = self.save_incoming_chat_log(&req).await {
-                    warn!(
-                        "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
-                        req.chat_id, req.topic_id, e
-                    );
-                    return resps;
-                }
+                let saved_log = match self.save_incoming_chat_log(&req).await {
+                    Ok(log) => log,
+                    Err(e) => {
+                        warn!(
+                            "save_incoming_chat_log failed, chat_id:{} topic_id:{} err:{}",
+                            req.chat_id, req.topic_id, e
+                        );
+                        return resps;
+                    }
+                };
 
                 let mut req_status = callback
                     .read()
@@ -159,7 +162,12 @@ impl ClientStore {
                     };
 
                 match self
-                    .merge_conversation_from_chat(&req, &mut req_status, is_countable)
+                    .merge_conversation_from_chat(
+                        &req,
+                        &mut req_status,
+                        is_countable,
+                        saved_log.as_ref(),
+                    )
                     .await
                 {
                     Some(mut conversation) => {

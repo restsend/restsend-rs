@@ -952,3 +952,235 @@ async fn test_genuinely_unreadable_keeps_old_last_message() {
         "last_message should keep the old readable content"
     );
 }
+
+/// Test 1 (core): own message echo with unreadable=true (server echo, no local
+/// Sending log, e.g. HTTP send path) still updates last_message.
+///
+/// This is the original lastMessage bug. save_incoming_chat_log persists the log
+/// via fire-and-forget IndexedDB put, so a subsequent IndexedDB read could miss
+/// it. The fix passes the just-saved ChatLog in-memory to merge_conversation_from_chat.
+#[tokio::test]
+async fn test_own_echo_inmemory_saved_log_updates_last_message() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_inmem_echo");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_inmem_echo", Some(&conv)).await.unwrap();
+    drop(t);
+
+    // No local Sending log (simulating HTTP send path / save_outgoing_chat_log failure).
+    let echo = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_echo_1".to_string(),
+        topic_id: "topic_inmem_echo".to_string(),
+        seq: 1,
+        attendee: "agent".to_string(),
+        created_at: "2026-07-31T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "text".to_string(),
+            text: "My reply".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(echo, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_inmem_echo").await.unwrap();
+    assert_eq!(updated.last_seq, 1, "last_seq should advance");
+    assert_eq!(
+        updated.last_message_seq,
+        Some(1),
+        "last_message_seq should be set for own echo"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "My reply",
+        "last_message should contain the echo text"
+    );
+    assert!(
+        !updated.last_message.as_ref().unwrap().unreadable,
+        "last_message should be readable for own messages"
+    );
+}
+
+/// Test 2: processing a message echo must NOT clobber conversation.extra.
+///
+/// This guards against the extra corruption introduced by synchronous IndexedDB
+/// puts (which yielded mid-processing and let another task overwrite extra).
+#[tokio::test]
+async fn test_own_echo_preserves_extra() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_extra_preserve");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    let mut extra = std::collections::HashMap::new();
+    extra.insert("isReplay".to_string(), "Y".to_string());
+    conv.extra = Some(extra);
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_extra_preserve", Some(&conv)).await.unwrap();
+    drop(t);
+
+    let echo = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_1".to_string(),
+        topic_id: "topic_extra_preserve".to_string(),
+        seq: 1,
+        attendee: "agent".to_string(),
+        created_at: "2026-07-31T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "text".to_string(),
+            text: "Reply".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(echo, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_extra_preserve").await.unwrap();
+    assert_eq!(
+        updated.extra.as_ref().and_then(|e| e.get("isReplay")),
+        Some(&"Y".to_string()),
+        "extra must be preserved after processing own echo"
+    );
+}
+
+/// Test 3: a conversation.update WS message (with extra) updates conversation.extra.
+///
+/// This is how the "未回复" label is cleared: xwork sets extra.isReplay="N"
+/// on the server, which broadcasts a conversation.update to the client.
+#[tokio::test]
+async fn test_conversation_update_sets_extra() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_update_extra");
+    conv.owner_id = "agent".to_string();
+    conv.extra = Some(std::collections::HashMap::from([(
+        "isReplay".to_string(),
+        "Y".to_string(),
+    )]));
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_update_extra", Some(&conv)).await.unwrap();
+    drop(t);
+
+    let update_req = ChatRequest {
+        req_type: "chat".to_string(),
+        topic_id: "topic_update_extra".to_string(),
+        attendee: "agent".to_string(),
+        created_at: "2026-07-31T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "conversation.update".to_string(),
+            text: r#"{"extra":{"isReplay":"N"}}"#.to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(update_req, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_update_extra").await.unwrap();
+    assert_eq!(
+        updated.extra.as_ref().and_then(|e| e.get("isReplay")),
+        Some(&"N".to_string()),
+        "ConversationUpdate should set extra.isReplay to N"
+    );
+}
+
+/// Test 4 (race): ConversationUpdate sets extra.isReplay="N", then an own
+/// message echo arrives. The echo must NOT revert extra back to "Y".
+///
+/// This is the exact ordering that triggered the extra corruption race: the
+/// echo's merge_conversation_from_chat reads/writes the conversation; with
+/// fire-and-forget puts (no yield) it cannot clobber the "N" written by the
+/// ConversationUpdate.
+#[tokio::test]
+async fn test_update_then_echo_preserves_extra() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "agent");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_update_then_echo");
+    conv.owner_id = "agent".to_string();
+    conv.last_seq = 0;
+    conv.extra = Some(std::collections::HashMap::from([(
+        "isReplay".to_string(),
+        "Y".to_string(),
+    )]));
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_update_then_echo", Some(&conv))
+        .await
+        .unwrap();
+    drop(t);
+
+    // Step 1: conversation.update sets isReplay=N
+    let update_req = ChatRequest {
+        req_type: "chat".to_string(),
+        topic_id: "topic_update_then_echo".to_string(),
+        attendee: "agent".to_string(),
+        created_at: "2026-07-31T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "conversation.update".to_string(),
+            text: r#"{"extra":{"isReplay":"N"}}"#.to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(update_req, callback.clone()).await;
+
+    // Step 2: own message echo arrives right after
+    let echo = ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: "chat_1".to_string(),
+        topic_id: "topic_update_then_echo".to_string(),
+        seq: 1,
+        attendee: "agent".to_string(),
+        created_at: "2026-07-31T10:00:01Z".to_string(),
+        content: Some(Content {
+            content_type: "text".to_string(),
+            text: "Agent reply".to_string(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    store.process_incoming(echo, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_update_then_echo").await.unwrap();
+    assert_eq!(
+        updated.extra.as_ref().and_then(|e| e.get("isReplay")),
+        Some(&"N".to_string()),
+        "extra must remain N after echo (no race condition)"
+    );
+    assert_eq!(
+        updated.last_message.as_ref().unwrap().text,
+        "Agent reply",
+        "last_message should be updated by the echo"
+    );
+    assert!(
+        !updated.last_message.as_ref().unwrap().unreadable,
+        "echo last_message should be readable"
+    );
+}
