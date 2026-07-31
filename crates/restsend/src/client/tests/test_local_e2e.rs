@@ -645,6 +645,90 @@ async fn test_sdk_local_backend_e2e_update_extra_flow() {
 }
 
 #[tokio::test]
+async fn test_sdk_local_backend_e2e_set_conversation_extra_merges_keys() {
+    init_log("INFO".to_string(), true);
+    let server = LocalTestServer::start().await;
+    let endpoint = server.endpoint.clone();
+
+    let user_a = unique_name("sdk-cext-a");
+    let user_b = unique_name("sdk-cext-b");
+
+    signup(endpoint.clone(), user_a.clone(), "pass-a".to_string())
+        .await
+        .expect("signup a");
+    signup(endpoint.clone(), user_b.clone(), "pass-b".to_string())
+        .await
+        .expect("signup b");
+
+    let info_a = login_with_password(endpoint.clone(), user_a.clone(), "pass-a".to_string())
+        .await
+        .expect("login a");
+    let client_a = Client::new("".to_string(), "".to_string(), &info_a);
+
+    let conversation = client_a.create_chat(user_b).await.expect("create chat");
+    let topic_id = conversation.topic_id.clone();
+
+    // First feature writes the "replied" key.
+    let mut replied = std::collections::HashMap::new();
+    replied.insert("replied".to_string(), "true".to_string());
+    client_a
+        .set_conversation_extra(topic_id.clone(), Some(replied))
+        .await
+        .expect("set replied extra");
+
+    // Second feature writes a different key; it must NOT clobber "replied".
+    let mut draft = std::collections::HashMap::new();
+    draft.insert("draft".to_string(), "hi".to_string());
+    let updated = client_a
+        .set_conversation_extra(topic_id.clone(), Some(draft))
+        .await
+        .expect("set draft extra");
+
+    assert_eq!(
+        updated
+            .extra
+            .as_ref()
+            .and_then(|m| m.get("replied"))
+            .map(String::as_str),
+        Some("true"),
+        "second extra write must not clobber the replied key"
+    );
+    assert_eq!(
+        updated
+            .extra
+            .as_ref()
+            .and_then(|m| m.get("draft"))
+            .map(String::as_str),
+        Some("hi"),
+        "second extra write must set the draft key"
+    );
+
+    // A fresh server fetch must also keep both keys.
+    let fetched = client_a
+        .get_conversation(topic_id)
+        .await
+        .expect("conversation exists");
+    assert_eq!(
+        fetched
+            .extra
+            .as_ref()
+            .and_then(|m| m.get("replied"))
+            .map(String::as_str),
+        Some("true"),
+        "server must keep the replied key"
+    );
+    assert_eq!(
+        fetched
+            .extra
+            .as_ref()
+            .and_then(|m| m.get("draft"))
+            .map(String::as_str),
+        Some("hi"),
+        "server must keep the draft key"
+    );
+}
+
+#[tokio::test]
 async fn test_sdk_local_backend_e2e_reconnect_after_client_restart() {
     init_log("INFO".to_string(), true);
     let server = LocalTestServer::start().await;

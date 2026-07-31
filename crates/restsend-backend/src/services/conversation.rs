@@ -5,7 +5,7 @@ use sea_orm::{
 };
 
 use crate::entity::conversation;
-use crate::entity::encode_json;
+use crate::entity::{decode_json, encode_json};
 use crate::services::{DomainError, DomainResult};
 use crate::{Conversation, OpenApiUpdateConversationForm};
 
@@ -92,6 +92,7 @@ impl ConversationService {
                 .one(&self.db)
                 .await?
                 .ok_or(DomainError::NotFound)?;
+        let current_extra_json = existing.extra_json.clone();
 
         let mut active = existing.into_active_model();
         if let Some(sticky) = form.sticky {
@@ -106,8 +107,20 @@ impl ConversationService {
         if let Some(_tags) = form.tags {
             active.tags_json = Set(encode_json(&_tags));
         }
-        if let Some(_extra) = form.extra {
-            active.extra_json = Set(encode_json(&_extra));
+        if let Some(new_extra) = form.extra {
+            // Merge per-key so multiple features sharing conversation.extra
+            // (e.g. "replied", "draft") do not clobber each other.
+            // An empty map keeps the historical "clear all" behavior.
+            if new_extra.is_empty() {
+                active.extra_json = Set(encode_json(&new_extra));
+            } else {
+                let mut merged: std::collections::HashMap<String, String> =
+                    decode_json(&current_extra_json);
+                for (k, v) in new_extra {
+                    merged.insert(k, v);
+                }
+                active.extra_json = Set(encode_json(&merged));
+            }
         }
         active.updated_at = Set(now());
 

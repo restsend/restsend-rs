@@ -47,7 +47,9 @@ pub(crate) async fn merge_conversation(
         conversation.sticky = oc.sticky;
         conversation.mute = oc.mute;
         conversation.remark = oc.remark.clone();
-        conversation.extra = oc.extra.clone();
+        // extra is server-owned and now merged server-side per key; keep the
+        // server value so stale local extras cannot clobber newer keys
+        // (e.g. "replied" written by another feature/device).
         conversation.tags = oc.tags.clone();
         conversation.topic_owner_id = oc.topic_owner_id.clone();
         conversation.topic_created_at = oc.topic_created_at.clone();
@@ -810,8 +812,18 @@ impl ClientStore {
         {
             let t = self.message_storage.table::<Conversation>().await?;
             if let Some(mut conversation) = t.get("", topic_id).await {
-                conversation.extra = extra.clone();
-                t.set("", topic_id, Some(&conversation)).await.ok();
+                // Merge per-key so multiple features sharing conversation.extra
+                // do not clobber each other's keys.
+                if let Some(new_extra) = extra.as_ref() {
+                    if !new_extra.is_empty() {
+                        let mut merged = conversation.extra.clone().unwrap_or_default();
+                        for (k, v) in new_extra {
+                            merged.insert(k.clone(), v.clone());
+                        }
+                        conversation.extra = Some(merged);
+                        t.set("", topic_id, Some(&conversation)).await.ok();
+                    }
+                }
             }
         }
 
@@ -2411,5 +2423,53 @@ mod tests {
             "server message"
         );
         assert_eq!(merged[0].last_sender_id, "user-3");
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_keeps_server_extra_over_stale_local() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        // Stale local conversation with no extra at all.
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            last_seq: 100,
+            last_message_seq: Some(100),
+            ..Default::default()
+        };
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        // Server carries the merged extra (as produced by server-side per-key merge).
+        let mut server_extra = std::collections::HashMap::new();
+        server_extra.insert("replied".to_string(), "true".to_string());
+        server_extra.insert("draft".to_string(), "hi".to_string());
+
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                last_seq: 100,
+                last_message_seq: Some(100),
+                extra: Some(server_extra),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let extra = merged.extra.as_ref().expect("merged extra should exist");
+        assert_eq!(
+            extra.get("replied").map(String::as_str),
+            Some("true"),
+            "server replied key must survive the merge"
+        );
+        assert_eq!(
+            extra.get("draft").map(String::as_str),
+            Some("hi"),
+            "server draft key must survive the merge"
+        );
     }
 }
