@@ -827,6 +827,7 @@ impl ClientStore {
     pub async fn clear_conversation(&self, topic_id: &str) -> Result<()> {
         self.pop_incoming_logs(topic_id);
         self.invalidate_recent_chat_logs(topic_id);
+        self.unregister_message_topic(topic_id);
         {
             if let Ok(t) = self.message_storage.table::<ChatLog>().await {
                 t.clear(topic_id).await.ok();
@@ -1017,6 +1018,7 @@ impl ClientStore {
         log.sender_id = self.user_id.clone();
         t.set(&log.topic_id, &log.id, Some(&log)).await.ok();
         self.invalidate_recent_chat_logs(&log.topic_id);
+        self.register_message_topic(&log.topic_id);
 
         Ok(())
     }
@@ -1051,6 +1053,13 @@ impl ClientStore {
             Ok(logs) => logs,
             Err(_) => return,
         };
+        if !logs.contains_key(topic_id) && logs.len() >= super::INCOMING_LOGS_MAX_TOPICS {
+            // These are ephemeral reconcile hints; dropping the oldest entry
+            // only triggers a re-fetch, so keep the topic count bounded.
+            if let Some(oldest) = logs.keys().next().cloned() {
+                logs.remove(&oldest);
+            }
+        }
         let items = logs.entry(topic_id.to_string()).or_insert(vec![]);
         if items.len()
             > self
@@ -1166,6 +1175,7 @@ impl ClientStore {
         };
 
         self.put_incoming_log(topic_id, chat_id);
+        self.register_message_topic(topic_id);
 
         let mut log = ChatLog::from(req);
         log.cached_at = now;
@@ -1218,6 +1228,7 @@ impl ClientStore {
                     sort_key: item.sort_key(),
                     value: Some(item.clone()),
                 });
+                self.register_message_topic(&item.topic_id);
             }
         }
         let result = table.batch_update(&items).await;
@@ -1436,30 +1447,26 @@ impl ClientStore {
     }
 
     fn get_cached_topic_owner(&self, topic_id: &str) -> Option<String> {
-        self.topic_owner_cache
-            .read()
-            .ok()
-            .and_then(|cache| cache.get(topic_id).cloned())
-            .and_then(|(owner_id, cached_at)| {
-                if is_cache_expired(
-                    cached_at,
-                    self.option
-                        .topic_owner_cache_expire_secs
-                        .load(Ordering::Relaxed) as i64,
-                ) {
-                    None
-                } else {
-                    Some(owner_id)
-                }
-            })
+        let mut cache = self.topic_owner_cache.try_lock().ok()?;
+        let (owner_id, cached_at) = cache.get(topic_id).cloned()?;
+        if is_cache_expired(
+            cached_at,
+            self.option
+                .topic_owner_cache_expire_secs
+                .load(Ordering::Relaxed) as i64,
+        ) {
+            None
+        } else {
+            Some(owner_id)
+        }
     }
 
     fn cache_topic_owner(&self, topic_id: &str, owner_id: &str) {
         if owner_id.is_empty() {
             return;
         }
-        if let Ok(mut cache) = self.topic_owner_cache.write() {
-            cache.insert(topic_id.to_string(), (owner_id.to_string(), now_millis()));
+        if let Ok(mut cache) = self.topic_owner_cache.try_lock() {
+            cache.put(topic_id.to_string(), (owner_id.to_string(), now_millis()));
         }
     }
 

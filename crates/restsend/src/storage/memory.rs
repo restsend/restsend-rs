@@ -17,11 +17,15 @@ impl TableInner {
     }
 
     fn insert(&mut self, key: String, sort_key: i64, value: String) {
+        // A key may move to a new sort_key bucket on update; drop it from any
+        // other bucket first so it is never returned more than once by filter.
+        for (_, indices) in self.index.iter_mut() {
+            indices.retain(|v| v != &key);
+        }
+        self.index.retain(|_, indices| !indices.is_empty());
         self.data.insert(key.clone(), value.clone());
         let indices = self.index.entry(sort_key).or_default();
-        if indices.iter().find(|v| v == &&key).is_none() {
-            indices.push(key);
-        }
+        indices.push(key);
     }
 
     fn remove(&mut self, key: &str, sort_key: i64) {
@@ -86,6 +90,8 @@ impl InMemoryStorage {
         self.table::<T>().await
     }
 }
+
+impl super::ConversationRouting for InMemoryStorage {}
 
 #[derive(Debug)]
 pub(super) struct MemoryTable<T>
@@ -386,4 +392,42 @@ async fn test_memory_table() {
     table.clear("test").await;
     let v = table.get("test", "2").await;
     assert_eq!(v, None);
+}
+
+#[tokio::test]
+async fn test_memory_table_no_duplicate_on_sort_key_change() {
+    #[derive(serde::Serialize, serde::Deserialize, PartialEq, Debug)]
+    struct Sorted(i64, i32);
+
+    impl std::str::FromStr for Sorted {
+        type Err = serde_json::Error;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            serde_json::from_str(s)
+        }
+    }
+    impl std::fmt::Display for Sorted {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(&serde_json::to_string(self).unwrap())
+        }
+    }
+    impl super::StoreModel for Sorted {
+        fn sort_key(&self) -> i64 {
+            self.0
+        }
+    }
+
+    let t = TableInnerRef::default();
+    let table = MemoryTable::from(t);
+
+    // Same key updated with a newer sort_key must not be returned twice.
+    table.set("t", "a", Some(&Sorted(1, 1))).await.unwrap();
+    table.set("t", "a", Some(&Sorted(2, 2))).await.unwrap();
+    table.set("t", "b", Some(&Sorted(1, 3))).await.unwrap();
+    table.set("t", "b", Some(&Sorted(3, 4))).await.unwrap();
+
+    let items = table.filter("t", Box::new(|c| Some(c)), None, None).await.unwrap();
+    let keys: Vec<String> = items.iter().map(|v| format!("{}:{}", v.0, v.1)).collect();
+    assert_eq!(keys.len(), 2, "same keys updated with new sort_key must not duplicate");
+    assert!(keys.contains(&"3:4".to_string()));
+    assert!(keys.contains(&"2:2".to_string()));
 }

@@ -72,6 +72,7 @@ web-sys = { version = "0.3.76", features = [
 ] }
 async-trait = "0.1.83"
 serde-wasm-bindgen = "0.6.5"
+lru = "0.12"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.42.0", features = ["time", "sync", "macros", "io-util"] }

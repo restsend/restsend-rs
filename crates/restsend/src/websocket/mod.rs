@@ -31,7 +31,13 @@ pub struct WebsocketOption {
 impl WebsocketOption {
     pub fn url_from_endpoint(endpoint: &str) -> String {
         let nonce = crate::utils::random_text(4);
-        let url = format!("{}/api/connect?device={}&nonce={}", endpoint, DEVICE, nonce);
+        let url = format!(
+            "{}/api/connect?device={}&nonce={}&version={}",
+            endpoint,
+            DEVICE,
+            nonce,
+            env!("CARGO_PKG_VERSION")
+        );
         url.replace("http", "ws")
     }
 

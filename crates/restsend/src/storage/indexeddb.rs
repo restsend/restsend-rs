@@ -5,7 +5,9 @@ use js_sys::Promise;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::{
-    borrow::Borrow, cell::RefCell, collections::HashMap, io::Cursor, rc::Rc, time::Duration, vec,
+    any::TypeId, borrow::Borrow, cell::RefCell, collections::HashMap, io::Cursor, rc::Rc,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration, vec,
 };
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
@@ -20,6 +22,7 @@ pub struct IndexeddbStorage {
     db_prefix: String,
     db_cache: RefCell<HashMap<String, IdbDatabase>>,
     memory_storage: super::memory::InMemoryStorage,
+    conversations_in_memory: AtomicBool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -114,7 +117,17 @@ impl IndexeddbStorage {
             db_prefix: db_name.to_string(),
             db_cache: RefCell::new(HashMap::new()),
             memory_storage,
+            conversations_in_memory: AtomicBool::new(true),
         }
+    }
+
+    fn is_conversation_in_memory<T: 'static>() -> bool {
+        TypeId::of::<T>() == TypeId::of::<crate::models::Conversation>()
+    }
+
+    fn is_memory_table<T: 'static>(&self) -> bool {
+        Self::is_conversation_in_memory::<T>()
+            && self.conversations_in_memory.load(Ordering::Relaxed)
     }
 
     fn get_cached_db(&self, table_name: &str) -> Option<IdbDatabase> {
@@ -128,7 +141,7 @@ impl IndexeddbStorage {
     where
         T: StoreModel + 'static,
     {
-        if self.db_prefix.is_empty() {
+        if self.db_prefix.is_empty() || self.is_memory_table::<T>() {
             return self.memory_storage.table::<T>().await;
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
@@ -152,8 +165,8 @@ impl IndexeddbStorage {
     where
         T: StoreModel + 'static,
     {
-        if self.db_prefix.is_empty() {
-            return self.memory_storage.table::<T>().await;
+        if self.db_prefix.is_empty() || self.is_memory_table::<T>() {
+            return self.memory_storage.readonly_table::<T>().await;
         }
         let tbl_name = format!("{}-{}", self.db_prefix, super::table_name::<T>());
         let version = self.last_version.unwrap_or(LAST_DB_VERSION);
@@ -179,6 +192,12 @@ impl Drop for IndexeddbStorage {
         for (_, db) in self.db_cache.get_mut().drain() {
             db.close();
         }
+    }
+}
+
+impl super::ConversationRouting for IndexeddbStorage {
+    fn set_conversations_in_memory(&self, value: bool) {
+        self.conversations_in_memory.store(value, Ordering::Relaxed);
     }
 }
 

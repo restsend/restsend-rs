@@ -70,6 +70,8 @@ impl SqliteStorage {
     }
 }
 
+impl super::ConversationRouting for SqliteStorage {}
+
 struct SqliteTable<T>
 where
     T: StoreModel,

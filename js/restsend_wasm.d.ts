@@ -806,12 +806,23 @@ export class Client {
    * note: this limit is for local storage only
    */
   set maxConversationLimit(value: number);
+  /**
+   * set whether conversations are kept in memory instead of indexeddb
+   * default is true
+   */
+  set conversationsInMemory(value: boolean);
   set build_local_unreadable(value: boolean);
   /**
    * set the max connect interval seconds
    * default is 5 seconds
    */
   set maxConnectIntervalSecs(value: number);
+  /**
+   * set the max message retention days for local storage
+   * messages older than this will be cleaned automatically
+   * default is 30 days, set 0 to disable cleanup
+   */
+  set maxMessageRetentionDays(value: number);
   /**
    * set the conversation cache expire seconds
    * default is 60 seconds
@@ -908,10 +919,12 @@ export interface InitOutput {
   readonly client_setUserStar: (a: number, b: number, c: number, d: number) => any;
   readonly client_set_build_local_unreadable: (a: number, b: number) => void;
   readonly client_set_conversationCacheExpireSecs: (a: number, b: number) => void;
+  readonly client_set_conversationsInMemory: (a: number, b: number) => void;
   readonly client_set_keepalive: (a: number, b: number) => void;
   readonly client_set_maxConnectIntervalSecs: (a: number, b: number) => void;
   readonly client_set_maxConversationLimit: (a: number, b: number) => void;
   readonly client_set_maxLogsLimit: (a: number, b: number) => void;
+  readonly client_set_maxMessageRetentionDays: (a: number, b: number) => void;
   readonly client_set_maxRecallSecs: (a: number, b: number) => void;
   readonly client_set_maxRetry: (a: number, b: number) => void;
   readonly client_set_maxSendIdleSecs: (a: number, b: number) => void;
@@ -969,9 +982,9 @@ export interface InitOutput {
   readonly __wbindgen_export_4: WebAssembly.Table;
   readonly __wbindgen_export_5: WebAssembly.Table;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-  readonly closure13_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure11_externref_shim: (a: number, b: number, c: any) => void;
   readonly _dyn_core_4777b9c83c0d5d57___ops__function__FnMut_____Output______as_wasm_bindgen_f2dfa8ea8cbcbcbc___closure__WasmClosure___describe__invoke______: (a: number, b: number) => void;
-  readonly closure96_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure94_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

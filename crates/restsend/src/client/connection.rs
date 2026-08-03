@@ -491,6 +491,8 @@ async fn serve_connection(
                 sleep(Duration::from_secs(1)).await;
                 store_ref.process_timeout_requests();
                 store_ref.process_removed_conversations();
+                store_ref.maybe_cleanup_messages();
+                store_ref.maybe_prune_conversations();
             };
         } =>{
             warn!("connection shutdown timeout");

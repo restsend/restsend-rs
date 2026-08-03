@@ -194,6 +194,17 @@ impl Client {
             .max_sync_logs_limit
             .store(limit as usize, Ordering::Relaxed);
     }
+    /// set the max message retention days for local storage
+    /// messages older than this will be cleaned automatically
+    /// default is 30 days, set 0 to disable cleanup
+    #[wasm_bindgen(setter)]
+    pub fn set_maxMessageRetentionDays(&self, days: u32) {
+        self.inner
+            .store
+            .option
+            .max_message_retention_days
+            .store(days as usize, Ordering::Relaxed);
+    }
     /// set the conversation cache expire seconds
     /// default is 60 seconds
     #[wasm_bindgen(setter)]
@@ -243,6 +254,12 @@ impl Client {
             .option
             .build_local_unreadable
             .store(value, Ordering::Relaxed);
+    }
+    /// set whether conversations are kept in memory instead of indexeddb
+    /// default is true
+    #[wasm_bindgen(setter)]
+    pub fn set_conversationsInMemory(&self, value: bool) {
+        self.inner.store.set_conversations_in_memory(value);
     }
 
     pub async fn shutdown(&self) {

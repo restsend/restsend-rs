@@ -1,15 +1,17 @@
 use self::attachments::UploadTask;
 use crate::callback::{CountableCallback, RsCallback, SyncChatLogsCallback};
 use crate::models::Attachment;
-use crate::models::{ChatLog, GetChatLogsResult};
-use crate::storage::Storage;
-use crate::utils::{elapsed, now_millis};
+use crate::models::{ChatLog, Conversation, GetChatLogsResult};
+use crate::storage::{ConversationRouting, Storage, StoreModel};
+use crate::utils::{elapsed, now_millis, spawn_task};
 use crate::{
     callback::MessageCallback,
     request::{ChatRequest, ChatRequestType},
 };
 
+use lru::LruCache;
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64};
 use std::sync::Mutex;
 use std::{
@@ -28,6 +30,11 @@ mod users;
 
 const QUICK_SYNC_WAITERS_TTL_MS: i64 = 30_000;
 const QUICK_SYNC_WAITERS_MAX_IN_FLIGHT: usize = 512;
+const MESSAGE_CLEANUP_INTERVAL_MS: i64 = 5 * 60 * 1000; // 5 minutes
+const MESSAGE_TOPICS_MAX_CAPACITY: usize = 2048;
+const TOPIC_OWNER_CACHE_MAX_CAPACITY: usize = 512;
+const CONVERSATION_PRUNE_INTERVAL_MS: i64 = 60_000; // 1 minute
+const INCOMING_LOGS_MAX_TOPICS: usize = 512;
 
 pub fn is_cache_expired(cached_at: i64, expire_secs: i64) -> bool {
     (now_millis() - cached_at) / 1000 > expire_secs
@@ -119,6 +126,7 @@ pub struct ClientOption {
     pub max_attachment_concurrent: AtomicUsize,
     pub max_incoming_log_cache_count: AtomicUsize,
     pub max_sync_logs_limit: AtomicUsize,
+    pub max_message_retention_days: AtomicUsize,
     pub keepalive_interval_secs: AtomicUsize,
     pub ping_interval_secs: AtomicUsize,
     pub media_progress_interval: AtomicUsize,
@@ -143,6 +151,7 @@ impl Default for ClientOption {
             max_attachment_concurrent: AtomicUsize::new(12),
             max_incoming_log_cache_count: AtomicUsize::new(300),
             max_sync_logs_limit: AtomicUsize::new(500),
+            max_message_retention_days: AtomicUsize::new(30),
             keepalive_interval_secs: AtomicUsize::new(50),
             ping_interval_secs: AtomicUsize::new(30),
             media_progress_interval: AtomicUsize::new(300),
@@ -197,7 +206,10 @@ pub struct ClientStore {
     quick_sync_waiters: Mutex<HashMap<String, QuickSyncWaiterEntry>>,
     quick_sync_last_fetch_at: RwLock<HashMap<String, i64>>,
     pending_conversations: Mutex<HashSet<String>>,
-    topic_owner_cache: RwLock<HashMap<String, (String, i64)>>,
+    topic_owner_cache: Mutex<LruCache<String, (String, i64)>>,
+    message_topics: Mutex<LruCache<String, ()>>,
+    last_message_cleanup_at: AtomicI64,
+    last_conversation_prune_at: AtomicI64,
     pub(crate) syncing_conversations: AtomicBool,
     pub option: ClientOptionRef,
 }
@@ -228,7 +240,14 @@ impl ClientStore {
             quick_sync_waiters: Mutex::new(HashMap::new()),
             quick_sync_last_fetch_at: RwLock::new(HashMap::new()),
             pending_conversations: Mutex::new(HashSet::new()),
-            topic_owner_cache: RwLock::new(HashMap::new()),
+            topic_owner_cache: Mutex::new(LruCache::new(
+                NonZeroUsize::new(TOPIC_OWNER_CACHE_MAX_CAPACITY).unwrap(),
+            )),
+            message_topics: Mutex::new(LruCache::new(
+                NonZeroUsize::new(MESSAGE_TOPICS_MAX_CAPACITY).unwrap(),
+            )),
+            last_message_cleanup_at: AtomicI64::new(0),
+            last_conversation_prune_at: AtomicI64::new(0),
             syncing_conversations: AtomicBool::new(false),
             option: Arc::new(ClientOption::default()),
         }
@@ -450,12 +469,229 @@ impl ClientStore {
             });
         }
     }
-    pub fn shutdown(&self) {}
+
+    /// Control whether conversations are kept in memory instead of the
+    /// persistent store (IndexedDB). Defaults to in-memory.
+    pub fn set_conversations_in_memory(&self, value: bool) {
+        self.message_storage.set_conversations_in_memory(value);
+    }
+
+    pub(super) fn register_message_topic(&self, topic_id: &str) {
+        if let Ok(mut topics) = self.message_topics.try_lock() {
+            topics.put(topic_id.to_string(), ());
+        }
+    }
+
+    pub(super) fn unregister_message_topic(&self, topic_id: &str) {
+        if let Ok(mut topics) = self.message_topics.try_lock() {
+            topics.pop(topic_id);
+        }
+    }
+
+    async fn collect_message_topics(&self) -> Vec<String> {
+        let mut topics: HashSet<String> = match self.message_topics.try_lock() {
+            Ok(mut topics) => {
+                let mut keys = HashSet::new();
+                for (k, _) in topics.iter() {
+                    keys.insert(k.clone());
+                }
+                keys
+            }
+            Err(_) => HashSet::new(),
+        };
+        // Also union conversations (kept in memory by default), so messages of
+        // conversations synced in this session are always covered even if no
+        // new message was saved yet.
+        if let Ok(t) = self.message_storage.readonly_table::<Conversation>().await {
+            if let Some(items) = t.filter("", Box::new(|c| Some(c)), None, None).await {
+                for conversation in items {
+                    topics.insert(conversation.topic_id);
+                }
+            }
+        }
+        topics.into_iter().collect()
+    }
+
+    /// Remove locally stored messages older than `max_message_retention_days`.
+    /// When the option is `0`, cleanup is disabled. Messages whose `created_at`
+    /// cannot be parsed are kept.
+    pub async fn cleanup_old_messages(&self) {
+        let retention_days = self
+            .option
+            .max_message_retention_days
+            .load(Ordering::Relaxed) as i64;
+        if retention_days <= 0 {
+            return;
+        }
+        let cutoff = now_millis() - retention_days * 86_400_000;
+
+        let topics = self.collect_message_topics().await;
+        if topics.is_empty() {
+            return;
+        }
+
+        let log_t = match self.message_storage.readonly_table::<ChatLog>().await {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        let mut expired = Vec::new();
+        for topic_id in &topics {
+            let items = match log_t
+                .filter(
+                    topic_id,
+                    Box::new(move |log| {
+                        let created_ms =
+                            chrono::DateTime::parse_from_rfc3339(&log.created_at)
+                                .map(|v| v.timestamp_millis())
+                                .unwrap_or(i64::MAX);
+                        if created_ms < cutoff {
+                            Some(log)
+                        } else {
+                            None
+                        }
+                    }),
+                    None,
+                    None,
+                )
+                .await
+            {
+                Some(items) => items,
+                None => continue,
+            };
+            for log in items {
+                expired.push((topic_id.clone(), log.id));
+            }
+        }
+
+        if expired.is_empty() {
+            return;
+        }
+        if let Ok(log_t) = self.message_storage.table::<ChatLog>().await {
+            for (topic_id, chat_id) in &expired {
+                log_t.remove(topic_id, chat_id).await.ok();
+            }
+        }
+        log::info!(
+            "cleanup_old_messages removed {} expired messages, retention_days: {}",
+            expired.len(),
+            retention_days
+        );
+    }
+
+    /// Throttled entry point for the background cleanup loop. Checks the
+    /// retention setting and a 5-minute throttle, then spawns the async
+    /// cleanup. Call this from the connection keepalive loop.
+    pub fn maybe_cleanup_messages(self: &Arc<Self>) {
+        let retention_days = self
+            .option
+            .max_message_retention_days
+            .load(Ordering::Relaxed) as i64;
+        if retention_days <= 0 {
+            return;
+        }
+        let now = now_millis();
+        let last = self.last_message_cleanup_at.load(Ordering::Relaxed);
+        if now - last < MESSAGE_CLEANUP_INTERVAL_MS {
+            return;
+        }
+        if self
+            .last_message_cleanup_at
+            .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
+            .is_err()
+        {
+            return;
+        }
+        let this = self.clone();
+        spawn_task(async move {
+            this.cleanup_old_messages().await;
+        });
+    }
+
+    /// Keep the locally stored conversation list bounded to
+    /// `max_conversation_limit` (most recently updated wins). When pruning a
+    /// conversation, its local messages are cleared as well so old data does
+    /// not linger in IndexedDB.
+    pub async fn prune_conversations(&self) {
+        let limit = self
+            .option
+            .max_conversation_limit
+            .load(Ordering::Relaxed) as usize;
+        if limit == 0 {
+            return;
+        }
+        let t = match self.message_storage.readonly_table::<Conversation>().await {
+            Ok(t) => t,
+            Err(_) => return,
+        };
+        let all = match t
+            .filter("", Box::new(|c| Some(c)), None, None)
+            .await
+        {
+            Some(items) => items,
+            None => return,
+        };
+        if all.len() <= limit {
+            return;
+        }
+        let excess = all.len() - limit;
+        let mut sorted = all;
+        sorted.sort_by_key(|c| c.sort_key());
+        for conversation in sorted.iter().take(excess) {
+            self.clear_conversation(&conversation.topic_id).await.ok();
+        }
+        log::info!(
+            "prune_conversations removed {} conversations over local limit {}",
+            excess,
+            limit
+        );
+    }
+
+    /// Throttled entry point for the background conversation pruning loop.
+    /// Call this from the connection keepalive loop.
+    pub fn maybe_prune_conversations(self: &Arc<Self>) {
+        let now = now_millis();
+        let last = self.last_conversation_prune_at.load(Ordering::Relaxed);
+        if now - last < CONVERSATION_PRUNE_INTERVAL_MS {
+            return;
+        }
+        if self
+            .last_conversation_prune_at
+            .compare_exchange(last, now, Ordering::Relaxed, Ordering::Relaxed)
+            .is_err()
+        {
+            return;
+        }
+        let this = self.clone();
+        spawn_task(async move {
+            this.prune_conversations().await;
+        });
+    }
+
+    pub fn shutdown(&self) {
+        if let Ok(mut topics) = self.message_topics.try_lock() {
+            topics.clear();
+        }
+        if let Ok(mut owners) = self.topic_owner_cache.try_lock() {
+            owners.clear();
+        }
+        if let Ok(mut cache) = self.recent_chat_logs.try_write() {
+            cache.clear();
+        }
+        if let Ok(mut logs) = self.incoming_logs.try_write() {
+            logs.clear();
+        }
+        if let Ok(mut removed) = self.removed_conversations.try_write() {
+            removed.clear();
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ClientStore, QuickSyncSingleflightState};
+    use super::{
+        ClientStore, QuickSyncSingleflightState, MESSAGE_TOPICS_MAX_CAPACITY,
+        TOPIC_OWNER_CACHE_MAX_CAPACITY,
+    };
     use crate::{callback::SyncChatLogsCallback, models::GetChatLogsResult};
     use std::sync::{Arc, Mutex};
 
@@ -543,5 +779,218 @@ mod tests {
         assert!(matches!(second, QuickSyncSingleflightState::Leader));
         assert_eq!(first_counter.fail_count(), 1);
         assert_eq!(second_counter.fail_count(), 0);
+    }
+
+    fn make_log(topic_id: &str, id: &str, seq: i64, created_at: &str) -> crate::models::ChatLog {
+        crate::models::ChatLog {
+            id: id.to_string(),
+            topic_id: topic_id.to_string(),
+            seq,
+            created_at: created_at.to_string(),
+            content: crate::models::Content {
+                content_type: "text".to_string(),
+                text: "hello".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn rfc3339_at_millis(ms: i64) -> String {
+        chrono::DateTime::from_timestamp_millis(ms)
+            .unwrap()
+            .to_rfc3339()
+    }
+
+    #[tokio::test]
+    async fn cleanup_old_messages_removes_expired_keeps_recent() {
+        let store = Arc::new(ClientStore::new("", ":memory:", "http://test", "token", "u1"));
+        store
+            .option
+            .max_message_retention_days
+            .store(30, std::sync::atomic::Ordering::Relaxed);
+
+        let now = crate::utils::now_millis();
+        let day = 86_400_000;
+        let old_at = rfc3339_at_millis(now - 40 * day);
+        let recent_at = rfc3339_at_millis(now - day);
+
+        let log_t = store.message_storage.table::<crate::models::ChatLog>().await.unwrap();
+        log_t
+            .set("t1", "old-1", Some(&make_log("t1", "old-1", 1, &old_at)))
+            .await
+            .unwrap();
+        log_t
+            .set("t1", "new-1", Some(&make_log("t1", "new-1", 2, &recent_at)))
+            .await
+            .unwrap();
+        log_t
+            .set("t2", "old-2", Some(&make_log("t2", "old-2", 1, &old_at)))
+            .await
+            .unwrap();
+        // t3 has no conversation record; discovered only via register_message_topic
+        log_t
+            .set("t3", "old-3", Some(&make_log("t3", "old-3", 1, &old_at)))
+            .await
+            .unwrap();
+
+        let conv_t = store.message_storage.table::<crate::models::Conversation>().await.unwrap();
+        conv_t
+            .set("", "t1", Some(&crate::models::Conversation::new("t1")))
+            .await
+            .unwrap();
+        conv_t
+            .set("", "t2", Some(&crate::models::Conversation::new("t2")))
+            .await
+            .unwrap();
+        store.register_message_topic("t3");
+
+        store.cleanup_old_messages().await;
+
+        let log_t = store.message_storage.table::<crate::models::ChatLog>().await.unwrap();
+        assert!(log_t.get("t1", "old-1").await.is_none(), "old message on t1 must be removed");
+        assert!(log_t.get("t2", "old-2").await.is_none(), "old message on t2 must be removed");
+        assert!(log_t.get("t3", "old-3").await.is_none(), "old message on t3 must be removed");
+        assert!(log_t.get("t1", "new-1").await.is_some(), "recent message must be kept");
+    }
+
+    #[tokio::test]
+    async fn cleanup_old_messages_disabled_when_retention_zero() {
+        let store = Arc::new(ClientStore::new("", ":memory:", "http://test", "token", "u1"));
+        store
+            .option
+            .max_message_retention_days
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+
+        let now = crate::utils::now_millis();
+        let old_at = rfc3339_at_millis(now - 100 * 86_400_000);
+        let log_t = store.message_storage.table::<crate::models::ChatLog>().await.unwrap();
+        log_t
+            .set("t1", "old", Some(&make_log("t1", "old", 1, &old_at)))
+            .await
+            .unwrap();
+        store.register_message_topic("t1");
+
+        store.cleanup_old_messages().await;
+
+        let log_t = store.message_storage.table::<crate::models::ChatLog>().await.unwrap();
+        assert!(
+            log_t.get("t1", "old").await.is_some(),
+            "cleanup must be skipped when retention_days == 0"
+        );
+    }
+
+    #[tokio::test]
+    async fn maybe_cleanup_messages_skips_when_retention_zero() {
+        let store = Arc::new(ClientStore::new("", ":memory:", "http://test", "token", "u1"));
+        store
+            .option
+            .max_message_retention_days
+            .store(0, std::sync::atomic::Ordering::Relaxed);
+        store.maybe_cleanup_messages();
+        assert_eq!(store.last_message_cleanup_at.load(std::sync::atomic::Ordering::Relaxed), 0);
+    }
+
+    #[tokio::test]
+    async fn maybe_cleanup_messages_updates_throttle_timestamp() {
+        let store = Arc::new(ClientStore::new("", ":memory:", "http://test", "token", "u1"));
+        store
+            .option
+            .max_message_retention_days
+            .store(30, std::sync::atomic::Ordering::Relaxed);
+        store.maybe_cleanup_messages();
+        assert!(
+            store
+                .last_message_cleanup_at
+                .load(std::sync::atomic::Ordering::Relaxed)
+                > 0,
+            "throttle timestamp must be set when cleanup is scheduled"
+        );
+    }
+
+    #[test]
+    fn message_topics_lru_evicts_oldest() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        let total = MESSAGE_TOPICS_MAX_CAPACITY + 100;
+        for i in 0..total {
+            store.register_message_topic(&format!("t{}", i));
+        }
+        let mut topics = store.message_topics.try_lock().unwrap();
+        assert_eq!(topics.len(), MESSAGE_TOPICS_MAX_CAPACITY, "LRU must stay bounded");
+        assert!(topics.get("t0").is_none(), "oldest entry must be evicted");
+        assert!(topics.get("t99").is_none(), "oldest entries must be evicted");
+        assert!(
+            topics.get(&format!("t{}", total - 1)).is_some(),
+            "newest entry must remain"
+        );
+    }
+
+    #[test]
+    fn unregister_message_topic_removes() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        store.register_message_topic("t1");
+        store.unregister_message_topic("t1");
+        let mut topics = store.message_topics.try_lock().unwrap();
+        assert!(topics.get("t1").is_none());
+    }
+
+    #[test]
+    fn topic_owner_cache_lru_evicts_oldest() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        {
+            let mut cache = store.topic_owner_cache.try_lock().unwrap();
+            for i in 0..(TOPIC_OWNER_CACHE_MAX_CAPACITY + 50) {
+                cache.put(format!("t{}", i), (format!("owner-{}", i), 0));
+            }
+        }
+        let mut cache = store.topic_owner_cache.try_lock().unwrap();
+        assert_eq!(cache.len(), TOPIC_OWNER_CACHE_MAX_CAPACITY, "LRU must stay bounded");
+        assert!(cache.get("t0").is_none(), "oldest entry must be evicted");
+        assert!(
+            cache
+                .get(&format!("t{}", TOPIC_OWNER_CACHE_MAX_CAPACITY + 49))
+                .is_some(),
+            "newest entry must remain"
+        );
+    }
+
+    #[tokio::test]
+    async fn prune_conversations_bounds_local_store() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "u1");
+        store
+            .option
+            .max_conversation_limit
+            .store(5, std::sync::atomic::Ordering::Relaxed);
+        let t = store.message_storage.table::<crate::models::Conversation>().await.unwrap();
+        let now = crate::utils::now_millis();
+        for i in 0..10 {
+            let mut conversation = crate::models::Conversation::new(&format!("topic-{}", i));
+            conversation.updated_at = rfc3339_at_millis(now - (10 - i) * 60_000);
+            t.set("", &conversation.topic_id, Some(&conversation))
+                .await
+                .unwrap();
+        }
+
+        store.prune_conversations().await;
+
+        let t = store.message_storage.table::<crate::models::Conversation>().await.unwrap();
+        let items = t
+            .filter("", Box::new(|c| Some(c)), None, None)
+            .await
+            .unwrap();
+        assert_eq!(items.len(), 5, "conversation store must be pruned to the limit");
+        let mut topics: Vec<String> = items.iter().map(|c| c.topic_id.clone()).collect();
+        topics.sort();
+        assert_eq!(
+            topics,
+            vec![
+                "topic-5".to_string(),
+                "topic-6".to_string(),
+                "topic-7".to_string(),
+                "topic-8".to_string(),
+                "topic-9".to_string()
+            ],
+            "the newest conversations must be kept"
+        );
     }
 }

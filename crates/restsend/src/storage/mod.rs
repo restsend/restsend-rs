@@ -17,6 +17,13 @@ mod sqlite;
 pub trait StoreModel: Display + FromStr + Sync + Send + Serialize + DeserializeOwned {
     fn sort_key(&self) -> i64;
 }
+
+/// Control whether the `Conversation` table is kept in memory instead of the
+/// persistent store (IndexedDB / SQLite). Implementations that do not support
+/// this (in-memory or SQLite backends) treat it as a no-op.
+pub trait ConversationRouting {
+    fn set_conversations_in_memory(&self, _value: bool) {}
+}
 #[derive(Serialize)]
 pub struct ValueItem<T: StoreModel> {
     pub partition: String,
