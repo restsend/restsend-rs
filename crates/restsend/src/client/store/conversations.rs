@@ -21,6 +21,61 @@ use std::{collections::HashSet, sync::Arc};
 const RECENT_CHAT_LOGS_CACHE_EXPIRE_SECS: i64 = 5;
 const RECENT_CHAT_LOGS_CACHE_MAX_TOPICS: usize = 64;
 
+fn conversation_updated_at_ms(conversation: &Conversation) -> i64 {
+    chrono::DateTime::parse_from_rfc3339(&conversation.updated_at)
+        .map(|v| v.timestamp_millis())
+        .unwrap_or(0)
+}
+
+/// Merge two conversation `extra` maps.
+///
+/// `conversation.extra` is shared by multiple features (e.g. `isReplay` = the
+/// "未回复" flag, `draft`, `touchStats`), so writes must not clobber each other.
+/// The incoming `extra` may carry different meanings:
+///
+/// - `Some(empty)` — explicit "clear all", mirroring the server's
+///   `update_conversation` semantics (empty map clears). Always honored so a
+///   feature can still remove keys.
+/// - `Some(non-empty)` — incremental per-key update. The incoming (server) value
+///   wins for keys it carries, while keys present only locally are preserved
+///   (the server snapshot may omit keys it does not know about, e.g. `isReplay`
+///   lost server-side).
+/// - `None` — the server carried no extra info; keep the local value so a
+///   snapshot without `extra` does not silently drop flags like `isReplay`.
+///
+/// When `incoming_is_stale` (the incoming server snapshot has an older
+/// `updated_at` than the local copy), keep the local `extra` entirely: a stale
+/// snapshot must not revert a newer local `extra` written by a recent
+/// `conversation.update` broadcast.
+fn merge_conversation_extra(
+    local_extra: &Option<Extra>,
+    incoming_extra: &Option<Extra>,
+    incoming_is_stale: bool,
+) -> Option<Extra> {
+    if incoming_is_stale {
+        if local_extra.is_some() {
+            return local_extra.clone();
+        }
+        return incoming_extra.clone();
+    }
+
+    match incoming_extra {
+        None => local_extra.clone(),
+        Some(incoming) if incoming.is_empty() => None,
+        Some(incoming) => {
+            let mut merged = local_extra.clone().unwrap_or_default();
+            for (k, v) in incoming {
+                merged.insert(k.clone(), v.clone());
+            }
+            if merged.is_empty() {
+                None
+            } else {
+                Some(merged)
+            }
+        }
+    }
+}
+
 pub(crate) async fn merge_conversation(
     message_storage: Arc<Storage>,
     conversation: Conversation,
@@ -43,9 +98,15 @@ pub(crate) async fn merge_conversation(
         conversation.sticky = old_conversation.sticky;
         conversation.mute = old_conversation.mute;
         conversation.remark = old_conversation.remark.clone();
-        // extra is server-owned and now merged server-side per key; keep the
-        // server value so stale local extras cannot clobber newer keys
-        // (e.g. "isReplay", "replied", "draft" written by another feature/device).
+        // extra is server-owned, but a stale server snapshot (older updated_at)
+        // must not clobber a newer local extra (e.g. "isReplay" set by a recent
+        // conversation.update broadcast); merge per-key so server keys win while
+        // local-only keys survive snapshots that omit them.
+        conversation.extra = merge_conversation_extra(
+            &old_conversation.extra,
+            &conversation.extra,
+            conversation_updated_at_ms(&conversation) < conversation_updated_at_ms(&old_conversation),
+        );
         conversation.tags = old_conversation.tags.clone();
         conversation.topic_owner_id = old_conversation.topic_owner_id.clone();
         conversation.topic_created_at = old_conversation.topic_created_at.clone();
@@ -268,7 +329,15 @@ impl ClientStore {
                         Ok(fields) => {
                             conversation.updated_at = req.created_at.clone();
                             if fields.extra.is_some() {
-                                conversation.extra = fields.extra;
+                                // Merge per-key so a partial extra broadcast
+                                // (e.g. `extra:{"isReplay":"N"}`) does not wipe
+                                // other keys ("draft", "touchStats", ...) that
+                                // share conversation.extra.
+                                conversation.extra = merge_conversation_extra(
+                                    &conversation.extra,
+                                    &fields.extra,
+                                    false,
+                                );
                             }
                             if fields.tags.is_some() {
                                 conversation.tags = fields.tags;
@@ -452,6 +521,16 @@ impl ClientStore {
                 }
 
                 conversation.merge_local_read_state(&old_conversation);
+
+                // Same extra protection as merge_conversation: a stale server
+                // snapshot must not clobber a newer local extra, and server keys
+                // are merged per-key so local-only keys (e.g. "isReplay") survive.
+                conversation.extra = merge_conversation_extra(
+                    &old_conversation.extra,
+                    &conversation.extra,
+                    conversation_updated_at_ms(&conversation)
+                        < conversation_updated_at_ms(&old_conversation),
+                );
 
                 // Prefer local last_message when it is newer or server's is unreadable,
                 // mirroring the single merge_conversation logic.
@@ -886,6 +965,15 @@ impl ClientStore {
                     }
                     if let Some(local) = local_conversation {
                         new_conversation.merge_local_read_state(&local);
+                        // A stale server fetch must not clobber a newer local extra
+                        // (e.g. "isReplay" set by a recent conversation.update);
+                        // merge per-key so local-only keys survive.
+                        new_conversation.extra = merge_conversation_extra(
+                            &local.extra,
+                            &new_conversation.extra,
+                            conversation_updated_at_ms(&new_conversation)
+                                < conversation_updated_at_ms(&local),
+                        );
                     }
                     self.ensure_conversation_readable_last_message(&mut new_conversation)
                         .await;
@@ -2008,6 +2096,195 @@ mod tests {
         assert_eq!(
             merged[0].last_message.as_ref().unwrap().text,
             "readable summary"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_keeps_newer_local_extra_when_server_is_stale() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        // Local copy is NEWER: a recent conversation.update broadcast set the
+        // "未回复" flag (isReplay="N") at 10:00:02.
+        let mut local_extra = std::collections::HashMap::new();
+        local_extra.insert("isReplay".to_string(), "N".to_string());
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            updated_at: "2026-07-31T10:00:02Z".to_string(),
+            last_seq: 10,
+            last_message_seq: Some(10),
+            extra: Some(local_extra),
+            ..Default::default()
+        };
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        // Server snapshot is STALE (older updated_at) and still carries the old
+        // isReplay="Y"; it must not clobber the newer local "N".
+        let mut server_extra = std::collections::HashMap::new();
+        server_extra.insert("isReplay".to_string(), "Y".to_string());
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                updated_at: "2026-07-31T10:00:01Z".to_string(),
+                last_seq: 10,
+                last_message_seq: Some(10),
+                extra: Some(server_extra),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            merged.extra.as_ref().and_then(|e| e.get("isReplay")),
+            Some(&"N".to_string()),
+            "stale server snapshot must not clobber newer local isReplay"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_preserves_local_keys_omitted_by_server() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        // Local extra carries keys the server snapshot omits (e.g. isReplay).
+        let mut local_extra = std::collections::HashMap::new();
+        local_extra.insert("isReplay".to_string(), "N".to_string());
+        local_extra.insert("draft".to_string(), "hi".to_string());
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            updated_at: "2026-07-31T10:00:01Z".to_string(),
+            last_seq: 10,
+            last_message_seq: Some(10),
+            extra: Some(local_extra),
+            ..Default::default()
+        };
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        // Newer server snapshot only carries "touchStats" (isReplay was lost
+        // server-side). Per-key merge must keep isReplay + draft.
+        let mut server_extra = std::collections::HashMap::new();
+        server_extra.insert("touchStats".to_string(), "1".to_string());
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                updated_at: "2026-07-31T10:00:02Z".to_string(),
+                last_seq: 11,
+                last_message_seq: Some(11),
+                extra: Some(server_extra),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let extra = merged.extra.as_ref().unwrap();
+        assert_eq!(
+            extra.get("isReplay").map(String::as_str),
+            Some("N"),
+            "server snapshot omitting isReplay must not drop the local key"
+        );
+        assert_eq!(
+            extra.get("draft").map(String::as_str),
+            Some("hi"),
+            "server snapshot omitting draft must not drop the local key"
+        );
+        assert_eq!(
+            extra.get("touchStats").map(String::as_str),
+            Some("1"),
+            "newer server key must win"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_conversation_empty_incoming_extra_clears_local() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let mut local_extra = std::collections::HashMap::new();
+        local_extra.insert("isReplay".to_string(), "N".to_string());
+        local_extra.insert("draft".to_string(), "hi".to_string());
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            updated_at: "2026-07-31T10:00:01Z".to_string(),
+            last_seq: 10,
+            last_message_seq: Some(10),
+            extra: Some(local_extra),
+            ..Default::default()
+        };
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        // Newer server snapshot with an empty extra map = explicit "clear all",
+        // so the merge must NOT resurrect the local keys.
+        let merged = merge_conversation(
+            store.message_storage.clone(),
+            Conversation {
+                topic_id: "topic-1".to_string(),
+                updated_at: "2026-07-31T10:00:02Z".to_string(),
+                last_seq: 11,
+                last_message_seq: Some(11),
+                extra: Some(std::collections::HashMap::new()),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        assert!(
+            merged.extra.as_ref().map(|e| e.is_empty()).unwrap_or(true),
+            "empty incoming extra must clear local keys"
+        );
+    }
+
+    #[tokio::test]
+    async fn merge_conversations_keeps_newer_local_extra_when_server_is_stale() {
+        let store = ClientStore::new("", ":memory:", "http://test", "token", "user1");
+
+        let mut local_extra = std::collections::HashMap::new();
+        local_extra.insert("isReplay".to_string(), "N".to_string());
+        let local = Conversation {
+            topic_id: "topic-1".to_string(),
+            updated_at: "2026-07-31T10:00:02Z".to_string(),
+            last_seq: 10,
+            last_message_seq: Some(10),
+            extra: Some(local_extra),
+            ..Default::default()
+        };
+        let conv_table = store.message_storage.table::<Conversation>().await.unwrap();
+        conv_table
+            .set("", &local.topic_id, Some(&local))
+            .await
+            .unwrap();
+
+        let mut server_extra = std::collections::HashMap::new();
+        server_extra.insert("isReplay".to_string(), "Y".to_string());
+        let merged = store
+            .merge_conversations(vec![Conversation {
+                topic_id: "topic-1".to_string(),
+                updated_at: "2026-07-31T10:00:01Z".to_string(),
+                last_seq: 10,
+                last_message_seq: Some(10),
+                extra: Some(server_extra),
+                ..Default::default()
+            }])
+            .await;
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(
+            merged[0].extra.as_ref().and_then(|e| e.get("isReplay")),
+            Some(&"N".to_string()),
+            "batch merge must not clobber newer local isReplay with stale server snapshot"
         );
     }
 }
