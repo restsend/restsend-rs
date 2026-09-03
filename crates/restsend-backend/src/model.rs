@@ -296,6 +296,8 @@ pub struct Conversation {
     #[serde(default)]
     pub remark: Option<String>,
     #[serde(default)]
+    pub deleted_at: Option<String>,
+    #[serde(default)]
     pub extra: Option<Extra>,
     #[serde(default)]
     pub topic_extra: Option<Extra>,

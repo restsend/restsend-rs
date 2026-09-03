@@ -6,7 +6,8 @@ mod tests {
     use futures_util::{SinkExt, StreamExt};
     use http_body_util::BodyExt;
     use image::GenericImageView;
-    use sea_orm::{ActiveModelTrait, EntityTrait};
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+    use serde_json::json;
     use tokio::net::TcpListener;
     use tokio_tungstenite::tungstenite::client::IntoClientRequest;
     use tower::util::ServiceExt;
@@ -48,6 +49,15 @@ mod tests {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
             ws_drop_on_backpressure: true,
+            recall_timeout_secs: 0,
+            request_timeout_secs: 30,
+            http_send_limit: 0,
+            guest_ip_limit: 0,
+            jwt_secret: None,
+            jwt_user_id_field: String::new(),
+            sip_relay_pbx_ws: String::new(),
+            metrics_prefix: String::new(),
+            stats_enabled: false,
         }
     }
 
@@ -866,7 +876,7 @@ mod tests {
             .header("Authorization", format!("Bearer {owner_token}"))
             .header("content-type", "application/json")
             .body(Body::from(
-                r#"{"name":"private-room","members":["private-owner"],"private":true,"multiple":true}"#,
+                r#"{"name":"private-room","members":["private-owner","private-joiner"],"private":true,"multiple":true}"#,
             ))
             .unwrap();
         let create_resp = app.clone().oneshot(create_req).await.unwrap();
@@ -1154,6 +1164,8 @@ mod tests {
 
         let owner_token = register_and_auth(&app, "owner1").await;
         let joiner_token = register_and_auth(&app, "joiner1").await;
+        // a third, non-member user performs the knock
+        let knocker_token = register_and_auth(&app, "knocker1").await;
 
         let create_req = Request::builder()
             .uri("/api/topic/create")
@@ -1161,7 +1173,7 @@ mod tests {
             .header("Authorization", format!("Bearer {owner_token}"))
             .header("content-type", "application/json")
             .body(Body::from(
-                r#"{"name":"g1","members":["owner1"],"knockNeedVerify":true}"#,
+                r#"{"name":"g1","members":["owner1","joiner1"],"knockNeedVerify":true}"#,
             ))
             .unwrap();
         let create_resp = app.clone().oneshot(create_req).await.unwrap();
@@ -1177,7 +1189,7 @@ mod tests {
         let knock_req = Request::builder()
             .uri(format!("/api/topic/knock/{topic_id}"))
             .method("POST")
-            .header("Authorization", format!("Bearer {joiner_token}"))
+            .header("Authorization", format!("Bearer {knocker_token}"))
             .header("content-type", "application/json")
             .body(Body::from(r#"{"message":"let me in","source":"mobile"}"#))
             .unwrap();
@@ -1210,10 +1222,10 @@ mod tests {
             .unwrap()
             .to_bytes();
         let knocks_text = String::from_utf8(knocks_body.to_vec()).unwrap();
-        assert!(knocks_text.contains("joiner1"));
+        assert!(knocks_text.contains("knocker1"));
 
         let accept_req = Request::builder()
-            .uri(format!("/api/topic/admin/knock/accept/{topic_id}/joiner1"))
+            .uri(format!("/api/topic/admin/knock/accept/{topic_id}/knocker1"))
             .method("POST")
             .header("Authorization", format!("Bearer {owner_token}"))
             .header("content-type", "application/json")
@@ -1349,17 +1361,20 @@ mod tests {
             Some("hello from ws")
         );
 
-        let bob_event = bob_ws.next().await.unwrap().unwrap();
-        let bob_event_text = bob_event.into_text().unwrap();
-        let bob_event_json: serde_json::Value = serde_json::from_str(&bob_event_text).unwrap();
-        assert_eq!(
-            bob_event_json.get("type").and_then(|v| v.as_str()),
-            Some("chat")
-        );
-
-        let bob_ack = bob_ws.next().await.unwrap().unwrap();
-        let bob_ack_text = bob_ack.into_text().unwrap();
-        let bob_ack_json: serde_json::Value = serde_json::from_str(&bob_ack_text).unwrap();
+        // Push fan-out goes through the async push pool while the ack is sent
+        // inline, so the sender may receive them in either order.
+        let (bob_event_json, bob_ack_json) = recv_pair_until(
+            &mut bob_ws,
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("chat")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("ws-msg-1")
+            },
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("resp")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("ws-msg-1")
+            },
+        )
+        .await;
         assert_eq!(
             bob_ack_json.get("type").and_then(|v| v.as_str()),
             Some("resp")
@@ -1505,15 +1520,19 @@ mod tests {
             Some("recall-msg-1")
         );
 
-        let bob_recall = bob_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let bob_recall_json: serde_json::Value = serde_json::from_str(&bob_recall).unwrap();
-        assert_eq!(
-            bob_recall_json.get("type").and_then(|v| v.as_str()),
-            Some("chat")
-        );
-
-        let bob_ack = bob_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let bob_ack_json: serde_json::Value = serde_json::from_str(&bob_ack).unwrap();
+        // Sender push (pool) and ack (inline) may arrive in either order.
+        let (bob_recall_json, bob_ack_json) = recv_pair_until(
+            &mut bob_ws,
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("chat")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("recall-event-1")
+            },
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("resp")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("recall-event-1")
+            },
+        )
+        .await;
         assert_eq!(
             bob_ack_json.get("type").and_then(|v| v.as_str()),
             Some("resp")
@@ -2189,14 +2208,19 @@ mod tests {
             .and_then(|v| v.as_str())
             .unwrap()
             .to_string();
-        let bob_echo = bob_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let bob_echo_json: serde_json::Value = serde_json::from_str(&bob_echo).unwrap();
-        assert_eq!(
-            bob_echo_json.get("type").and_then(|v| v.as_str()),
-            Some("chat")
-        );
-        let bob_ok_ack = bob_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let bob_ok_ack_json: serde_json::Value = serde_json::from_str(&bob_ok_ack).unwrap();
+        // Sender push (pool) and ack (inline) may arrive in either order.
+        let (bob_echo_json, bob_ok_ack_json) = recv_pair_until(
+            &mut bob_ws,
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("chat")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("limit-ok-1")
+            },
+            |j| {
+                j.get("type").and_then(|v| v.as_str()) == Some("resp")
+                    && j.get("chatId").and_then(|v| v.as_str()) == Some("limit-ok-1")
+            },
+        )
+        .await;
         assert_eq!(
             bob_ok_ack_json.get("type").and_then(|v| v.as_str()),
             Some("resp")
@@ -2265,8 +2289,7 @@ mod tests {
             ))
             .await
             .unwrap();
-        let alice_typing = alice_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let alice_typing_json: serde_json::Value = serde_json::from_str(&alice_typing).unwrap();
+        let alice_typing_json = recv_until_type(&mut alice_ws, "typing").await;
         assert_eq!(
             alice_typing_json.get("type").and_then(|v| v.as_str()),
             Some("typing")
@@ -2282,24 +2305,23 @@ mod tests {
             Some(200)
         );
 
+        // bob reads his own side of the DM pair (sender-centric topics)
+        let (a_part, b_part) = topic_id.split_once(':').unwrap();
+        let bob_topic_id = format!("{}:{}", b_part, a_part);
         bob_ws
             .send(tokio_tungstenite::tungstenite::Message::Text(
                 serde_json::json!({
                     "type": "read",
                     "chatId": "read-ok-1",
-                    "topicId": topic_id,
+                    "topicId": bob_topic_id,
                     "seq": 1
                 })
                 .to_string(),
             ))
             .await
             .unwrap();
-        let alice_read = alice_ws.next().await.unwrap().unwrap().into_text().unwrap();
-        let alice_read_json: serde_json::Value = serde_json::from_str(&alice_read).unwrap();
-        assert_eq!(
-            alice_read_json.get("type").and_then(|v| v.as_str()),
-            Some("read")
-        );
+        // Go semantics: the read marker only syncs to the reader's own other
+        // devices — the peer must NOT receive a read frame.
         let read_ack = bob_ws.next().await.unwrap().unwrap().into_text().unwrap();
         let read_ack_json: serde_json::Value = serde_json::from_str(&read_ack).unwrap();
         assert_eq!(
@@ -2309,6 +2331,24 @@ mod tests {
         assert_eq!(
             read_ack_json.get("code").and_then(|v| v.as_i64()),
             Some(200)
+        );
+        // Deterministic emptiness check on alice's queue: her next message
+        // must be the reply to this ping, proving no read frame arrived.
+        alice_ws
+            .send(tokio_tungstenite::tungstenite::Message::Text(
+                serde_json::json!({
+                    "type": "ping",
+                    "chatId": "alice-quiet-check"
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+        let alice_quiet = alice_ws.next().await.unwrap().unwrap().into_text().unwrap();
+        let alice_quiet_json: serde_json::Value = serde_json::from_str(&alice_quiet).unwrap();
+        assert_eq!(
+            alice_quiet_json.get("chatId").and_then(|v| v.as_str()),
+            Some("alice-quiet-check")
         );
 
         bob_ws
@@ -4915,7 +4955,7 @@ mod tests {
             .bearer_auth(&owner_token)
             .json(&serde_json::json!({
                 "name": "topic-upload-hook",
-                "members": ["upload-owner"],
+                "members": ["upload-owner", "upload-owner-2"],
                 "multiple": true,
                 "webhooks": [topic_webhook_url]
             }))
@@ -5377,14 +5417,22 @@ mod tests {
             .unwrap();
         assert_eq!(send_resp.as_array().map(|v| v.len()), Some(1));
 
-        let bob_msg = tokio::time::timeout(std::time::Duration::from_secs(3), bob_ws.next())
-            .await
-            .expect("remote ws recv timeout")
-            .expect("remote ws ended")
-            .expect("remote ws error")
-            .into_text()
-            .unwrap();
-        let bob_json: serde_json::Value = serde_json::from_str(&bob_msg).unwrap();
+        // The unified fanout pushes a conversation.update (carrying the new
+        // lastMessage snapshot) before/after the chat event; wait for the
+        // actual chat message instead of assuming it is the first frame.
+        let bob_json = loop {
+            let bob_msg = tokio::time::timeout(std::time::Duration::from_secs(3), bob_ws.next())
+                .await
+                .expect("remote ws recv timeout")
+                .expect("remote ws ended")
+                .expect("remote ws error")
+                .into_text()
+                .unwrap();
+            let bob_json: serde_json::Value = serde_json::from_str(&bob_msg).unwrap();
+            if bob_json.get("chatId").and_then(|v| v.as_str()) == Some("cluster-msg-1") {
+                break bob_json;
+            }
+        };
         assert_eq!(
             bob_json.get("chatId").and_then(|v| v.as_str()),
             Some("cluster-msg-1")
@@ -5860,6 +5908,1459 @@ mod tests {
         assert_eq!(send_resp.status(), StatusCode::UNAUTHORIZED);
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn concurrent_send_keeps_conversation_last_message_consistent() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state.clone());
+
+        let alice_token = register_and_auth(&app, "race-alice").await;
+        let bob_token = register_and_auth(&app, "race-bob").await;
+
+        let create_req = Request::builder()
+            .uri("/api/topic/create")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"name":"race-room","members":["race-alice","race-bob"],"multiple":true}"#,
+            ))
+            .unwrap();
+        let create_resp = app.clone().oneshot(create_req).await.unwrap();
+        assert_eq!(create_resp.status(), StatusCode::OK);
+        let create_body = create_resp.into_body().collect().await.unwrap().to_bytes();
+        let create_json: serde_json::Value = serde_json::from_slice(&create_body).unwrap();
+        let topic_id = create_json
+            .get("id")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .to_string();
+
+        // warm-up message creates the lazy conversation rows for both members
+        let warmup_req = Request::builder()
+            .uri("/api/chat/send")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(format!(
+                r#"{{"topicId":"{topic_id}","type":"chat","chatId":"race-warmup","message":"race-warmup"}}"#
+            )))
+            .unwrap();
+        let warmup_resp = app.clone().oneshot(warmup_req).await.unwrap();
+        assert_eq!(warmup_resp.status(), StatusCode::OK);
+
+        // bob reads the warm-up message so unread starts from 0
+        let read_req = Request::builder()
+            .uri(format!("/api/chat/read/{topic_id}"))
+            .method("POST")
+            .header("Authorization", format!("Bearer {bob_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let read_resp = app.clone().oneshot(read_req).await.unwrap();
+        assert_eq!(read_resp.status(), StatusCode::OK);
+
+        // bob pins the conversation; concurrent sends must not reset user settings
+        let sticky_req = Request::builder()
+            .uri(format!("/api/chat/update/{topic_id}"))
+            .method("POST")
+            .header("Authorization", format!("Bearer {bob_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"sticky":true}"#))
+            .unwrap();
+        let sticky_resp = app.clone().oneshot(sticky_req).await.unwrap();
+        assert_eq!(sticky_resp.status(), StatusCode::OK);
+
+        // Deterministic regression injection: a delayed/duplicated fanout
+        // writer carrying an OLD message must never regress the conversation.
+        // (In production this happens when the WS message pool or an HTTP
+        // retry processes an older message after a newer one already fanned
+        // out.)
+        {
+            let send_a = serde_json::from_value::<serde_json::Value>(serde_json::json!({
+                "topicId": topic_id, "type": "chat", "chatId": "race-det-a", "message": "race-det-a"
+            }))
+            .unwrap();
+            let send_b = serde_json::from_value::<serde_json::Value>(serde_json::json!({
+                "topicId": topic_id, "type": "chat", "chatId": "race-det-b", "message": "race-det-b"
+            }))
+            .unwrap();
+            let req_a = Request::builder()
+                .uri("/api/chat/send")
+                .method("POST")
+                .header("Authorization", format!("Bearer {alice_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(send_a.to_string()))
+                .unwrap();
+            let resp_a = app.clone().oneshot(req_a).await.unwrap();
+            assert_eq!(resp_a.status(), StatusCode::OK);
+            let resp_a: crate::OpenApiSendMessageResponse =
+                serde_json::from_slice(&resp_a.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            let req_b = Request::builder()
+                .uri("/api/chat/send")
+                .method("POST")
+                .header("Authorization", format!("Bearer {alice_token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(send_b.to_string()))
+                .unwrap();
+            let resp_b = app.clone().oneshot(req_b).await.unwrap();
+            assert_eq!(resp_b.status(), StatusCode::OK);
+            let resp_b: crate::OpenApiSendMessageResponse =
+                serde_json::from_slice(&resp_b.into_body().collect().await.unwrap().to_bytes())
+                    .unwrap();
+            assert!(resp_b.seq > resp_a.seq);
+
+            // Re-fanout the older message A after B has fully landed.
+            let form_a: crate::OpenApiChatMessageForm =
+                serde_json::from_value(send_a).unwrap();
+            crate::api::chat::update_topic_conversations(&state, &topic_id, &resp_a, &form_a)
+                .await;
+
+            for user in ["race-alice", "race-bob"] {
+                let conv = state
+                    .conversation_service
+                    .get_conversation(user, &topic_id)
+                    .await
+                    .unwrap();
+                assert_eq!(
+                    conv.last_message_seq,
+                    Some(resp_b.seq),
+                    "{user} last_message regressed by delayed writer: expected seq {}, got {:?} ({:?})",
+                    resp_b.seq,
+                    conv.last_message_seq,
+                    conv.last_message.as_ref().map(|c| c.text.clone())
+                );
+                assert_eq!(
+                    conv.last_message.as_ref().map(|c| c.text.clone()),
+                    Some("race-det-b".to_string()),
+                    "{user} last_message text regressed by delayed writer"
+                );
+                assert_eq!(
+                    conv.last_seq, resp_b.seq,
+                    "{user} last_seq regressed by delayed writer"
+                );
+            }
+        }
+
+        // bob reads the deterministic-block messages so burst unread starts at 0
+        let read2_req = Request::builder()
+            .uri(format!("/api/chat/read/{topic_id}"))
+            .method("POST")
+            .header("Authorization", format!("Bearer {bob_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let read2_resp = app.clone().oneshot(read2_req).await.unwrap();
+        assert_eq!(read2_resp.status(), StatusCode::OK);
+
+        const N: i64 = 12;
+        let mut handles = Vec::new();
+        for i in 0..N {
+            let app = app.clone();
+            let token = alice_token.clone();
+            let topic_id = topic_id.clone();
+            handles.push(tokio::spawn(async move {
+                // Small waves: 3 concurrent sends per wave keep topic seq CAS
+                // contention low while the conversation read-modify-write phase
+                // still interleaves within each wave.
+                tokio::time::sleep(std::time::Duration::from_millis(
+                    (i as u64 % 3) * 25 + (i as u64 / 3),
+                ))
+                .await;
+                let req = Request::builder()
+                    .uri("/api/chat/send")
+                    .method("POST")
+                    .header("Authorization", format!("Bearer {token}"))
+                    .header("content-type", "application/json")
+                    .body(Body::from(format!(
+                        r#"{{"topicId":"{topic_id}","type":"chat","chatId":"race-c-{i}","message":"race-m-{i}"}}"#
+                    )))
+                    .unwrap();
+                let resp = app.oneshot(req).await.unwrap();
+                let status = resp.status();
+                let body = resp.into_body().collect().await.unwrap().to_bytes();
+                let text = String::from_utf8(body.to_vec()).unwrap();
+                assert_eq!(
+                    status,
+                    StatusCode::OK,
+                    "send failed: {} {}",
+                    status,
+                    text
+                );
+                serde_json::from_str::<serde_json::Value>(&text).unwrap()
+            }));
+        }
+
+        let mut seq_by_chat_id = std::collections::HashMap::new();
+        for h in handles {
+            let json = h.await.unwrap();
+            let chat_id = json.get("chatId").and_then(|v| v.as_str()).unwrap();
+            let seq = json.get("seq").and_then(|v| v.as_i64()).unwrap();
+            seq_by_chat_id.insert(chat_id.to_string(), seq);
+        }
+        assert_eq!(seq_by_chat_id.len() as i64, N);
+
+        let (winner_chat_id, max_seq) = seq_by_chat_id
+            .iter()
+            .max_by_key(|(_, seq)| **seq)
+            .map(|(cid, seq)| (cid.clone(), *seq))
+            .unwrap();
+        let winner_text = winner_chat_id.replace("race-c-", "race-m-");
+
+        let logs = crate::entity::chat_log::Entity::find()
+            .filter(crate::entity::chat_log::Column::TopicId.eq(&topic_id))
+            .all(&state.db)
+            .await
+            .unwrap();
+        let db_max_seq = logs.iter().map(|l| l.seq).max().unwrap();
+        assert_eq!(db_max_seq, max_seq, "chat_logs max seq must match responses");
+
+        for (user, expect_unread) in [("race-alice", 0), ("race-bob", N)] {
+            let conv = state
+                .conversation_service
+                .get_conversation(user, &topic_id)
+                .await
+                .unwrap();
+            assert_eq!(
+                conv.last_message_seq,
+                Some(max_seq),
+                "{user} last_message_seq regressed: expected {max_seq}, got {:?} (last_message={:?})",
+                conv.last_message_seq,
+                conv.last_message.as_ref().map(|c| c.text.clone())
+            );
+            assert_eq!(
+                conv.last_message.as_ref().map(|c| c.text.clone()),
+                Some(winner_text.clone()),
+                "{user} last_message text must be the highest-seq message"
+            );
+            assert_eq!(conv.last_seq, max_seq, "{user} last_seq regressed");
+            assert_eq!(
+                conv.unread, expect_unread,
+                "{user} unread lost updates: expected {expect_unread}, got {}",
+                conv.unread
+            );
+        }
+
+        let bob_conv = state
+            .conversation_service
+            .get_conversation("race-bob", &topic_id)
+            .await
+            .unwrap();
+        assert!(bob_conv.sticky, "concurrent sends must not reset sticky");
+    }
+
+    // ------------------------------------------------------------------
+    // Dual-topic DM model + E2E (Go parity)
+    // ------------------------------------------------------------------
+
+    async fn send_chat<S>(
+        app: &S,
+        token: &str,
+        body: serde_json::Value,
+    ) -> (StatusCode, serde_json::Value)
+    where
+        S: tower::Service<
+                Request<Body>,
+                Response = axum::response::Response,
+                Error = std::convert::Infallible,
+            > + Clone,
+        S::Future: Send,
+    {
+        let req = Request::builder()
+            .uri("/api/chat/send")
+            .method("POST")
+            .header("Authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        let status = resp.status();
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or(json!({}));
+        (status, json)
+    }
+
+    async fn chat_sync<S>(
+        app: &S,
+        token: &str,
+        topic_id: &str,
+    ) -> Vec<serde_json::Value>
+    where
+        S: tower::Service<
+                Request<Body>,
+                Response = axum::response::Response,
+                Error = std::convert::Infallible,
+            > + Clone,
+        S::Future: Send,
+    {
+        let req = Request::builder()
+            .uri(format!("/api/chat/sync/{topic_id}"))
+            .method("POST")
+            .header("Authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from("{}"))
+            .unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        json.get("items")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    async fn chat_list_json<S>(
+        app: &S,
+        token: &str,
+        body: serde_json::Value,
+    ) -> serde_json::Value
+    where
+        S: tower::Service<
+                Request<Body>,
+                Response = axum::response::Response,
+                Error = std::convert::Infallible,
+            > + Clone,
+        S::Future: Send,
+    {
+        let req = Request::builder()
+            .uri("/api/chat/list")
+            .method("POST")
+            .header("Authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn dual_topic_dm_routes_each_user_to_their_own_topic() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "dm-alice").await;
+        let bob_token = register_and_auth(&app, "dm-bob").await;
+
+        // alice -> bob DM: response topic is alice's own pair topic
+        let (status, resp) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "dm-bob", "type": "chat", "chatId": "dm-1", "message": "hi bob"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            resp.get("topicId").and_then(|v| v.as_str()),
+            Some("dm-alice:dm-bob")
+        );
+
+        // each user syncs their own topic and sees the same chat id
+        let alice_items = chat_sync(&app, &alice_token, "dm-alice:dm-bob").await;
+        let bob_items = chat_sync(&app, &bob_token, "dm-bob:dm-alice").await;
+        assert_eq!(alice_items.len(), 1);
+        assert_eq!(bob_items.len(), 1);
+        assert_eq!(alice_items[0].get("id"), bob_items[0].get("id"));
+        assert_eq!(
+            alice_items[0]
+                .get("content")
+                .and_then(|c| c.get("text"))
+                .and_then(|v| v.as_str()),
+            Some("hi bob")
+        );
+
+        // bob replies: response topic is bob's own pair topic
+        let (status, resp) = send_chat(
+            &app,
+            &bob_token,
+            json!({"attendee": "dm-alice", "type": "chat", "chatId": "dm-2", "message": "hi alice"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(
+            resp.get("topicId").and_then(|v| v.as_str()),
+            Some("dm-bob:dm-alice")
+        );
+
+        // conversations point at each user's own topic
+        let alice_list = chat_list_json(&app, &alice_token, json!({})).await;
+        let alice_topics: Vec<&str> = alice_list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.get("topicId").and_then(|v| v.as_str()))
+            .collect();
+        assert!(alice_topics.contains(&"dm-alice:dm-bob"));
+        assert!(!alice_topics.contains(&"dm-bob:dm-alice"));
+
+        let bob_list = chat_list_json(&app, &bob_token, json!({})).await;
+        let bob_topics: Vec<&str> = bob_list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.get("topicId").and_then(|v| v.as_str()))
+            .collect();
+        assert!(bob_topics.contains(&"dm-bob:dm-alice"));
+
+        // bob's reply gave alice's DM conversation one unread message
+        let alice_conv = alice_list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c.get("topicId").and_then(|v| v.as_str()) == Some("dm-alice:dm-bob"))
+            .unwrap()
+            .clone();
+        assert_eq!(alice_conv.get("unread").and_then(|v| v.as_i64()), Some(1));
+    }
+
+    #[tokio::test]
+    async fn e2e_content_stores_ciphertext_on_peer_topic() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "e2e-alice").await;
+        let bob_token = register_and_auth(&app, "e2e-bob").await;
+
+        let (status, _resp) = send_chat(
+            &app,
+            &alice_token,
+            json!({
+                "attendee": "e2e-bob",
+                "type": "chat",
+                "chatId": "e2e-1",
+                "message": "plaintext secret",
+                "e2eContent": "ciphertext-payload"
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // sender side keeps the plaintext
+        let alice_items = chat_sync(&app, &alice_token, "e2e-alice:e2e-bob").await;
+        assert_eq!(
+            alice_items[0]
+                .get("content")
+                .and_then(|c| c.get("text"))
+                .and_then(|v| v.as_str()),
+            Some("plaintext secret")
+        );
+
+        // peer side stores the e2e ciphertext in place of the text
+        let bob_items = chat_sync(&app, &bob_token, "e2e-bob:e2e-alice").await;
+        assert_eq!(
+            bob_items[0]
+                .get("content")
+                .and_then(|c| c.get("text"))
+                .and_then(|v| v.as_str()),
+            Some("ciphertext-payload")
+        );
+        // same chat id on both sides
+        assert_eq!(alice_items[0].get("id"), bob_items[0].get("id"));
+    }
+
+    #[tokio::test]
+    async fn recall_updates_both_pair_topics() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "rc-alice").await;
+        let _bob_token = register_and_auth(&app, "rc-bob").await;
+
+        let (status, _resp) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "rc-bob", "type": "chat", "chatId": "rc-1", "message": "to recall"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        let (status, _resp) = send_chat(
+            &app,
+            &alice_token,
+            json!({
+                "topicId": "rc-alice:rc-bob",
+                "type": "chat",
+                "content": {"type": "recall", "text": "rc-1"}
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        for topic in ["rc-alice:rc-bob", "rc-bob:rc-alice"] {
+            let items = chat_sync(&app, &alice_token, topic).await;
+            let recalled = items
+                .iter()
+                .find(|i| i.get("id").and_then(|v| v.as_str()) == Some("rc-1"))
+                .expect("message must exist on both pair topics");
+            assert_eq!(recalled.get("recall").and_then(|v| v.as_bool()), Some(true));
+            assert_eq!(
+                recalled
+                    .get("content")
+                    .and_then(|c| c.get("type"))
+                    .and_then(|v| v.as_str()),
+                Some("recalled")
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn reply_content_is_backfilled_by_server() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "rp-alice").await;
+        let _bob_token = register_and_auth(&app, "rp-bob").await;
+
+        let (status, first) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "rp-bob", "type": "chat", "chatId": "rp-1", "message": "original"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        let (status, _second) = send_chat(
+            &app,
+            &alice_token,
+            json!({
+                "attendee": "rp-bob",
+                "type": "chat",
+                "chatId": "rp-2",
+                "content": {"type": "chat", "text": "a reply", "reply": first["chatId"]}
+            }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        let items = chat_sync(&app, &alice_token, "rp-alice:rp-bob").await;
+        let reply = items
+            .iter()
+            .find(|i| i.get("id").and_then(|v| v.as_str()) == Some("rp-2"))
+            .unwrap();
+        let reply_content = reply
+            .get("content")
+            .and_then(|c| c.get("replyContent"))
+            .and_then(|v| v.as_str())
+            .expect("server must backfill replyContent");
+        let original: serde_json::Value = serde_json::from_str(reply_content).unwrap();
+        assert_eq!(original.get("text").and_then(|v| v.as_str()), Some("original"));
+    }
+
+    #[tokio::test]
+    async fn recall_rejects_double_recall() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "rto-alice").await;
+        let _bob_token = register_and_auth(&app, "rto-bob").await;
+
+        let (status, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "rto-bob", "type": "chat", "chatId": "rto-1", "message": "fresh"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // within the window the recall succeeds
+        let (status, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"topicId": "rto-alice:rto-bob", "type": "chat", "content": {"type": "recall", "text": "rto-1"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // a second recall of an already-recalled message fails
+        let (status, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"topicId": "rto-alice:rto-bob", "type": "chat", "content": {"type": "recall", "text": "rto-1"}}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn chat_create_with_user_returns_own_pair_topic() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "cc-alice").await;
+        let bob_token = register_and_auth(&app, "cc-bob").await;
+
+        let create = |path: &'static str| {
+            let app = app.clone();
+            let token = if path.contains("cc-bob") {
+                alice_token.clone()
+            } else {
+                bob_token.clone()
+            };
+            async move {
+                let req = Request::builder()
+                    .uri(path)
+                    .method("POST")
+                    .header("Authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap();
+                let resp = app.oneshot(req).await.unwrap();
+                assert_eq!(resp.status(), StatusCode::OK);
+                let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+                let conv: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                conv.get("topicId").and_then(|v| v.as_str()).unwrap().to_string()
+            }
+        };
+
+        assert_eq!(
+            create("/api/chat/create/cc-bob").await,
+            "cc-alice:cc-bob"
+        );
+        assert_eq!(
+            create("/api/chat/create/cc-alice").await,
+            "cc-bob:cc-alice"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Conversation incremental sync + categories + soft delete
+    // ------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn chat_list_incremental_sync_returns_removed_and_restores_on_read() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "inc-alice").await;
+        let bob_token = register_and_auth(&app, "inc-bob").await;
+
+        // one DM and one group for alice
+        let (_s, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "inc-bob", "type": "chat", "chatId": "inc-1", "message": "dm"}),
+        )
+        .await;
+        let create_group = Request::builder()
+            .uri("/api/topic/create")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({"name": "inc-group", "members": ["inc-alice", "inc-bob"]}).to_string(),
+            ))
+            .unwrap();
+        let group_resp = app.clone().oneshot(create_group).await.unwrap();
+        assert_eq!(group_resp.status(), StatusCode::OK);
+        let group_bytes = group_resp.into_body().collect().await.unwrap().to_bytes();
+        let group: serde_json::Value = serde_json::from_slice(&group_bytes).unwrap();
+        let group_id = group.get("id").and_then(|v| v.as_str()).unwrap().to_string();
+        // conversations are created lazily on the first message
+        let (_s, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({
+                "topicId": group_id,
+                "type": "chat",
+                "chatId": "inc-g1",
+                "message": "group hello"
+            }),
+        )
+        .await;
+
+        // baseline list
+        let list = chat_list_json(&app, &alice_token, json!({})).await;
+        assert_eq!(list["items"].as_array().unwrap().len(), 2);
+
+        // incremental sync with updatedAt cursor returns both conversations
+        let list = chat_list_json(
+            &app,
+            &alice_token,
+            json!({"updatedAt": "2000-01-01T00:00:00+00:00"}),
+        )
+        .await;
+        assert_eq!(list["items"].as_array().unwrap().len(), 2);
+        assert_eq!(list["removed"].as_array().unwrap().len(), 0);
+
+        // remove the DM conversation: soft-deleted, hidden from the list,
+        // reported via the removed list on incremental sync
+        let remove_req = Request::builder()
+            .uri("/api/chat/remove/inc-alice:inc-bob")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let remove_resp = app.clone().oneshot(remove_req).await.unwrap();
+        assert_eq!(remove_resp.status(), StatusCode::OK);
+
+        let list = chat_list_json(&app, &alice_token, json!({})).await;
+        let topics: Vec<&str> = list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.get("topicId").and_then(|v| v.as_str()))
+            .collect();
+        assert!(!topics.contains(&"inc-alice:inc-bob"));
+
+        let list = chat_list_json(
+            &app,
+            &alice_token,
+            json!({"updatedAt": "2000-01-01T00:00:00+00:00", "lastRemovedAt": "2000-01-01T00:00:00+00:00"}),
+        )
+        .await;
+        let removed: Vec<&str> = list["removed"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert!(removed.contains(&"inc-alice:inc-bob"));
+
+        // reading restores the soft-deleted conversation
+        let read_req = Request::builder()
+            .uri("/api/chat/read/inc-alice:inc-bob")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let read_resp = app.clone().oneshot(read_req).await.unwrap();
+        assert_eq!(read_resp.status(), StatusCode::OK);
+
+        let list = chat_list_json(&app, &alice_token, json!({})).await;
+        let topics: Vec<&str> = list["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|c| c.get("topicId").and_then(|v| v.as_str()))
+            .collect();
+        assert!(topics.contains(&"inc-alice:inc-bob"));
+        assert!(topics.contains(&group_id.as_str()));
+    }
+
+    #[tokio::test]
+    async fn chat_list_category_filter_and_aggregation() {
+let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "cat-alice").await;
+        let bob_token = register_and_auth(&app, "cat-bob").await;
+
+        // DM alice <-> bob; bob's reply gives alice one unread, then she reads it
+        let (_s, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "cat-bob", "type": "chat", "chatId": "cat-1", "message": "dm"}),
+        )
+        .await;
+        let (_s, _r) = send_chat(
+            &app,
+            &bob_token,
+            json!({"attendee": "cat-alice", "type": "chat", "chatId": "cat-2", "message": "dm reply"}),
+        )
+        .await;
+        let read_req = Request::builder()
+            .uri("/api/chat/read/cat-alice:cat-bob")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let _ = app.clone().oneshot(read_req).await.unwrap();
+
+        // group with 2 unread messages for alice
+        let create_group = Request::builder()
+            .uri("/api/topic/create")
+            .method("POST")
+            .header("Authorization", format!("Bearer {bob_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({"name": "cat-group", "members": ["cat-alice", "cat-bob"]}).to_string(),
+            ))
+            .unwrap();
+        let group_resp = app.clone().oneshot(create_group).await.unwrap();
+        assert_eq!(group_resp.status(), StatusCode::OK);
+        let group_bytes = group_resp.into_body().collect().await.unwrap().to_bytes();
+        let group: serde_json::Value = serde_json::from_slice(&group_bytes).unwrap();
+        let group_id = group.get("id").and_then(|v| v.as_str()).unwrap().to_string();
+        for i in 0..2 {
+            let (_s, _r) = send_chat(
+                &app,
+                &bob_token,
+                json!({
+                    "topicId": group_id,
+                    "type": "chat",
+                    "chatId": format!("cat-g{i}"),
+                    "message": format!("group msg {i}")
+                }),
+            )
+            .await;
+        }
+
+        // home request aggregates categories
+        let list = chat_list_json(&app, &alice_token, json!({})).await;
+        let categories = list["categories"].as_array().expect("categories returned");
+        let by_name = |name: &str| {
+            categories
+                .iter()
+                .find(|c| c.get("name").and_then(|v| v.as_str()) == Some(name))
+                .cloned()
+                .unwrap()
+        };
+        assert_eq!(by_name("all").get("total").and_then(|v| v.as_i64()), Some(2));
+        assert_eq!(by_name("group").get("total").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(by_name("group").get("unread").and_then(|v| v.as_i64()), Some(2));
+        assert_eq!(by_name("personal").get("total").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(by_name("personal").get("unread").and_then(|v| v.as_i64()), Some(0));
+        assert_eq!(by_name("unread").get("total").and_then(|v| v.as_i64()), Some(1));
+
+        // category filter: unread only has the group
+        let list = chat_list_json(&app, &alice_token, json!({"category": "unread"})).await;
+        assert_eq!(list["items"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            list["items"][0].get("topicId").and_then(|v| v.as_str()),
+            Some(group_id.as_str())
+        );
+
+        // category filter: personal only has the DM
+        let list = chat_list_json(&app, &alice_token, json!({"category": "personal"})).await;
+        assert_eq!(list["items"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            list["items"][0].get("topicId").and_then(|v| v.as_str()),
+            Some("cat-alice:cat-bob")
+        );
+
+        // sticky filter: pin the DM, then filter
+        let sticky_req = Request::builder()
+            .uri("/api/chat/update/cat-alice:cat-bob")
+            .method("POST")
+            .header("Authorization", format!("Bearer {alice_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"sticky":true}"#))
+            .unwrap();
+        let _ = app.clone().oneshot(sticky_req).await.unwrap();
+        let list = chat_list_json(&app, &alice_token, json!({"category": "sticky"})).await;
+        assert_eq!(list["items"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            list["items"][0].get("topicId").and_then(|v| v.as_str()),
+            Some("cat-alice:cat-bob")
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // Phase 3/4: avatars, stats, configs, admin objects, JWT, limits
+    // ------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn avatar_endpoint_renders_letter_png() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let _token = register_and_auth(&app, "av-user").await;
+
+        let req = Request::builder()
+            .uri("/api/avatar/av-user")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers().get("content-type").and_then(|v| v.to_str().ok()),
+            Some("image/png")
+        );
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let img = image::load_from_memory(&bytes).expect("valid png");
+        assert_eq!(img.dimensions(), (128, 128));
+
+        // unknown user -> 404
+        let req = Request::builder()
+            .uri("/api/avatar/av-nobody")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn topic_icon_composes_member_grid() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let token = register_and_auth(&app, "icon-owner").await;
+        let _ = register_and_auth(&app, "icon-peer").await;
+
+        let create_req = Request::builder()
+            .uri("/api/chat/create/icon-peer")
+            .method("POST")
+            .header("Authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.clone().oneshot(create_req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let conv: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let topic_id = conv.get("topicId").and_then(|v| v.as_str()).unwrap().to_string();
+
+        let req = Request::builder()
+            .uri(format!("/api/topic/icon/{topic_id}"))
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let img = image::load_from_memory(&bytes).expect("valid png");
+        assert_eq!(img.dimensions(), (256, 256));
+    }
+
+    #[tokio::test]
+    async fn admin_stats_configs_and_objects_flow() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let user_service = state.user_service.clone();
+        let app = app.with_state(state);
+        let admin_token = register_and_auth(&app, "adm-root").await;
+        // make staff
+        user_service.set_staff("adm-root", true).await.unwrap();
+        let user_token = register_and_auth(&app, "adm-user").await;
+        let _ = register_and_auth(&app, "adm-peer").await;
+
+        // a DM so objects have content
+        let send_req = Request::builder()
+            .uri("/api/chat/send")
+            .method("POST")
+            .header("Authorization", format!("Bearer {user_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"attendee":"adm-peer","type":"chat","chatId":"adm-1","message":"hi"}"#,
+            ))
+            .unwrap();
+        let resp = app.clone().oneshot(send_req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        // metrics endpoint (enabled by default in prod config; test config
+        // disables it, so flip it via a dedicated router)
+        // admin daily stats
+        let stats_req = Request::builder()
+            .uri("/admin/api/stats?days=7")
+            .method("GET")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let stats_resp = app.clone().oneshot(stats_req).await.unwrap();
+        assert_eq!(stats_resp.status(), StatusCode::OK);
+        let stats_bytes = stats_resp.into_body().collect().await.unwrap().to_bytes();
+        let stats_json: serde_json::Value = serde_json::from_slice(&stats_bytes).unwrap();
+        assert!(stats_json.get("items").is_some());
+
+        // non-staff rejected
+        let stats_req = Request::builder()
+            .uri("/admin/api/stats")
+            .method("GET")
+            .header("Authorization", format!("Bearer {user_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let stats_resp = app.clone().oneshot(stats_req).await.unwrap();
+        assert_eq!(stats_resp.status(), StatusCode::UNAUTHORIZED);
+
+        // runtime config: set MINIMUM_TOPIC_MEMBERS to 10 and verify topic
+        // create is rejected, then reset
+        let set_req = Request::builder()
+            .uri("/admin/api/configs/MINIMUM_TOPIC_MEMBERS")
+            .method("PUT")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"value":"10"}"#))
+            .unwrap();
+        let set_resp = app.clone().oneshot(set_req).await.unwrap();
+        assert_eq!(set_resp.status(), StatusCode::OK);
+
+        let create_req = Request::builder()
+            .uri("/api/topic/create")
+            .method("POST")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"name":"too-small","members":["adm-root","adm-user","adm-peer"],"multiple":true}"#,
+            ))
+            .unwrap();
+        let create_resp = app.clone().oneshot(create_req).await.unwrap();
+        assert_eq!(create_resp.status(), StatusCode::BAD_REQUEST);
+
+        let reset_req = Request::builder()
+            .uri("/admin/api/configs/MINIMUM_TOPIC_MEMBERS")
+            .method("PUT")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"value":"2"}"#))
+            .unwrap();
+        let reset_resp = app.clone().oneshot(reset_req).await.unwrap();
+        assert_eq!(reset_resp.status(), StatusCode::OK);
+
+        // list configs
+        let list_req = Request::builder()
+            .uri("/admin/api/configs")
+            .method("GET")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let list_resp = app.clone().oneshot(list_req).await.unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK);
+
+        // object list: users
+        let obj_req = Request::builder()
+            .uri("/admin/api/objects/users?keyword=adm-")
+            .method("GET")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let obj_resp = app.clone().oneshot(obj_req).await.unwrap();
+        assert_eq!(obj_resp.status(), StatusCode::OK);
+        let obj_bytes = obj_resp.into_body().collect().await.unwrap().to_bytes();
+        let obj_json: serde_json::Value = serde_json::from_slice(&obj_bytes).unwrap();
+        assert!(obj_json.get("total").and_then(|v| v.as_i64()).unwrap_or(0) >= 3);
+
+        // object delete: remove the DM message
+        let del_req = Request::builder()
+            .uri("/admin/api/objects/messages/adm-user:adm-peer/adm-1")
+            .method("DELETE")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let del_resp = app.clone().oneshot(del_req).await.unwrap();
+        assert_eq!(del_resp.status(), StatusCode::OK);
+
+        // unknown object type
+        let obj_req = Request::builder()
+            .uri("/admin/api/objects/bogus")
+            .method("GET")
+            .header("Authorization", format!("Bearer {admin_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let obj_resp = app.oneshot(obj_req).await.unwrap();
+        assert_eq!(obj_resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn metrics_endpoint_exposes_prometheus_text() {
+        let mut config = test_config();
+        config.metrics_prefix = "/metrics".to_string();
+        config.stats_enabled = true;
+        let (app, state) = build_router(config).await.expect("build router");
+        let app = app.with_state(state);
+        let _token = register_and_auth(&app, "mx-user").await;
+        // generate a chat event so counters tick
+        let send_req = Request::builder()
+            .uri("/api/chat/send")
+            .method("POST")
+            .header("Authorization", format!("Bearer {_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"attendee":"mx-user2","type":"chat","chatId":"mx-1","message":"hi"}"#,
+            ))
+            .unwrap();
+        let resp = app.clone().oneshot(send_req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let req = Request::builder()
+            .uri("/metrics")
+            .method("GET")
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let text = String::from_utf8(bytes.to_vec()).unwrap();
+        assert!(text.contains("restsend_online_sessions"));
+    }
+
+    #[tokio::test]
+    async fn ws_entry_point_requires_token_outside_demo() {
+        // test_config is not demo mode -> /ws must reject missing tokens
+        let config = test_config();
+        let (app, state) = build_router(config).await.expect("build router");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app.with_state(state)).await.unwrap();
+        });
+
+        let plain = format!("ws://{}/ws?user_id=wsx-user", addr)
+            .into_client_request()
+            .unwrap();
+        let result = tokio_tungstenite::connect_async(plain).await;
+        assert!(result.is_err(), "unauthenticated /ws must be rejected");
+
+        // valid token via ?token= works
+        let _ = register_and_auth_http(
+            &reqwest::Client::new(),
+            &format!("http://{addr}"),
+            "wsx-user",
+        )
+        .await;
+        // fetch a token through the same endpoint used elsewhere
+        let client = reqwest::Client::new();
+        let auth: serde_json::Value = client
+            .post(format!("http://{addr}/open/user/auth/wsx-user"))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let token = auth.get("authToken").and_then(|v| v.as_str()).unwrap();
+        let authed = format!("ws://{}/ws?user_id=wsx-user&token={token}", addr)
+            .into_client_request()
+            .unwrap();
+        let connected = tokio_tungstenite::connect_async(authed).await;
+        assert!(connected.is_ok(), "token-authenticated /ws must connect");
+
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn jwt_token_grants_user_api_access() {
+        use crate::infra::jwt as test_jwt;
+
+        let mut config = test_config();
+        config.jwt_secret = Some("jwt-test-secret".to_string());
+        config.jwt_user_id_field = "uid".to_string();
+        let (app, state) = build_router(config).await.expect("build router");
+        let app = app.with_state(state);
+        register_and_auth(&app, "jwt-user").await;
+
+        let payload = serde_json::json!({
+            "uid": "jwt-user",
+            "exp": chrono::Utc::now().timestamp() + 600
+        });
+        let token = test_jwt::sign_token(&payload, "jwt-test-secret");
+
+        let req = Request::builder()
+            .uri("/api/devices")
+            .method("GET")
+            .header("Authorization", format!("Bearer {token}"))
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn guest_login_per_ip_limit_blocks_flood() {
+        let mut config = test_config();
+        config.guest_ip_limit = 2;
+        let (app, state) = build_router(config).await.expect("build router");
+        let app = app.with_state(state);
+
+        for i in 0..2 {
+            let req = Request::builder()
+                .uri("/api/guest/login")
+                .method("POST")
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"guestId":"flood-guest-{i}"}}"#
+                )))
+                .unwrap();
+            let resp = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+        let req = Request::builder()
+            .uri("/api/guest/login")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"guestId":"flood-guest-3"}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn http_send_rate_limit_blocks_flood() {
+        let mut config = test_config();
+        config.http_send_limit = 2;
+        let (app, state) = build_router(config).await.expect("build router");
+        let app = app.with_state(state);
+        let token = register_and_auth(&app, "flood-alice").await;
+        let _ = register_and_auth(&app, "flood-bob").await;
+
+        for i in 0..2 {
+            let req = Request::builder()
+                .uri("/api/chat/send")
+                .method("POST")
+                .header("Authorization", format!("Bearer {token}"))
+                .header("content-type", "application/json")
+                .body(Body::from(format!(
+                    r#"{{"attendee":"flood-bob","type":"chat","chatId":"fl-{i}","message":"m"}}"#
+                )))
+                .unwrap();
+            let resp = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(resp.status(), StatusCode::OK, "message {i} should pass");
+        }
+        let req = Request::builder()
+            .uri("/api/chat/send")
+            .method("POST")
+            .header("Authorization", format!("Bearer {token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"attendee":"flood-bob","type":"chat","chatId":"fl-3","message":"m"}"#,
+            ))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    #[tokio::test]
+    async fn sip_relay_pipes_frames_to_fake_pbx() {
+        // fake PBX WebSocket the backend will dial
+        let pbx_listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let pbx_addr = pbx_listener.local_addr().unwrap();
+        let pbx = tokio::spawn(async move {
+            use futures_util::{SinkExt, StreamExt};
+            use tokio_tungstenite::tungstenite::handshake::server::{Request, Response};
+            let (stream, _) = pbx_listener.accept().await.unwrap();
+            let callback = |req: &Request, resp: Response| {
+                let resp = if req
+                    .headers()
+                    .get("Sec-WebSocket-Protocol")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|v| v.split(',').any(|p| p.trim() == "sip"))
+                    .unwrap_or(false)
+                {
+                    let (mut parts, body) = resp.into_parts();
+                    parts
+                        .headers
+                        .insert("Sec-WebSocket-Protocol", "sip".parse().unwrap());
+                    axum::http::Response::from_parts(parts, body)
+                } else {
+                    resp
+                };
+                Ok(resp)
+            };
+            let ws = tokio_tungstenite::accept_hdr_async(stream, callback).await.unwrap();
+            let (mut sink, mut stream) = ws.split();
+            if let Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) =
+                stream.next().await
+            {
+                assert!(text.contains("INVITE"), "pbx should receive raw SIP text");
+                let _ = sink
+                    .send(tokio_tungstenite::tungstenite::Message::Text(
+                        "SIP/2.0 100 Trying".to_string(),
+                    ))
+                    .await;
+            }
+        });
+
+        let mut config = test_config();
+        config.sip_relay_pbx_ws = format!("ws://{pbx_addr}");
+        let (app, state) = build_router(config).await.expect("build router");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app.with_state(state)).await.unwrap();
+        });
+
+        let endpoint = format!("http://{addr}");
+        let client = reqwest::Client::new();
+        let _ = client
+            .post(format!("{endpoint}/open/user/register/sip-user"))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .unwrap();
+        let auth: serde_json::Value = client
+            .post(format!("{endpoint}/open/user/auth/sip-user"))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let token = auth.get("authToken").and_then(|v| v.as_str()).unwrap();
+
+        let mut req = format!("ws://{addr}/api/connect?device=sip-dev",).into_client_request().unwrap();
+        req.headers_mut()
+            .insert("Authorization", format!("Bearer {token}").parse().unwrap());
+        let (mut ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
+
+        // client sends raw SIP text; relay pipes it to the fake PBX and
+        // pipes the PBX reply back as a sip frame
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            serde_json::json!({
+                "type": "sip",
+                "message": "INVITE sip:bob@example.com SIP/2.0"
+            })
+            .to_string(),
+        ))
+        .await
+        .unwrap();
+
+        let reply = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next())
+            .await
+            .expect("sip reply timeout")
+            .expect("ws ended")
+            .expect("ws error")
+            .into_text()
+            .unwrap();
+        let reply_json: serde_json::Value = serde_json::from_str(&reply).unwrap();
+        assert_eq!(
+            reply_json.get("type").and_then(|v| v.as_str()),
+            Some("sip")
+        );
+        assert_eq!(
+            reply_json.get("message").and_then(|v| v.as_str()),
+            Some("SIP/2.0 100 Trying")
+        );
+
+        pbx.await.unwrap();
+        let _ = ws.close(None).await;
+        server.abort();
+    }
+
+    #[tokio::test]
+    async fn blocked_recipient_rejects_dm_send() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let alice_token = register_and_auth(&app, "blk-alice").await;
+        let bob_token = register_and_auth(&app, "blk-bob").await;
+
+        // normal send works
+        let (status, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "blk-bob", "type": "chat", "chatId": "blk-1", "message": "hello"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // bob blocks alice -> alice can no longer DM bob
+        let block_req = Request::builder()
+            .uri("/api/block/blk-alice")
+            .method("POST")
+            .header("Authorization", format!("Bearer {bob_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let resp = app.clone().oneshot(block_req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let (status, _r) = send_chat(
+            &app,
+            &alice_token,
+            json!({"attendee": "blk-bob", "type": "chat", "chatId": "blk-2", "message": "again"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+
+        // bob (blocker) may still message alice? Go parity: recipient-side
+        // check only blocks alice's sends; bob sending to alice is allowed.
+        let (status, _r) = send_chat(
+            &app,
+            &bob_token,
+            json!({"attendee": "blk-alice", "type": "chat", "chatId": "blk-3", "message": "still ok"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn non_member_group_send_rejected() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let app = app.with_state(state);
+        let owner_token = register_and_auth(&app, "grp-owner").await;
+        let member_token = register_and_auth(&app, "grp-member").await;
+        let outsider_token = register_and_auth(&app, "grp-outsider").await;
+
+        let create_req = Request::builder()
+            .uri("/api/topic/create")
+            .method("POST")
+            .header("Authorization", format!("Bearer {owner_token}"))
+            .header("content-type", "application/json")
+            .body(Body::from(
+                json!({"name": "grp", "members": ["grp-owner", "grp-member", "grp-outsider"]})
+                    .to_string(),
+            ))
+            .unwrap();
+        let resp = app.clone().oneshot(create_req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let topic: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let topic_id = topic.get("id").and_then(|v| v.as_str()).unwrap().to_string();
+
+        // member can send
+        let (status, _r) = send_chat(
+            &app,
+            &member_token,
+            json!({"topicId": topic_id, "type": "chat", "chatId": "g-1", "message": "hi"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // outsider (quit the group) cannot
+        let quit_req = Request::builder()
+            .uri(format!("/api/topic/quit/{topic_id}"))
+            .method("POST")
+            .header("Authorization", format!("Bearer {outsider_token}"))
+            .body(Body::empty())
+            .unwrap();
+        let quit_resp = app.clone().oneshot(quit_req).await.unwrap();
+        assert_eq!(quit_resp.status(), StatusCode::OK);
+
+        let (status, _r) = send_chat(
+            &app,
+            &outsider_token,
+            json!({"topicId": topic_id, "type": "chat", "chatId": "g-2", "message": "intrude"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn guest_login_disabled_by_config() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        state
+            .config_service
+            .set(crate::services::config::ALLOW_GUEST_LOGIN, "false")
+            .await
+            .unwrap();
+        let app = app.with_state(state);
+
+        let req = Request::builder()
+            .uri("/api/guest/login")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"guestId":"g-blocked"}"#))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    async fn recv_pair_until<F, G>(
+        ws: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        pred_a: F,
+        pred_b: G,
+    ) -> (serde_json::Value, serde_json::Value)
+    where
+        F: Fn(&serde_json::Value) -> bool,
+        G: Fn(&serde_json::Value) -> bool,
+    {
+        let mut a: Option<serde_json::Value> = None;
+        let mut b: Option<serde_json::Value> = None;
+        loop {
+            let msg = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next())
+                .await
+                .expect("recv_pair_until timeout")
+                .unwrap()
+                .unwrap()
+                .into_text()
+                .unwrap();
+            let Ok(json) = serde_json::from_str::<serde_json::Value>(&msg) else {
+                continue;
+            };
+            if a.is_none() && pred_a(&json) {
+                a = Some(json);
+            } else if b.is_none() && pred_b(&json) {
+                b = Some(json);
+            }
+            if a.is_some() && b.is_some() {
+                return (a.unwrap(), b.unwrap());
+            }
+        }
+    }
+
     fn extract_token(json: &str) -> Option<String> {
         let v: serde_json::Value = serde_json::from_str(json).ok()?;
         v.get("authToken")?.as_str().map(str::to_string)
@@ -5876,6 +7377,30 @@ mod tests {
             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&msg) {
                 if json.get("chatId").and_then(|v| v.as_str()) == Some(target_chat_id) {
                     return (msg, json);
+                }
+            }
+        }
+    }
+
+    /// Receive frames until one whose `type` matches, skipping intermediates
+    /// (e.g. conversation.update frames that arrive after the chat event).
+    async fn recv_until_type(
+        ws: &mut tokio_tungstenite::WebSocketStream<
+            tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
+        >,
+        target_type: &str,
+    ) -> serde_json::Value {
+        loop {
+            let msg = tokio::time::timeout(std::time::Duration::from_secs(5), ws.next())
+                .await
+                .expect("recv_until_type timeout")
+                .expect("ws ended")
+                .expect("ws error")
+                .into_text()
+                .unwrap();
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&msg) {
+                if json.get("type").and_then(|v| v.as_str()) == Some(target_type) {
+                    return json;
                 }
             }
         }

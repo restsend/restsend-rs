@@ -34,6 +34,51 @@ impl TopicService {
         Ok(model.into())
     }
 
+    /// Ensure the dual DM pair topics exist and return (self topic, peer topic).
+    ///
+    /// Mirrors the Go `GetPairTopic` model: a DM between `owner` and `attendee`
+    /// is stored as two topics, each user owning their own view:
+    /// - self topic:  `{owner}:{attendee}` (owner = owner, attendee = attendee)
+    /// - peer topic:  `{attendee}:{owner}` (owner = attendee, attendee = owner)
+    pub async fn get_pair_topics(
+        &self,
+        owner_id: &str,
+        attendee_id: &str,
+    ) -> DomainResult<(Topic, Topic)> {
+        let self_id = pair_topic_id(owner_id, attendee_id);
+        let peer_id = pair_topic_id(attendee_id, owner_id);
+        let now = now();
+        for (id, owner, attendee) in [
+            (&self_id, owner_id, attendee_id),
+            (&peer_id, attendee_id, owner_id),
+        ] {
+            if topic::Entity::find_by_id(id.to_string())
+                .one(&self.db)
+                .await?
+                .is_none()
+            {
+                let row = Topic {
+                    id: id.clone(),
+                    owner_id: owner.to_string(),
+                    attendee_id: attendee.to_string(),
+                    members: 2,
+                    multiple: false,
+                    name: format!("DM with {attendee}"),
+                    source: "pair".to_string(),
+                    enabled: true,
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                    ..Topic::default()
+                };
+                let active: topic::ActiveModel = (row, now.as_str()).into();
+                let _ = active.insert(&self.db).await;
+            }
+        }
+        let self_topic = self.get_any_by_id(&self_id).await?;
+        let peer_topic = self.get_any_by_id(&peer_id).await?;
+        Ok((self_topic, peer_topic))
+    }
+
     pub async fn get_any_by_id(&self, topic_id: &str) -> DomainResult<Topic> {
         let model = topic::Entity::find_by_id(topic_id.to_string())
             .one(&self.db)
@@ -788,6 +833,21 @@ impl TopicService {
 
 fn now() -> String {
     Utc::now().to_rfc3339()
+}
+
+/// Dual DM topic id: `{owner}:{attendee}` — the owner is always the first part.
+pub fn pair_topic_id(owner_id: &str, attendee_id: &str) -> String {
+    format!("{owner_id}:{attendee_id}")
+}
+
+/// Returns the peer topic id of a dual DM self topic (`a:b` -> `b:a`).
+/// Returns None for self-chats (`a:a`) or ids without the `owner:attendee` shape.
+pub fn peer_pair_topic_id(topic_id: &str) -> Option<String> {
+    let (a, b) = topic_id.split_once(':')?;
+    if a.is_empty() || b.is_empty() || a == b {
+        return None;
+    }
+    Some(format!("{b}:{a}"))
 }
 
 fn parse_duration_to_time(duration: &str) -> Option<String> {

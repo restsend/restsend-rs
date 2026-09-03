@@ -4,74 +4,27 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::app::AppState;
 
+/// Broadcast to every session of `user_id` (local + cluster).
+///
+/// Local delivery is inlined so that per-recipient ordering is preserved
+/// relative to other local sends (e.g. a `resp` ack after a `chat` event);
+/// only remote cluster forwarding is offloaded to the push pool.
 pub async fn broadcast_to_user(state: &AppState, user_id: &str, payload: &str) {
-    let state = state.clone();
-    let push_pool = state.push_pool.clone();
-    let user_id = user_id.to_string();
-    let payload = payload.to_string();
-    let log_user_id = user_id.clone();
-    if let Err(err) = push_pool
-        .submit(async move {
-            push_local_user_now(&state, &user_id, &payload).await;
-            push_remote_user_now(&state, &user_id, None, &payload).await;
-        })
-        .await
-    {
-        tracing::warn!(user_id = %log_user_id, error = %err, "enqueue broadcast push failed");
-    }
+    push_local_user_now(state, user_id, payload).await;
+    push_remote_user_now(state, user_id, None, payload).await;
 }
 
 pub async fn send_to_device(state: &AppState, user_id: &str, device: &str, payload: &str) {
-    let state = state.clone();
-    let push_pool = state.push_pool.clone();
-    let user_id = user_id.to_string();
-    let device = device.to_string();
-    let payload = payload.to_string();
-    let log_user_id = user_id.clone();
-    let log_device = device.clone();
-    if let Err(err) = push_pool
-        .submit(async move {
-            push_local_device_now(&state, &user_id, &device, &payload).await;
-            push_remote_user_now(&state, &user_id, Some(&device), &payload).await;
-        })
-        .await
-    {
-        tracing::warn!(user_id = %log_user_id, device = %log_device, error = %err, "enqueue device push failed");
-    }
+    push_local_device_now(state, user_id, device, payload).await;
+    push_remote_user_now(state, user_id, Some(device), payload).await;
 }
 
 pub async fn push_local_user(state: &AppState, user_id: &str, payload: &str) {
-    let state = state.clone();
-    let push_pool = state.push_pool.clone();
-    let user_id = user_id.to_string();
-    let payload = payload.to_string();
-    let log_user_id = user_id.clone();
-    if let Err(err) = push_pool
-        .submit(async move {
-            push_local_user_now(&state, &user_id, &payload).await;
-        })
-        .await
-    {
-        tracing::warn!(user_id = %log_user_id, error = %err, "enqueue local user push failed");
-    }
+    push_local_user_now(state, user_id, payload).await;
 }
 
 pub async fn push_local_device(state: &AppState, user_id: &str, device: &str, payload: &str) {
-    let state = state.clone();
-    let push_pool = state.push_pool.clone();
-    let user_id = user_id.to_string();
-    let device = device.to_string();
-    let payload = payload.to_string();
-    let log_user_id = user_id.clone();
-    let log_device = device.clone();
-    if let Err(err) = push_pool
-        .submit(async move {
-            push_local_device_now(&state, &user_id, &device, &payload).await;
-        })
-        .await
-    {
-        tracing::warn!(user_id = %log_user_id, device = %log_device, error = %err, "enqueue local device push failed");
-    }
+    push_local_device_now(state, user_id, device, payload).await;
 }
 
 async fn push_local_user_now(state: &AppState, user_id: &str, payload: &str) {
@@ -124,23 +77,39 @@ async fn push_remote_user_now(
         if row.endpoint.trim().is_empty() || row.endpoint == state.config.endpoint {
             continue;
         }
-        if let Err(err) =
-            send_remote_push(state, &row.endpoint, &row.user_id, &row.device, payload).await
+        let payload = payload.to_string();
+        let user_id = row.user_id.clone();
+        let device = row.device.clone();
+        let endpoint = row.endpoint.clone();
+        let log_user_id = user_id.clone();
+        let state = state.clone();
+        // Remote HTTP forwarding is slow; offload it without blocking the
+        // caller. Ordering across nodes is best-effort by design.
+        let push_pool = state.push_pool.clone();
+        if let Err(err) = push_pool
+            .submit(async move {
+                if let Err(err) = send_remote_push(&state, &endpoint, &user_id, &device, &payload)
+                    .await
+                {
+                    tracing::warn!(
+                        user_id = %user_id,
+                        device = %device,
+                        endpoint = %endpoint,
+                        error = %err,
+                        "cluster push failed"
+                    );
+                } else {
+                    tracing::info!(
+                        user_id = %user_id,
+                        device = %device,
+                        endpoint = %endpoint,
+                        "cluster push forwarded"
+                    );
+                }
+            })
+            .await
         {
-            tracing::warn!(
-                user_id = %row.user_id,
-                device = %row.device,
-                endpoint = %row.endpoint,
-                error = %err,
-                "cluster push failed"
-            );
-        } else {
-            tracing::info!(
-                user_id = %row.user_id,
-                device = %row.device,
-                endpoint = %row.endpoint,
-                "cluster push forwarded"
-            );
+            tracing::warn!(error = %err, "cluster push submit failed");
         }
     }
 }

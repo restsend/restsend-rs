@@ -6,11 +6,13 @@ use crate::app::AppConfig;
 use crate::infra::event::EventBus;
 use crate::infra::metrics::RuntimeMetrics;
 use crate::infra::presence::PresenceHub;
+use crate::infra::stats::StatsService;
 use crate::infra::task_pool::TaskPool;
 use crate::infra::webhook::WebhookSender;
 use crate::infra::websocket::WsHub;
 use crate::services::{
-    AuthService, ChatService, ConversationService, RelationService, TopicService, UserService,
+    AuthService, ChatService, ConfigService, ConversationService, RelationService, TopicService,
+    UserService,
 };
 
 #[derive(Clone)]
@@ -24,6 +26,7 @@ pub struct AppState {
     pub webhook_pool: Arc<TaskPool>,
     pub event_bus: Arc<EventBus>,
     pub metrics: Arc<RuntimeMetrics>,
+    pub stats: Arc<StatsService>,
     pub webhook_sender: Arc<WebhookSender>,
     pub cluster_push_client: reqwest::Client,
     pub webhook_targets: Arc<Vec<String>>,
@@ -33,4 +36,8 @@ pub struct AppState {
     pub topic_service: Arc<TopicService>,
     pub conversation_service: Arc<ConversationService>,
     pub chat_service: Arc<ChatService>,
+    pub config_service: Arc<ConfigService>,
+    pub avatar_cache: Arc<crate::infra::letter_avatar::AvatarCache>,
+    pub sip_relay: crate::infra::sip::SipRelay,
+    pub http_limiter: Arc<crate::infra::ratelimit::RateLimiter>,
 }

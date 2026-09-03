@@ -7,8 +7,9 @@ use crate::entity::{decode_json, encode_json};
 #[sea_orm(table_name = "chat_logs")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: String,
     pub topic_id: String,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: String,
     pub seq: i64,
     pub sender_id: String,
     pub content_json: String,

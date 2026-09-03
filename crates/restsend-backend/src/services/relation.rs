@@ -71,6 +71,14 @@ impl RelationService {
         Ok(updated.into())
     }
 
+    /// True when `owner_id` has blocked `target_id` (Go relation.blocked).
+    pub async fn is_blocked(&self, owner_id: &str, target_id: &str) -> DomainResult<bool> {
+        let existing = relation::Entity::find_by_id((owner_id.to_string(), target_id.to_string()))
+            .one(&self.db)
+            .await?;
+        Ok(existing.map(|row| row.is_blocked).unwrap_or(false))
+    }
+
     pub async fn list_blocked(&self, owner_id: &str) -> DomainResult<Vec<String>> {
         let rows = relation::Entity::find()
             .filter(relation::Column::OwnerId.eq(owner_id.to_string()))

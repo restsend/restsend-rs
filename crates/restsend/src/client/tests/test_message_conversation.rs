@@ -1184,3 +1184,194 @@ async fn test_update_then_echo_preserves_extra() {
         "echo last_message should be readable"
     );
 }
+
+/// Helper: create a ChatRequest that simulates a server `conversation.update`
+/// push carrying an authoritative last-message snapshot (as emitted by
+/// update_topic_conversations on the backend).
+fn make_conversation_update_push(topic_id: &str, fields: serde_json::Value) -> ChatRequest {
+    ChatRequest {
+        req_type: "chat".to_string(),
+        chat_id: format!("conv-updated-{}", fields.get("lastMessageSeq").and_then(|v| v.as_i64()).unwrap_or(0)),
+        topic_id: topic_id.to_string(),
+        seq: 0,
+        attendee: "system".to_string(),
+        created_at: "2026-09-03T10:00:00Z".to_string(),
+        content: Some(Content {
+            content_type: "conversation.update".to_string(),
+            text: serde_json::to_string(&fields).unwrap(),
+            unreadable: true,
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
+}
+
+/// The conversation list must heal itself from the `conversation.update`
+/// snapshot when the paired `chat` push is dropped or reordered away by the
+/// push pool: the update carries lastMessage/unread, so the list and the
+/// message panel stay consistent even without the chat event.
+#[tokio::test]
+async fn test_conversation_update_snapshot_heals_dropped_chat_event() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "receiver-user");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_heal_snapshot");
+    conv.owner_id = "receiver-user".to_string();
+    conv.last_seq = 3;
+    conv.last_read_seq = 3;
+    conv.last_message_seq = Some(3);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "old preview".to_string(),
+        ..Default::default()
+    });
+    conv.last_sender_id = "peer".to_string();
+    conv.is_partial = false;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_heal_snapshot", Some(&conv)).await.unwrap();
+    drop(t);
+
+    // The chat event for seq=4 never arrives (dropped); only the
+    // conversation.update snapshot makes it through.
+    let update = make_conversation_update_push(
+        "topic_heal_snapshot",
+        serde_json::json!({
+            "lastMessage": { "type": "text", "text": "fresh message" },
+            "lastMessageAt": "2026-09-03T10:00:01Z",
+            "lastMessageSeq": 4,
+            "lastSenderId": "peer",
+            "lastSeq": 4,
+            "unread": 1,
+        }),
+    );
+    store.process_incoming(update, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_heal_snapshot").await.unwrap();
+    assert_eq!(
+        updated.last_message.as_ref().map(|c| c.text.clone()),
+        Some("fresh message".to_string()),
+        "last_message must be healed from the update snapshot"
+    );
+    assert_eq!(updated.last_message_seq, Some(4));
+    assert_eq!(updated.last_seq, 4, "last_seq must advance with the snapshot");
+    assert_eq!(updated.unread, 1, "server unread must be applied");
+    assert_eq!(
+        updated.last_sender_id, "peer",
+        "last_sender_id must come from the snapshot"
+    );
+}
+
+/// Reordered delivery: the conversation.update snapshot arrives BEFORE the
+/// chat event for the same message. The later chat event must not double
+/// count unread and must not regress anything.
+#[tokio::test]
+async fn test_update_before_chat_event_no_unread_double_count() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "receiver-user");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    let mut conv = Conversation::new("topic_reorder");
+    conv.owner_id = "receiver-user".to_string();
+    conv.last_seq = 3;
+    conv.last_read_seq = 3;
+    conv.last_message_seq = Some(3);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "old preview".to_string(),
+        ..Default::default()
+    });
+    conv.is_partial = false;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_reorder", Some(&conv)).await.unwrap();
+    drop(t);
+
+    // 1) snapshot first (server already counted the message)
+    let update = make_conversation_update_push(
+        "topic_reorder",
+        serde_json::json!({
+            "lastMessage": { "type": "text", "text": "reordered msg" },
+            "lastMessageAt": "2026-09-03T10:00:02Z",
+            "lastMessageSeq": 4,
+            "lastSenderId": "peer",
+            "lastSeq": 4,
+            "unread": 1,
+        }),
+    );
+    store.process_incoming(update, callback.clone()).await;
+
+    // 2) the chat event for the same message arrives afterwards
+    let chat = make_incoming_chat("topic_reorder", "chat_4", 4, "peer", "reordered msg");
+    store.process_incoming(chat, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_reorder").await.unwrap();
+    assert_eq!(
+        updated.unread, 1,
+        "unread must not double count when the chat event follows the snapshot"
+    );
+    assert_eq!(updated.last_message_seq, Some(4));
+    assert_eq!(
+        updated.last_message.as_ref().map(|c| c.text.clone()),
+        Some("reordered msg".to_string())
+    );
+}
+
+/// A stale conversation.update snapshot (carrying an older lastMessageSeq)
+/// must never regress a fresher local conversation, and the server unread
+/// counter is only applied when the paired chat event was already applied
+/// locally.
+#[tokio::test]
+async fn test_stale_update_snapshot_never_regresses_conversation() {
+    let store = ClientStore::new("", ":memory:", "http://test", "token", "receiver-user");
+    let callback: Arc<RwLock<Option<Box<dyn callback::RsCallback>>>> =
+        Arc::new(RwLock::new(Some(Box::new(TestCallback {
+            conv_updated: Arc::new(AtomicU32::new(0)),
+        }))));
+
+    // Local state already knows message seq=5.
+    let mut conv = Conversation::new("topic_stale");
+    conv.owner_id = "receiver-user".to_string();
+    conv.last_seq = 5;
+    conv.last_read_seq = 5;
+    conv.last_message_seq = Some(5);
+    conv.last_message = Some(Content {
+        content_type: "text".to_string(),
+        text: "newest".to_string(),
+        ..Default::default()
+    });
+    conv.unread = 0;
+    conv.is_partial = false;
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    t.set("", "topic_stale", Some(&conv)).await.unwrap();
+    drop(t);
+
+    // Stale snapshot for seq=4 from a delayed writer.
+    let stale = make_conversation_update_push(
+        "topic_stale",
+        serde_json::json!({
+            "lastMessage": { "type": "text", "text": "older" },
+            "lastMessageAt": "2026-09-03T09:00:00Z",
+            "lastMessageSeq": 4,
+            "lastSenderId": "peer",
+            "lastSeq": 4,
+            "unread": 99,
+        }),
+    );
+    store.process_incoming(stale, callback.clone()).await;
+
+    let t = store.message_storage.table::<Conversation>().await.unwrap();
+    let updated = t.get("", "topic_stale").await.unwrap();
+    assert_eq!(
+        updated.last_message.as_ref().map(|c| c.text.clone()),
+        Some("newest".to_string()),
+        "stale snapshot must not regress last_message"
+    );
+    assert_eq!(updated.last_message_seq, Some(5));
+    assert_eq!(updated.last_seq, 5);
+}

@@ -1,7 +1,12 @@
 pub mod db;
 pub mod event;
+pub mod jwt;
+pub mod letter_avatar;
 pub mod metrics;
 pub mod presence;
+pub mod ratelimit;
+pub mod sip;
+pub mod stats;
 pub mod task_pool;
 pub mod webhook;
 pub mod websocket;

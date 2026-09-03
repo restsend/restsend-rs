@@ -219,11 +219,44 @@ pub async fn logout(
 
 pub async fn guest_login(
     State(state): State<AppState>,
+    req_headers: axum::http::HeaderMap,
     Json(form): Json<GuestLoginForm>,
 ) -> ApiResult<Json<AuthLoginResponse>> {
     let st = Instant::now();
     if form.guest_id.trim().is_empty() {
         return Err(ApiError::bad_request("guestId is required"));
+    }
+    // ALLOW_GUEST_LOGIN runtime switch (Go Config table parity): empty or
+    // truthy enables guest login; an explicit "0"/"false" disables it.
+    match state.config_service.get(crate::services::config::ALLOW_GUEST_LOGIN).await {
+        Ok(raw) => {
+            let disabled = matches!(
+                raw.trim().to_ascii_lowercase().as_str(),
+                "0" | "false" | "no" | "off"
+            );
+            if disabled {
+                return Err(ApiError::Forbidden);
+            }
+        }
+        Err(err) => return Err(ApiError::internal(err.to_string())),
+    }
+    // Per-IP guest creation limiter (Go PER_IP_GUEST_CREATED parity).
+    let client_ip = ["x-forwarded-for", "x-real-ip", "forwarded"]
+        .iter()
+        .find_map(|key| {
+            req_headers
+                .get(*key)
+                .and_then(|v| v.to_str().ok())
+                .and_then(|raw| raw.split(',').next())
+                .map(str::trim)
+                .filter(|ip| !ip.is_empty())
+                .map(str::to_string)
+        })
+        .unwrap_or_else(|| "unknown".to_string());
+    if state.config.guest_ip_limit > 0
+        && !state.http_limiter.allow(&format!("guest:{client_ip}"), state.config.guest_ip_limit)
+    {
+        return Err(ApiError::TooManyRequests);
     }
 
     let mut created_guest = false;

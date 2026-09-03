@@ -100,6 +100,12 @@ pub async fn build_router(
     let topic_service = std::sync::Arc::new(TopicService::new(db.clone()));
     let conversation_service = std::sync::Arc::new(ConversationService::new(db.clone()));
     let chat_service = std::sync::Arc::new(ChatService::new(db.clone()));
+    chat_service.set_recall_timeout_secs(config.recall_timeout_secs);
+    let stats_service = std::sync::Arc::new(crate::infra::stats::StatsService::new(
+        db.clone(),
+        config.stats_enabled,
+    ));
+    let config_service = std::sync::Arc::new(crate::services::ConfigService::new(db.clone()));
 
     let state = AppState {
         config: config.clone(),
@@ -111,6 +117,7 @@ pub async fn build_router(
         webhook_pool,
         event_bus,
         metrics,
+        stats: stats_service,
         webhook_sender,
         cluster_push_client: reqwest::Client::new(),
         webhook_targets: std::sync::Arc::new(config.webhook_targets.clone()),
@@ -120,7 +127,14 @@ pub async fn build_router(
         topic_service,
         conversation_service,
         chat_service,
+        config_service,
+        avatar_cache: std::sync::Arc::new(crate::infra::letter_avatar::AvatarCache::default()),
+        sip_relay: crate::infra::sip::SipRelay::new(),
+        http_limiter: std::sync::Arc::new(crate::infra::ratelimit::RateLimiter::new()),
     };
+
+    state.stats.start_flush_loop();
+    start_stats_worker(state.clone());
 
     if AppConfig::is_demo() {
         if let Err(e) = create_demo_fixtures(&state).await {
@@ -263,7 +277,9 @@ pub async fn build_router(
         .route("/health", get(api::health::health))
         .route("/live", get(api::health::live))
         .route("/ready", get(api::health::ready))
-        .route("/guest/login", post(api::auth::guest_login));
+        .route("/guest/login", post(api::auth::guest_login))
+        .route("/avatar/:userid", get(api::avatar::user_avatar))
+        .route("/topic/icon/:topicid", get(api::avatar::topic_icon));
 
     let api_protected = Router::new()
         .route("/devices", get(api::user::devices))
@@ -383,6 +399,12 @@ pub async fn build_router(
     let livechat_enabled = hinit_static_path("livechat-page/index.html").is_some();
 
     let mut app = Router::new();
+    if !config.metrics_prefix.is_empty() {
+        app = app.route(
+            &config.metrics_prefix,
+            get(api::admin::metrics_endpoint),
+        );
+    }
     if admin_enabled {
         app = app
             .route("/admin", get(api::admin::spa))
@@ -400,6 +422,41 @@ pub async fn build_router(
             .route(
                 "/admin/api/perf",
                 get(api::admin::perf_stats).route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    api::middleware_auth::openapi_auth,
+                )),
+            )
+            .route(
+                "/admin/api/stats",
+                get(api::admin::daily_stats).route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    api::middleware_auth::openapi_auth,
+                )),
+            )
+            .route(
+                "/admin/api/configs",
+                get(api::admin::list_configs).route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    api::middleware_auth::openapi_auth,
+                )),
+            )
+            .route(
+                "/admin/api/configs/:key",
+                put(api::admin::update_config).route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    api::middleware_auth::openapi_auth,
+                )),
+            )
+            .route(
+                "/admin/api/objects/:name",
+                get(api::admin::object_list).route_layer(axum::middleware::from_fn_with_state(
+                    state.clone(),
+                    api::middleware_auth::openapi_auth,
+                )),
+            )
+            .route(
+                "/admin/api/objects/:name/*id",
+                delete(api::admin::object_delete).route_layer(axum::middleware::from_fn_with_state(
                     state.clone(),
                     api::middleware_auth::openapi_auth,
                 )),
@@ -515,6 +572,72 @@ fn start_webhook_worker(state: AppState) {
     });
 }
 
+/// Record daily aggregates for every event flowing through the bus, and
+/// refresh DB-driven runtime settings (recall timeout) periodically.
+fn start_stats_worker(state: AppState) {
+    let config_state = state.clone();
+    let mut rx = state.event_bus.subscribe();
+    tokio::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    use crate::infra::stats::*;
+                    match &event {
+                        BackendEvent::Chat(_) => state.stats.record_event(METRIC_CHAT),
+                        BackendEvent::TopicCreate(_) => {
+                            state.stats.record_event(METRIC_TOPIC_CREATE)
+                        }
+                        BackendEvent::TopicDismiss(_) => {
+                            state.stats.record_event(METRIC_TOPIC_DISMISS)
+                        }
+                        BackendEvent::TopicJoin(_) => state.stats.record_event(METRIC_MEMBER_ADD),
+                        BackendEvent::TopicQuit(_) | BackendEvent::TopicKickout(_) => {
+                            state.stats.record_event(METRIC_MEMBER_REMOVE)
+                        }
+                        BackendEvent::UploadFile(v) => {
+                            state.stats.record_event(METRIC_UPLOAD);
+                            let bytes = v
+                                .data
+                                .get("size")
+                                .and_then(|s| s.as_i64())
+                                .unwrap_or(0);
+                            state.stats.record(METRIC_UPLOAD_BYTES, bytes);
+                        }
+                        BackendEvent::UserGuestCreate(_) => {
+                            state.stats.record_event(METRIC_GUEST)
+                        }
+                        _ => {}
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(error = %err, "stats event bus receive failed");
+                    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+                }
+            }
+        }
+    });
+
+    // DB runtime config -> recall timeout refresher
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            if let Ok(raw) = config_state.config_service.get(crate::services::config::RECALL_TIMEOUT).await {
+                if let Some(secs) = crate::services::config::parse_duration_secs(&raw) {
+                    if secs == 0 || raw.trim().is_empty() {
+                        // 0 disables the limit; "" keeps env default
+                        if !raw.trim().is_empty() {
+                            config_state.chat_service.set_recall_timeout_secs(0);
+                        }
+                    } else {
+                        config_state.chat_service.set_recall_timeout_secs(secs);
+                    }
+                }
+            }
+        }
+    });
+}
+
 async fn handle_event_webhooks(state: AppState, event: BackendEvent) {
     if !event.should_send_webhook() {
         return;
@@ -525,6 +648,10 @@ async fn handle_event_webhooks(state: AppState, event: BackendEvent) {
     let data = event.data_payload();
 
     let mut targets: Vec<String> = state.webhook_targets.as_ref().clone();
+    // DB runtime config `WEBHOOKS` (one URL per line) merges with env targets.
+    for target in state.config_service.webhook_targets().await {
+        targets.push(target);
+    }
     targets.extend(event.explicit_webhooks().iter().cloned());
     if event.use_topic_webhooks() {
         if let Some(topic_id) = topic_id.as_deref() {
@@ -772,11 +899,9 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     for (user_a, user_b, messages) in &dm_pairs {
-        let topic_id = if user_a <= user_b {
-            format!("{}:{}", user_a, user_b)
-        } else {
-            format!("{}:{}", user_b, user_a)
-        };
+        // Sender-centric dual DM topics: alice:bob (alice's view) and
+        // bob:alice (bob's view).
+        let topic_id = crate::services::topic::pair_topic_id(user_a, user_b);
 
         let existing = crate::entity::chat_log::Entity::find()
             .filter(crate::entity::chat_log::Column::TopicId.eq(&topic_id))
@@ -822,12 +947,14 @@ async fn create_demo_fixtures(state: &AppState) -> Result<(), sea_orm::DbErr> {
             }
         }
 
-        // create conversation for both users
+        // create conversation for both users, each pointing at their own
+        // pair topic
         for &owner in &[*user_a, *user_b] {
             let attendee = if owner == *user_a { *user_b } else { *user_a };
+            let own_topic = crate::services::topic::pair_topic_id(&owner.to_string(), &attendee.to_string());
             let conv = Conversation {
                 owner_id: owner.to_string(),
-                topic_id: topic_id.clone(),
+                topic_id: own_topic,
                 attendee: attendee.to_string(),
                 last_seq,
                 last_message: Some(make_content(last_msg_text)),

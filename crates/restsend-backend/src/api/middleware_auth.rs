@@ -100,9 +100,35 @@ pub async fn user_auth(
         .validate(&token)
         .await
         .map_err(|err| ApiError::internal(err.to_string()))?;
-    let Some(user_id) = valid else {
-        tracing::warn!("user auth rejected: invalid token");
-        return Err(ApiError::InvalidToken);
+    let user_id = match valid {
+        Some(user_id) => user_id,
+        None => {
+            // JWT fallback: when JWT_SECRET is configured, tokens issued by
+            // an external HS256 issuer are accepted (Go JWTUserAuth).
+            if let Some(secret) = state.config.jwt_secret.as_deref() {
+                if let Some(claims) = crate::infra::jwt::verify_hs256(&token, secret) {
+                    if let Some(uid) = claims.get(&state.config.jwt_user_id_field).and_then(|v| {
+                        v.as_str()
+                            .map(str::to_string)
+                            .or_else(|| v.as_i64().map(|n| n.to_string()))
+                    }) {
+                        if !uid.is_empty() {
+                            let user_for_log = uid.clone();
+                            req.extensions_mut().insert(AuthToken(token));
+                            req.extensions_mut().insert(AuthUserId(uid));
+                            if let Some(slot) = req.extensions().get::<AccessLogUserId>() {
+                                if let Ok(mut guard) = slot.0.lock() {
+                                    *guard = Some(user_for_log);
+                                }
+                            }
+                            return Ok(next.run(req).await);
+                        }
+                    }
+                }
+            }
+            tracing::warn!("user auth rejected: invalid token");
+            return Err(ApiError::InvalidToken);
+        }
     };
     let user_for_log = user_id.clone();
 

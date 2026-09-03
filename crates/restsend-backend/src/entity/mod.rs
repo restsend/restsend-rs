@@ -1,11 +1,13 @@
 pub mod attachment;
 pub mod auth_token;
 pub mod chat_log;
+pub mod config;
 pub mod conversation;
 pub mod helpdesk_inbox;
 pub mod helpdesk_inbox_member;
 pub mod presence_session;
 pub mod relation;
+pub mod stats_daily;
 pub mod topic;
 pub mod topic_knock;
 pub mod topic_member;

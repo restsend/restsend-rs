@@ -1,14 +1,16 @@
 use axum::extract::State;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum::Json;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect, Set,
 };
 use serde::Deserialize;
 
 use crate::api::auth_ctx::AuthCtx;
 use crate::api::error::{ApiError, ApiResult};
 use crate::app::{AppConfig, AppState};
+use crate::infra::event::BackendEvent;
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -392,6 +394,323 @@ fn ensure_admin(auth: &AuthCtx) -> Result<(), ApiError> {
         "admin access rejected: not superuser"
     );
     Err(ApiError::Unauthorized)
+}
+
+/// Daily aggregated stats (`?days=N`, default 7).
+pub async fn daily_stats(
+    State(state): State<AppState>,
+    auth: AuthCtx,
+    axum::extract::Query(query): axum::extract::Query<StatsQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    ensure_admin(&auth)?;
+    let days = query.days.unwrap_or(7).clamp(1, 365);
+    let stats = state.stats.recent_daily(days).await;
+    Ok(Json(serde_json::json!({ "items": stats })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StatsQuery {
+    pub days: Option<u32>,
+}
+
+/// Prometheus text exposition (mounted at PROMETHEUS_PREFIX, default /metrics).
+pub async fn metrics_endpoint(State(state): State<AppState>) -> axum::response::Response {
+    use axum::http::{header, StatusCode};
+    let body = state.stats.render_prometheus();
+    (
+        StatusCode::OK,
+        [(
+            header::CONTENT_TYPE,
+            "text/plain; version=0.0.4; charset=utf-8",
+        )],
+        body,
+    )
+        .into_response()
+}
+
+// ---------------------------------------------------------------------
+// DB runtime configs (Go Config table parity)
+// ---------------------------------------------------------------------
+
+pub async fn list_configs(
+    State(state): State<AppState>,
+    auth: AuthCtx,
+) -> ApiResult<Json<serde_json::Value>> {
+    ensure_admin(&auth)?;
+    let entries = state.config_service.list().await.map_err(map_domain_error)?;
+    let items: Vec<serde_json::Value> = entries
+        .into_iter()
+        .map(|(key, value)| serde_json::json!({"key": key, "value": value}))
+        .collect();
+    Ok(Json(serde_json::json!({ "items": items })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateConfigForm {
+    #[serde(default)]
+    pub value: String,
+}
+
+pub async fn update_config(
+    State(state): State<AppState>,
+    auth: AuthCtx,
+    axum::extract::Path(key): axum::extract::Path<String>,
+    Json(form): Json<UpdateConfigForm>,
+) -> ApiResult<Json<serde_json::Value>> {
+    ensure_admin(&auth)?;
+    state
+        .config_service
+        .set(&key, &form.value)
+        .await
+        .map_err(map_domain_error)?;
+    tracing::info!(key = %key, admin = %auth.user_id, "runtime config updated");
+    Ok(Json(serde_json::json!({"key": key, "value": form.value})))
+}
+
+// ---------------------------------------------------------------------
+// Admin object CRUD (topics/users/conversations/attachments/knocks/relations/messages)
+// ---------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct ObjectListQuery {
+    pub offset: Option<u64>,
+    pub limit: Option<u64>,
+    pub keyword: Option<String>,
+}
+
+pub async fn object_list(
+    State(state): State<AppState>,
+    auth: AuthCtx,
+    axum::extract::Path(name): axum::extract::Path<String>,
+    axum::extract::Query(query): axum::extract::Query<ObjectListQuery>,
+) -> ApiResult<Json<serde_json::Value>> {
+    ensure_admin(&auth)?;
+    let offset = query.offset.unwrap_or(0);
+    let limit = query.limit.unwrap_or(20).clamp(1, 200);
+    let keyword = query.keyword.unwrap_or_default();
+
+    let json = match name.as_str() {
+        "users" => {
+            let mut q = crate::entity::user::Entity::find();
+            if !keyword.is_empty() {
+                q = q.filter(
+                    sea_orm::Condition::any()
+                        .add(crate::entity::user::Column::UserId.contains(keyword.clone()))
+                        .add(crate::entity::user::Column::DisplayName.contains(keyword)),
+                );
+            }
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q.offset(offset).limit(limit).all(&state.db).await.map_err(db_err)?;
+            serde_json::json!({
+                "total": total,
+                "items": rows.iter().map(|u| serde_json::json!({
+                    "userId": u.user_id, "displayName": u.display_name, "avatar": u.avatar,
+                    "isStaff": u.is_staff, "enabled": u.enabled, "createdAt": u.created_at,
+                })).collect::<Vec<_>>(),
+            })
+        }
+        "topics" => {
+            let (rows, total) = state
+                .topic_service
+                .list_topics(offset, limit, Some(&keyword))
+                .await
+                .map_err(map_domain_error)?;
+            serde_json::json!({
+                "total": total,
+                "items": rows,
+            })
+        }
+        "conversations" => {
+            let q = crate::entity::conversation::Entity::find()
+                .filter(crate::entity::conversation::Column::OwnerId.contains(keyword.clone()));
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q.offset(offset).limit(limit).all(&state.db).await.map_err(db_err)?;
+            serde_json::json!({
+                "total": total,
+                "items": rows.iter().map(crate::Conversation::from).collect::<Vec<_>>(),
+            })
+        }
+        "attachments" => {
+            let q = crate::entity::attachment::Entity::find().filter(
+                sea_orm::Condition::any()
+                    .add(crate::entity::attachment::Column::FileName.contains(keyword.clone()))
+                    .add(crate::entity::attachment::Column::Path.contains(keyword)),
+            );
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q.offset(offset).limit(limit).all(&state.db).await.map_err(db_err)?;
+            let items: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "path": row.path,
+                        "fileName": row.file_name,
+                        "ownerId": row.owner_id,
+                        "topicId": row.topic_id,
+                        "size": row.size,
+                        "ext": row.ext,
+                        "private": row.private,
+                        "external": row.external,
+                        "createdAt": row.created_at,
+                    })
+                })
+                .collect();
+            serde_json::json!({
+                "total": total,
+                "items": items,
+            })
+        }
+        "knocks" => {
+            let q = crate::entity::topic_knock::Entity::find();
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q.offset(offset).limit(limit).all(&state.db).await.map_err(db_err)?;
+            let items: Vec<crate::TopicKnock> = rows
+                .into_iter()
+                .map(|row| crate::TopicKnock {
+                    topic_id: row.topic_id,
+                    user_id: row.user_id,
+                    created_at: row.created_at,
+                    updated_at: row.updated_at,
+                    message: row.message,
+                    source: row.source,
+                    status: row.status,
+                    admin_id: row.admin_id,
+                })
+                .collect();
+            serde_json::json!({ "total": total, "items": items })
+        }
+        "relations" => {
+            let q = crate::entity::relation::Entity::find()
+                .filter(crate::entity::relation::Column::OwnerId.contains(keyword));
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q.offset(offset).limit(limit).all(&state.db).await.map_err(db_err)?;
+            let items: Vec<serde_json::Value> = rows
+                .into_iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "ownerId": row.owner_id,
+                        "targetId": row.target_id,
+                        "isContact": row.is_contact,
+                        "isStar": row.is_star,
+                        "isBlocked": row.is_blocked,
+                        "remark": row.remark,
+                        "source": row.source,
+                        "updatedAt": row.updated_at,
+                    })
+                })
+                .collect();
+            serde_json::json!({ "total": total, "items": items })
+        }
+        "messages" => {
+            let q = crate::entity::chat_log::Entity::find()
+                .filter(crate::entity::chat_log::Column::TopicId.contains(keyword));
+            let total = q.clone().count(&state.db).await.map_err(db_err)?;
+            let rows = q
+                .order_by_desc(crate::entity::chat_log::Column::Seq)
+                .offset(offset)
+                .limit(limit)
+                .all(&state.db)
+                .await
+                .map_err(db_err)?;
+            serde_json::json!({
+                "total": total,
+                "items": rows.iter().map(crate::ChatLog::from).collect::<Vec<_>>(),
+            })
+        }
+        other => return Err(ApiError::bad_request(format!("unknown object type: {other}"))),
+    };
+    Ok(Json(json))
+}
+
+pub async fn object_delete(
+    State(state): State<AppState>,
+    auth: AuthCtx,
+    axum::extract::Path((name, id)): axum::extract::Path<(String, String)>,
+) -> ApiResult<Json<bool>> {
+    ensure_admin(&auth)?;
+    match name.as_str() {
+        "users" => {
+            state
+                .user_service
+                .deactive(&id)
+                .await
+                .map_err(map_domain_error)?;
+        }
+        "topics" => {
+            state
+                .topic_service
+                .dismiss_topic(&id)
+                .await
+                .map_err(map_domain_error)?;
+            state
+                .event_bus
+                .publish(BackendEvent::TopicDismiss(crate::infra::event::TopicSimpleEvent {
+                    topic_id: id.clone(),
+                    admin_id: auth.user_id.clone(),
+                    source: "admin".to_string(),
+                    webhooks: vec![],
+                }));
+        }
+        "conversations" => {
+            // id format: ownerId:topicId
+            let (owner_id, topic_id) = id
+                .split_once(':')
+                .ok_or_else(|| ApiError::bad_request("id must be ownerId:topicId"))?;
+            state
+                .conversation_service
+                .remove_conversation(owner_id, topic_id)
+                .await
+                .map_err(map_domain_error)?;
+        }
+        "attachments" => {
+            crate::entity::attachment::Entity::delete_by_id(id.clone())
+                .exec(&state.db)
+                .await
+                .map_err(db_err)?;
+        }
+        "knocks" => {
+            let (topic_id, user_id) = id
+                .split_once(':')
+                .ok_or_else(|| ApiError::bad_request("id must be topicId:userId"))?;
+            crate::entity::topic_knock::Entity::delete_by_id((
+                topic_id.to_string(),
+                user_id.to_string(),
+            ))
+            .exec(&state.db)
+            .await
+            .map_err(db_err)?;
+        }
+        "relations" => {
+            let (owner_id, target_id) = id
+                .split_once(':')
+                .ok_or_else(|| ApiError::bad_request("id must be ownerId:targetId"))?;
+            crate::entity::relation::Entity::delete_by_id((
+                owner_id.to_string(),
+                target_id.to_string(),
+            ))
+            .exec(&state.db)
+            .await
+            .map_err(db_err)?;
+        }
+        "messages" => {
+            let (topic_id, chat_id) = id
+                .split_once(':')
+                .ok_or_else(|| ApiError::bad_request("id must be topicId:chatId"))?;
+            crate::entity::chat_log::Entity::delete_by_id((
+                topic_id.to_string(),
+                chat_id.to_string(),
+            ))
+            .exec(&state.db)
+            .await
+            .map_err(db_err)?;
+        }
+        other => return Err(ApiError::bad_request(format!("unknown object type: {other}"))),
+    }
+    tracing::info!(object = %name, id = %id, admin = %auth.user_id, "admin object deleted");
+    Ok(Json(true))
+}
+
+fn db_err(err: sea_orm::DbErr) -> ApiError {
+    ApiError::internal(err.to_string())
 }
 
 pub async fn demo_users(State(state): State<AppState>) -> ApiResult<Json<Vec<serde_json::Value>>> {

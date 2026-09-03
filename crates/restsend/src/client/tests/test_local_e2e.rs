@@ -513,11 +513,21 @@ async fn test_sdk_local_backend_e2e_typing_and_read_flow() {
     .await
     .unwrap();
 
-    client_b.do_read(topic_id).await.expect("read");
-    check_until(Duration::from_secs(5), || read_a.load(Ordering::Relaxed))
-        .await
-        .unwrap();
-    assert!(last_read_seq_a.load(Ordering::Relaxed) > 0);
+    // Dual-topic DM model (Go parity): bob reads his own pair topic, and
+    // read markers only sync to the reader's own devices — user_a must NOT
+    // receive a realtime read frame.
+    let bob_topic = {
+        let (a_part, b_part) = topic_id.split_once(':').expect("pair topic");
+        format!("{b_part}:{a_part}")
+    };
+    // do_read resolves on the server read ack — the persisted state proof.
+    client_b.do_read(bob_topic.clone()).await.expect("read");
+
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert!(
+        !read_a.load(Ordering::Relaxed),
+        "peer must not receive realtime read frames (Go semantics)"
+    );
 }
 
 #[tokio::test]
@@ -1137,8 +1147,17 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
         .await;
     assert!(sync_done.load(Ordering::Relaxed));
 
+    // Dual-topic DM model (Go parity): the receiver (user_a) only ever sees
+    // its own pair topics — the reverse of the senders' topics.
+    let swap_topic = |topic: &str| -> String {
+        let (x, y) = topic.split_once(':').expect("pair topic");
+        format!("{y}:{x}")
+    };
+    let own_ab = swap_topic(&topic_ab);
+    let own_ac = swap_topic(&topic_ac);
+
     let mut conversation_map = HashMap::new();
-    for topic_id in [&topic_ab, &topic_ac] {
+    for topic_id in [&own_ab, &own_ac] {
         let conversation = receiver
             .get_conversation(topic_id.to_string())
             .await
@@ -1157,12 +1176,12 @@ async fn test_sdk_local_backend_e2e_reconnect_batch_sync_churn() {
 
     let (logs_ab, _) = receiver
         .store
-        .get_chat_logs(&topic_ab, 0, None, 50)
+        .get_chat_logs(&own_ab, 0, None, 50)
         .await
         .expect("get chat logs ab");
     let (logs_ac, _) = receiver
         .store
-        .get_chat_logs(&topic_ac, 0, None, 50)
+        .get_chat_logs(&own_ac, 0, None, 50)
         .await
         .expect("get chat logs ac");
 

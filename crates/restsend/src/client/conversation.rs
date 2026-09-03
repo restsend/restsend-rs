@@ -661,6 +661,7 @@ impl Client {
         let mut store_conversations = vec![];
 
         let log_t = self.store.message_storage.table::<ChatLog>().await?;
+        let conv_t = self.store.message_storage.table::<Conversation>().await.ok();
         for mut lr in r {
             // flush to local db
             let now: i64 = now_millis();
@@ -704,6 +705,23 @@ impl Client {
                     conversation.last_message_seq = Some(c.seq);
                 }
             }
+            // A WS push may have advanced the stored conversation while this
+            // sync was in flight; never overwrite the fresher row with a
+            // snapshot derived from older data (stale-snapshot overwrite bug).
+            let fresher_in_store = match conv_t.as_ref() {
+                Some(t) => match t.get("", &conversation.topic_id).await {
+                    Some(cur) => {
+                        cur.last_message_seq.unwrap_or(0)
+                            > conversation.last_message_seq.unwrap_or(0)
+                    }
+                    None => false,
+                },
+                None => false,
+            };
+            if fresher_in_store {
+                continue;
+            }
+
             updated_conversations.push(conversation.clone());
 
             store_conversations.push(ValueItem {
@@ -714,7 +732,7 @@ impl Client {
             })
         }
         // sync to store
-        if let Ok(t) = self.store.message_storage.table::<Conversation>().await {
+        if let Some(t) = conv_t {
             t.batch_update(&store_conversations).await.ok();
         }
         // callback

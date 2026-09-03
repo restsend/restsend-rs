@@ -351,6 +351,44 @@ impl ClientStore {
                             }
                             conversation.sticky = fields.sticky.unwrap_or(conversation.sticky);
                             conversation.mute = fields.mute.unwrap_or(conversation.mute);
+
+                            // Server-authoritative last-message snapshot: heal
+                            // the list when the paired `chat` push was dropped
+                            // or reordered by the push pool.
+                            if let Some(msg_seq) =
+                                fields.last_message_seq.filter(|v| *v > 0)
+                            {
+                                if msg_seq > conversation.last_message_seq.unwrap_or(0) {
+                                    conversation.last_message = fields.last_message.clone();
+                                    conversation.last_message_at = fields
+                                        .last_message_at
+                                        .clone()
+                                        .unwrap_or_default();
+                                    conversation.last_message_seq = Some(msg_seq);
+                                    if let Some(sender) = fields.last_sender_id.clone() {
+                                        conversation.last_sender_id = sender;
+                                    }
+                                    let last_seq = fields
+                                        .last_seq
+                                        .filter(|v| *v >= msg_seq)
+                                        .unwrap_or(msg_seq);
+                                    if last_seq > conversation.last_seq {
+                                        conversation.last_seq = last_seq;
+                                    }
+                                }
+                                // The server unread counter is authoritative
+                                // unless the user already read past this
+                                // message locally (multi-device read sync is
+                                // handled by the read flow instead).
+                                if let Some(unread) = fields.unread.filter(|v| *v >= 0) {
+                                    if conversation.last_read_seq < msg_seq {
+                                        conversation.unread = unread;
+                                        if unread > 0 {
+                                            req_status.has_read = false;
+                                        }
+                                    }
+                                }
+                            }
                         }
                         Err(e) => {
                             warn!("conversation update decode error: {} body:{}", e, content.text);
@@ -396,6 +434,7 @@ impl ClientStore {
                 }
                 _ => {
                     if req.seq > conversation.last_read_seq
+                        && req.seq > conversation.last_message_seq.unwrap_or(0)
                         && is_countable
                         && !req.chat_id.is_empty()
                         && req_status.unread_countable

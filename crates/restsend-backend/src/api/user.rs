@@ -35,6 +35,7 @@ pub async fn kick(
     })
     .to_string();
     crate::api::push::send_to_device(&state, auth.user_id(), &cid, &payload).await;
+    state.stats.record_event(crate::infra::stats::METRIC_KICKOFF);
     tracing::info!(
         user_id = %auth.user_id(),
         cid = %cid,

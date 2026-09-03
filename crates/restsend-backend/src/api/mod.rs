@@ -1,6 +1,7 @@
 pub mod access_log;
 pub mod admin;
 pub mod attachment;
+pub mod avatar;
 pub mod auth;
 pub mod auth_ctx;
 pub mod chat;

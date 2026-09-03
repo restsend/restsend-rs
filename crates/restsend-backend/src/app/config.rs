@@ -29,6 +29,15 @@ pub struct AppConfig {
     pub ws_client_queue_size: usize,
     pub ws_typing_interval_ms: u64,
     pub ws_drop_on_backpressure: bool,
+    pub recall_timeout_secs: u64,
+    pub request_timeout_secs: u64,
+    pub http_send_limit: usize,
+    pub guest_ip_limit: u64,
+    pub jwt_secret: Option<String>,
+    pub jwt_user_id_field: String,
+    pub sip_relay_pbx_ws: String,
+    pub metrics_prefix: String,
+    pub stats_enabled: bool,
 }
 
 impl AppConfig {
@@ -148,6 +157,37 @@ impl AppConfig {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(1000);
         let ws_drop_on_backpressure = env_bool("WS_DROP_ON_BACKPRESSURE", true);
+        let recall_timeout_secs = std::env::var("RECALL_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(120);
+        let request_timeout_secs = std::env::var("REQUEST_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(30)
+            .max(1);
+        let http_send_limit = std::env::var("HTTP_SEND_LIMIT")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(0);
+        let guest_ip_limit = std::env::var("GUEST_IP_LIMIT_PER_SEC")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(20);
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty());
+        let jwt_user_id_field =
+            std::env::var("JWT_USERID_FIELD").unwrap_or_else(|_| "uid".to_string());
+        let sip_relay_pbx_ws = std::env::var("SIP_RELAY_PBX_WS")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .unwrap_or_default();
+        let metrics_prefix = std::env::var("PROMETHEUS_PREFIX")
+            .map(|v| normalize_path(v))
+            .unwrap_or_else(|_| "/metrics".to_string());
+        let stats_enabled = env_bool("STATS_ENABLED", true);
 
         Ok(Self {
             addr,
@@ -179,6 +219,15 @@ impl AppConfig {
             ws_client_queue_size,
             ws_typing_interval_ms,
             ws_drop_on_backpressure,
+            recall_timeout_secs,
+            request_timeout_secs,
+            http_send_limit,
+            guest_ip_limit,
+            jwt_secret,
+            jwt_user_id_field,
+            sip_relay_pbx_ws,
+            metrics_prefix,
+            stats_enabled,
         })
     }
 }

@@ -452,4 +452,31 @@ pub struct ConversationUpdateFields {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mark_unread: Option<bool>,
+
+    // Server-authoritative last-message snapshot. Sent by the backend together
+    // with a new message so the conversation list can heal itself even when the
+    // paired `chat` push is dropped or reordered by the push pool.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message: Option<Content>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message_at: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_message_seq: Option<i64>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_sender_id: Option<String>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_seq: Option<i64>,
+
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unread: Option<i64>,
 }

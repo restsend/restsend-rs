@@ -10,10 +10,16 @@ pub enum ApiError {
     Unauthorized,
     #[error("invalid token")]
     InvalidToken,
+    #[error("forbidden")]
+    Forbidden,
     #[error("not found")]
     NotFound,
     #[error("bad request: {0}")]
     BadRequest(String),
+    #[error("request timeout")]
+    RequestTimeout,
+    #[error("too many requests")]
+    TooManyRequests,
     #[error("internal error: {0}")]
     Internal(String),
     #[error("not implemented: {0}")]
@@ -38,8 +44,11 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match self {
             Self::Unauthorized | Self::InvalidToken => StatusCode::UNAUTHORIZED,
+            Self::Forbidden => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Self::RequestTimeout => StatusCode::REQUEST_TIMEOUT,
+            Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::NotImplemented(_) => StatusCode::NOT_IMPLEMENTED,
         };

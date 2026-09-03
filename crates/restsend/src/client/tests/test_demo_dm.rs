@@ -59,7 +59,16 @@ impl DemoServer {
             ws_per_user_limit: 0,
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
-            ws_drop_on_backpressure: true,
+                        ws_drop_on_backpressure: true,
+            recall_timeout_secs: 0,
+            request_timeout_secs: 30,
+            http_send_limit: 0,
+            guest_ip_limit: 0,
+            jwt_secret: None,
+            jwt_user_id_field: String::new(),
+            sip_relay_pbx_ws: String::new(),
+            metrics_prefix: String::new(),
+            stats_enabled: false,
         };
 
         let (app, state) = build_router(config).await.expect("build router");
@@ -206,11 +215,13 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
         .expect("alice message acked");
 
     // Bob should receive the message via WebSocket
+    // Dual-topic DM model (Go parity): bob receives the message on his own
+    // pair topic `bob:alice`.
     check_until(WS_TIMEOUT, || {
         bob_received_topic_id
             .lock()
             .unwrap()
-            .contains(&"alice:bob".to_string())
+            .contains(&"bob:alice".to_string())
     })
     .await
     .expect("bob received msg via ws");
@@ -231,7 +242,7 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
     let bob_unreads = bob_conv_unreads.lock().unwrap().clone();
     let bob_topic_unreads: Vec<i64> = bob_unreads
         .iter()
-        .filter(|(t, _)| t == "alice:bob")
+        .filter(|(t, _)| t == "bob:alice")
         .map(|(_, u)| *u)
         .collect();
     assert!(
@@ -253,7 +264,7 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
             .lock()
             .unwrap()
             .iter()
-            .filter(|t| *t == "alice:bob")
+            .filter(|t| *t == "bob:alice")
             .count();
         count >= 2
     })
@@ -268,7 +279,7 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
     let bob_unreads_2 = bob_conv_unreads.lock().unwrap().clone();
     let bob_topic_unreads_2: Vec<i64> = bob_unreads_2
         .iter()
-        .filter(|(t, _)| t == "alice:bob")
+        .filter(|(t, _)| t == "bob:alice")
         .map(|(_, u)| *u)
         .collect();
     let max_unread = bob_topic_unreads_2.iter().max().copied().unwrap_or(0);
@@ -283,11 +294,12 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
         max_unread
     );
 
-    // === 4. Bob sends reply via WebSocket ===
+    // === 4. Bob sends reply via WebSocket (on his own pair topic) ===
+    let bob_topic = "bob:alice".to_string();
     let bob_acked = Arc::new(AtomicBool::new(false));
     client_bob
         .do_send_text(
-            conv.topic_id.clone(),
+            bob_topic.clone(),
             "Reply via WS!".to_string(),
             None,
             None,
@@ -319,12 +331,12 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
     // === 5. Simulate "read" — Bob marks conversation as read (like opening chat view) ===
     // This covers the exact user scenario: open conversation → read → close → new msg
     client_bob
-        .set_conversation_read(conv.topic_id.clone(), false)
+        .set_conversation_read(bob_topic.clone(), false)
         .await;
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     let bob_conv_after_read = client_bob
-        .get_conversation(conv.topic_id.clone())
+        .get_conversation(bob_topic.clone())
         .await
         .unwrap();
     log::info!(
@@ -378,7 +390,7 @@ async fn test_demo_dm_alice_bob_websocket_delivery() {
     tokio::time::sleep(Duration::from_millis(500)).await;
 
     let bob_conv_after_third = client_bob
-        .get_conversation(conv.topic_id.clone())
+        .get_conversation(bob_topic.clone())
         .await
         .expect("bob conversation exists");
 

@@ -1,6 +1,6 @@
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::{Query, State};
-use axum::response::Response;
+use axum::response::{IntoResponse, Response};
 use chrono::Utc;
 use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
@@ -19,6 +19,7 @@ struct PresenceSessionGuard {
     state: AppState,
     user_id: String,
     device: String,
+    connected_at: std::time::Instant,
 }
 
 #[derive(Clone)]
@@ -64,9 +65,18 @@ impl Drop for PresenceSessionGuard {
         let state = self.state.clone();
         let user_id = self.user_id.clone();
         let device = self.device.clone();
+        let connected_at = self.connected_at;
         tokio::spawn(async move {
             state.ws_hub.unregister(&user_id, &device).await;
             state.presence_hub.remove_session(&user_id, &device).await;
+            state.sip_relay.close_session(&user_id, &device).await;
+            let online_secs = connected_at.elapsed().as_secs() as i64;
+            state.stats.record(crate::infra::stats::METRIC_ONLINE_SECONDS, online_secs);
+            state
+                .stats
+                .realtime
+                .online_sessions
+                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
             tracing::info!(user_id = %user_id, device = %device, "ws session unregistered");
         });
     }
@@ -77,6 +87,8 @@ pub struct WsConnectQuery {
     pub user_id: Option<String>,
     pub device: Option<String>,
     pub nonce: Option<String>,
+    #[serde(default)]
+    pub token: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -105,7 +117,47 @@ pub async fn ws_upgrade(
     State(state): State<AppState>,
     Query(query): Query<WsConnectQuery>,
 ) -> Response {
+    // Unauthenticated entry point: only allowed in demo mode. Production
+    // clients must use /api/connect (token-authenticated upgrade).
+    if !crate::app::AppConfig::is_demo() {
+        if !validate_ws_token(&state, &query).await {
+            return crate::api::error::ApiError::Unauthorized.into_response();
+        }
+    }
     ws.on_upgrade(move |socket| ws_session_loop(state, query, socket))
+}
+
+/// Validate the token of an unauthenticated WS upgrade (query `token`,
+/// Authorization header or cookie) via the auth service or a JWT.
+pub(crate) async fn validate_ws_token(state: &AppState, query: &WsConnectQuery) -> bool {
+    // token must come from somewhere; query only carries user_id/device/nonce
+    // here, so the caller path via /api/connect is preferred. For /ws we
+    // accept `?token=` on the same query string.
+    if query.token.is_empty() {
+        return false;
+    }
+    if let Ok(Some(user_id)) = state.auth_service.validate(&query.token).await {
+        // the token must belong to the connecting user (if provided)
+        if let Some(requested) = query.user_id.as_deref() {
+            if !requested.is_empty() && requested != user_id {
+                return false;
+            }
+        }
+        return true;
+    }
+    if let Some(secret) = state.config.jwt_secret.as_deref() {
+        if let Some(claims) = crate::infra::jwt::verify_hs256(&query.token, secret) {
+            if let Some(uid) = claims.get(&state.config.jwt_user_id_field).and_then(|v| v.as_str()) {
+                if let Some(requested) = query.user_id.as_deref() {
+                    if !requested.is_empty() && requested != uid {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+    }
+    false
 }
 
 pub async fn ws_connect(
@@ -118,6 +170,7 @@ pub async fn ws_connect(
         user_id: query.user_id.clone().or(Some(auth.user_id.clone())),
         device: query.device,
         nonce: query.nonce,
+        token: String::new(),
     };
     ws.on_upgrade(move |socket| ws_session_loop(state, query, socket))
 }
@@ -146,12 +199,19 @@ async fn ws_session_loop(state: AppState, query: WsConnectQuery, socket: WebSock
         .register(&user_id, &device, sender_handle)
         .await;
     state.presence_hub.upsert_session(&user_id, &device).await;
+    state
+        .stats
+        .realtime
+        .online_sessions
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     tracing::info!(user_id = %user_id, device = %device, "ws session registered");
 
+    let connected_at = std::time::Instant::now();
     let _guard = PresenceSessionGuard {
         state: state.clone(),
         user_id: user_id.clone(),
         device: device.clone(),
+        connected_at,
     };
 
     let (mut sender, mut receiver) = socket.split();
@@ -240,6 +300,14 @@ async fn handle_ws_envelope(
     req: WsEnvelope,
 ) {
     match req.r#type.as_str() {
+        "sip" => {
+            // Raw SIP text: pipe through the PBX relay without parsing (Go
+            // handles this inline to keep SIP transaction ordering).
+            state
+                .sip_relay
+                .relay_from_client(state, user_id, device, &req.message)
+                .await;
+        }
         "ping" => {
             let payload = serde_json::to_string(&serde_json::json!({
                 "type": "resp",
@@ -288,6 +356,34 @@ async fn handle_ws_envelope(
                     "chatId": req.chat_id,
                     "topicId": req.topic_id,
                     "code": 200,
+                    "createdAt": Utc::now().to_rfc3339(),
+                }))
+                .unwrap_or_default();
+                state
+                    .ws_hub
+                    .send_to_device(
+                        user_id,
+                        device,
+                        &payload,
+                        state.config.ws_drop_on_backpressure,
+                    )
+                    .await;
+                return;
+            }
+            // Typing is single-chat only (Go semantics): reject groups.
+            let is_dm = state
+                .topic_service
+                .get_any_by_id(&req.topic_id)
+                .await
+                .map(|topic| !topic.multiple)
+                .unwrap_or(false);
+            if !is_dm {
+                let payload = serde_json::to_string(&serde_json::json!({
+                    "type": "resp",
+                    "chatId": req.chat_id,
+                    "topicId": req.topic_id,
+                    "code": 403,
+                    "message": "typing is only allowed in single chats",
                     "createdAt": Utc::now().to_rfc3339(),
                 }))
                 .unwrap_or_default();
@@ -449,9 +545,12 @@ async fn handle_ws_envelope(
                 "createdAt": Utc::now().to_rfc3339(),
             }))
             .unwrap_or_default();
-            for member in members {
-                if member != user_id {
-                    crate::api::push::broadcast_to_user(state, &member, &read_payload).await;
+            // Multi-device sync: push the read marker to the user's other
+            // devices only (Go semantics), not to conversation members.
+            for other_device in state.ws_hub.list_devices(user_id).await {
+                if other_device != device {
+                    crate::api::push::send_to_device(state, user_id, &other_device, &read_payload)
+                        .await;
                 }
             }
 
@@ -514,46 +613,15 @@ async fn handle_ws_envelope(
             };
 
             match send_chat_message(state, user_id, message).await {
-                Ok((effective_form, topic_id, resp)) => {
-                    let created_at = effective_form.created_at.clone().unwrap_or_else(|| Utc::now().to_rfc3339());
-                    let event_payload = serde_json::to_string(&serde_json::json!({
-                        "type": "chat",
-                        "topicId": topic_id,
-                        "seq": resp.seq,
-                        "chatId": resp.chat_id,
-                        "attendee": user_id,
-                        "createdAt": created_at,
-                        "content": effective_form.content.clone().or_else(|| {
-                            if effective_form.message.is_empty() {
-                                None
-                            } else {
-                                Some(crate::Content {
-                                    content_type: if effective_form.r#type.is_empty() { "chat".to_string() } else { effective_form.r#type.clone() },
-                                    text: effective_form.message.clone(),
-                                    ..crate::Content::default()
-                                })
-                            }
-                        })
-                    }))
-                    .unwrap_or_default();
-                    crate::api::push::broadcast_to_user(state, user_id, &event_payload).await;
-                    if let Ok(members) = state.topic_service.list_members(&resp.topic_id).await {
-                        for member in members {
-                            if member != user_id {
-                                crate::api::push::broadcast_to_user(state, &member, &event_payload)
-                                    .await;
-                            }
-                        }
-                    }
-
+                Ok((_effective_form, _topic_id, resp)) => {
                     let ack_payload = serde_json::to_string(&serde_json::json!({
                         "type": "resp",
                         "topicId": resp.topic_id,
                         "seq": resp.seq,
                         "chatId": resp.chat_id,
                         "code": resp.code,
-                        "attendee": effective_form.attendee,
-                        "createdAt": effective_form.created_at.clone().unwrap_or_else(|| Utc::now().to_rfc3339()),
+                        "attendee": resp.attendee_id,
+                        "createdAt": Utc::now().to_rfc3339(),
                     }))
                     .unwrap_or_default();
                     state
@@ -596,10 +664,12 @@ async fn handle_ws_envelope(
 fn map_ws_error_code(err: &ApiError) -> Option<u16> {
     match err {
         ApiError::NotFound => Some(404),
-        ApiError::Unauthorized => Some(403),
+        ApiError::Unauthorized | ApiError::Forbidden => Some(403),
         ApiError::BadRequest(_) => Some(400),
         ApiError::InvalidToken => Some(401),
         ApiError::Internal(_) => Some(500),
         ApiError::NotImplemented(_) => Some(501),
+        ApiError::RequestTimeout => Some(408),
+        ApiError::TooManyRequests => Some(429),
     }
 }

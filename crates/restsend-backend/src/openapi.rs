@@ -376,6 +376,16 @@ pub struct ListConversationForm {
     #[serde(default)]
     pub category: String,
     pub updated_at: Option<String>,
+    pub last_updated_at: Option<String>,
+    pub last_removed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CategorySummary {
+    pub name: String,
+    pub total: i64,
+    pub unread: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -390,6 +400,8 @@ pub struct ListConversationResult {
     pub removed: Vec<String>,
     pub last_updated_at: Option<String>,
     pub last_removed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub categories: Option<Vec<CategorySummary>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

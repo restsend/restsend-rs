@@ -14,7 +14,11 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(InitSchema), Box::new(HelpdeskSchema)]
+        vec![
+            Box::new(InitSchema),
+            Box::new(HelpdeskSchema),
+            Box::new(RestsendSyncSchema),
+        ]
     }
 }
 
@@ -964,6 +968,7 @@ enum Conversations {
     LastMessageSeq,
     TagsJson,
     ExtraJson,
+    DeletedAt,
 }
 
 #[derive(DeriveIden)]
@@ -1247,6 +1252,174 @@ impl MigrationTrait for HelpdeskSchema {
         manager
             .drop_table(Table::drop().table(HelpdeskInboxes::Table).to_owned())
             .await?;
+        Ok(())
+    }
+}
+
+#[derive(DeriveIden)]
+enum Configs {
+    Table,
+    Key,
+    Value,
+    UpdatedAt,
+}
+
+#[derive(DeriveIden)]
+enum StatsDaily {
+    Table,
+    Date,
+    Metric,
+    Value,
+}
+
+struct RestsendSyncSchema;
+
+impl MigrationName for RestsendSyncSchema {
+    fn name(&self) -> &str {
+        "m20260903_000001_restsend_sync"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for RestsendSyncSchema {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        if !manager.has_column("conversations", "deleted_at").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Conversations::Table)
+                        .add_column(ColumnDef::new(Conversations::DeletedAt).text().null())
+                        .to_owned(),
+                )
+                .await?;
+        }
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Configs::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Configs::Key)
+                            .string_len(191)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Configs::Value).text().not_null().default(""))
+                    .col(ColumnDef::new(Configs::UpdatedAt).text().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        // Rebuild chat_logs with composite primary key (topic_id, id) so the
+        // same chat id can exist in both topics of a dual DM pair.
+        manager
+            .drop_table(Table::drop().table(ChatLogs::Table).to_owned())
+            .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(ChatLogs::Table)
+                    .col(
+                        ColumnDef::new(ChatLogs::TopicId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ChatLogs::Id).string_len(191).not_null())
+                    .col(ColumnDef::new(ChatLogs::Seq).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(ChatLogs::SenderId)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(ChatLogs::ContentJson).text().not_null())
+                    .col(
+                        ColumnDef::new(ChatLogs::DeletedByJson)
+                            .text()
+                            .not_null()
+                            .default("[]"),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Read)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Recall)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(ChatLogs::Source)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
+                    .col(ColumnDef::new(ChatLogs::CreatedAt).text().not_null())
+                    .primary_key(
+                        Index::create()
+                            .col(ChatLogs::TopicId)
+                            .col(ChatLogs::Id),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_index(
+                Index::create()
+                    .name("idx_chat_logs_topic_seq")
+                    .table(ChatLogs::Table)
+                    .col(ChatLogs::TopicId)
+                    .col(ChatLogs::Seq)
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(StatsDaily::Table)
+                    .if_not_exists()
+                    .col(ColumnDef::new(StatsDaily::Date).string_len(10).not_null())
+                    .col(
+                        ColumnDef::new(StatsDaily::Metric)
+                            .string_len(191)
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(StatsDaily::Value)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .primary_key(Index::create().col(StatsDaily::Date).col(StatsDaily::Metric))
+                    .to_owned(),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(StatsDaily::Table).if_exists().to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Configs::Table).if_exists().to_owned())
+            .await?;
+        if manager.has_column("conversations", "deleted_at").await? {
+            manager
+                .alter_table(
+                    Table::alter()
+                        .table(Conversations::Table)
+                        .drop_column(Conversations::DeletedAt)
+                        .to_owned(),
+                )
+                .await?;
+        }
         Ok(())
     }
 }

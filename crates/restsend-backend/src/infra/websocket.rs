@@ -93,7 +93,17 @@ impl WsHub {
                         );
                         to_remove.push(session.device.clone());
                     }
-                    SendOutcome::Backpressure => {}
+                    SendOutcome::Backpressure => {
+                        // Payload silently dropped on a full client queue; this
+                        // is the transient cause of "conversation list stale
+                        // until next sync", so leave a trace for diagnosis.
+                        tracing::warn!(
+                            user_id = %user_id,
+                            device = %session.device,
+                            payload_len = payload.len(),
+                            "ws payload dropped: client queue full"
+                        );
+                    }
                 }
             }
         }
@@ -139,6 +149,51 @@ impl WsHub {
         drop(peers);
         if remove_target {
             self.unregister(user_id, device).await;
+        }
+    }
+
+    /// Broadcast to every session of `user_id` except `except_device`
+    /// (multi-device sync of own state, e.g. read markers).
+    pub async fn broadcast_except_device(
+        &self,
+        user_id: &str,
+        except_device: &str,
+        payload: &str,
+        drop_on_backpressure: bool,
+    ) {
+        let mut to_remove = Vec::new();
+        let peers = self.peers.read().await;
+        if let Some(clients) = peers.get(user_id) {
+            for session in clients {
+                if session.device == except_device {
+                    continue;
+                }
+                let outcome = session.sender.try_send(payload.to_string());
+                match outcome {
+                    SendOutcome::Sent => {}
+                    SendOutcome::Closed => {
+                        to_remove.push(session.device.clone());
+                    }
+                    SendOutcome::Backpressure if drop_on_backpressure => {
+                        to_remove.push(session.device.clone());
+                    }
+                    SendOutcome::Backpressure => {
+                        // Payload silently dropped on a full client queue; this
+                        // is the transient cause of "conversation list stale
+                        // until next sync", so leave a trace for diagnosis.
+                        tracing::warn!(
+                            user_id = %user_id,
+                            device = %session.device,
+                            payload_len = payload.len(),
+                            "ws payload dropped: client queue full"
+                        );
+                    }
+                }
+            }
+        }
+        drop(peers);
+        for device in to_remove {
+            self.unregister(user_id, &device).await;
         }
     }
 

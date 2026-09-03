@@ -41,6 +41,32 @@ pub async fn topic_create(
     if form.sender_id.is_empty() {
         form.sender_id = auth.user_id().to_string();
     }
+    // Runtime member limits from the DB config table (Go parity).
+    let multiple = form.multiple.unwrap_or(true);
+    if multiple {
+        let member_count = form.members.iter().collect::<std::collections::HashSet<_>>().len()
+            as i64;
+        let min = state
+            .config_service
+            .get_i64(crate::services::config::MINIMUM_TOPIC_MEMBERS)
+            .await
+            .unwrap_or(2);
+        let max = state
+            .config_service
+            .get_i64(crate::services::config::MAX_TOPIC_MEMBERS)
+            .await
+            .unwrap_or(1000);
+        if member_count < min {
+            return Err(ApiError::bad_request(format!(
+                "at least {min} members required to create a group"
+            )));
+        }
+        if member_count > max {
+            return Err(ApiError::bad_request(format!(
+                "at most {max} members allowed in a group"
+            )));
+        }
+    }
     let topic = state
         .topic_service
         .create_topic(None, form)

@@ -42,7 +42,16 @@ impl LocalTestServer {
             ws_per_user_limit: 0,
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
-            ws_drop_on_backpressure: true,
+                        ws_drop_on_backpressure: true,
+            recall_timeout_secs: 0,
+            request_timeout_secs: 30,
+            http_send_limit: 0,
+            guest_ip_limit: 0,
+            jwt_secret: None,
+            jwt_user_id_field: String::new(),
+            sip_relay_pbx_ws: String::new(),
+            metrics_prefix: String::new(),
+            stats_enabled: false,
         };
 
         let (app, state) = build_router(config).await.expect("build router");

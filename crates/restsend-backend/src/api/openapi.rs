@@ -643,9 +643,17 @@ pub async fn chat_send_message(
             .await;
         match result {
             Ok(resp) => {
-                let payload = serde_json::to_string(&resp).unwrap_or_default();
-                crate::api::push::broadcast_to_user(&state, &attendee_id, &payload).await;
-                crate::api::push::broadcast_to_user(&state, &sender_id, &payload).await;
+                // Same fanout as the client send path: push the chat event
+                // first, then maintain conversation last_message/unread.
+                crate::api::chat::broadcast_chat_message(&state, &sender_id, &form.message, &resp)
+                    .await;
+                crate::api::chat::update_topic_conversations(
+                    &state,
+                    &resp.topic_id,
+                    &resp,
+                    &form.message,
+                )
+                .await;
                 responses.push(resp);
             }
             Err(err) => responses.push(OpenApiSendMessageResponse {
@@ -680,9 +688,17 @@ pub async fn chat_send_message_with_format(
             .await;
         match result {
             Ok(resp) => {
-                let payload = serde_json::to_string(&resp).unwrap_or_default();
-                crate::api::push::broadcast_to_user(&state, &attendee_id, &payload).await;
-                crate::api::push::broadcast_to_user(&state, &sender_id, &payload).await;
+                // Same fanout as the client send path: push the chat event
+                // first, then maintain conversation last_message/unread.
+                crate::api::chat::broadcast_chat_message(&state, &sender_id, &message, &resp)
+                    .await;
+                crate::api::chat::update_topic_conversations(
+                    &state,
+                    &resp.topic_id,
+                    &resp,
+                    &message,
+                )
+                .await;
                 responses.push(resp);
             }
             Err(err) => responses.push(OpenApiSendMessageResponse {
@@ -1521,54 +1537,11 @@ async fn fanout_topic_message(
     resp: &OpenApiSendMessageResponse,
     message: &OpenApiChatMessageForm,
 ) {
-    let payload = serde_json::to_string(resp).unwrap_or_default();
-    let _ = state
-        .conversation_service
-        .create_or_update(crate::Conversation {
-            owner_id: resp.sender_id.clone(),
-            topic_id: topic_id.to_string(),
-            unread: 0,
-            last_seq: resp.seq,
-            updated_at: now(),
-            ..crate::Conversation::default()
-        })
-        .await;
-
-    if let Ok(members) = state.topic_service.list_members(topic_id).await {
-        for user_id in members {
-            let unread = if user_id == resp.sender_id { 0 } else { 1 };
-            let _ = state
-                .conversation_service
-                .create_or_update(crate::Conversation {
-                    owner_id: user_id.clone(),
-                    topic_id: topic_id.to_string(),
-                    unread,
-                    last_seq: resp.seq,
-                    last_sender_id: resp.sender_id.clone(),
-                    last_message: message.content.clone().or_else(|| {
-                        if message.message.is_empty() {
-                            None
-                        } else {
-                            Some(crate::Content {
-                                content_type: if message.r#type.is_empty() {
-                                    "chat".to_string()
-                                } else {
-                                    message.r#type.clone()
-                                },
-                                text: message.message.clone(),
-                                ..crate::Content::default()
-                            })
-                        }
-                    }),
-                    updated_at: now(),
-                    ..crate::Conversation::default()
-                })
-                .await;
-            crate::api::push::broadcast_to_user(state, &user_id, &payload).await;
-        }
-    } else {
-        crate::api::push::broadcast_to_user(state, &resp.sender_id, &payload).await;
-    }
+    // Reuse the client-path fanout so OpenAPI sends maintain the exact same
+    // conversation.last_message semantics (guarded advance, atomic unread,
+    // well-formed chat event payloads). Chat event first, conversations after.
+    crate::api::chat::broadcast_chat_message(state, &resp.sender_id, message, resp).await;
+    crate::api::chat::update_topic_conversations(state, topic_id, resp, message).await;
 }
 
 async fn ensure_topic_exists_for_send(
