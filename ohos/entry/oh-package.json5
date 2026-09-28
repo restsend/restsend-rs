@@ -1,0 +1,11 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "RestSend demo app",
+  "main": "",
+  "author": "restsend",
+  "license": "MIT",
+  "dependencies": {
+    "restsend": "file:../Library/restsend"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "RestSend demo module" },
+    { "name": "ability_desc", "value": "RestSend demo" },
+    { "name": "ability_label", "value": "RestSend" },
+    { "name": "endpoint_hint", "value": "服务器地址，如 http://192.168.1.10:18123" },
+    { "name": "account_hint", "value": "账号" },
+    { "name": "password_hint", "value": "密码" },
+    { "name": "btn_login", "value": "登录" },
+    { "name": "btn_register", "value": "注册" },
+    { "name": "btn_guest", "value": "游客登录" },
+    { "name": "chats_title", "value": "会话" },
+    { "name": "status_online", "value": "在线" },
+    { "name": "status_offline", "value": "离线" },
+    { "name": "msg_image", "value": "[图片]" },
+    { "name": "msg_voice", "value": "[语音]" },
+    { "name": "msg_video", "value": "[视频]" },
+    { "name": "msg_file", "value": "[文件]" },
+    { "name": "msg_recalled", "value": "[消息已撤回]" },
+    { "name": "peer_typing", "value": "对方正在输入…" },
+    { "name": "input_hint", "value": "输入消息" },
+    { "name": "btn_send", "value": "发送" }
+  ]
+}

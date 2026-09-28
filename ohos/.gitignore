@@ -1,0 +1,26 @@
+# build outputs
+**/build
+**/oh_modules
+/.hvigor
+*.har
+
+# ide / local
+/.idea
+/.vscode
+/.clangd
+/.clang-format
+/.clang-tidy
+/.appanalyzer
+local.properties
+
+# generated
+/Library/restsend/BuildProfile.ets
+/entry/BuildProfile.ets
+/oh-package-lock.json5
+
+# harness
+harness/node_modules/
+harness/sdk.mjs
+harness/package-lock.json
+harness/dl_*.bin
+oh-package-lock.json5

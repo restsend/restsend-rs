@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Instant;
 
-#[derive(Default)]
 pub struct RateLimiter {
     buckets: Mutex<HashMap<String, Bucket>>,
+    started_at: Instant,
 }
 
 struct Bucket {
@@ -19,7 +19,10 @@ struct Bucket {
 
 impl RateLimiter {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            buckets: Mutex::new(HashMap::new()),
+            started_at: Instant::now(),
+        }
     }
 
     /// Returns true when the request is allowed within `rate` per second.
@@ -27,8 +30,7 @@ impl RateLimiter {
         if rate == 0 {
             return true;
         }
-        let now = Instant::now();
-        let current_window = now.elapsed().as_secs();
+        let current_window = self.started_at.elapsed().as_secs();
         let mut buckets = self.buckets.lock().unwrap();
         // opportunistic cleanup when the map grows large
         if buckets.len() > 65536 {

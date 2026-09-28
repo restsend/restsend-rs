@@ -1,0 +1,10 @@
+{
+  "name": "restsend",
+  "version": "0.1.0",
+  "description": "RestSend ArkTS native client sdk",
+  "main": "Index.ets",
+  "author": "restsend",
+  "license": "MIT",
+  "dependencies": {},
+  "dynamicDependencies": {}
+}

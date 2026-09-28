@@ -1,0 +1,6 @@
+{
+  "modelVersion": "6.0.1",
+  "description": "RestSend ArkTS native client (HAR sdk + demo app)",
+  "dependencies": {},
+  "devDependencies": {}
+}

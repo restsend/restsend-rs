@@ -1,0 +1,38 @@
+{
+  "app": {
+    "signingConfigs": [],
+    "products": [
+      {
+        "name": "default",
+        "compatibleSdkVersion": "6.0.1(21)",
+        "targetSdkVersion": "6.0.1(21)",
+        "runtimeOS": "HarmonyOS",
+        "bundleName": "cn.restsend.demo",
+        "label": "$string:app_name",
+        "icon": "$media:app_icon",
+        "versionCode": 1000000,
+        "versionName": "0.1.0"
+      }
+    ],
+    "buildModeSet": [
+      { "name": "debug" },
+      { "name": "release" }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        { "name": "default" }
+      ]
+    },
+    {
+      "name": "restsend",
+      "srcPath": "./Library/restsend",
+      "targets": [
+        { "name": "default" }
+      ]
+    }
+  ]
+}
