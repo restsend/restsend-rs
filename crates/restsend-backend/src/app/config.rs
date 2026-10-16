@@ -29,6 +29,8 @@ pub struct AppConfig {
     pub ws_client_queue_size: usize,
     pub ws_typing_interval_ms: u64,
     pub ws_drop_on_backpressure: bool,
+    pub ws_ping_interval_secs: u64,
+    pub ws_idle_timeout_secs: u64,
     pub recall_timeout_secs: u64,
     pub request_timeout_secs: u64,
     pub http_send_limit: usize,
@@ -157,6 +159,16 @@ impl AppConfig {
             .and_then(|v| v.parse::<u64>().ok())
             .unwrap_or(1000);
         let ws_drop_on_backpressure = env_bool("WS_DROP_ON_BACKPRESSURE", true);
+        let ws_ping_interval_secs = std::env::var("WS_PING_INTERVAL_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(30)
+            .max(1);
+        let ws_idle_timeout_secs = std::env::var("WS_IDLE_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(90)
+            .max(ws_ping_interval_secs.saturating_mul(2).saturating_add(1));
         let recall_timeout_secs = std::env::var("RECALL_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
@@ -219,6 +231,8 @@ impl AppConfig {
             ws_client_queue_size,
             ws_typing_interval_ms,
             ws_drop_on_backpressure,
+            ws_ping_interval_secs,
+            ws_idle_timeout_secs,
             recall_timeout_secs,
             request_timeout_secs,
             http_send_limit,

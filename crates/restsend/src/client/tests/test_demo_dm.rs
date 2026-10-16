@@ -60,6 +60,8 @@ impl DemoServer {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
                         ws_drop_on_backpressure: true,
+            ws_ping_interval_secs: 30,
+            ws_idle_timeout_secs: 90,
             recall_timeout_secs: 0,
             request_timeout_secs: 30,
             http_send_limit: 0,

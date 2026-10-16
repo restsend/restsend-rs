@@ -27,6 +27,10 @@ use tokio::{
     },
 };
 
+/// How many consecutive heartbeat probes may go unanswered before the
+/// connection is considered dead and reconnected.
+const MAX_PING_MISS: usize = 2;
+
 #[derive(Clone)]
 pub enum ConnectionStatus {
     Broken,
@@ -55,6 +59,7 @@ pub(super) struct ConnectState {
     broken_count: AtomicU64,
     last_broken_at: Mutex<Option<i64>>,
     last_alive_at: AtomicI64,
+    pending_ping: AtomicBool,
     state_tx: broadcast::Sender<ConnectionStatus>,
     last_state: Mutex<ConnectionStatus>,
     error_collector: ErrorLogCollector,
@@ -71,6 +76,7 @@ impl ConnectState {
             broken_count: AtomicU64::new(0),
             last_broken_at: Mutex::new(None),
             last_alive_at: AtomicI64::new(crate::utils::now_millis()),
+            pending_ping: AtomicBool::new(false),
             state_tx,
             last_state: Mutex::new(ConnectionStatus::Shutdown),
             error_collector: ErrorLogCollector::new(100),
@@ -95,6 +101,7 @@ impl ConnectState {
     pub fn did_connecting(&self) {
         self.last_alive_at
             .store(crate::utils::now_millis(), Ordering::Relaxed);
+        self.clear_pending_ping();
         *self.last_state.lock().unwrap() = ConnectionStatus::Connecting;
         //self.state_tx.send(ConnectionStatus::Connecting).ok();
     }
@@ -104,12 +111,36 @@ impl ConnectState {
         self.last_broken_at.lock().unwrap().take();
         self.last_alive_at
             .store(crate::utils::now_millis(), Ordering::Relaxed);
+        self.clear_pending_ping();
         *self.last_state.lock().unwrap() = ConnectionStatus::Connected;
     }
 
     pub fn did_sent_or_recvived(&self) {
         self.last_alive_at
             .store(crate::utils::now_millis(), Ordering::Relaxed);
+    }
+
+    /// Mark that a heartbeat probe is in flight and awaiting a pong.
+    pub fn set_pending_ping(&self) {
+        self.pending_ping.store(true, Ordering::Relaxed);
+    }
+
+    /// Whether a heartbeat probe is still awaiting a pong.
+    pub fn has_pending_ping(&self) -> bool {
+        self.pending_ping.load(Ordering::Relaxed)
+    }
+
+    /// A pong (ping response) arrived: the peer is alive.
+    pub fn did_pong(&self) {
+        self.clear_pending_ping();
+    }
+
+    fn clear_pending_ping(&self) {
+        self.pending_ping.store(false, Ordering::Relaxed);
+    }
+
+    pub fn get_ping_timeout_secs(&self) -> u32 {
+        self.option.ping_timeout_secs.load(Ordering::Relaxed) as u32
     }
 
     pub fn did_broken(&self) {
@@ -218,6 +249,7 @@ impl WebSocketCallback for ConnectionInner {
     }
 
     fn on_message(&self, message: String) {
+        // Any inbound frame proves the peer is (still) reachable.
         self.connect_state_ref.did_sent_or_recvived();
 
         let req = match ChatRequest::try_from(message) {
@@ -229,6 +261,17 @@ impl WebSocketCallback for ConnectionInner {
                 return;
             }
         };
+
+        // A ping response clears the in-flight heartbeat probe.
+        if ChatRequestType::from(&req.req_type) == ChatRequestType::Response
+            && req
+                .content
+                .as_ref()
+                .map(|content| content.content_type == "ping")
+                .unwrap_or(false)
+        {
+            self.connect_state_ref.did_pong();
+        }
 
         match ChatRequestType::from(&req.req_type) {
             ChatRequestType::Nop => {
@@ -348,7 +391,14 @@ async fn serve_connection(
             state_ref.wait_for_next_connect().await;
 
             let url = WebsocketOption::url_from_endpoint(endpoint);
-            let opt = WebsocketOption::new(&url, token, is_cross_domain);
+            let mut opt = WebsocketOption::new(&url, token, is_cross_domain);
+            // Transport-level idle backstop; always larger than the app-level
+            // heartbeat window so it only fires when the app probe is stuck.
+            opt.read_timeout = Duration::from_secs(
+                (state_ref.get_ping_interval_secs() as u64)
+                    .saturating_mul(2)
+                    .max(90),
+            );
             info!("connect websocket url: {}", url);
 
             let (incoming_tx, mut incoming_rx) = unbounded_channel();
@@ -370,39 +420,85 @@ async fn serve_connection(
                         store_ref.handle_send_fail(&message.chat_id).await;
                         break;
                     }
-                    state_ref.did_sent_or_recvived();
                 }
             };
 
             let keepalive_loop = async {
-                while !state_ref.is_must_shutdown() {
+                let ping_timeout =
+                    Duration::from_secs(state_ref.get_ping_timeout_secs().max(1) as u64);
+                'keepalive: while !state_ref.is_must_shutdown() {
                     let ping_interval = state_ref.get_ping_interval_secs();
-                    sleep(Duration::from_secs(ping_interval as u64)).await;
+                    sleep(Duration::from_secs(ping_interval.max(1) as u64)).await;
 
-                    let timestamp = crate::utils::now_millis();
-                    let error_logs = state_ref.get_and_clear_errors();
-                    let content = serde_json::json!({
-                        "timestamp": timestamp,
-                        "error_logs": error_logs
-                    });
-                    let ping_req = ChatRequest::new_ping(content.to_string());
+                    // Probe up to MAX_PING_MISS times in a row; a single missed
+                    // pong may just be a slow network, but a run of misses means
+                    // the TCP connection is silently dead.
+                    let mut alive = false;
+                    for attempt in 0..MAX_PING_MISS {
+                        let timestamp = crate::utils::now_millis();
+                        let error_logs = state_ref.get_and_clear_errors();
+                        let content = serde_json::json!({
+                            "timestamp": timestamp,
+                            "error_logs": error_logs
+                        });
+                        let ping_req = ChatRequest::new_ping(content.to_string());
 
-                    if let Err(e) = conn.send((&ping_req).into()).await {
-                        let error_msg = format!("ping send failed: {:?}", e);
-                        warn!("{}", error_msg);
-                        callback_ref
-                            .read()
-                            .unwrap()
-                            .as_ref()
-                            .map(|cb| cb.on_ping_failed(error_msg.clone()));
-                        state_ref.add_error(error_msg);
-                        break;
+                        state_ref.set_pending_ping();
+                        if let Err(e) = conn.send((&ping_req).into()).await {
+                            let error_msg = format!("ping send failed: {:?}", e);
+                            warn!("{}", error_msg);
+                            callback_ref
+                                .read()
+                                .unwrap()
+                                .as_ref()
+                                .map(|cb| cb.on_ping_failed(error_msg.clone()));
+                            state_ref.add_error(error_msg);
+                            break 'keepalive;
+                        }
+                        info!(
+                            "ping sent at {} attempt {} interval {}s",
+                            timestamp,
+                            attempt + 1,
+                            ping_interval
+                        );
+
+                        // Wait for a pong; any inbound frame clears the pending
+                        // probe via `did_pong`. The timeout is measured by
+                        // counting sleeps so it never relies on a wall clock.
+                        let timeout_ms =
+                            ping_timeout.as_millis().clamp(100, u64::MAX as u128) as u64;
+                        let mut waited_ms = 0u64;
+                        while state_ref.has_pending_ping() {
+                            if waited_ms >= timeout_ms {
+                                break;
+                            }
+                            sleep(Duration::from_millis(100)).await;
+                            waited_ms += 100;
+                        }
+                        if !state_ref.has_pending_ping() {
+                            alive = true;
+                            break;
+                        }
+                        warn!(
+                            "ping timeout after {}ms (attempt {})",
+                            waited_ms,
+                            attempt + 1
+                        );
                     }
-                    state_ref.did_sent_or_recvived();
-                    info!(
-                        "ping sent at {} with interval {}s",
-                        timestamp, ping_interval
-                    );
+
+                    if !alive {
+                        let error_msg = "ping timeout, connection considered broken".to_string();
+                        warn!("{}", error_msg);
+                        state_ref.add_error(error_msg.clone());
+                        {
+                            let guard = callback_ref.read().unwrap();
+                            if let Some(cb) = guard.as_ref() {
+                                cb.on_ping_failed(error_msg.clone());
+                                cb.on_net_broken(error_msg.clone());
+                            }
+                        }
+                        break 'keepalive;
+                    }
                 }
             };
 
@@ -522,4 +618,44 @@ async fn serve_connection(
     };
 
     conn_state_ref.send(ConnectionStatus::Shutdowned).ok();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::client::store::ClientOption;
+
+    fn new_state() -> ConnectState {
+        ConnectState::new(Arc::new(ClientOption::default()))
+    }
+
+    #[test]
+    fn pending_ping_cleared_on_pong() {
+        let state = new_state();
+        assert!(!state.has_pending_ping());
+        state.set_pending_ping();
+        assert!(state.has_pending_ping());
+        state.did_pong();
+        assert!(!state.has_pending_ping());
+    }
+
+    #[test]
+    fn pending_ping_cleared_on_reconnect() {
+        let state = new_state();
+        state.set_pending_ping();
+        state.did_connected();
+        assert!(
+            !state.has_pending_ping(),
+            "a stale probe must not survive a reconnect"
+        );
+
+        state.set_pending_ping();
+        state.did_connecting();
+        assert!(!state.has_pending_ping());
+    }
+
+    #[test]
+    fn default_ping_timeout_is_five_secs() {
+        assert_eq!(new_state().get_ping_timeout_secs(), 5);
+    }
 }

@@ -49,6 +49,8 @@ mod tests {
             ws_client_queue_size: 0,
             ws_typing_interval_ms: 1000,
             ws_drop_on_backpressure: true,
+            ws_ping_interval_secs: 30,
+            ws_idle_timeout_secs: 90,
             recall_timeout_secs: 0,
             request_timeout_secs: 30,
             http_send_limit: 0,
@@ -7324,6 +7326,221 @@ let (app, state) = build_router(test_config()).await.expect("build router");
             .unwrap();
         let resp = app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+    }
+
+    async fn wait_until_async<F, Fut>(timeout: std::time::Duration, mut f: F) -> bool
+    where
+        F: FnMut() -> Fut,
+        Fut: std::future::Future<Output = bool>,
+    {
+        let start = std::time::Instant::now();
+        loop {
+            if f().await {
+                return true;
+            }
+            if start.elapsed() >= timeout {
+                return false;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    }
+
+    async fn open_authed_ws(
+        addr: std::net::SocketAddr,
+        endpoint: &str,
+        user: &str,
+        device: &str,
+    ) -> tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>
+    {
+        let client = reqwest::Client::new();
+        let _ = client
+            .post(format!("{endpoint}/open/user/register/{user}"))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .unwrap();
+        let auth: serde_json::Value = client
+            .post(format!("{endpoint}/open/user/auth/{user}"))
+            .bearer_auth("test-token")
+            .json(&serde_json::json!({}))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let token = auth
+            .get("authToken")
+            .and_then(|v| v.as_str())
+            .unwrap()
+            .to_string();
+        let mut req = format!("ws://{addr}/api/connect?device={device}")
+            .into_client_request()
+            .unwrap();
+        req.headers_mut()
+            .insert("Authorization", format!("Bearer {token}").parse().unwrap());
+        let (ws, _) = tokio_tungstenite::connect_async(req).await.unwrap();
+        ws
+    }
+
+    /// The server must reap a session whose peer went silent even though the
+    /// TCP socket is still open (half-open connection).
+    #[tokio::test]
+    async fn ws_idle_timeout_closes_silent_session() {
+        let mut config = test_config();
+        config.ws_ping_interval_secs = 1;
+        config.ws_idle_timeout_secs = 2;
+        let (app, state) = build_router(config).await.expect("build router");
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let endpoint = format!("http://{}", addr);
+        let serve_state = state.clone();
+        tokio::spawn(async move {
+            axum::serve(listener, app.with_state(serve_state))
+                .await
+                .unwrap();
+        });
+
+        // Connect but never read (so no protocol pong is ever sent) nor send.
+        let _ws = open_authed_ws(addr, &endpoint, "idle-alice", "idle-dev").await;
+
+        assert!(
+            wait_until_async(std::time::Duration::from_secs(3), || async {
+                state.ws_hub.total_sessions().await >= 1
+            })
+            .await,
+            "session should register"
+        );
+        assert!(
+            wait_until_async(std::time::Duration::from_secs(10), || async {
+                state.ws_hub.total_sessions().await == 0
+            })
+            .await,
+            "silent session should be closed by the idle timeout"
+        );
+    }
+
+    /// Heartbeat pings are answered inline with a `resp` echoing the chat id and
+    /// content so the client can correlate the pong.
+    #[tokio::test]
+    async fn ws_answers_json_ping_inline() {
+        let (app, state) = build_router(test_config()).await.expect("build router");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let endpoint = format!("http://{}", addr);
+        tokio::spawn(async move {
+            axum::serve(listener, app.with_state(state)).await.unwrap();
+        });
+
+        let mut ws = open_authed_ws(addr, &endpoint, "hb-alice", "hb-dev").await;
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            serde_json::json!({
+                "type": "ping",
+                "chatId": "hb-1",
+                "content": {"type": "ping", "text": "{}"}
+            })
+            .to_string(),
+        ))
+        .await
+        .unwrap();
+
+        let reply = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            loop {
+                match ws.next().await {
+                    Some(Ok(tokio_tungstenite::tungstenite::Message::Text(text))) => {
+                        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+                        if value.get("chatId").and_then(|v| v.as_str()) == Some("hb-1") {
+                            return value;
+                        }
+                    }
+                    Some(Ok(_)) => {}
+                    other => panic!("unexpected ws frame: {:?}", other),
+                }
+            }
+        })
+        .await
+        .expect("heartbeat reply timeout");
+
+        assert_eq!(reply.get("type").and_then(|v| v.as_str()), Some("resp"));
+        assert_eq!(reply.get("code").and_then(|v| v.as_u64()), Some(200));
+        assert_eq!(
+            reply.pointer("/content/type").and_then(|v| v.as_str()),
+            Some("ping")
+        );
+    }
+
+    /// A session that keeps sending application heartbeats must survive the
+    /// idle timeout (the idle clock is refreshed by inbound frames).
+    #[tokio::test]
+    async fn ws_heartbeat_keeps_session_alive() {
+        let mut config = test_config();
+        config.ws_ping_interval_secs = 1;
+        config.ws_idle_timeout_secs = 2;
+        let (app, state) = build_router(config).await.expect("build router");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let endpoint = format!("http://{}", addr);
+        let serve_state = state.clone();
+        tokio::spawn(async move {
+            axum::serve(listener, app.with_state(serve_state))
+                .await
+                .unwrap();
+        });
+
+        let mut ws = open_authed_ws(addr, &endpoint, "keep-alive", "keep-dev").await;
+
+        // Send heartbeats for longer than the idle timeout.
+        for _ in 0..8 {
+            ws.send(tokio_tungstenite::tungstenite::Message::Text(
+                serde_json::json!({
+                    "type": "ping",
+                    "chatId": "ka-1",
+                    "content": {"type": "ping", "text": "{}"}
+                })
+                .to_string(),
+            ))
+            .await
+            .unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        }
+
+        assert!(
+            state.ws_hub.total_sessions().await >= 1,
+            "a heartbeating session must not be reaped by the idle timeout"
+        );
+    }
+
+    /// The server emits protocol-level pings so that peers which do not speak
+    /// the application heartbeat are still kept warm and reaped when dead.
+    #[tokio::test]
+    async fn ws_sends_protocol_ping() {
+        let mut config = test_config();
+        config.ws_ping_interval_secs = 1;
+        config.ws_idle_timeout_secs = 10;
+        let (app, state) = build_router(config).await.expect("build router");
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let endpoint = format!("http://{}", addr);
+        tokio::spawn(async move {
+            axum::serve(listener, app.with_state(state)).await.unwrap();
+        });
+
+        let mut ws = open_authed_ws(addr, &endpoint, "ping-alice", "ping-dev").await;
+        let got_ping = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                match ws.next().await {
+                    Some(Ok(tokio_tungstenite::tungstenite::Message::Ping(_))) => break true,
+                    Some(Ok(_)) => {}
+                    _ => break false,
+                }
+            }
+        })
+        .await
+        .unwrap_or(false);
+
+        assert!(got_ping, "server should send a protocol-level ping");
     }
 
     async fn recv_pair_until<F, G>(

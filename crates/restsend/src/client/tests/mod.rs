@@ -2,6 +2,7 @@ pub(crate) mod test_server;
 mod test_client;
 mod test_conversation;
 mod test_demo_dm;
+mod test_heartbeat;
 mod test_local_e2e;
 mod test_logs;
 mod test_merge_conversation;

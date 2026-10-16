@@ -218,11 +218,38 @@ async fn ws_session_loop(state: AppState, query: WsConnectQuery, socket: WebSock
     let mut heartbeat = tokio::time::interval(std::time::Duration::from_secs(
         state.config.presence_heartbeat_secs.max(1),
     ));
+    let mut ws_ping = tokio::time::interval_at(
+        tokio::time::Instant::now()
+            + tokio::time::Duration::from_secs(state.config.ws_ping_interval_secs.max(1)),
+        tokio::time::Duration::from_secs(state.config.ws_ping_interval_secs.max(1)),
+    );
+    let idle_timeout = std::time::Duration::from_secs(state.config.ws_idle_timeout_secs.max(1));
+    // Poll the "time since last inbound" clock separately: re-arming a
+    // `timeout(receiver.next())` every loop iteration would be reset by the
+    // frequent protocol-ping tick and never fire.
+    let idle_check_period =
+        std::time::Duration::from_secs((state.config.ws_idle_timeout_secs / 3).clamp(1, 15));
+    let mut idle_check = tokio::time::interval(idle_check_period);
+    let mut last_inbound = std::time::Instant::now();
 
     loop {
         tokio::select! {
             _ = heartbeat.tick() => {
                 state.presence_hub.upsert_session(&user_id, &device).await;
+            }
+            _ = ws_ping.tick() => {
+                // Protocol-level ping: the client WebSocket stack answers with a
+                // pong automatically, which keeps the path warm and refreshes the
+                // idle clock below even when the client app is silent.
+                if sender.send(Message::Ping(Vec::new())).await.is_err() {
+                    break;
+                }
+            }
+            _ = idle_check.tick() => {
+                if last_inbound.elapsed() >= idle_timeout {
+                    tracing::info!(user_id = %user_id, device = %device, "ws idle timeout, closing session");
+                    break;
+                }
             }
             outbound = rx.recv() => {
                 match outbound {
@@ -238,16 +265,36 @@ async fn ws_session_loop(state: AppState, query: WsConnectQuery, socket: WebSock
             inbound = receiver.next() => {
                 match inbound {
                     Some(Ok(Message::Text(payload))) => {
+                        last_inbound = std::time::Instant::now();
                         state.metrics.incr_inbound_ws_messages();
                         state.presence_hub.upsert_session(&user_id, &device).await;
                         if payload == "ping" {
-                            state
-                                .ws_hub
-                                .send_to_device(&user_id, &device, "pong", state.config.ws_drop_on_backpressure)
-                                .await;
+                            if sender.send(Message::Text("pong".to_string())).await.is_err() {
+                                break;
+                            }
                             continue;
                         }
                         if let Ok(req) = serde_json::from_str::<WsEnvelope>(&payload) {
+                            // Heartbeat responses are answered inline instead of
+                            // going through the message pool: a queued pong could
+                            // exceed the client heartbeat timeout and look like a
+                            // dead connection.
+                            if req.r#type == "ping" {
+                                let resp = serde_json::to_string(&serde_json::json!({
+                                    "type": "resp",
+                                    "chatId": req.chat_id,
+                                    "seq": req.seq,
+                                    "code": 200,
+                                    "message": req.message,
+                                    "content": req.content,
+                                    "createdAt": Utc::now().to_rfc3339(),
+                                }))
+                                .unwrap_or_default();
+                                if sender.send(Message::Text(resp)).await.is_err() {
+                                    break;
+                                }
+                                continue;
+                            }
                             let state = state.clone();
                             let message_pool = state.message_pool.clone();
                             let user_id = user_id.clone();
@@ -270,8 +317,12 @@ async fn ws_session_loop(state: AppState, query: WsConnectQuery, socket: WebSock
                             }).await;
                         }
                     }
-                    Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
-                    _ => {}
+                    // Any other inbound frame (protocol ping/pong, binary) counts
+                    // as activity and keeps the session alive.
+                    Some(Ok(_)) => {
+                        last_inbound = std::time::Instant::now();
+                    }
+                    Some(Err(_)) | None => break,
                 }
             }
         }

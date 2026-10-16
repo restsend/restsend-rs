@@ -100,12 +100,18 @@ impl WebSocketImpl {
         let (mut stream_tx, mut stream_rx) = stream.split();
         let recv_loop = async {
             loop {
-                let msg = match stream_rx.next().await {
-                    Some(Ok(msg)) => msg,
-                    Some(Err(e)) => {
+                let msg = match tokio::time::timeout(opt.read_timeout, stream_rx.next()).await {
+                    Err(_) => {
+                        return Err(HTTP(format!(
+                            "websocket read timeout after {:?}",
+                            opt.read_timeout
+                        )));
+                    }
+                    Ok(Some(Ok(msg))) => msg,
+                    Ok(Some(Err(e))) => {
                         return Err(HTTP(format!("websocket recv failed: {}", e)));
                     }
-                    None => {
+                    Ok(None) => {
                         return Err(HTTP("websocket recv None".to_string()));
                     }
                 };

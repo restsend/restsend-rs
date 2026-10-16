@@ -25,6 +25,8 @@ pub struct WebsocketOption {
     pub token: String,
     #[cfg(not(target_family = "wasm"))]
     pub handshake_timeout: Duration,
+    /// Idle read timeout used as a transport-level liveness backstop.
+    pub read_timeout: Duration,
     pub is_cross_domain: bool,
 }
 
@@ -47,6 +49,7 @@ impl WebsocketOption {
             token: token.to_string(),
             #[cfg(not(target_family = "wasm"))]
             handshake_timeout: Duration::from_secs(30), // default 30s
+            read_timeout: Duration::from_secs(90), // default 90s backstop
             is_cross_domain,
         }
     }
